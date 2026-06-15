@@ -1,0 +1,100 @@
+import type { Colaborador, Fornecedor, ItemCEU, EntregaCEU } from '@/types/database'
+
+export const FORNECEDORES_MOCK: Fornecedor[] = [
+  { id: 'forn-mock-1', nome: 'EpiSegura Equipamentos', cnpj: '12.345.678/0001-90', telefone: '(11) 3333-1001', email: 'vendas@episegura.com.br' },
+  { id: 'forn-mock-2', nome: 'Uniformes Profissionais Ltda', cnpj: '23.456.789/0001-81', telefone: '(11) 3333-1002', email: 'contato@uniformespro.com.br' },
+  { id: 'forn-mock-3', nome: 'Crachás e Identificação', cnpj: '34.567.890/0001-72', telefone: '(11) 3333-1003', email: 'vendas@crachasid.com.br' },
+  { id: 'forn-mock-4', nome: 'Segurança do Trabalho S.A.', cnpj: '45.678.901/0001-63', telefone: '(11) 3333-1004', email: 'comercial@segurancatrabalho.com.br' },
+  { id: 'forn-mock-5', nome: 'Calçados Industriais', cnpj: '56.789.012/0001-54', telefone: '(11) 3333-1005', email: 'vendas@calcadosindustriais.com.br' },
+]
+
+const baseColab = (id: number): Colaborador => ({
+  id: `colab-mock-${id}`,
+  matricula: `100${String(id).padStart(2, '0')}`,
+  nome_completo: '',
+  cpf: `${100000000 + id * 1111}`.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'),
+  rg: null,
+  ctps: null,
+  pis_pasep: null,
+  data_admissao: '2022-01-15',
+  data_demissao: null,
+  data_nascimento: null,
+  cargo: '',
+  departamento: '',
+  departamento_id: null,
+  email: '',
+  telefone: null,
+  celular: '(11) 98765-0000',
+  cidade: 'São Paulo',
+  estado: 'SP',
+  cep: '01000-000',
+  endereco: null,
+  status: 'Ativo',
+  tipo_contrato: 'CLT',
+  empresa_id: null,
+  afastamento_motivo: null,
+  afastamento_data_inicio: null,
+  afastamento_data_fim: null,
+  dados_completos: {},
+  tamanho_camisa: null,
+  tamanho_calca: null,
+  tamanho_calcado: null,
+})
+
+export const COLABORADORES_MOCK: Colaborador[] = [
+  { ...baseColab(1), nome_completo: 'Ana Paula Ferreira', cargo: 'Auxiliar Administrativo', departamento: 'Administrativo', email: 'ana.ferreira@empresa.com', tamanho_camisa: 'M', tamanho_calca: '40', tamanho_calcado: '37' },
+  { ...baseColab(2), nome_completo: 'Bruno Henrique Costa', cargo: 'Operador de Máquinas', departamento: 'Produção', email: 'bruno.costa@empresa.com', tamanho_camisa: 'G', tamanho_calca: '44', tamanho_calcado: '42' },
+  { ...baseColab(3), nome_completo: 'Carla Regina Souza', cargo: 'Analista de Qualidade', departamento: 'Qualidade', email: 'carla.souza@empresa.com', tamanho_camisa: 'P', tamanho_calca: '38', tamanho_calcado: '36' },
+  { ...baseColab(4), nome_completo: 'Daniel Oliveira Martins', cargo: 'Técnico de Segurança', departamento: 'Segurança do Trabalho', email: 'daniel.martins@empresa.com', tamanho_camisa: 'GG', tamanho_calca: '46', tamanho_calcado: '43' },
+  { ...baseColab(5), nome_completo: 'Eliane Pereira Dias', cargo: 'Coordenadora de RH', departamento: 'RH', email: 'eliane.dias@empresa.com', tamanho_camisa: 'M', tamanho_calca: '42', tamanho_calcado: '38' },
+  { ...baseColab(6), nome_completo: 'Fernando Almeida Rocha', cargo: 'Motorista', departamento: 'Logística', email: 'fernando.rocha@empresa.com', tamanho_camisa: 'G', tamanho_calca: '44', tamanho_calcado: '41' },
+  { ...baseColab(7), nome_completo: 'Gabriela Lima Torres', cargo: 'Enfermeira do Trabalho', departamento: 'Saúde Ocupacional', email: 'gabriela.torres@empresa.com', tamanho_camisa: 'M', tamanho_calca: '40', tamanho_calcado: '37' },
+  { ...baseColab(8), nome_completo: 'Henrique Silva Mendes', cargo: 'Soldador', departamento: 'Produção', email: 'henrique.mendes@empresa.com', tamanho_camisa: 'XG', tamanho_calca: '48', tamanho_calcado: '44' },
+  { ...baseColab(9), nome_completo: 'Isabela Cardoso Nunes', cargo: 'Assistente de Compras', departamento: 'Compras', email: 'isabela.nunes@empresa.com', tamanho_camisa: 'P', tamanho_calca: '36', tamanho_calcado: '35' },
+  { ...baseColab(10), nome_completo: 'João Pedro Ribeiro', cargo: 'Mecânico', departamento: 'Manutenção', email: 'joao.ribeiro@empresa.com', tamanho_camisa: 'G', tamanho_calca: '44', tamanho_calcado: '42' },
+  { ...baseColab(11), nome_completo: 'Karina Vieira Batista', cargo: 'Inspetora de Qualidade', departamento: 'Qualidade', email: 'karina.batista@empresa.com', tamanho_camisa: 'M', tamanho_calca: '40', tamanho_calcado: '37' },
+  { ...baseColab(12), nome_completo: 'Lucas Andrade Campos', cargo: 'Empilhadeirista', departamento: 'Logística', email: 'lucas.campos@empresa.com', tamanho_camisa: 'GG', tamanho_calca: '46', tamanho_calcado: '43' },
+  { ...baseColab(13), nome_completo: 'Mariana Rocha Melo', cargo: 'Analista Financeiro', departamento: 'Financeiro', email: 'mariana.melo@empresa.com', tamanho_camisa: 'M', tamanho_calca: '40', tamanho_calcado: '37' },
+  { ...baseColab(14), nome_completo: 'Nicolas Borges Freitas', cargo: 'Eletricista', departamento: 'Manutenção', email: 'nicolas.freitas@empresa.com', tamanho_camisa: 'G', tamanho_calca: '44', tamanho_calcado: '41' },
+  { ...baseColab(15), nome_completo: 'Olívia Santos Reis', cargo: 'Recepcionista', departamento: 'Administrativo', email: 'olivia.reis@empresa.com', tamanho_camisa: 'P', tamanho_calca: '38', tamanho_calcado: '36' },
+  { ...baseColab(16), nome_completo: 'Paulo César Moura', cargo: 'Operador de Produção', departamento: 'Produção', email: 'paulo.moura@empresa.com', tamanho_camisa: 'G', tamanho_calca: '44', tamanho_calcado: '42' },
+  { ...baseColab(17), nome_completo: 'Quésia Ferreira Lopes', cargo: 'Auxiliar de Enfermagem', departamento: 'Saúde Ocupacional', email: 'quesia.lopes@empresa.com', tamanho_camisa: 'M', tamanho_calca: '40', tamanho_calcado: '37' },
+  { ...baseColab(18), nome_completo: 'Rafael Teixeira Pinto', cargo: 'Supervisor de Produção', departamento: 'Produção', email: 'rafael.pinto@empresa.com', tamanho_camisa: 'GG', tamanho_calca: '46', tamanho_calcado: '43' },
+  { ...baseColab(19), nome_completo: 'Sofia Barros Figueiredo', cargo: 'Assistente Social', departamento: 'RH', email: 'sofia.figueiredo@empresa.com', tamanho_camisa: 'M', tamanho_calca: '40', tamanho_calcado: '37' },
+  { ...baseColab(20), nome_completo: 'Tiago Monteiro Araújo', cargo: 'Técnico de Logística', departamento: 'Logística', email: 'tiago.araujo@empresa.com', tamanho_camisa: 'G', tamanho_calca: '44', tamanho_calcado: '41' },
+]
+
+export const ITENS_MOCK: ItemCEU[] = [
+  { id: 'item-mock-1', nome: 'Camisa Polo Branca', tipo: 'Uniforme', ca: null, validade: null, subgrupo: 'Camisa', fornecedor_id: 'forn-mock-2', estoque: 45, estoque_minimo: 10, prazo_uso_dias: 365 },
+  { id: 'item-mock-2', nome: 'Calça de Brim', tipo: 'Uniforme', ca: null, validade: null, subgrupo: 'Calça', fornecedor_id: 'forn-mock-2', estoque: 38, estoque_minimo: 10, prazo_uso_dias: 365 },
+  { id: 'item-mock-3', nome: 'Botina de Segurança com Bico', tipo: 'EPI', ca: '12345', validade: '2026-12-31', subgrupo: 'Calçado', fornecedor_id: 'forn-mock-1', estoque: 8, estoque_minimo: 10, prazo_uso_dias: 730 },
+  { id: 'item-mock-4', nome: 'Capacete de Segurança', tipo: 'EPI', ca: '67890', validade: '2027-06-30', subgrupo: 'Proteção da Cabeça', fornecedor_id: 'forn-mock-4', estoque: 3, estoque_minimo: 5, prazo_uso_dias: 1095 },
+  { id: 'item-mock-5', nome: 'Crachá de Identificação', tipo: 'Crachá', ca: null, validade: null, subgrupo: 'Identificação', fornecedor_id: 'forn-mock-3', estoque: 60, estoque_minimo: 15, prazo_uso_dias: null },
+  { id: 'item-mock-6', nome: 'Luva de Couro', tipo: 'EPI', ca: '54321', validade: '2026-09-15', subgrupo: 'Luvas', fornecedor_id: 'forn-mock-1', estoque: 22, estoque_minimo: 10, prazo_uso_dias: 180 },
+  { id: 'item-mock-7', nome: 'Óculos de Proteção', tipo: 'EPI', ca: '98765', validade: '2027-01-20', subgrupo: 'Proteção Ocular', fornecedor_id: 'forn-mock-4', estoque: 15, estoque_minimo: 8, prazo_uso_dias: 365 },
+  { id: 'item-mock-8', nome: 'Protetor Auricular', tipo: 'EPI', ca: '11111', validade: '2026-11-30', subgrupo: 'Proteção Auditiva', fornecedor_id: 'forn-mock-1', estoque: 30, estoque_minimo: 10, prazo_uso_dias: 365 },
+  { id: 'item-mock-9', nome: 'Colete Refletivo', tipo: 'EPI', ca: '22222', validade: '2026-08-10', subgrupo: 'Alta Visibilidade', fornecedor_id: 'forn-mock-4', estoque: 12, estoque_minimo: 8, prazo_uso_dias: 540 },
+  { id: 'item-mock-10', nome: 'Máscara Respiratória', tipo: 'EPI', ca: '33333', validade: '2026-10-05', subgrupo: 'Proteção Respiratória', fornecedor_id: 'forn-mock-1', estoque: 20, estoque_minimo: 10, prazo_uso_dias: 180 },
+  { id: 'item-mock-11', nome: 'Jaqueta Térmica', tipo: 'Uniforme', ca: null, validade: null, subgrupo: 'Jaqueta', fornecedor_id: 'forn-mock-2', estoque: 18, estoque_minimo: 5, prazo_uso_dias: 730 },
+  { id: 'item-mock-12', nome: 'Cinto de Segurança', tipo: 'EPI', ca: '44444', validade: '2027-03-25', subgrupo: 'Proteção Contra Quedas', fornecedor_id: 'forn-mock-4', estoque: 7, estoque_minimo: 5, prazo_uso_dias: 1095 },
+  { id: 'item-mock-13', nome: 'Avental de Couro', tipo: 'EPI', ca: '55555', validade: '2026-07-18', subgrupo: 'Proteção Corporal', fornecedor_id: 'forn-mock-1', estoque: 9, estoque_minimo: 5, prazo_uso_dias: 365 },
+  { id: 'item-mock-14', nome: 'Camiseta Dry Fit', tipo: 'Uniforme', ca: null, validade: null, subgrupo: 'Camisa', fornecedor_id: 'forn-mock-2', estoque: 28, estoque_minimo: 8, prazo_uso_dias: 365 },
+  { id: 'item-mock-15', nome: 'Meia Antiestática', tipo: 'Equipamento', ca: null, validade: null, subgrupo: 'Meia', fornecedor_id: 'forn-mock-5', estoque: 40, estoque_minimo: 12, prazo_uso_dias: 180 },
+  { id: 'item-mock-17', nome: 'Máscara PFF2', tipo: 'EPI', ca: '88888', validade: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], subgrupo: 'Proteção Respiratória', fornecedor_id: 'forn-mock-1', estoque: 20, estoque_minimo: 10, prazo_uso_dias: 90 },
+].map((item) => ({ ...item, fornecedor: FORNECEDORES_MOCK.find((f) => f.id === item.fornecedor_id) }))
+
+const hoje = new Date().toISOString().split('T')[0]
+const diasAtras = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+export const ENTREGAS_MOCK: EntregaCEU[] = [
+  { id: 'ent-mock-1', colaborador_id: 'colab-mock-1', item_id: 'item-mock-1', data_entrega: diasAtras(5), data_devolucao: null, quantidade: 2, observacao: 'Tamanho M', usuario_id: 'user-mock', snapshot_item: { nome: 'Camisa Polo Branca', tipo: 'Uniforme', ca: '' }, colaborador: COLABORADORES_MOCK[0], item: ITENS_MOCK[0] },
+  { id: 'ent-mock-2', colaborador_id: 'colab-mock-2', item_id: 'item-mock-3', data_entrega: diasAtras(30), data_devolucao: null, quantidade: 1, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Botina de Segurança com Bico', tipo: 'EPI', ca: '12345' }, colaborador: COLABORADORES_MOCK[1], item: ITENS_MOCK[2] },
+  { id: 'ent-mock-3', colaborador_id: 'colab-mock-3', item_id: 'item-mock-5', data_entrega: diasAtras(10), data_devolucao: null, quantidade: 1, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Crachá de Identificação', tipo: 'Crachá', ca: '' }, colaborador: COLABORADORES_MOCK[2], item: ITENS_MOCK[4] },
+  { id: 'ent-mock-4', colaborador_id: 'colab-mock-4', item_id: 'item-mock-4', data_entrega: diasAtras(15), data_devolucao: null, quantidade: 1, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Capacete de Segurança', tipo: 'EPI', ca: '67890' }, colaborador: COLABORADORES_MOCK[3], item: ITENS_MOCK[3] },
+  { id: 'ent-mock-5', colaborador_id: 'colab-mock-5', item_id: 'item-mock-6', data_entrega: diasAtras(8), data_devolucao: null, quantidade: 3, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Luva de Couro', tipo: 'EPI', ca: '54321' }, colaborador: COLABORADORES_MOCK[4], item: ITENS_MOCK[5] },
+  { id: 'ent-mock-6', colaborador_id: 'colab-mock-6', item_id: 'item-mock-2', data_entrega: diasAtras(20), data_devolucao: null, quantidade: 2, observacao: 'Tamanho 44', usuario_id: 'user-mock', snapshot_item: { nome: 'Calça de Brim', tipo: 'Uniforme', ca: '' }, colaborador: COLABORADORES_MOCK[5], item: ITENS_MOCK[1] },
+  { id: 'ent-mock-7', colaborador_id: 'colab-mock-7', item_id: 'item-mock-7', data_entrega: diasAtras(12), data_devolucao: null, quantidade: 1, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Óculos de Proteção', tipo: 'EPI', ca: '98765' }, colaborador: COLABORADORES_MOCK[6], item: ITENS_MOCK[6] },
+  { id: 'ent-mock-8', colaborador_id: 'colab-mock-8', item_id: 'item-mock-9', data_entrega: diasAtras(40), data_devolucao: null, quantidade: 1, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Colete Refletivo', tipo: 'EPI', ca: '22222' }, colaborador: COLABORADORES_MOCK[7], item: ITENS_MOCK[8] },
+  { id: 'ent-mock-9', colaborador_id: 'colab-mock-9', item_id: 'item-mock-5', data_entrega: diasAtras(60), data_devolucao: diasAtras(5), quantidade: 1, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Crachá de Identificação', tipo: 'Crachá', ca: '' }, colaborador: COLABORADORES_MOCK[8], item: ITENS_MOCK[4] },
+  { id: 'ent-mock-10', colaborador_id: 'colab-mock-10', item_id: 'item-mock-10', data_entrega: hoje, data_devolucao: null, quantidade: 2, observacao: null, usuario_id: 'user-mock', snapshot_item: { nome: 'Máscara Respiratória', tipo: 'EPI', ca: '33333' }, colaborador: COLABORADORES_MOCK[9], item: ITENS_MOCK[9] },
+]
