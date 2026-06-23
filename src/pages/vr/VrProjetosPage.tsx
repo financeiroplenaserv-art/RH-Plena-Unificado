@@ -89,7 +89,9 @@ export function VrProjetosPage() {
       }
       let sucesso = 0
       for (const p of dados.projetos as ProjetoVR[]) {
-        const { id, created_at, ...rest } = p
+        const rest = Object.fromEntries(
+          Object.entries(p).filter(([key]) => key !== 'id' && key !== 'created_at')
+        ) as Omit<ProjetoVR, 'id' | 'created_at'>
         const result = await criar({
           ...rest,
           nome: `${rest.nome} (restaurado)`,

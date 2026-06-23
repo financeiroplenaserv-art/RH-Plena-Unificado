@@ -33,7 +33,7 @@ async function verificar() {
   console.log('--- Empresas ---')
   const { data: empresas, error: errEmp } = await supabase.from('empresas').select('*').order('nome')
   if (errEmp) console.error('Erro empresas:', errEmp.message)
-  else empresas?.forEach((e) => console.log(`${e.id} | ${e.nome}`))
+  else empresas?.forEach((e: { id: string; nome: string }) => console.log(`${e.id} | ${e.nome}`))
 
   console.log('\n--- Colaboradores específicos ---')
   const { data: cols, error: errCols } = await supabase
@@ -43,8 +43,8 @@ async function verificar() {
 
   if (errCols) console.error('Erro colaboradores:', errCols.message)
   else {
-    cols?.forEach((c) => {
-      const empresa = empresas?.find((e) => e.id === c.empresa_id)
+    cols?.forEach((c: { id: string; nome_completo: string; empresa_id: string | null; departamento: string | null; status: string }) => {
+      const empresa = empresas?.find((e: { id: string; nome: string }) => e.id === c.empresa_id)
       console.log(`${c.id} | ${c.nome_completo} | empresa_id=${c.empresa_id} (${empresa?.nome || 'não encontrada'}) | dept=${c.departamento} | status=${c.status}`)
     })
   }
@@ -58,12 +58,12 @@ async function verificar() {
   if (errAtivos) console.error('Erro ativos:', errAtivos.message)
   else {
     const contagem: Record<string, number> = {}
-    ativos?.forEach((c) => {
+    ativos?.forEach((c: { empresa_id: string | null }) => {
       const key = c.empresa_id || 'null'
       contagem[key] = (contagem[key] || 0) + 1
     })
     Object.entries(contagem).forEach(([id, qtd]) => {
-      const empresa = empresas?.find((e) => e.id === id)
+      const empresa = empresas?.find((e: { id: string; nome: string }) => e.id === id)
       console.log(`${id} (${empresa?.nome || 'sem nome'}): ${qtd}`)
     })
   }

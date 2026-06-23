@@ -77,17 +77,11 @@ export function ImportarPontoPage() {
 
   const encontrarColaborador = (colaborador: PontoColaborador) => {
     const matriculaNormalizada = normalizarMatricula(colaborador.matricula)
-    console.log(`[Importar Debug] Buscando colaborador: "${colaborador.nome}" / matrícula normalizada: "${matriculaNormalizada}"`)
     if (matriculaNormalizada) {
       const porMatricula = mapColaboradorPorMatricula.get(matriculaNormalizada)
-      if (porMatricula) {
-        console.log(`[Importar Debug] Encontrado por matrícula: ${porMatricula.nome_completo}`)
-        return porMatricula
-      }
+      if (porMatricula) return porMatricula
     }
-    const porNome = mapColaboradorPorNome.get(colaborador.nome.toLowerCase().trim()) || null
-    if (porNome) console.log(`[Importar Debug] Encontrado por nome: ${porNome.nome_completo}`)
-    return porNome
+    return mapColaboradorPorNome.get(colaborador.nome.toLowerCase().trim()) || null
   }
 
   const encontrarVinculo = (colaboradorId: string, data: string) => {
@@ -208,9 +202,6 @@ export function ImportarPontoPage() {
         d.data <= periodo.fim
       )
 
-      console.log(`[Importar Debug] Período do PDF: ${periodo.inicio} a ${periodo.fim}`)
-      console.log(`[Importar Debug] Vínculos afetados: ${vinculosAfetados.size}`)
-      console.log(`[Importar Debug] Dias existentes a excluir: ${diasParaExcluir.length}`)
 
       for (const dia of diasParaExcluir) {
         await excluirDiaCalendario(dia.vinculo_id, dia.data)

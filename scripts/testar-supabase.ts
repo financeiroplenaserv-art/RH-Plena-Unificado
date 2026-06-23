@@ -25,7 +25,7 @@ const supabaseKey = env.VITE_SUPABASE_ANON_KEY
 console.log('URL:', supabaseUrl)
 console.log('KEY presente:', !!supabaseKey)
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabase = createClient(supabaseUrl!, supabaseKey!)
 
 async function testar() {
   const { data, error } = await supabase.from('colaboradores').select('count').limit(1)

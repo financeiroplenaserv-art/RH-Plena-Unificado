@@ -1,12 +1,20 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import type { Colaborador, Ocorrencia, OcorrenciaAnexo, OcorrenciaTestemunha } from '@/types/database'
+import type jsPDF from 'jspdf'
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable?: { finalY: number }
 }
 
-export function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorrencia[]) {
+async function getJsPDF() {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  return { jsPDF, autoTable }
+}
+
+export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorrencia[]) {
+  const { jsPDF, autoTable } = await getJsPDF()
   const doc = new jsPDF()
   const w = doc.internal.pageSize.getWidth()
 
@@ -74,13 +82,14 @@ export function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorr
   return doc
 }
 
-export function gerarPDFOcorrencia(
+export async function gerarPDFOcorrencia(
   colaborador: Colaborador,
   ocorrencia: Ocorrencia,
   anexos?: OcorrenciaAnexo[],
   testemunhas?: OcorrenciaTestemunha[],
   empresa?: { nome?: string; cnpj?: string } | null
 ) {
+  const { jsPDF, autoTable } = await getJsPDF()
   const doc = new jsPDF()
   const w = doc.internal.pageSize.getWidth()
   const h = doc.internal.pageSize.getHeight()
@@ -311,13 +320,14 @@ export function gerarPDFOcorrencia(
 }
 
 
-export function gerarReciboEntregaCEU(
+export async function gerarReciboEntregaCEU(
   colaborador: Colaborador,
   itens: { nome: string; tipo: string; ca?: string | null; quantidade: number }[],
   dataEntrega: string,
   observacao?: string | null,
   empresa?: { nome?: string; cnpj?: string } | null
 ) {
+  const { jsPDF, autoTable } = await getJsPDF()
   const doc = new jsPDF()
   const w = doc.internal.pageSize.getWidth()
   const h = doc.internal.pageSize.getHeight()

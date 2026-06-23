@@ -112,7 +112,7 @@ export function ColaboradorDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => colaborador && gerarPDFColaborador(colaborador, ocorrencias)}
+            onClick={async () => colaborador && await gerarPDFColaborador(colaborador, ocorrencias)}
             className="gap-1 text-xs h-8"
           >
             <Printer className="h-3.5 w-3.5" /> Ficha PDF
@@ -258,7 +258,7 @@ export function ColaboradorDetailPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => colaborador && gerarPDFOcorrencia(colaborador, o)}
+                        onClick={async () => colaborador && await gerarPDFOcorrencia(colaborador, o)}
                         className="text-slate-400 hover:text-slate-700 h-7 w-7 p-0"
                         title="Gerar PDF"
                       >

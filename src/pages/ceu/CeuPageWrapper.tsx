@@ -2,10 +2,13 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const TABS = [
+  { path: '/ceu/dashboard', label: 'Dashboard' },
   { path: '/ceu/itens', label: 'Itens' },
   { path: '/ceu/movimentacoes', label: 'Movimentações' },
+  { path: '/ceu/lancamento-rapido', label: 'Lançamento Rápido' },
   { path: '/ceu/relatorios', label: 'Relatórios' },
   { path: '/ceu/fornecedores', label: 'Fornecedores' },
+  { path: '/ceu/importar', label: 'Importar' },
 ]
 
 interface CeuPageWrapperProps {

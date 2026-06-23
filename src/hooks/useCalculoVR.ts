@@ -68,7 +68,7 @@ export function useCalculoVR() {
 
   const processarBase = useCallback(async (file: File) => {
     const ab = await file.arrayBuffer()
-    const { datas, cpfsPorNome, matriculasPorCpf, matriculasPorNome } = carregarDatasNascimento(ab)
+    const { datas, cpfsPorNome, matriculasPorCpf, matriculasPorNome } = await carregarDatasNascimento(ab)
     setEstado(prev => ({ ...prev, datasNascimento: datas, cpfsPorNome, matriculasPorCpf, matriculasPorNome }))
     toast.success(`Base processada: ${datas.size} datas de nascimento`)
     return { datas, cpfsPorNome, matriculasPorCpf, matriculasPorNome }

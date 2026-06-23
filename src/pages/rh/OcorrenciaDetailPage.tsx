@@ -240,12 +240,12 @@ export function OcorrenciaDetailPage() {
     setMostrarFormTestemunha(false)
   }
 
-  const handleGerarPDF = () => {
+  const handleGerarPDF = async () => {
     if (colaborador && ocorrencia) {
       const emp = empresa
         ? { nome: empresa.nome || undefined, cnpj: empresa.cnpj || undefined }
         : undefined
-      gerarPDFOcorrencia(colaborador, ocorrencia, anexos, testemunhas, emp)
+      await gerarPDFOcorrencia(colaborador, ocorrencia, anexos, testemunhas, emp)
     }
   }
 

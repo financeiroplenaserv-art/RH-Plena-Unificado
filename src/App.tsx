@@ -1,55 +1,49 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useState, useEffect, Suspense } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster, toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { Sidebar } from '@/components/layout/Sidebar'
-import { CeuSidebar } from '@/components/layout/CeuSidebar'
 import { Header } from '@/components/layout/Header'
-import { CeuHeader } from '@/components/layout/CeuHeader'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
+import { PageLoading } from '@/components/PageLoading'
 import { cn } from '@/lib/utils'
 import type { Perfil } from '@/types/database'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ColaboradoresPage } from '@/pages/ColaboradoresPage'
-import { ImportarEContadorPage } from '@/pages/ImportarEContadorPage'
-import { DepartamentosPage } from '@/pages/DepartamentosPage'
-import { ConfiguracoesPage } from '@/pages/ConfiguracoesPage'
-import { EmpresasPage } from '@/pages/EmpresasPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
-import { CeuPlaceholderPage } from '@/components/ceu/CeuPlaceholderPage'
-
-
-import { OcorrenciasPage } from '@/pages/rh/OcorrenciasPage'
-import { OcorrenciaFormPage } from '@/pages/rh/OcorrenciaFormPage'
-import { OcorrenciaDetailPage } from '@/pages/rh/OcorrenciaDetailPage'
-import { ColaboradorDetailPage } from '@/pages/rh/ColaboradorDetailPage'
-import { ColaboradorFormPage } from '@/pages/rh/ColaboradorFormPage'
-import { ImportarPage as ImportarRhPage } from '@/pages/rh/ImportarPage'
-import { ModelosPage } from '@/pages/rh/ModelosPage'
-import { AlertasPage } from '@/pages/rh/AlertasPage'
-
-import { VrProjetosPage } from '@/pages/vr/VrProjetosPage'
-import { VrProjetoFormPage } from '@/pages/vr/VrProjetoFormPage'
-import { VrProjetoDetailPage } from '@/pages/vr/VrProjetoDetailPage'
-
-import { CeuDashboardPage } from '@/pages/ceu/CeuDashboardPage'
-import { CeuItensPage } from '@/pages/ceu/CeuItensPage'
-import { CeuItemFormPage } from '@/pages/ceu/CeuItemFormPage'
-import { CeuFornecedoresPage } from '@/pages/ceu/CeuFornecedoresPage'
-import { CeuMovimentacoesPage } from '@/pages/ceu/CeuMovimentacoesPage'
-import { CeuEntregaFormPage } from '@/pages/ceu/CeuEntregaFormPage'
-import { CeuLancamentoRapidoPage } from '@/pages/ceu/CeuLancamentoRapidoPage'
-import { CeuRelatoriosPage } from '@/pages/ceu/CeuRelatoriosPage'
-import { CeuImportarPage } from '@/pages/ceu/CeuImportarPage'
-import { CeuConfiguracoesPage } from '@/pages/ceu/CeuConfiguracoesPage'
-
-import { AdicionaisContratosPage } from '@/pages/adicionais/AdicionaisContratosPage'
-import { AdicionaisVinculosPage } from '@/pages/adicionais/AdicionaisVinculosPage'
-import { AdicionaisCalendarioPage } from '@/pages/adicionais/AdicionaisCalendarioPage'
-import { AdicionaisRelatorioPage } from '@/pages/adicionais/AdicionaisRelatorioPage'
-import { ImportarPontoPage } from '@/pages/adicionais/ImportarPontoPage'
+import {
+  ImportarEContadorPage,
+  DepartamentosPage,
+  ConfiguracoesPage,
+  EmpresasPage,
+  OcorrenciasPage,
+  OcorrenciaFormPage,
+  OcorrenciaDetailPage,
+  ColaboradorDetailPage,
+  ColaboradorFormPage,
+  ImportarRhPage,
+  ModelosPage,
+  AlertasPage,
+  VrProjetosPage,
+  VrProjetoFormPage,
+  VrProjetoDetailPage,
+  CeuDashboardPage,
+  CeuItensPage,
+  CeuItemFormPage,
+  CeuFornecedoresPage,
+  CeuMovimentacoesPage,
+  CeuEntregaFormPage,
+  CeuLancamentoRapidoPage,
+  CeuRelatoriosPage,
+  CeuImportarPage,
+  AdicionaisContratosPage,
+  AdicionaisVinculosPage,
+  AdicionaisCalendarioPage,
+  AdicionaisRelatorioPage,
+  ImportarPontoPage,
+} from '@/routes/lazyPages'
 
 function SidebarWrapper({ user, isOpen, onToggle, onLogout }: {
   user: Perfil
@@ -57,21 +51,11 @@ function SidebarWrapper({ user, isOpen, onToggle, onLogout }: {
   onToggle: () => void
   onLogout: () => void
 }) {
-  const location = useLocation()
-  const isCeu = location.pathname.startsWith('/ceu')
-
-  return isCeu ? (
-    <CeuSidebar user={user} isOpen={isOpen} onToggle={onToggle} onLogout={onLogout} />
-  ) : (
-    <Sidebar user={user} isOpen={isOpen} onToggle={onToggle} onLogout={onLogout} />
-  )
+  return <Sidebar user={user} isOpen={isOpen} onToggle={onToggle} onLogout={onLogout} />
 }
 
 function HeaderWrapper({ user }: { user: Perfil }) {
-  const location = useLocation()
-  const isCeu = location.pathname.startsWith('/ceu')
-
-  return isCeu ? <CeuHeader user={user} /> : <Header user={user} />
+  return <Header user={user} />
 }
 
 function App() {
@@ -170,7 +154,8 @@ function App() {
         >
           <HeaderWrapper user={user} />
           <main className="flex-1 overflow-auto p-6">
-            <Routes>
+            <Suspense fallback={<PageLoading />}>
+              <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/colaboradores" element={<ColaboradoresPage />} />
               <Route
@@ -347,42 +332,10 @@ function App() {
               />
 
               <Route
-                path="/ceu/departamentos"
-                element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
-                    <CeuPlaceholderPage titulo="Departamentos" descricao="Departamentos do módulo de uniformes" />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/ceu/importar"
                 element={
                   <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
                     <CeuImportarPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ceu/empresas"
-                element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
-                    <Navigate to="/empresas" replace />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ceu/usuarios"
-                element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
-                    <CeuPlaceholderPage titulo="Usuários" descricao="Usuários do módulo de uniformes" />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ceu/configuracoes"
-                element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
-                    <CeuConfiguracoesPage />
                   </ProtectedRoute>
                 }
               />
@@ -477,6 +430,7 @@ function App() {
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           </main>
         </div>
       </div>

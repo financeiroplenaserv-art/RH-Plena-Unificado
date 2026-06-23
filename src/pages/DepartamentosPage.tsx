@@ -226,7 +226,7 @@ export function DepartamentosPage() {
         if (resultado) criados++
       }
       toast.success(`${criados} departamento(s) importado(s)`)
-    } catch (err) {
+    } catch {
       toast.error('Erro ao importar CSV')
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = ''

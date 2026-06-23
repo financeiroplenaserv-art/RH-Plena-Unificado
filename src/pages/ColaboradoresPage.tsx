@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, RefreshCw, User, X } from 'lucide-react'
+import { Search, RefreshCw, User, X, Pencil, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -17,14 +18,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { cn, formatarCPF, formatarData } from '@/lib/utils'
+import { cn, formatarCPF, formatarData, mascaraTelefone } from '@/lib/utils'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { supabase } from '@/lib/supabase'
 import type { Colaborador, StatusColaborador, Departamento } from '@/types/database'
 
 export function ColaboradoresPage() {
-  const { colaboradores, loading, listar } = useColaboradores()
+  const { colaboradores, loading, listar, atualizar } = useColaboradores()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<StatusColaborador | 'todos'>('Ativo')
   const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
@@ -34,6 +35,9 @@ export function ColaboradoresPage() {
   const [cargos, setCargos] = useState<{ nome: string }[]>([])
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [colaboradorSelecionado, setColaboradorSelecionado] = useState<Colaborador | null>(null)
+  const [modoEdicao, setModoEdicao] = useState(false)
+  const [formEdicao, setFormEdicao] = useState<Partial<Colaborador>>({})
+  const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
     listar({ status: 'Ativo' })
@@ -113,6 +117,38 @@ export function ColaboradoresPage() {
     const partes = limpo.split(' ').filter(Boolean)
     if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
     return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
+  }
+
+  const abrirDetalhes = (c: Colaborador) => {
+    setColaboradorSelecionado(c)
+    setFormEdicao({
+      nome_completo: c.nome_completo,
+      email: c.email || '',
+      telefone: c.telefone || '',
+      celular: c.celular || '',
+      cargo: c.cargo || '',
+      departamento: c.departamento || '',
+      status: c.status,
+    })
+    setModoEdicao(false)
+  }
+
+  const fecharDialog = () => {
+    setColaboradorSelecionado(null)
+    setModoEdicao(false)
+  }
+
+  const salvarEdicao = async () => {
+    if (!colaboradorSelecionado) return
+    setSalvando(true)
+    const sucesso = await atualizar(colaboradorSelecionado.id, formEdicao)
+    if (sucesso) {
+      // Atualiza o colaborador selecionado localmente para refletir a mudança
+      setColaboradorSelecionado((prev) => (prev ? { ...prev, ...formEdicao } : null))
+      await listar({ status: filtroStatus !== 'todos' ? filtroStatus : undefined })
+      setModoEdicao(false)
+    }
+    setSalvando(false)
   }
 
   return (
@@ -238,7 +274,7 @@ export function ColaboradoresPage() {
               {colaboradoresFiltrados.map((c) => (
                 <div
                   key={c.id}
-                  onClick={() => setColaboradorSelecionado(c)}
+                  onClick={() => abrirDetalhes(c)}
                   className="flex items-start gap-3 p-3 bg-white rounded-[12px] shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer"
                 >
                   <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B] text-[14px] font-semibold">
@@ -259,23 +295,36 @@ export function ColaboradoresPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!colaboradorSelecionado} onOpenChange={(open) => !open && setColaboradorSelecionado(null)}>
+      <Dialog open={!!colaboradorSelecionado} onOpenChange={(open) => !open && fecharDialog()}>
         <DialogContent className="max-w-2xl bg-[#F8FAFC] p-0 border-none">
           {colaboradorSelecionado && (
             <div className="p-5 space-y-4">
               <DialogHeader className="pb-2 border-b border-[#E2E8F0]">
                 <div className="flex items-center justify-between">
                   <DialogTitle className="text-base font-semibold text-[#1F2937]">
-                    Detalhes
+                    {modoEdicao ? 'Editar colaborador' : 'Detalhes'}
                   </DialogTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setColaboradorSelecionado(null)}
-                    className="h-7 w-7 text-[#94A3B8] hover:text-[#1F2937]"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {!modoEdicao && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setModoEdicao(true)}
+                        className="h-8 text-[#1F2937] hover:bg-slate-100"
+                      >
+                        <Pencil className="h-4 w-4 mr-1.5" />
+                        Editar
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={fecharDialog}
+                      className="h-7 w-7 text-[#94A3B8] hover:text-[#1F2937]"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </DialogHeader>
 
@@ -288,85 +337,195 @@ export function ColaboradoresPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold text-[#1F2937] leading-tight">
-                    {colaboradorSelecionado.nome_completo}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <BadgeStatus status={colaboradorSelecionado.status} />
-                    <span className="text-xs text-[#94A3B8]">
-                      {colaboradorSelecionado.matricula || '—'}
-                    </span>
-                  </div>
+                  {modoEdicao ? (
+                    <div>
+                      <Label className="text-[10px] text-[#94A3B8]">Nome completo</Label>
+                      <Input
+                        value={formEdicao.nome_completo || ''}
+                        onChange={(e) => setFormEdicao((prev) => ({ ...prev, nome_completo: e.target.value }))}
+                        className="h-9 rounded-[8px] border-[#E2E8F0]"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-base font-semibold text-[#1F2937] leading-tight">
+                        {colaboradorSelecionado.nome_completo}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <BadgeStatus status={colaboradorSelecionado.status} />
+                        <span className="text-xs text-[#94A3B8]">
+                          {colaboradorSelecionado.matricula || '—'}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Cargo</p>
-                    <p className="text-sm font-medium text-[#1F2937] break-words">{colaboradorSelecionado.cargo || '—'}</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Departamento</p>
-                    <p className="text-sm font-medium text-[#1F2937] break-words">{colaboradorSelecionado.departamento || '—'}</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Admissão</p>
-                    <p className="text-sm font-medium text-[#1F2937]">
-                      {colaboradorSelecionado.data_admissao ? formatarData(colaboradorSelecionado.data_admissao) : '—'}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Telefone</p>
-                    <p className="text-sm font-medium text-[#1F2937] break-words">{colaboradorSelecionado.telefone || colaboradorSelecionado.celular || '—'}</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                <CardContent className="p-3">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">E-mail</p>
-                  <p className="text-sm font-medium text-[#1F2937] break-all">{colaboradorSelecionado.email || '—'}</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                <CardContent className="p-3">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Endereço</p>
-                  <p className="text-sm font-medium text-[#1F2937]">
-                    {colaboradorSelecionado.endereco
-                      ? `${colaboradorSelecionado.endereco}${colaboradorSelecionado.cidade ? `, ${colaboradorSelecionado.cidade}` : ''}${colaboradorSelecionado.estado ? ` - ${colaboradorSelecionado.estado}` : ''}${colaboradorSelecionado.cep ? `, ${colaboradorSelecionado.cep}` : ''}`
-                      : '—'}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white rounded-[12px] shadow-sm border-none">
-                <CardContent className="p-3">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-2">Documentos</p>
-                  <div className="grid grid-cols-2 gap-3">
+              {modoEdicao ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <span className="text-[10px] text-[#94A3B8]">CPF</span>
-                      <p className="text-sm font-medium text-[#1F2937]">
-                        {colaboradorSelecionado.cpf ? formatarCPF(colaboradorSelecionado.cpf) : '—'}
-                      </p>
+                      <Label className="text-[10px] text-[#94A3B8]">Cargo</Label>
+                      <Input
+                        value={formEdicao.cargo || ''}
+                        onChange={(e) => setFormEdicao((prev) => ({ ...prev, cargo: e.target.value }))}
+                        className="h-9 rounded-[8px] border-[#E2E8F0]"
+                      />
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#94A3B8]">RG</span>
-                      <p className="text-sm font-medium text-[#1F2937]">{colaboradorSelecionado.rg || '—'}</p>
+                      <Label className="text-[10px] text-[#94A3B8]">Departamento</Label>
+                      <Input
+                        value={formEdicao.departamento || ''}
+                        onChange={(e) => setFormEdicao((prev) => ({ ...prev, departamento: e.target.value }))}
+                        className="h-9 rounded-[8px] border-[#E2E8F0]"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-[#94A3B8]">Telefone</Label>
+                      <Input
+                        value={mascaraTelefone(formEdicao.telefone || '')}
+                        onChange={(e) => setFormEdicao((prev) => ({ ...prev, telefone: mascaraTelefone(e.target.value) }))}
+                        className="h-9 rounded-[8px] border-[#E2E8F0]"
+                        placeholder="(00) 0000-0000"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-[#94A3B8]">Celular</Label>
+                      <Input
+                        value={mascaraTelefone(formEdicao.celular || '')}
+                        onChange={(e) => setFormEdicao((prev) => ({ ...prev, celular: mascaraTelefone(e.target.value) }))}
+                        className="h-9 rounded-[8px] border-[#E2E8F0]"
+                        placeholder="(00) 00000-0000"
+                      />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+
+                  <div>
+                    <Label className="text-[10px] text-[#94A3B8]">E-mail</Label>
+                    <Input
+                      type="email"
+                      value={formEdicao.email || ''}
+                      onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
+                      className="h-9 rounded-[8px] border-[#E2E8F0]"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[10px] text-[#94A3B8]">Status</Label>
+                    <Select
+                      value={formEdicao.status || 'Ativo'}
+                      onValueChange={(v) => setFormEdicao((prev) => ({ ...prev, status: v as StatusColaborador }))}
+                    >
+                      <SelectTrigger className="h-9 rounded-[8px] border-[#E2E8F0] bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Ativo">Ativo</SelectItem>
+                        <SelectItem value="Inativo">Inativo</SelectItem>
+                        <SelectItem value="Afastado">Afastado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModoEdicao(false)}
+                      disabled={salvando}
+                      className="rounded-[8px] border-[#E2E8F0] text-[#1F2937]"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={salvarEdicao}
+                      disabled={salvando || !formEdicao.nome_completo?.trim()}
+                      className="rounded-[8px] bg-[#1F2937] hover:bg-slate-800 text-white"
+                    >
+                      {salvando ? (
+                        <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-1.5" />
+                      )}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Cargo</p>
+                        <p className="text-sm font-medium text-[#1F2937] break-words">{colaboradorSelecionado.cargo || '—'}</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Departamento</p>
+                        <p className="text-sm font-medium text-[#1F2937] break-words">{colaboradorSelecionado.departamento || '—'}</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Admissão</p>
+                        <p className="text-sm font-medium text-[#1F2937]">
+                          {colaboradorSelecionado.data_admissao ? formatarData(colaboradorSelecionado.data_admissao) : '—'}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Telefone</p>
+                        <p className="text-sm font-medium text-[#1F2937] break-words">{colaboradorSelecionado.telefone || colaboradorSelecionado.celular || '—'}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">E-mail</p>
+                      <p className="text-sm font-medium text-[#1F2937] break-all">{colaboradorSelecionado.email || '—'}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Endereço</p>
+                      <p className="text-sm font-medium text-[#1F2937]">
+                        {colaboradorSelecionado.endereco
+                          ? `${colaboradorSelecionado.endereco}${colaboradorSelecionado.cidade ? `, ${colaboradorSelecionado.cidade}` : ''}${colaboradorSelecionado.estado ? ` - ${colaboradorSelecionado.estado}` : ''}${colaboradorSelecionado.cep ? `, ${colaboradorSelecionado.cep}` : ''}`
+                          : '—'}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white rounded-[12px] shadow-sm border-none">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-2">Documentos</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-[10px] text-[#94A3B8]">CPF</span>
+                          <p className="text-sm font-medium text-[#1F2937]">
+                            {colaboradorSelecionado.cpf ? formatarCPF(colaboradorSelecionado.cpf) : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#94A3B8]">RG</span>
+                          <p className="text-sm font-medium text-[#1F2937]">{colaboradorSelecionado.rg || '—'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
           )}
         </DialogContent>

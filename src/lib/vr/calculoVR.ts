@@ -1,6 +1,6 @@
 import type { VRColaboradorPonto, VRColaboradorEscala, VRResultadoCalculo, VRConfiguracao } from '@/types'
 import { contarAbatimentos, contarDiasPdf6h } from './pdfParser'
-import * as XLSX from 'xlsx'
+
 
 /**
  * LAYOUT VR PAT - OFICIAL
@@ -523,12 +523,13 @@ export function gerarArquivoAlterdata(
   }
 }
 
-export function carregarDatasNascimento(arrayBuffer: ArrayBuffer): {
+export async function carregarDatasNascimento(arrayBuffer: ArrayBuffer): Promise<{
   datas: Map<string, string>
   cpfsPorNome: Map<string, string>
   matriculasPorNome: Map<string, string>
   matriculasPorCpf: Map<string, string>
-} {
+}> {
+  const XLSX = await import('xlsx')
   const datas = new Map<string, string>()
   const cpfsPorNome = new Map<string, string>()
   const matriculasPorNome = new Map<string, string>()

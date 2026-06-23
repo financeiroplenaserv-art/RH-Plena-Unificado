@@ -19,7 +19,15 @@ function carregarEnv(caminho: string): Record<string, string> {
 }
 
 const env = { ...process.env, ...carregarEnv(resolve(process.cwd(), '.env')) }
-const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
+const supabaseUrl = env.VITE_SUPABASE_URL
+const supabaseKey = env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não encontradas')
+  process.exit(1)
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function testar() {
   const { data, error, count } = await supabase

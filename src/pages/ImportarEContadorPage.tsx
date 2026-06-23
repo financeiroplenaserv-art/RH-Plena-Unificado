@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Download, Upload, Loader2, Users, Building2, Search, FileSpreadsheet,
-  FileText, History, RefreshCw, ChevronLeft, ChevronRight, Trash2
+  FileText, History, RefreshCw, ChevronLeft, ChevronRight, Trash2, Filter
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,14 +24,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
 import { formatarCPF } from '@/lib/utils'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 import type { EContadorEmpresa, EContadorFuncionario } from '@/types/econtador'
-import type { HistoricoImportacao } from '@/hooks/useEContador'
+import type { HistoricoImportacao } from '@/types/econtador'
 
 const ITENS_POR_PAGINA = 50
+
+type ModoImportacao = 'todos' | 'ativos' | 'demissao15dias'
+
+function diferencaDias(dataISO: string | null | undefined): number | null {
+  if (!dataISO) return null
+  const [ano, mes, dia] = dataISO.split('T')[0].split('-').map(Number)
+  if (!ano || !mes || !dia) return null
+  const data = new Date(ano, mes - 1, dia)
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const diff = hoje.getTime() - data.getTime()
+  return Math.floor(diff / (1000 * 60 * 60 * 24))
+}
+
+function filtrarPorModo(funcionarios: EContadorFuncionario[], modo: ModoImportacao): EContadorFuncionario[] {
+  if (modo === 'todos') return funcionarios
+  if (modo === 'ativos') return funcionarios.filter(f => f.status === 'Ativo')
+  return funcionarios.filter((f) => {
+    const dias = diferencaDias(f.demissao)
+    return dias !== null && dias >= 0 && dias <= 15
+  })
+}
+
+function filtrarPorBusca(funcionarios: EContadorFuncionario[], termo: string): EContadorFuncionario[] {
+  if (!termo) return funcionarios
+  return funcionarios.filter(f =>
+    f.nome.toLowerCase().includes(termo) ||
+    f.codigo.toLowerCase().includes(termo) ||
+    f.cpf.includes(termo) ||
+    (f.departamento || '').toLowerCase().includes(termo)
+  )
+}
 
 function getStatusBadge(status: string) {
   const s = status?.toLowerCase() || ''
@@ -113,6 +152,7 @@ export function ImportarEContadorPage() {
   const [pagina, setPagina] = useState(1)
   const [reimportandoId, setReimportandoId] = useState<string | null>(null)
   const [confirmarLimparHistorico, setConfirmarLimparHistorico] = useState(false)
+  const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')
 
   useEffect(() => {
     carregarToken().then((t) => {
@@ -132,12 +172,14 @@ export function ImportarEContadorPage() {
     setEmpresaSelecionada(empresa)
     setPagina(1)
     setResultadoImportacao(null)
-    await listarFuncionarios(empresa.id)
+    // Se o modo for ativos, já filtra pela API; para demissão filtramos localmente
+    const status = modoImportacao === 'ativos' ? 'Ativo' : undefined
+    await listarFuncionarios(empresa.id, status)
   }
 
   const handleImportar = async () => {
-    if (!empresaSelecionada || funcionarios.length === 0) return
-    const resultado = await importarFuncionarios(funcionarios, empresaSelecionada.codigo, empresaSelecionada.nome)
+    if (!empresaSelecionada || funcionariosPorModo.length === 0) return
+    const resultado = await importarFuncionarios(funcionariosPorModo, empresaSelecionada.codigo, empresaSelecionada.nome)
     setResultadoImportacao(resultado)
   }
 
@@ -152,16 +194,11 @@ export function ImportarEContadorPage() {
     setReimportandoId(null)
   }
 
-  const funcionariosFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    if (!termo) return funcionarios
-    return funcionarios.filter(f =>
-      f.nome.toLowerCase().includes(termo) ||
-      f.codigo.toLowerCase().includes(termo) ||
-      f.cpf.includes(termo) ||
-      (f.departamento || '').toLowerCase().includes(termo)
-    )
-  }, [funcionarios, busca])
+  const funcionariosPorModo = filtrarPorModo(funcionarios, modoImportacao)
+  const termoBusca = busca.trim().toLowerCase()
+  const funcionariosFiltrados = termoBusca
+    ? filtrarPorBusca(funcionariosPorModo, termoBusca)
+    : funcionariosPorModo
 
   const totalPaginas = Math.max(1, Math.ceil(funcionariosFiltrados.length / ITENS_POR_PAGINA))
   const paginaAtual = Math.min(pagina, totalPaginas)
@@ -170,7 +207,7 @@ export function ImportarEContadorPage() {
     paginaAtual * ITENS_POR_PAGINA
   )
 
-  const totalFuncionarios = funcionarios.length
+  const totalFuncionarios = funcionariosPorModo.length
   const totalNovos = resultadoImportacao?.importados ?? 0
   const totalAtualizados = resultadoImportacao?.atualizados ?? 0
 
@@ -194,7 +231,11 @@ export function ImportarEContadorPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="rounded-xl shadow-sm border-0" style={{ backgroundColor: '#FFFFFF' }}>
               <CardContent className="p-5">
-                <p className="text-sm mb-1" style={{ color: '#94A3B8' }}>Total de funcionários</p>
+                <p className="text-sm mb-1" style={{ color: '#94A3B8' }}>
+                  {modoImportacao === 'todos' && 'Total de funcionários'}
+                  {modoImportacao === 'ativos' && 'Funcionários ativos'}
+                  {modoImportacao === 'demissao15dias' && 'Demitidos até 15 dias'}
+                </p>
                 <p className="text-3xl font-bold" style={{ color: '#1F2937' }}>{totalFuncionarios}</p>
               </CardContent>
             </Card>
@@ -298,12 +339,36 @@ export function ImportarEContadorPage() {
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: '#1F2937' }}>
                 <Users className="w-4 h-4" />
-                {funcionarios.length} funcionários encontrados
+                {funcionariosFiltrados.length} funcionário{funcionariosFiltrados.length !== 1 ? 's' : ''} encontrado{funcionariosFiltrados.length !== 1 ? 's' : ''}
+                {modoImportacao === 'ativos' && ' (ativos)'}
+                {modoImportacao === 'demissao15dias' && ' (demitidos até 15 dias)'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Filtros e exportações */}
               <div className="flex flex-col lg:flex-row gap-3">
+                <Select
+                  value={modoImportacao}
+                  onValueChange={(v) => {
+                    setModoImportacao(v as ModoImportacao)
+                    setPagina(1)
+                    if (empresaSelecionada) {
+                      const status = v === 'ativos' ? 'Ativo' : undefined
+                      listarFuncionarios(empresaSelecionada.id, status)
+                    }
+                  }}
+                  disabled={loading}
+                >
+                  <SelectTrigger className="w-full lg:w-[280px] rounded-lg" style={{ borderColor: '#E2E8F0' }}>
+                    <Filter className="w-4 h-4 mr-2" style={{ color: '#94A3B8' }} />
+                    <SelectValue placeholder="Importar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Importar todos</SelectItem>
+                    <SelectItem value="ativos">Importar somente ativos</SelectItem>
+                    <SelectItem value="demissao15dias">Importar demitidos nos últimos 15 dias</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94A3B8' }} />
                   <Input

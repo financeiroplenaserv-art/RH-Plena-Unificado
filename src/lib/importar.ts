@@ -1,5 +1,8 @@
-import * as XLSX from 'xlsx'
 import type { Colaborador } from '@/types/database'
+
+async function getXLSX() {
+  return import('xlsx')
+}
 
 function getString(row: Record<string, unknown>, ...keys: string[]): string {
   for (const key of keys) {
@@ -9,7 +12,8 @@ function getString(row: Record<string, unknown>, ...keys: string[]): string {
   return ''
 }
 
-function getDate(row: Record<string, unknown>, ...keys: string[]): string | null {
+async function getDate(row: Record<string, unknown>, ...keys: string[]): Promise<string | null> {
+  const XLSX = await getXLSX()
   for (const key of keys) {
     const value = row[key]
     if (value === undefined || value === null) continue
@@ -24,10 +28,11 @@ function getDate(row: Record<string, unknown>, ...keys: string[]): string | null
   return null
 }
 
-export function parseExcelColaboradores(file: File): Promise<Partial<Colaborador>[]> {
+export async function parseExcelColaboradores(file: File): Promise<Partial<Colaborador>[]> {
+  const XLSX = await getXLSX()
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = e.target?.result
         const workbook = XLSX.read(data, { type: 'binary' })
@@ -35,14 +40,14 @@ export function parseExcelColaboradores(file: File): Promise<Partial<Colaborador
         const worksheet = workbook.Sheets[sheetName]
         const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet)
 
-        const colaboradores: Partial<Colaborador>[] = jsonData.map((row) => ({
+        const colaboradores: Partial<Colaborador>[] = await Promise.all(jsonData.map(async (row) => ({
           matricula: getString(row, 'matricula', 'Matricula', 'MATRICULA', 'Funcionário'),
           nome_completo: getString(row, 'nome_completo', 'Nome Completo', 'Nome do Funcionário', 'NOME'),
           cpf: getString(row, 'cpf', 'CPF'),
           rg: getString(row, 'rg', 'RG', 'Identidade'),
           ctps: getString(row, 'ctps', 'CTPS', 'Carteira de Trabalho'),
           pis_pasep: getString(row, 'pis_pasep', 'PIS/PASEP', 'PIS'),
-          data_nascimento: getDate(row, 'data_nascimento', 'Data Nascimento', 'Nascimento'),
+          data_nascimento: await getDate(row, 'data_nascimento', 'Data Nascimento', 'Nascimento'),
           email: getString(row, 'email', 'Email'),
           telefone: getString(row, 'telefone', 'Telefone'),
           celular: getString(row, 'celular', 'Celular'),
@@ -50,13 +55,13 @@ export function parseExcelColaboradores(file: File): Promise<Partial<Colaborador
           cidade: getString(row, 'cidade', 'Cidade'),
           estado: getString(row, 'estado', 'UF', 'Estado'),
           cep: getString(row, 'cep', 'CEP'),
-          data_admissao: getDate(row, 'data_admissao', 'Data Admissão', 'Admissão'),
-          data_demissao: getDate(row, 'data_demissao', 'Data Demissão', 'Demissão'),
+          data_admissao: await getDate(row, 'data_admissao', 'Data Admissão', 'Admissão'),
+          data_demissao: await getDate(row, 'data_demissao', 'Data Demissão', 'Demissão'),
           tipo_contrato: getString(row, 'tipo_contrato', 'Tipo Contrato', 'Vínculo') || 'CLT',
           cargo: getString(row, 'cargo', 'Cargo', 'Função'),
           departamento: getString(row, 'departamento', 'Departamento'),
           status: row.data_demissao || row.Demissão ? 'Inativo' : 'Ativo',
-        }))
+        })))
 
         resolve(colaboradores)
       } catch (error) {

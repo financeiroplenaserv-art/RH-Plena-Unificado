@@ -1,90 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import type { EContadorEmpresa, EContadorFuncionario } from '@/types/econtador'
+import * as econtadorApi from '@/services/econtadorApi'
+import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
 import { useColaboradores } from './useColaboradores'
 import { useEmpresas } from './useEmpresas'
-
-const BASE_URL = 'https://dp.pack.alterdata.com.br/api/v1'
-
-interface IncludedItem {
-  type?: string
-  id?: string
-  attributes?: Record<string, unknown>
-}
-
-function extrairDepartamento(item: Record<string, unknown>, included: unknown[]): string | null {
-  const attributes = (item.attributes || {}) as Record<string, unknown>
-  const relationships = (item.relationships || {}) as Record<string, unknown>
-
-  if (attributes.departamento && typeof attributes.departamento === 'string') {
-    return attributes.departamento
-  }
-
-  const relDept = (relationships.departamento as { data?: { id: string } })?.data
-  if (relDept && included?.length) {
-    const dept = included.find((inc) => {
-      const incItem = inc as IncludedItem
-      return incItem.type === 'departamentos' && incItem.id === relDept.id
-    }) as IncludedItem | undefined
-    if (dept?.attributes?.nome) return String(dept.attributes.nome)
-    if (dept?.attributes?.descricao) return String(dept.attributes.descricao)
-  }
-
-  const nomefuncao = attributes.nomefuncao as string | undefined
-  if (nomefuncao && nomefuncao.includes(' - ')) {
-    const parte = nomefuncao.split(' - ')[0]?.trim()
-    if (parte && isNaN(Number(parte))) return parte
-  }
-
-  return null
-}
-
-function mapearFuncionario(item: Record<string, unknown>, included: unknown[]): EContadorFuncionario {
-  const a = (item.attributes || {}) as Record<string, unknown>
-  return {
-    id: String(item.id || ''),
-    codigo: String(a.codigo || ''),
-    nome: String(a.nome || ''),
-    cpf: a.cpf ? String(a.cpf) : '',
-    pis: a.pis ? String(a.pis) : null,
-    identidade: a.identidade ? String(a.identidade) : null,
-    carteiradetrabalho: a.carteiradetrabalho ? String(a.carteiradetrabalho) : null,
-    status: String(a.status || 'Ativo'),
-    demissao: a.demissao ? String(a.demissao) : null,
-    afastamentodescricao: a.afastamentodescricao ? String(a.afastamentodescricao) : null,
-    admissao: a.admissao ? String(a.admissao) : null,
-    nomefuncao: a.nomefuncao ? String(a.nomefuncao) : null,
-    telefone: a.telefone ? String(a.telefone) : null,
-    telefonecelular: a.telefonecelular ? String(a.telefonecelular) : null,
-    email: a.email ? String(a.email) : null,
-    cep: a.cep ? String(a.cep) : null,
-    cidade: a.cidade ? String(a.cidade) : null,
-    nascimento: a.nascimento ? String(a.nascimento) : null,
-    dataAtualizacao: a.dataAtualizacao ? String(a.dataAtualizacao) : null,
-    rua: a.rua ? String(a.rua) : null,
-    numero: a.numero ? String(a.numero) : null,
-    complemento: a.complemento ? String(a.complemento) : null,
-    bairro: a.bairro ? String(a.bairro) : null,
-    estado: a.estado ? String(a.estado) : null,
-    afastamento: a.afastamento ? String(a.afastamento) : null,
-    retorno: a.retorno ? String(a.retorno) : null,
-    departamento: extrairDepartamento(item, included),
-  }
-}
-
-export interface HistoricoImportacao {
-  id?: string
-  usuario_id?: string | null
-  empresa_id?: string | null
-  empresa_nome?: string | null
-  quantidade: number
-  importados: number
-  atualizados: number
-  erros: number
-  created_at?: string
-}
 
 export function useEContador() {
   const [empresas, setEmpresas] = useState<EContadorEmpresa[]>([])
@@ -101,54 +22,16 @@ export function useEContador() {
   }, [listarEmpresasDB])
 
   const carregarToken = useCallback(async () => {
-    const { data: config } = await supabase
-      .from('configuracoes')
-      .select('valor')
-      .eq('chave', 'econtador_token')
-      .single()
-    return config?.valor || ''
+    return econtadorApi.carregarToken()
   }, [])
 
-  const getHeaders = useCallback(async () => {
-    const token = await carregarToken()
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/vnd.api+json',
-      Accept: 'application/vnd.api+json',
-    }
-  }, [carregarToken])
-
   const salvarToken = useCallback(async (token: string) => {
-    await supabase.from('configuracoes').upsert(
-      {
-        chave: 'econtador_token',
-        valor: token,
-        descricao: 'Token JWT do eContador Alterdata',
-      },
-      { onConflict: 'chave' }
-    )
+    await econtadorApi.salvarToken(token)
   }, [])
 
   const listarEmpresas = useCallback(async () => {
     try {
-      const headers = await getHeaders()
-      const response = await fetch(`${BASE_URL}/empresas?page[limit]=25&page[offset]=0`, { headers })
-      if (!response.ok) throw new Error('Erro ao consultar empresas')
-      const data = await response.json()
-      interface EContadorResponseItem {
-        id?: string
-        attributes?: { nome?: string; codigo?: string }
-      }
-      const lista = (data.data || []).map((e: EContadorResponseItem) => ({
-        id: String(e.id || ''),
-        nome: String(e.attributes?.nome || 'Sem nome'),
-        codigo: String(e.attributes?.codigo || ''),
-      }))
-      const permitidas = ['plena ea', 'plena tech']
-      const filtradas = lista.filter((e: EContadorEmpresa) => {
-        const nome = (e.nome || '').toLowerCase()
-        return permitidas.some((p) => nome.includes(p))
-      })
+      const filtradas = await econtadorApi.listarEmpresas()
       setEmpresas(filtradas)
       if (filtradas.length === 0) {
         toast.warning('Nenhuma empresa Plena encontrada no e-Contador com este token.')
@@ -158,57 +41,28 @@ export function useEContador() {
       toast.error(err instanceof Error ? err.message : 'Erro ao consultar empresas')
       return []
     }
-  }, [getHeaders])
+  }, [])
 
   const listarFuncionarios = useCallback(async (empresaId: string, status?: string) => {
     setLoading(true)
     setProgresso({ atual: 0, total: 0 })
-    const todos: EContadorFuncionario[] = []
 
     try {
-      const headers = await getHeaders()
-      let offset = 0
-      const limit = 100
-      let hasMore = true
-
-      while (hasMore) {
-        let url = `${BASE_URL}/funcionarios?filter[funcionarios][empresa.id][EQ]=${empresaId}&page[limit]=${limit}&page[offset]=${offset}&include=departamento`
-        if (status) url += `&filter[funcionarios][status][EQ]=${status}`
-
-        const response = await fetch(url, { headers })
-        if (response.status === 401) throw new Error('Token inválido ou expirado.')
-        if (response.status === 403) throw new Error('Sem permissão. Verifique se é eContador Master.')
-        if (!response.ok) {
-          const body = await response.text()
-          console.error('Erro e-Contador:', response.status, body)
-          throw new Error(`Erro ${response.status} ao consultar funcionários.`)
-        }
-
-        const data = await response.json()
-        if (!data.data || data.data.length === 0) {
-          hasMore = false
-          break
-        }
-
-        const included = data.included || []
-        todos.push(...data.data.map((item: Record<string, unknown>) => mapearFuncionario(item, included)))
-        setProgresso({ atual: todos.length, total: data.meta?.totalResourceCount || 0 })
-
-        if (data.links?.next) offset += limit
-        else hasMore = false
-        if (offset > 5000) hasMore = false
-      }
-
+      const todos = await econtadorApi.listarFuncionarios(empresaId, {
+        status,
+        onProgress: (atual, total) => setProgresso({ atual, total }),
+      })
       setFuncionarios(todos)
       toast.success(`${todos.length} funcionários carregados`)
+      return todos
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao consultar eContador')
+      return []
     } finally {
       setLoading(false)
       setProgresso({ atual: 0, total: 0 })
     }
-    return todos
-  }, [getHeaders])
+  }, [])
 
   const sincronizarDepartamentos = useCallback(async (
     lista: EContadorFuncionario[],
@@ -261,6 +115,48 @@ export function useEContador() {
 
     return map
   }, [])
+
+  const listarHistorico = useCallback(async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const { data, error } = await supabase
+        .from('historico_importacoes_econtador')
+        .select('*')
+        .eq('usuario_id', userData.user?.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Erro ao listar histórico:', error)
+        return
+      }
+      setHistorico(data || [])
+    } catch (err) {
+      console.error('Erro ao listar histórico:', err)
+    }
+  }, [])
+
+  const salvarHistorico = useCallback(async (item: Omit<HistoricoImportacao, 'id' | 'created_at' | 'usuario_id'>) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const { error } = await supabase.from('historico_importacoes_econtador').insert({
+        usuario_id: userData.user?.id || null,
+        empresa_id: item.empresa_id,
+        empresa_nome: item.empresa_nome,
+        quantidade: item.quantidade,
+        importados: item.importados,
+        atualizados: item.atualizados,
+        erros: item.erros,
+      })
+      if (error) {
+        console.error('Erro ao salvar histórico:', error)
+      } else {
+        await listarHistorico()
+      }
+    } catch (err) {
+      console.error('Erro ao salvar histórico:', err)
+    }
+  }, [listarHistorico])
 
   const importarFuncionarios = useCallback(async (
     lista: EContadorFuncionario[],
@@ -431,49 +327,7 @@ export function useEContador() {
     })
 
     return { importados, atualizados, erros }
-  }, [empresasDB, upsertPorMatricula, sincronizarDepartamentos, listarEmpresasDB])
-
-  const salvarHistorico = useCallback(async (item: Omit<HistoricoImportacao, 'id' | 'created_at' | 'usuario_id'>) => {
-    try {
-      const { data: userData } = await supabase.auth.getUser()
-      const { error } = await supabase.from('historico_importacoes_econtador').insert({
-        usuario_id: userData.user?.id || null,
-        empresa_id: item.empresa_id,
-        empresa_nome: item.empresa_nome,
-        quantidade: item.quantidade,
-        importados: item.importados,
-        atualizados: item.atualizados,
-        erros: item.erros,
-      })
-      if (error) {
-        console.error('Erro ao salvar histórico:', error)
-      } else {
-        await listarHistorico()
-      }
-    } catch (err) {
-      console.error('Erro ao salvar histórico:', err)
-    }
-  }, [])
-
-  const listarHistorico = useCallback(async () => {
-    try {
-      const { data: userData } = await supabase.auth.getUser()
-      const { data, error } = await supabase
-        .from('historico_importacoes_econtador')
-        .select('*')
-        .eq('usuario_id', userData.user?.id)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      if (error) {
-        console.error('Erro ao listar histórico:', error)
-        return
-      }
-      setHistorico(data || [])
-    } catch (err) {
-      console.error('Erro ao listar histórico:', err)
-    }
-  }, [])
+  }, [empresasDB, upsertPorMatricula, sincronizarDepartamentos, listarEmpresasDB, salvarHistorico])
 
   const reimportar = useCallback(async (item: HistoricoImportacao) => {
     if (!item.empresa_id) {

@@ -36,50 +36,39 @@ function converterData(dataStr: string, anoReferencia?: number): string | null {
   return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
 }
 
-function detectarStatus(texto: string, statusAnterior: StatusDiaAdicional | null, debug: (msg: string) => void): { status: StatusDiaAdicional; horarios: string[]; observacao: string; revisao: boolean } {
+function detectarStatus(texto: string, statusAnterior: StatusDiaAdicional | null): { status: StatusDiaAdicional; horarios: string[]; observacao: string; revisao: boolean } {
   const t = texto.toLowerCase().trim()
   const horarios = Array.from(texto.match(/\d{2}:\d{2}/g) || [])
   const horasTrabalhadas = horarios.length > 0 ? horarios[horarios.length - 1] : null
   const temHorariosTrabalho = horarios.some(h => h !== '00:00')
 
-  debug(`detectarStatus entrada: "${texto}" | horarios: ${JSON.stringify(horarios)} | H.trab: ${horasTrabalhadas}`)
-
   if (t.includes('atestado')) {
-    debug('→ contém "atestado" → Afastado')
     return { status: 'afastado', horarios: [], observacao: texto, revisao: false }
   }
   if (t.includes('férias') || t.includes('ferias')) {
-    debug('→ contém "férias" → Férias')
     return { status: 'ferias', horarios: [], observacao: texto, revisao: false }
   }
   if (t.includes('falta')) {
-    debug('→ contém "falta" → Falta')
     return { status: 'falta', horarios: [], observacao: texto, revisao: false }
   }
   if (t.includes('folga')) {
-    debug('→ contém "folga" → Folga')
     return { status: 'folga', horarios: [], observacao: texto, revisao: false }
   }
   if (temHorariosTrabalho) {
-    debug(`→ contém horários de trabalho → Trabalhou (${horarios.join(' ')})`)
     return { status: 'trabalhou', horarios, observacao: texto, revisao: false }
   }
 
   // H. trab. = 00:00 ou linha vazia: aplica regra 12x36
   if (horasTrabalhadas === '00:00' || t === '' || t === '00:00') {
     if (statusAnterior === 'trabalhou') {
-      debug('→ H.trab 00:00 após dia trabalhado → Folga (12x36)')
       return { status: 'folga', horarios: [], observacao: texto || 'Folga (12x36)', revisao: false }
     }
     if (statusAnterior === 'folga') {
-      debug('→ H.trab 00:00 após folga → Falta (12x36)')
       return { status: 'falta', horarios: [], observacao: texto || 'Falta (12x36)', revisao: false }
     }
-    debug('→ H.trab 00:00 sem contexto → Revisar')
     return { status: 'trabalhou', horarios: [], observacao: texto, revisao: true }
   }
 
-  debug('→ não reconhecido → Revisar')
   return { status: 'trabalhou', horarios: [], observacao: texto, revisao: true }
 }
 
@@ -88,12 +77,10 @@ function linhaContem(texto: string, termos: string[]): boolean {
   return termos.some(t => limpo.includes(t.toLowerCase().replace(/[^a-z0-9]/g, '')))
 }
 
-function parsePagina(texto: string, idxPagina: number): PontoColaborador | null {
+function parsePagina(texto: string): PontoColaborador | null {
   const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean)
   if (linhas.length === 0) return null
 
-  console.log(`[PDF Debug] === Página ${idxPagina + 1} ===`)
-  console.log('[PDF Debug] Array completo de linhas:', JSON.stringify(linhas))
 
   // Nome: quando o PDF quebra "Colaborador:" e o nome em linhas separadas
   let nome = ''
@@ -104,10 +91,8 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       const matchMesmaLinha = linha.match(/colaborador[:\s]+(.+)/i)
       if (matchMesmaLinha && matchMesmaLinha[1].trim()) {
         nome = matchMesmaLinha[1].trim()
-        console.log(`[PDF Debug] Nome na mesma linha (idx ${i}): "${nome}"`)
       } else if (i + 1 < linhas.length) {
         nome = linhas[i + 1].trim()
-        console.log(`[PDF Debug] Nome na linha seguinte (idx ${i} -> ${i + 1}): "${nome}"`)
       }
       break
     }
@@ -119,7 +104,6 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       const matchNome = linha.match(/nome[:\s]+(.+)/i)
       if (matchNome) {
         nome = matchNome[1].trim()
-        console.log(`[PDF Debug] Nome extraído via fallback "Nome:": "${nome}"`)
         break
       }
     }
@@ -133,13 +117,11 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       const matchMesmaLinha = linha.match(/matr[íi]cula[:\s]+(\d+)/i)
       if (matchMesmaLinha) {
         matricula = normalizarMatricula(matchMesmaLinha[1])
-        console.log(`[PDF Debug] Matrícula na mesma linha (idx ${i}): "${matchMesmaLinha[1]}" normalizada: "${matricula}"`)
       } else if (i + 1 < linhas.length) {
         const proxima = linhas[i + 1].trim()
         const matchProxima = proxima.match(/^(\d+)$/)
         if (matchProxima) {
           matricula = normalizarMatricula(matchProxima[1])
-          console.log(`[PDF Debug] Matrícula na linha seguinte (idx ${i} -> ${i + 1}): "${matchProxima[1]}" normalizada: "${matricula}"`)
         }
       }
       break
@@ -152,7 +134,6 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       const match = linha.match(/matr[íi]cula[:\s]+(\d+)/i)
       if (match) {
         matricula = normalizarMatricula(match[1])
-        console.log(`[PDF Debug] Matrícula extraída via fallback: "${match[1]}" normalizada: "${matricula}"`)
         break
       }
     }
@@ -163,7 +144,6 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
     const idxMatricula = linhas.findIndex(l => normalizarMatricula(l.match(/\d+/)?.[0]) === matricula)
     if (idxMatricula > 0) {
       nome = linhas[idxMatricula - 1]
-      console.log(`[PDF Debug] Nome inferido pela linha anterior à matrícula: "${nome}"`)
     }
   }
 
@@ -180,14 +160,12 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       if (matchMesmaLinha) {
         periodoInicio = converterData(matchMesmaLinha[1]) || ''
         periodoFim = converterData(matchMesmaLinha[2]) || ''
-        console.log(`[PDF Debug] Período na mesma linha (idx ${i}): ${periodoInicio} a ${periodoFim}`)
       } else if (i + 1 < linhas.length) {
         const proxima = linhas[i + 1].trim()
         const matchProxima = proxima.match(/(\d{2}\/\d{2}\/\d{4})\s*[-a]\s*(\d{2}\/\d{2}\/\d{4})/)
         if (matchProxima) {
           periodoInicio = converterData(matchProxima[1]) || ''
           periodoFim = converterData(matchProxima[2]) || ''
-          console.log(`[PDF Debug] Período na linha seguinte (idx ${i} -> ${i + 1}): ${periodoInicio} a ${periodoFim}`)
         }
       }
       if (periodoInicio && periodoFim) break
@@ -201,7 +179,6 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       if (match) {
         periodoInicio = converterData(match[1]) || ''
         periodoFim = converterData(match[2]) || ''
-        console.log(`[PDF Debug] Período extraído via fallback: ${periodoInicio} a ${periodoFim}`)
         break
       }
     }
@@ -233,8 +210,7 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
     }
 
     const textoParaAnalise = [resto, proximaLinha].filter(Boolean).join(' ')
-    const debugStatus = (msg: string) => console.log(`[PDF Debug] Dia ${dataMatch[1]}: Realizado = "${resto}"${proximaLinha ? ` / próxima = "${proximaLinha}"` : ''} → ${msg}`)
-    const { status, horarios, observacao, revisao } = detectarStatus(textoParaAnalise, statusAnterior, debugStatus)
+    const { status, horarios, observacao, revisao } = detectarStatus(textoParaAnalise, statusAnterior)
     statusAnterior = status
 
     dias.push({
@@ -246,10 +222,6 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
       revisao,
     })
   }
-
-  const resumo = resumoPonto({ nome, matricula, periodoInicio, periodoFim, dias })
-  console.log(`[PDF Debug] Resultado página ${idxPagina + 1} - Nome: "${nome}", Matrícula: "${matricula}", Dias: ${dias.length}`)
-  console.log(`[PDF Debug] Total trabalhados: ${resumo.trabalhou}, folgas: ${resumo.folga}, faltas: ${resumo.falta}, férias: ${resumo.ferias}, afastados: ${resumo.afastado}, revisão: ${resumo.revisao}`)
 
   if (!nome && !matricula && dias.length === 0) return null
 
@@ -263,23 +235,17 @@ function parsePagina(texto: string, idxPagina: number): PontoColaborador | null 
 }
 
 export async function parsePontoPDF(file: File): Promise<PontoColaborador[]> {
-  console.log('[PDF Debug] Iniciando extração do PDF:', file.name)
   const paginas = await extrairPaginasPDF(file)
-  console.log(`[PDF Debug] Total de páginas extraídas: ${paginas.length}`)
 
   const resultados: PontoColaborador[] = []
   for (let i = 0; i < paginas.length; i++) {
     const pagina = paginas[i]
-    const colaborador = parsePagina(pagina, i)
+    const colaborador = parsePagina(pagina)
     if (colaborador) {
       resultados.push(colaborador)
-      console.log(`[PDF Debug] Colaborador adicionado: ${colaborador.nome} (${colaborador.matricula})`)
-    } else {
-      console.log(`[PDF Debug] Página ${i + 1} não gerou colaborador`)
     }
   }
 
-  console.log(`[PDF Debug] Total de colaboradores parseados: ${resultados.length}`)
   return resultados
 }
 

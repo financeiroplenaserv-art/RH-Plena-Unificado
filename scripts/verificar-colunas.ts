@@ -43,7 +43,7 @@ async function verificar() {
   }
 
   console.log('Colunas da tabela departamentos:')
-  console.log(data?.map((c) => c.column_name).join('\n'))
+  console.log(data?.map((c: { column_name: string }) => c.column_name).join('\n'))
 }
 
 verificar()

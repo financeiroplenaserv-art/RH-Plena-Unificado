@@ -317,22 +317,19 @@ export function AdicionaisCalendarioPage() {
     setModalSubstituto({ vinculo, data })
   }
 
-  const alertasSubstituicao = useMemo(() => {
-    const lista: { contrato: string; data: string; colaborador: string }[] = []
-    vinculosFiltrados.forEach(v => {
-      const contrato = mapContrato.get(v.contrato_id)
-      diasDoPeriodo.forEach(data => {
-        if (precisaSubstituto(v, data)) {
-          lista.push({
-            contrato: contrato?.nome || '—',
-            data: formatarDataBR(data),
-            colaborador: mapColaborador.get(v.colaborador_id)?.nome || '—',
-          })
-        }
-      })
+  const alertasSubstituicao: { contrato: string; data: string; colaborador: string }[] = []
+  vinculosFiltrados.forEach(v => {
+    const contrato = mapContrato.get(v.contrato_id)
+    diasDoPeriodo.forEach(data => {
+      if (precisaSubstituto(v, data)) {
+        alertasSubstituicao.push({
+          contrato: contrato?.nome || '—',
+          data: formatarDataBR(data),
+          colaborador: mapColaborador.get(v.colaborador_id)?.nome || '—',
+        })
+      }
     })
-    return lista
-  }, [vinculosFiltrados, diasDoPeriodo, mapContrato, mapColaborador, ignorados])
+  })
 
   return (
     <AdicionaisPageWrapper>

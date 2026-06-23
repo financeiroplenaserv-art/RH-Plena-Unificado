@@ -36,7 +36,7 @@ async function listar() {
     return
   }
   console.log('Empresas cadastradas:')
-  data?.forEach((e) => {
+  data?.forEach((e: { id: string; nome: string; cnpj: string | null }) => {
     console.log(`${e.id} | ${e.nome} | ${e.cnpj || 'sem CNPJ'}`)
   })
 }

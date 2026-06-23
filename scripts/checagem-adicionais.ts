@@ -1,4 +1,3 @@
-import fs from 'fs'
 import type { ContratoAdicional, VinculoAdicional, DiaCalendarioAdicional } from '../src/types/adicionais'
 import type { Colaborador, Departamento } from '../src/types/database'
 import { normalizarMatricula } from '../src/lib/adicionais/importarPonto'
@@ -27,14 +26,6 @@ function carregarMock() {
   const vinculos: VinculoAdicional[] = JSON.parse(localStorage.getItem('mock_vinculos_adicionais') || '[]')
   const calendario: DiaCalendarioAdicional[] = JSON.parse(localStorage.getItem('mock_calendario_adicionais') || '[]')
   return { departamentos, colaboradores, contratos, vinculos, calendario }
-}
-
-function nomeColaborador(colaboradores: Colaborador[], id: string) {
-  return colaboradores.find(c => c.id === id)?.nome_completo || '—'
-}
-
-function nomeContrato(contratos: ContratoAdicional[], id: string) {
-  return contratos.find(c => c.id === id)
 }
 
 function main() {

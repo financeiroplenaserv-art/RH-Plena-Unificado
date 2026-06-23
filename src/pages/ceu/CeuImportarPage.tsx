@@ -75,7 +75,7 @@ export function CeuImportarPage() {
     if (!file) return
 
     const text = await file.text()
-    let rows: Record<string, string>[] = []
+    let rows: Record<string, string>[]
 
     if (file.name.endsWith('.csv')) {
       rows = parseCSV(text)

@@ -197,7 +197,7 @@ export function CeuEntregaFormPage() {
       toast.success(modoMock ? 'Entrega simulada com sucesso (modo demonstração)' : 'Entregas registradas com sucesso')
       setConcluido(true)
       setPasso(4)
-    } catch (err) {
+    } catch {
       toast.error('Erro ao registrar entrega')
     } finally {
       setSalvando(false)

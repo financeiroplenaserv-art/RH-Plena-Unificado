@@ -4,6 +4,9 @@ export function gerarComprovanteIndividualHTML(
   resultado: VRResultadoCalculo,
   config: VRConfiguracao
 ): string {
+  const valorDias = resultado.diasElegiveis * config.valorVR
+  const valorExtra = resultado.extra || 0
+  const valorTotal = valorDias + valorExtra
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -11,22 +14,30 @@ export function gerarComprovanteIndividualHTML(
   <meta charset="UTF-8">
   <title>Comprovante VR - ${resultado.nome}</title>
   <style>
+    * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
     .card { border: 2px solid #2563eb; border-radius: 8px; padding: 24px; max-width: 600px; margin: 0 auto; }
     h1 { color: #2563eb; margin-top: 0; }
     .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
     .total { font-size: 1.25rem; font-weight: bold; color: #059669; margin-top: 16px; }
+    @media print {
+      body { margin: 0; padding: 20px; }
+      .card { border: 2px solid #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Comprovante de Vale Refeição</h1>
-    <div class="row"><span>Colaborador</span><span>${resultado.nome}</span></div>
-    <div class="row"><span>CPF</span><span>${resultado.cpf}</span></div>
-    <div class="row"><span>Matrícula</span><span>${resultado.matricula || '-'}</span></div>
-    <div class="row"><span>Dias elegíveis</span><span>${resultado.diasElegiveis}</span></div>
-    <div class="row"><span>Valor unitário</span><span>R$ ${config.valorVR.toFixed(2)}</span></div>
-    <div class="row total"><span>Valor total</span><span>R$ ${resultado.valorBruto.toFixed(2)}</span></div>
+    <h1>🍽️ Comprovante de Vale Refeição</h1>
+    <div class="row"><span>👤 Colaborador</span><span>${resultado.nome}</span></div>
+    <div class="row"><span>🆔 CPF</span><span>${resultado.cpf}</span></div>
+    <div class="row"><span>🎫 Matrícula</span><span>${resultado.matricula || '-'}</span></div>
+    <div class="row"><span>📅 Período de corte</span><span>${config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span></div>
+    <div class="row"><span>✅ Dias elegíveis</span><span>${resultado.diasElegiveis}</span></div>
+    <div class="row"><span>💵 Valor unitário</span><span>R$ ${config.valorVR.toFixed(2)}</span></div>
+    <div class="row"><span>💵 Valor dias</span><span>R$ ${valorDias.toFixed(2)}</span></div>
+    <div class="row"><span>➕ Valor extra</span><span>R$ ${valorExtra.toFixed(2)}</span></div>
+    <div class="row total"><span>💰 Valor total</span><span>R$ ${valorTotal.toFixed(2)}</span></div>
     <p style="margin-top: 24px; font-size: 0.875rem; color: #6b7280;">
       Corte: ${config.dataCorte} | Efetivação: ${config.dataEfetivacao}
     </p>
@@ -94,45 +105,57 @@ export function gerarRecibosLoteHTML(
   projetoNome?: string
 ): string {
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
-  const totalGeral = resultados.reduce((s, r) => s + r.valorBruto, 0)
+  const totalGeral = resultados.reduce((s, r) => s + r.valorBruto + (r.extra || 0), 0)
 
-  const recibos = resultados.map(r => `
+  const recibos = resultados.map(r => {
+    const valorDias = r.diasElegiveis * config.valorVR
+    const valorExtra = r.extra || 0
+    const valorTotal = valorDias + valorExtra
+    return `
     <div class="page">
       <div class="card">
         <div class="header">
-          <div class="icon">🍽️</div>
+          <div class="icon">VR</div>
           <h1>Recibo de Vale Refeição</h1>
           <p class="empresa">${projetoNome || 'Plena EA Facilities'}</p>
         </div>
         <div class="body">
           <div class="info-row">
-            <span class="label">👤 Colaborador</span>
+            <span class="label">Colaborador</span>
             <span class="value">${r.nome}</span>
           </div>
           <div class="info-row">
-            <span class="label">🆔 CPF</span>
+            <span class="label">CPF</span>
             <span class="value">${r.cpf}</span>
           </div>
           <div class="info-row">
-            <span class="label">🎫 Matrícula</span>
+            <span class="label">Matrícula</span>
             <span class="value">${r.matricula || '-'}</span>
           </div>
           <div class="info-row">
-            <span class="label">📅 Período de corte</span>
+            <span class="label">Período de corte</span>
             <span class="value">${config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
           </div>
           <div class="info-row">
-            <span class="label">✅ Dias elegíveis</span>
+            <span class="label">Dias elegíveis</span>
             <span class="value highlight">${r.diasElegiveis}</span>
           </div>
           <div class="info-row">
-            <span class="label">💵 Valor unitário</span>
+            <span class="label">Valor unitário</span>
             <span class="value">R$ ${config.valorVR.toFixed(2)}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">💵 Valor dias</span>
+            <span class="value">R$ ${valorDias.toFixed(2)}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">➕ Valor extra</span>
+            <span class="value">R$ ${valorExtra.toFixed(2)}</span>
           </div>
           <div class="divider"></div>
           <div class="info-row total">
             <span class="label">💰 Valor total</span>
-            <span class="value">R$ ${r.valorBruto.toFixed(2)}</span>
+            <span class="value">R$ ${valorTotal.toFixed(2)}</span>
           </div>
         </div>
         <div class="footer">
@@ -141,7 +164,8 @@ export function gerarRecibosLoteHTML(
         </div>
       </div>
     </div>
-  `).join('')
+  `
+  }).join('')
 
   return `
 <!DOCTYPE html>
@@ -150,14 +174,16 @@ export function gerarRecibosLoteHTML(
   <meta charset="UTF-8">
   <title>Recibos VR - ${projetoNome || 'Vale Refeição'}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4; margin: 15mm; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 0;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      font-family: Arial, 'Helvetica Neue', sans-serif;
       background: #f1f5f9;
       color: #1e293b;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .cover {
       page-break-after: always;
@@ -166,70 +192,83 @@ export function gerarRecibosLoteHTML(
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+      background: #1e3a8a;
       color: white;
       text-align: center;
       padding: 40px;
     }
     .cover h1 { font-size: 2.5rem; margin: 0 0 16px; }
-    .cover p { font-size: 1.1rem; margin: 4px 0; opacity: 0.9; }
+    .cover p { font-size: 1.1rem; margin: 4px 0; }
     .cover .total-box {
       margin-top: 32px;
-      background: rgba(255,255,255,0.15);
+      border: 2px solid white;
       padding: 24px 48px;
       border-radius: 16px;
-      backdrop-filter: blur(4px);
     }
-    .cover .total-box strong { font-size: 2rem; }
+    .cover .total-box strong { font-size: 2rem; display: block; }
     .page {
       page-break-after: always;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 40px;
+      padding: 20px;
     }
     .page:last-child { page-break-after: auto; }
     .card {
       width: 100%;
       max-width: 680px;
       background: white;
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+      border-radius: 16px;
+      border: 1px solid #cbd5e1;
       overflow: hidden;
     }
     .header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      background: #1e3a8a;
       color: white;
       padding: 32px;
       text-align: center;
     }
     .header .icon { font-size: 3rem; margin-bottom: 8px; }
     .header h1 { margin: 0; font-size: 1.6rem; }
-    .header .empresa { margin: 8px 0 0; opacity: 0.85; font-size: 0.95rem; }
+    .header .empresa { margin: 8px 0 0; font-size: 0.95rem; }
     .body { padding: 32px; }
     .info-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14px 0;
-      border-bottom: 1px dashed #e2e8f0;
+      padding: 12px 0;
+      border-bottom: 1px dashed #cbd5e1;
     }
-    .info-row .label { font-size: 0.9rem; color: #64748b; }
+    .info-row .label { font-size: 0.95rem; color: #475569; }
     .info-row .value { font-weight: 600; color: #0f172a; }
-    .info-row .value.highlight { color: #16a34a; font-size: 1.1rem; }
-    .divider { height: 2px; background: linear-gradient(90deg, #1e3a8a, #3b82f6); margin: 16px 0; border-radius: 2px; }
+    .info-row .value.highlight { color: #15803d; font-size: 1.1rem; }
+    .divider { height: 2px; background: #1e3a8a; margin: 16px 0; }
     .info-row.total { border-bottom: none; }
     .info-row.total .label { font-size: 1.1rem; color: #1e3a8a; }
-    .info-row.total .value { font-size: 1.4rem; color: #16a34a; }
+    .info-row.total .value { font-size: 1.4rem; color: #15803d; }
+    .assinaturas {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 32px 24px;
+      gap: 32px;
+    }
     .footer {
       background: #f8fafc;
-      padding: 20px 32px;
+      padding: 16px 32px;
       text-align: center;
       font-size: 0.8rem;
       color: #64748b;
+      border-top: 1px solid #e2e8f0;
     }
     .footer p { margin: 4px 0; }
+    @media print {
+      body { background: white; }
+      .cover { background: #1e3a8a !important; }
+      .header { background: #1e3a8a !important; }
+      .page { padding: 0; }
+      .card { box-shadow: none; border: 1px solid #000; }
+    }
   </style>
 </head>
 <body>

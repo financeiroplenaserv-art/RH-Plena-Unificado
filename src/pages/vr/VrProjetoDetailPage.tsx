@@ -42,7 +42,7 @@ import { VrButton } from '@/components/vr/VrButton'
 import {
   gerarComprovanteIndividualHTML,
   gerarComprovanteGeralHTML,
-  gerarRecibosLoteHTML
+  gerarRecibosLoteHTML,
 } from '@/lib/vr/comprovanteVR'
 import { uploadVRArquivo } from '@/lib/vr/storageVR'
 import type { ProjetoVR, VRConfiguracao, VRResultadoCalculo } from '@/types'
@@ -258,6 +258,7 @@ export function VrProjetoDetailPage() {
     downloadConteudo(html, `Recibos_VR_${projeto?.nome || 'exportacao'}.html`, 'text/html')
     toast.success('Recibos em lote gerados')
   }
+
 
   const handleComprovanteIndividual = (r: VRResultadoCalculo) => {
     if (!config) return

@@ -619,7 +619,7 @@ export function OcorrenciaFormPage() {
         toast.success('Ocorrência registrada como ATIVA.')
       }
       if (colabSelecionado && data) {
-        gerarPDFOcorrencia(colabSelecionado, data as Ocorrencia, undefined, undefined, empresaSelecionada)
+        await gerarPDFOcorrencia(colabSelecionado, data as Ocorrencia, undefined, undefined, empresaSelecionada)
       }
       navigate(`/rh/ocorrencias/${(data as Ocorrencia).id}`)
     }

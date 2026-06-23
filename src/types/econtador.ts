@@ -33,3 +33,15 @@ export interface EContadorFuncionario {
   retorno: string | null
   departamento: string | null
 }
+
+export interface HistoricoImportacao {
+  id?: string
+  usuario_id?: string | null
+  empresa_id?: string | null
+  empresa_nome?: string | null
+  quantidade: number
+  importados: number
+  atualizados: number
+  erros: number
+  created_at?: string
+}
