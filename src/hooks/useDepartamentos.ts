@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Departamento } from '@/types/database'
 
-const MODO_MOCK = true
+const MODO_MOCK = false
 
 const STORAGE_KEY = 'mock_departamentos'
 
@@ -148,11 +148,19 @@ export function useDepartamentos() {
         const payload = {
           nome: d.nome,
           nome_curto: d.nome_curto,
+          contato_portaria: d.contato_portaria,
           empresa_id: d.empresa_id,
           endereco: d.endereco,
+          bairro: d.bairro,
+          cidade: d.cidade,
+          estado: d.estado,
+          cep: d.cep,
           nome_contato: d.nome_contato,
           telefone_contato: d.telefone_contato,
           email_contato: d.email_contato,
+          nome_contato_2: d.nome_contato_2,
+          telefone_contato_2: d.telefone_contato_2,
+          email_contato_2: d.email_contato_2,
           status: d.status,
         }
 

@@ -219,7 +219,7 @@ export function CeuLancamentoRapidoPage() {
 
     if (sucesso > 0) {
       setLinhas(Array.from({ length: 5 }, criarLinhaVazia))
-      navigate('/ceu/entregas')
+      navigate('/ceu/movimentacoes')
     }
   }
 

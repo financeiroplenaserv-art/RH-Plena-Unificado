@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 const TABS = [
   { path: '/ceu/itens', label: 'Itens' },
-  { path: '/ceu/entregas', label: 'Entregas' },
+  { path: '/ceu/movimentacoes', label: 'Movimentações' },
   { path: '/ceu/relatorios', label: 'Relatórios' },
   { path: '/ceu/fornecedores', label: 'Fornecedores' },
 ]

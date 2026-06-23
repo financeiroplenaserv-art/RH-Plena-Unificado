@@ -141,7 +141,7 @@ export async function diagnosticarAdicionais(inicio = '2026-05-20', fim = '2026-
 
       console.log(`    Resumo: ${trabalhou} trabalhou, ${folga} folga, ${falta} falta, ${ferias} férias, ${afastado} afastado`)
 
-      if (contrato?.adicionais.intrajornada) {
+      if (contrato?.adicionais?.intrajornada) {
         const intrajornada = dias.filter(d => {
           if (d.status !== 'trabalhou') return false
           const diaSemana = new Date(d.data + 'T00:00:00').getDay()

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Save, CheckCircle2, FileText, User, Package, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, CheckCircle2, FileText, User, Package, AlertTriangle, Search } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -10,9 +10,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BadgeStatus } from '@/components/BadgeStatus'
-import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
+import { useColaboradores } from '@/hooks/useColaboradores'
+import { Input } from '@/components/ui/input'
 import { CeuPage } from '@/components/ceu/CeuPage'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -42,10 +43,14 @@ export function CeuEntregaFormPage() {
   const navigate = useNavigate()
   const { criar, listar: listarEntregas } = useCEUEntregas()
   const { itens, loading: carregandoItens, listar: listarItens } = useCEUItens()
+  const { colaboradores, listar: listarColaboradores } = useColaboradores()
 
   const [passo, setPasso] = useState(1)
   const [modoMock, setModoMock] = useState(false)
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)
+  const [colabInput, setColabInput] = useState('')
+  const [dropdownAberto, setDropdownAberto] = useState(false)
+  const inputColabRef = useRef<HTMLInputElement>(null)
   const [itensSelecionados, setItensSelecionados] = useState<Record<string, { item: ItemCEU; quantidade: number }>>({})
   const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split('T')[0])
   const [observacao, setObservacao] = useState('')
@@ -60,7 +65,8 @@ export function CeuEntregaFormPage() {
 
   useEffect(() => {
     listarItens()
-  }, [listarItens])
+    listarColaboradores({ status: 'Ativo' })
+  }, [listarItens, listarColaboradores])
 
   useEffect(() => {
     if (!colaborador) {
@@ -73,6 +79,30 @@ export function CeuEntregaFormPage() {
       setCarregandoHistorico(false)
     })
   }, [colaborador, listarEntregas])
+
+  const colaboradoresSugeridos = useMemo(() => {
+    const termo = colabInput.trim().toLowerCase()
+    if (!termo) return colaboradores.slice(0, 10)
+    return colaboradores
+      .filter(
+        (c) =>
+          c.nome_completo.toLowerCase().includes(termo) ||
+          c.matricula.toLowerCase().includes(termo)
+      )
+      .slice(0, 10)
+  }, [colabInput, colaboradores])
+
+  const handleColabInput = (value: string) => {
+    setColabInput(value)
+    if (colaborador) setColaborador(null)
+    setDropdownAberto(true)
+  }
+
+  const selecionarColaborador = (colab: Colaborador) => {
+    setColaborador(colab)
+    setColabInput(`${colab.nome_completo} — ${colab.matricula}`)
+    setDropdownAberto(false)
+  }
 
   const itensDisponiveis = useMemo(() => (modoMock ? ITENS_MOCK : itens), [modoMock, itens])
 
@@ -183,6 +213,7 @@ export function CeuEntregaFormPage() {
         cargo: colaborador.cargo || '—',
         departamento: colaborador.departamento || '—',
         cpf: colaborador.cpf || '00000000000',
+        data_admissao: colaborador.data_admissao,
       },
       itens: selecionadosArray.map(({ item, quantidade }) => ({
         nome: item.nome || '—',
@@ -200,7 +231,7 @@ export function CeuEntregaFormPage() {
     <CeuPage>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <CeuButton variant="ghost" onClick={() => navigate('/ceu/entregas')}>
+          <CeuButton variant="ghost" onClick={() => navigate('/ceu/movimentacoes')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </CeuButton>
@@ -260,12 +291,37 @@ export function CeuEntregaFormPage() {
                   </Select>
                 </div>
               ) : (
-                <AutocompleteColaborador
-                  value={colaborador?.id}
-                  onChange={setColaborador}
-                  placeholder="Buscar por nome ou matrícula..."
-                  label="Colaborador"
-                />
+                <div className="space-y-2">
+                  <Label>Colaborador</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <Input
+                      ref={inputColabRef}
+                      value={colabInput}
+                      onChange={(e) => handleColabInput(e.target.value)}
+                      onFocus={() => setDropdownAberto(true)}
+                      onBlur={() => setTimeout(() => setDropdownAberto(false), 200)}
+                      placeholder="Buscar por nome ou matrícula..."
+                      className="pl-10"
+                      autoComplete="off"
+                    />
+                    {dropdownAberto && colaboradoresSugeridos.length > 0 && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                        {colaboradoresSugeridos.map((colab) => (
+                          <button
+                            key={colab.id}
+                            type="button"
+                            onMouseDown={() => selecionarColaborador(colab)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0"
+                          >
+                            <p className="font-medium text-slate-900">{colab.nome_completo}</p>
+                            <p className="text-xs text-slate-500">{colab.matricula} — {colab.departamento || '—'}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               {colaborador && (
@@ -627,7 +683,7 @@ export function CeuEntregaFormPage() {
                 </p>
               </div>
               <div className="flex justify-center gap-3">
-                <CeuButton variant="outline" onClick={() => navigate('/ceu/entregas')}>
+                <CeuButton variant="outline" onClick={() => navigate('/ceu/movimentacoes')}>
                   Ver entregas
                 </CeuButton>
                 <CeuButton onClick={abrirRecibo}>

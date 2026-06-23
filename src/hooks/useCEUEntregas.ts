@@ -15,35 +15,51 @@ export function useCEUEntregas() {
     emAberto?: boolean
   }) => {
     setLoading(true)
-    let query = supabase
-      .from('entregas')
-      .select('*, colaborador:colaborador_id(*), item:item_id(*)')
-      .order('data_entrega', { ascending: false })
 
-    if (filtros?.colaboradorId && filtros.colaboradorId.trim() !== '' && filtros.colaboradorId !== ' ') {
-      query = query.eq('colaborador_id', filtros.colaboradorId)
-    }
-    if (filtros?.itemId && filtros.itemId.trim() !== '' && filtros.itemId !== 'todos') {
-      query = query.eq('item_id', filtros.itemId)
-    }
-    if (filtros?.dataInicio && filtros.dataInicio.trim() !== '' && filtros.dataInicio !== ' ') {
-      query = query.gte('data_entrega', filtros.dataInicio)
-    }
-    if (filtros?.dataFim && filtros.dataFim.trim() !== '' && filtros.dataFim !== ' ') {
-      query = query.lte('data_entrega', filtros.dataFim)
-    }
-    if (filtros?.emAberto) {
-      query = query.is('data_devolucao', null)
+    const TAMANHO_PAGINA = 1000
+    let todos: EntregaCEU[] = []
+    let pagina = 0
+    let continuar = true
+
+    while (continuar) {
+      let query = supabase
+        .from('entregas')
+        .select('*, colaborador:colaborador_id(*), item:item_id(*)')
+        .order('data_entrega', { ascending: false })
+        .range(pagina * TAMANHO_PAGINA, (pagina + 1) * TAMANHO_PAGINA - 1)
+
+      if (filtros?.colaboradorId && filtros.colaboradorId.trim() !== '' && filtros.colaboradorId !== ' ') {
+        query = query.eq('colaborador_id', filtros.colaboradorId)
+      }
+      if (filtros?.itemId && filtros.itemId.trim() !== '' && filtros.itemId !== 'todos') {
+        query = query.eq('item_id', filtros.itemId)
+      }
+      if (filtros?.dataInicio && filtros.dataInicio.trim() !== '' && filtros.dataInicio !== ' ') {
+        query = query.gte('data_entrega', filtros.dataInicio)
+      }
+      if (filtros?.dataFim && filtros.dataFim.trim() !== '' && filtros.dataFim !== ' ') {
+        query = query.lte('data_entrega', filtros.dataFim)
+      }
+      if (filtros?.emAberto) {
+        query = query.is('data_devolucao', null)
+      }
+
+      const { data, error } = await query
+      if (error) {
+        toast.error('Erro ao carregar entregas: ' + error.message)
+        setLoading(false)
+        return todos
+      }
+
+      const paginaAtual = (data as EntregaCEU[]) || []
+      todos = [...todos, ...paginaAtual]
+      continuar = paginaAtual.length === TAMANHO_PAGINA
+      pagina++
     }
 
-    const { data, error } = await query
-    if (error) {
-      toast.error('Erro ao carregar entregas: ' + error.message)
-    } else {
-      setEntregas((data as EntregaCEU[]) || [])
-    }
+    setEntregas(todos)
     setLoading(false)
-    return (data as EntregaCEU[]) || []
+    return todos
   }, [])
 
   const criar = useCallback(async (entrega: Partial<EntregaCEU>) => {

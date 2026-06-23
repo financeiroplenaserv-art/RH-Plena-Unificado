@@ -205,7 +205,7 @@ export function DashboardPage() {
       { label: 'Listar Ocorrências', path: '/rh/ocorrencias', icon: <ClipboardList className="h-4 w-4 text-blue-600" /> },
       { label: 'Verificar Alertas', path: '/rh/alertas', icon: <TrendingUp className="h-4 w-4 text-emerald-600" /> },
       { label: 'Projetos VR', path: '/vr/projetos', icon: <Wallet className="h-4 w-4 text-purple-600" /> },
-      { label: 'Nova Entrega CEU', path: '/ceu/entregas/novo', icon: <Package className="h-4 w-4 text-cyan-600" /> },
+      { label: 'Nova Entrega CEU', path: '/ceu/movimentacoes/novo', icon: <Package className="h-4 w-4 text-cyan-600" /> },
       { label: 'Itens CEU', path: '/ceu/itens', icon: <Boxes className="h-4 w-4 text-indigo-600" /> },
       { label: 'Contratos', path: '/adicionais/contratos', icon: <Briefcase className="h-4 w-4 text-rose-600" /> },
       { label: 'Empresas', path: '/empresas', icon: <Building2 className="h-4 w-4 text-slate-600" /> },

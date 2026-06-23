@@ -18,6 +18,7 @@ import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
+import { mascaraTelefone } from '@/lib/utils'
 
 export function CeuFornecedoresPage() {
   const { fornecedores, loading, listar, criar, atualizar, remover } = useCEUFornecedores()
@@ -105,8 +106,8 @@ export function CeuFornecedoresPage() {
               <Label htmlFor="telefone">Telefone</Label>
               <CeuInput
                 id="telefone"
-                value={editando.telefone}
-                onChange={(e) => setEditando((f) => ({ ...f, telefone: e.target.value }))}
+                value={mascaraTelefone(editando.telefone)}
+                onChange={(e) => setEditando((f) => ({ ...f, telefone: mascaraTelefone(e.target.value) }))}
                 placeholder="(00) 00000-0000"
               />
             </div>

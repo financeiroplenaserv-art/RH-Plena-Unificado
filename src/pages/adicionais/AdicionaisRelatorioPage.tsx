@@ -189,9 +189,9 @@ export function AdicionaisRelatorioPage() {
           contrato_nome: contrato?.nome || v.contrato_nome || '—',
           departamento: dept,
           dias_trabalhados: 0,
-          dias_noturno: contrato?.adicionais.noturno ? 0 : 0,
-          dias_periculosidade: contrato?.adicionais.periculosidade ? 0 : 0,
-          dias_insalubridade: contrato?.adicionais.insalubridade ? 0 : 0,
+          dias_noturno: 0,
+          dias_periculosidade: 0,
+          dias_insalubridade: 0,
           dias_intrajornada: 0,
           folgas: 0,
           faltas: 0,
@@ -260,9 +260,9 @@ export function AdicionaisRelatorioPage() {
 
       if (status === 'trabalhou') {
         registro.dias_trabalhados += 1
-        if (contrato?.adicionais.noturno) registro.dias_noturno += 1
-        if (contrato?.adicionais.periculosidade) registro.dias_periculosidade += 1
-        if (contrato?.adicionais.insalubridade) registro.dias_insalubridade += 1
+        if (contrato?.adicionais?.noturno) registro.dias_noturno += 1
+        if (contrato?.adicionais?.periculosidade) registro.dias_periculosidade += 1
+        if (contrato?.adicionais?.insalubridade) registro.dias_insalubridade += 1
         if (diaIntrajornada(contrato, dia.data)) registro.dias_intrajornada += 1
       } else if (status === 'folga' || status === 'folga_substituicao') {
         registro.folgas += 1
@@ -307,9 +307,9 @@ export function AdicionaisRelatorioPage() {
         }
 
         registroSubst.dias_trabalhados += 1
-        if (contrato?.adicionais.noturno) registroSubst.dias_noturno += 1
-        if (contrato?.adicionais.periculosidade) registroSubst.dias_periculosidade += 1
-        if (contrato?.adicionais.insalubridade) registroSubst.dias_insalubridade += 1
+        if (contrato?.adicionais?.noturno) registroSubst.dias_noturno += 1
+        if (contrato?.adicionais?.periculosidade) registroSubst.dias_periculosidade += 1
+        if (contrato?.adicionais?.insalubridade) registroSubst.dias_insalubridade += 1
         if (diaIntrajornada(contrato, dia.data)) registroSubst.dias_intrajornada += 1
       }
     })

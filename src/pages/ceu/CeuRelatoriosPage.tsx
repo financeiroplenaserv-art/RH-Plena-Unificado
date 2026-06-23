@@ -8,6 +8,7 @@ import {
   Warehouse,
   FileSpreadsheet,
   FileJson,
+  FileText,
   Search,
   RotateCcw,
 } from 'lucide-react'
@@ -99,8 +100,10 @@ export function CeuRelatoriosPage() {
   const [modoMock, setModoMock] = useState(false)
   const [filtroDataInicio, setFiltroDataInicio] = useState('')
   const [filtroDataFim, setFiltroDataFim] = useState('')
-  const [filtroColaborador, setFiltroColaborador] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroColaborador, setFiltroColaborador] = useState('todos')
+  const [filtroItem, setFiltroItem] = useState('todos')
+  const [filtroTipo, setFiltroTipo] = useState('todos')
+  const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em_aberto' | 'devolvido'>('todos')
 
   useEffect(() => {
@@ -132,12 +135,31 @@ export function CeuRelatoriosPage() {
     return Array.from(tipos).sort()
   }, [dadosItens, dadosEntregas])
 
+  const departamentosUnicos = useMemo(() => {
+    const deps = new Set<string>()
+    dadosEntregas.forEach((e) => {
+      if (e.colaborador?.departamento) deps.add(e.colaborador.departamento)
+    })
+    return Array.from(deps).sort()
+  }, [dadosEntregas])
+
   const entregasFiltradas = useMemo(() => {
     return dadosEntregas.filter((e) => {
-      if (filtroColaborador && e.colaborador_id !== filtroColaborador) return false
+      if (filtroColaborador && filtroColaborador !== 'todos' && e.colaborador_id !== filtroColaborador) return false
 
       const tipo = e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo
-      if (filtroTipo && tipo !== filtroTipo) return false
+      if (filtroTipo && filtroTipo !== 'todos' && tipo !== filtroTipo) return false
+
+      if (filtroItem && filtroItem !== 'todos') {
+        const itemId = e.item_id
+        const itemNome = e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || ''
+        if (itemId !== filtroItem && !itemNome.toLowerCase().includes(filtroItem.toLowerCase())) return false
+      }
+
+      if (filtroDepartamento && filtroDepartamento !== 'todos') {
+        const dep = e.colaborador?.departamento
+        if (dep !== filtroDepartamento) return false
+      }
 
       if (filtroStatus === 'em_aberto' && e.data_devolucao) return false
       if (filtroStatus === 'devolvido' && !e.data_devolucao) return false
@@ -147,13 +169,15 @@ export function CeuRelatoriosPage() {
 
       return true
     })
-  }, [dadosEntregas, filtroColaborador, filtroTipo, filtroStatus, filtroDataInicio, filtroDataFim])
+  }, [dadosEntregas, filtroColaborador, filtroTipo, filtroItem, filtroDepartamento, filtroStatus, filtroDataInicio, filtroDataFim])
 
   const limparFiltros = () => {
     setFiltroDataInicio('')
     setFiltroDataFim('')
-    setFiltroColaborador('')
-    setFiltroTipo('')
+    setFiltroColaborador('todos')
+    setFiltroItem('todos')
+    setFiltroTipo('todos')
+    setFiltroDepartamento('todos')
     setFiltroStatus('todos')
   }
 
@@ -251,13 +275,29 @@ export function CeuRelatoriosPage() {
 
   const renderConteudoAba = () => {
     if (abaAtiva === 'colaborador') {
-      const porColaborador = colaboradoresUnicos.map((c) => ({
-        colaborador: c,
-        entregas: entregasFiltradas.filter((e) => e.colaborador_id === c.id),
-      }))
+      const porColaborador = colaboradoresUnicos
+        .map((c) => ({
+          colaborador: c,
+          entregas: entregasFiltradas.filter((e) => e.colaborador_id === c.id),
+        }))
+        .filter(({ entregas }) => entregas.length > 0)
 
       return (
         <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-slate-900">Itens por Colaborador</h3>
+            <div className="flex flex-wrap gap-2">
+              <CeuButton variant="outline" size="sm">
+                <FileText className="w-3.5 h-3.5 mr-1.5" />
+                Relatório em Lote
+              </CeuButton>
+              <CeuButton variant="outline" size="sm" onClick={exportarExcel}>
+                <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
+                Exportar Excel
+              </CeuButton>
+            </div>
+          </div>
+
           {porColaborador.length === 0 ? (
             <p className="text-sm text-slate-500 py-4">Nenhum resultado encontrado.</p>
           ) : (
@@ -266,42 +306,48 @@ export function CeuRelatoriosPage() {
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-slate-900">{colaborador.nome_completo}</p>
+                      <p className="font-semibold text-slate-900">{colaborador.nome_completo}</p>
                       <p className="text-xs text-slate-500">
                         {colaborador.matricula} — {colaborador.departamento || '—'}
                       </p>
                     </div>
-                    <CeuBadge type="default">{entregas.length} registro(s)</CeuBadge>
+                    <CeuButton variant="outline" size="sm">
+                      <FileText className="w-3.5 h-3.5 mr-1.5" />
+                      Gerar Recibo
+                    </CeuButton>
                   </div>
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-white">
+                  <thead className="bg-slate-50">
                     <tr>
-                      <th className="text-left px-4 py-2 font-medium text-slate-700">Item</th>
-                      <th className="text-left px-4 py-2 font-medium text-slate-700">Tipo</th>
-                      <th className="text-left px-4 py-2 font-medium text-slate-700">Qtd</th>
                       <th className="text-left px-4 py-2 font-medium text-slate-700">Data</th>
-                      <th className="text-left px-4 py-2 font-medium text-slate-700">Status</th>
+                      <th className="text-left px-4 py-2 font-medium text-slate-700">Item</th>
+                      <th className="text-left px-4 py-2 font-medium text-slate-700">Grupo</th>
+                      <th className="text-left px-4 py-2 font-medium text-slate-700">Qtd</th>
+                      <th className="text-left px-4 py-2 font-medium text-slate-700">Situação</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entregas.map((e) => (
-                      <tr key={e.id} className="border-t border-slate-100">
-                        <td className="px-4 py-2">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
-                        <td className="px-4 py-2">
-                          <CeuBadge type={badgeType(e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || '')}>
-                            {e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || '—'}
-                          </CeuBadge>
-                        </td>
-                        <td className="px-4 py-2">{e.quantidade}</td>
-                        <td className="px-4 py-2">{formatarData(e.data_entrega)}</td>
-                        <td className="px-4 py-2">
-                          <CeuBadge type={e.data_devolucao ? 'equipamento' : 'epi'}>
-                            {e.data_devolucao ? 'Devolvido' : 'Em aberto'}
-                          </CeuBadge>
-                        </td>
-                      </tr>
-                    ))}
+                    {entregas.map((e) => {
+                      const tipo = e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || ''
+                      return (
+                        <tr key={e.id} className="border-t border-slate-100">
+                          <td className="px-4 py-2 whitespace-nowrap">{formatarData(e.data_entrega)}</td>
+                          <td className="px-4 py-2">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
+                          <td className="px-4 py-2">
+                            <CeuBadge type={badgeType(tipo)}>
+                              {tipo || '—'}
+                            </CeuBadge>
+                          </td>
+                          <td className="px-4 py-2">{e.quantidade}</td>
+                          <td className="px-4 py-2">
+                            <CeuBadge type={e.data_devolucao ? 'equipamento' : 'uniforme'}>
+                              {e.data_devolucao ? 'Devolvido' : 'Novo'}
+                            </CeuBadge>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -597,7 +643,7 @@ export function CeuRelatoriosPage() {
         </div>
 
         <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data_inicio">Data inicial</Label>
               <CeuInput
@@ -623,7 +669,7 @@ export function CeuRelatoriosPage() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   {colaboradoresUnicos.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.nome_completo}
@@ -633,13 +679,29 @@ export function CeuRelatoriosPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Tipo de item</Label>
+              <Label>Item</Label>
+              <Select value={filtroItem} onValueChange={setFiltroItem}>
+                <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {dadosItens.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Grupo</Label>
               <Select value={filtroTipo} onValueChange={setFiltroTipo}>
                 <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   {tiposUnicos.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
@@ -649,15 +711,18 @@ export function CeuRelatoriosPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}>
+              <Label>Departamento</Label>
+              <Select value={filtroDepartamento} onValueChange={setFiltroDepartamento}>
                 <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="em_aberto">Em aberto</SelectItem>
-                  <SelectItem value="devolvido">Devolvido</SelectItem>
+                  {departamentosUnicos.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

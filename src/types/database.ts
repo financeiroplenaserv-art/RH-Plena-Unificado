@@ -14,8 +14,13 @@ export interface Departamento {
   id: string
   nome: string
   nome_curto: string | null
+  contato_portaria: string | null
   empresa_id: string | null
   endereco: string | null
+  bairro: string | null
+  cidade: string | null
+  estado: string | null
+  cep: string | null
   nome_contato: string | null
   telefone_contato: string | null
   email_contato: string | null

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Search, RefreshCw, User, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,35 +21,37 @@ import { cn, formatarCPF, formatarData } from '@/lib/utils'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { supabase } from '@/lib/supabase'
-import type { Colaborador, StatusColaborador } from '@/types/database'
+import type { Colaborador, StatusColaborador, Departamento } from '@/types/database'
 
 export function ColaboradoresPage() {
   const { colaboradores, loading, listar } = useColaboradores()
   const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<StatusColaborador | ''>('Ativo')
-  const [filtroDepartamento, setFiltroDepartamento] = useState('')
-  const [filtroCargo, setFiltroCargo] = useState('')
-  const [departamentos, setDepartamentos] = useState<{ nome: string }[]>([])
+  const [filtroStatus, setFiltroStatus] = useState<StatusColaborador | 'todos'>('Ativo')
+  const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
+  const [filtroCargo, setFiltroCargo] = useState('todos')
+  const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [cargos, setCargos] = useState<{ nome: string }[]>([])
+  const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [colaboradorSelecionado, setColaboradorSelecionado] = useState<Colaborador | null>(null)
 
   useEffect(() => {
     listar({ status: 'Ativo' })
     async function carregarOpcoes() {
-      const [{ data: deptData }, { data: cargosData }] = await Promise.all([
-        supabase.from('colaboradores').select('departamento').not('departamento', 'is', null),
+      const [{ data: deptData }, { data: cargosData }, { data: empresasData }] = await Promise.all([
+        supabase.from('departamentos').select('*').order('nome_curto'),
         supabase.from('colaboradores').select('cargo').not('cargo', 'is', null),
+        supabase.from('empresas').select('id, nome').order('nome'),
       ])
 
-      const deptUnicos = Array.from(
-        new Set((deptData || []).map((d: { departamento: string }) => d.departamento).filter(Boolean))
-      ).sort() as string[]
-      setDepartamentos(deptUnicos.map((nome) => ({ nome })))
+      setDepartamentos((deptData || []) as Departamento[])
 
       const cargosUnicos = Array.from(
         new Set((cargosData || []).map((c: { cargo: string }) => c.cargo).filter(Boolean))
       ).sort() as string[]
       setCargos(cargosUnicos.map((nome) => ({ nome })))
+
+      setEmpresas((empresasData || []) as { id: string; nome: string }[])
     }
     carregarOpcoes()
   }, [listar])
@@ -57,11 +59,53 @@ export function ColaboradoresPage() {
   const aplicarFiltros = () => {
     listar({
       busca,
-      status: (filtroStatus.trim() as StatusColaborador) || undefined,
-      departamento: filtroDepartamento.trim() || undefined,
-      cargo: filtroCargo.trim() || undefined,
+      status: filtroStatus !== 'todos' ? filtroStatus : undefined,
+      cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
+      empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
     })
   }
+
+  const colaboradoresFiltrados = useMemo(() => {
+    if (filtroDepartamento === 'todos') return colaboradores
+
+    const termo = filtroDepartamento.toLowerCase().trim()
+    if (!termo) return colaboradores
+
+    // Encontra todos os departamentos que correspondam ao termo
+    // (pode haver mais de um com o mesmo nome curto)
+    const deptsSelecionados = departamentos.filter((d) => {
+      const nomeCurto = (d.nome_curto || d.nome).toLowerCase().trim()
+      const nome = d.nome.toLowerCase().trim()
+      return nomeCurto === termo || nome === termo
+    })
+
+    if (deptsSelecionados.length === 0) return []
+
+    const ids = new Set(deptsSelecionados.map((d) => d.id))
+    const nomes = new Set(
+      deptsSelecionados.flatMap((d) => [
+        d.nome.toLowerCase().trim(),
+        (d.nome_curto || d.nome).toLowerCase().trim(),
+      ])
+    )
+
+    return colaboradores.filter((c) => {
+      // Pelo vínculo direto via departamento_id
+      if (c.departamento_id && ids.has(c.departamento_id)) return true
+
+      // Pelo nome do departamento armazenado no colaborador
+      if (!c.departamento) return false
+      const nomeColab = c.departamento.toLowerCase().trim()
+
+      // Comparação exata
+      if (nomes.has(nomeColab)) return true
+
+      // Comparação parcial para casos como "Blue Terminal - RJ" ou "Calle (unidade)"
+      return Array.from(nomes).some(
+        (n) => nomeColab.includes(n) || n.includes(nomeColab)
+      )
+    })
+  }, [colaboradores, filtroDepartamento, departamentos])
 
   const iniciais = (nome: string) => {
     const limpo = nome?.trim()
@@ -109,12 +153,16 @@ export function ColaboradoresPage() {
                 <SelectValue placeholder="Departamento" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os departamentos</SelectItem>
-                {departamentos.map((d) => (
-                  <SelectItem key={d.nome} value={d.nome}>
-                    {d.nome}
-                  </SelectItem>
-                ))}
+                <SelectItem value="todos">Todos os departamentos</SelectItem>
+                {departamentos.map((d) => {
+                  const label = d.nome_curto || d.nome
+                  return (
+                    <SelectItem key={d.id} value={label}>
+                      {label}
+                      {d.nome_curto ? <span className="ml-1 text-slate-400 text-xs">({d.nome})</span> : null}
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
 
@@ -123,7 +171,7 @@ export function ColaboradoresPage() {
                 <SelectValue placeholder="Função" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as funções</SelectItem>
+                <SelectItem value="todos">Todas as funções</SelectItem>
                 {cargos.map((c) => (
                   <SelectItem key={c.nome} value={c.nome}>
                     {c.nome}
@@ -132,15 +180,29 @@ export function ColaboradoresPage() {
               </SelectContent>
             </Select>
 
-            <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as StatusColaborador | '')}>
+            <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as StatusColaborador | 'todos')}>
               <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="Ativo">Ativo</SelectItem>
                 <SelectItem value="Inativo">Inativo</SelectItem>
                 <SelectItem value="Afastado">Afastado</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
+                <SelectValue placeholder="Empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as empresas</SelectItem>
+                {empresas.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.nome}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -160,20 +222,20 @@ export function ColaboradoresPage() {
       <Card className="bg-white rounded-[12px] shadow-sm border-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base text-[#1F2937]">
-            Lista de colaboradores ({colaboradores.length})
+            Lista de colaboradores ({colaboradoresFiltrados.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <LoadingScreen className="h-64" />
-          ) : colaboradores.length === 0 ? (
+          ) : colaboradoresFiltrados.length === 0 ? (
             <div className="text-center py-12 text-[#94A3B8]">
               <User className="w-10 h-10 mx-auto mb-3 text-[#E2E8F0]" />
               <p>Nenhum colaborador encontrado.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {colaboradores.map((c) => (
+              {colaboradoresFiltrados.map((c) => (
                 <div
                   key={c.id}
                   onClick={() => setColaboradorSelecionado(c)}

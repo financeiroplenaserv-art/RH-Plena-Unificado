@@ -32,7 +32,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { path: '/ceu/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
   { path: '/ceu/itens', label: 'Itens', icon: <Package className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/ceu/entregas', label: 'Entregas', icon: <ArrowLeftRight className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
+  { path: '/ceu/movimentacoes', label: 'Movimentações', icon: <ArrowLeftRight className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
   { path: '/ceu/lancamento-rapido', label: 'Lançamento Rápido', icon: <Zap className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor'] },
   { path: '/ceu/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
   { path: '/ceu/fornecedores', label: 'Fornecedores', icon: <Truck className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },

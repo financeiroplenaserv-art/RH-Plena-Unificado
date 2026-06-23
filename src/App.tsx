@@ -38,7 +38,7 @@ import { CeuDashboardPage } from '@/pages/ceu/CeuDashboardPage'
 import { CeuItensPage } from '@/pages/ceu/CeuItensPage'
 import { CeuItemFormPage } from '@/pages/ceu/CeuItemFormPage'
 import { CeuFornecedoresPage } from '@/pages/ceu/CeuFornecedoresPage'
-import { CeuEntregasPage } from '@/pages/ceu/CeuEntregasPage'
+import { CeuMovimentacoesPage } from '@/pages/ceu/CeuMovimentacoesPage'
 import { CeuEntregaFormPage } from '@/pages/ceu/CeuEntregaFormPage'
 import { CeuLancamentoRapidoPage } from '@/pages/ceu/CeuLancamentoRapidoPage'
 import { CeuRelatoriosPage } from '@/pages/ceu/CeuRelatoriosPage'
@@ -314,15 +314,15 @@ function App() {
                 }
               />
               <Route
-                path="/ceu/entregas"
+                path="/ceu/movimentacoes"
                 element={
                   <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
-                    <CeuEntregasPage />
+                    <CeuMovimentacoesPage />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/ceu/entregas/novo"
+                path="/ceu/movimentacoes/novo"
                 element={
                   <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
                     <CeuEntregaFormPage />

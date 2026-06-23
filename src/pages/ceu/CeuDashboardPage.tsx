@@ -121,7 +121,7 @@ export function CeuDashboardPage() {
         <>
           <CeuCard title="Ações rápidas" gradient="blue">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <CeuButton onClick={() => navigate('/ceu/entregas/novo')}>
+              <CeuButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova entrega
               </CeuButton>
@@ -285,7 +285,7 @@ export function CeuDashboardPage() {
               <CeuButton
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/ceu/entregas')}
+                onClick={() => navigate('/ceu/movimentacoes')}
                 className="mt-3 gap-1"
               >
                 Ver entregas <ArrowRight className="w-3.5 h-3.5" />

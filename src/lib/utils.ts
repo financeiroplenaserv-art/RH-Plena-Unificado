@@ -48,3 +48,36 @@ export function nomeDepartamento(departamento: Departamento | null | undefined):
   if (!departamento) return '—'
   return departamento.nome_curto?.trim() || departamento.nome
 }
+
+/**
+ * Aplica máscara de telefone/celular brasileiro:
+ * - Fixo: (00) 0000-0000
+ * - Celular: (00) 00000-0000
+ */
+export function mascaraTelefone(valor: string | null | undefined): string {
+  if (!valor) return ''
+  const limpo = valor.replace(/\D/g, '').slice(0, 11)
+  if (limpo.length <= 10) {
+    return limpo.replace(/(\d{0,2})(\d{0,4})(\d{0,4})/, (_, ddd, prefixo, sufixo) => {
+      if (sufixo) return `(${ddd}) ${prefixo}-${sufixo}`
+      if (prefixo) return `(${ddd}) ${prefixo}`
+      if (ddd) return `(${ddd}`
+      return ''
+    })
+  }
+  return limpo.replace(/(\d{0,2})(\d{0,5})(\d{0,4})/, (_, ddd, prefixo, sufixo) => {
+    if (sufixo) return `(${ddd}) ${prefixo}-${sufixo}`
+    if (prefixo) return `(${ddd}) ${prefixo}`
+    if (ddd) return `(${ddd}`
+    return ''
+  })
+}
+
+export function mascaraCEP(valor: string | null | undefined): string {
+  if (!valor) return ''
+  const limpo = valor.replace(/\D/g, '').slice(0, 8)
+  return limpo.replace(/(\d{0,5})(\d{0,3})/, (_, prefixo, sufixo) => {
+    if (sufixo) return `${prefixo}-${sufixo}`
+    return prefixo
+  })
+}

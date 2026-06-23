@@ -54,11 +54,11 @@ export function OcorrenciasPage() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState('')
-  const [filtroEmpresa, setFiltroEmpresa] = useState('')
-  const [filtroMacroGrupo, setFiltroMacroGrupo] = useState('')
-  const [filtroGravidade, setFiltroGravidade] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('todos')
+  const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
+  const [filtroMacroGrupo, setFiltroMacroGrupo] = useState('todos')
+  const [filtroGravidade, setFiltroGravidade] = useState('todos')
   const [filtroDataInicio, setFiltroDataInicio] = useState('')
   const [filtroDataFim, setFiltroDataFim] = useState('')
   const [filtroColaboradorId, setFiltroColaboradorId] = useState<string | undefined>(undefined)
@@ -84,11 +84,11 @@ export function OcorrenciasPage() {
       .select('*, colaborador:colaborador_id(matricula, nome_completo, cargo, empresa_id)')
       .order('data_ocorrencia', { ascending: false })
 
-    const tipo = filtroTipo.trim()
-    const status = filtroStatus.trim()
-    const empresa = filtroEmpresa.trim()
-    const macroGrupo = filtroMacroGrupo.trim()
-    const gravidade = filtroGravidade.trim()
+    const tipo = filtroTipo !== 'todos' ? filtroTipo.trim() : ''
+    const status = filtroStatus !== 'todos' ? filtroStatus.trim() : ''
+    const empresa = filtroEmpresa !== 'todos' ? filtroEmpresa.trim() : ''
+    const macroGrupo = filtroMacroGrupo !== 'todos' ? filtroMacroGrupo.trim() : ''
+    const gravidade = filtroGravidade !== 'todos' ? filtroGravidade.trim() : ''
 
     if (tipo) query = query.eq('tipo_ocorrencia', tipo)
     if (status) query = query.eq('status', status)
@@ -187,7 +187,7 @@ export function OcorrenciasPage() {
                 <SelectValue placeholder="Tipo de ocorrência" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os tipos</SelectItem>
+                <SelectItem value="todos">Todos os tipos</SelectItem>
                 {tiposUnicos.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
@@ -201,7 +201,7 @@ export function OcorrenciasPage() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os status</SelectItem>
+                <SelectItem value="todos">Todos os status</SelectItem>
                 <SelectItem value="Pendente">Pendente</SelectItem>
                 <SelectItem value="Ativa">Ativa</SelectItem>
                 <SelectItem value="Resolvida">Resolvida</SelectItem>
@@ -214,7 +214,7 @@ export function OcorrenciasPage() {
                 <SelectValue placeholder="Empresa" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as empresas</SelectItem>
+                <SelectItem value="todos">Todas as empresas</SelectItem>
                 {empresas.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
                     {e.nome}
@@ -228,7 +228,7 @@ export function OcorrenciasPage() {
                 <SelectValue placeholder="Macro grupo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os grupos</SelectItem>
+                <SelectItem value="todos">Todos os grupos</SelectItem>
                 {MACRO_GRUPOS.map((g) => (
                   <SelectItem key={g} value={g}>
                     {g}
@@ -242,7 +242,7 @@ export function OcorrenciasPage() {
                 <SelectValue placeholder="Gravidade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as gravidades</SelectItem>
+                <SelectItem value="todos">Todas as gravidades</SelectItem>
                 {GRAVIDADES.map((g) => (
                   <SelectItem key={g} value={g}>
                     {g}

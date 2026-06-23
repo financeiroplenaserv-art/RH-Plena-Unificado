@@ -6,6 +6,7 @@ import type { Colaborador, StatusColaborador } from '@/types/database'
 interface FiltrosColaborador {
   empresaId?: string
   departamento?: string
+  departamentoNomeCurto?: string
   cargo?: string
   status?: StatusColaborador
   busca?: string
@@ -17,10 +18,35 @@ export function useColaboradores() {
 
   const listar = useCallback(async (filtros?: FiltrosColaborador) => {
     setLoading(true)
+
+    // Se houver filtro por nome curto do departamento, busca os IDs correspondentes primeiro
+    const departamentoIds: string[] = []
+    if (filtros?.departamentoNomeCurto && filtros.departamentoNomeCurto !== 'todos') {
+      const { data: depts, error: erroDepts } = await supabase
+        .from('departamentos')
+        .select('id')
+        .ilike('nome_curto', `%${filtros.departamentoNomeCurto}%`)
+
+      if (erroDepts) {
+        toast.error('Erro ao carregar departamentos: ' + erroDepts.message)
+        setLoading(false)
+        return []
+      }
+
+      const ids = (depts || []).map((d: { id: string }) => d.id)
+      if (ids.length === 0) {
+        setColaboradores([])
+        setLoading(false)
+        return []
+      }
+      departamentoIds.push(...ids)
+    }
+
     let query = supabase.from('colaboradores').select('*').order('nome_completo')
 
     if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
     if (filtros?.departamento) query = query.ilike('departamento', filtros.departamento)
+    if (departamentoIds.length > 0) query = query.in('departamento_id', departamentoIds)
     if (filtros?.cargo) query = query.ilike('cargo', filtros.cargo)
     if (filtros?.status) query = query.eq('status', filtros.status)
     if (filtros?.busca) {

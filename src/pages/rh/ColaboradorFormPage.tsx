@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Save } from 'lucide-react'
+import { mascaraTelefone } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 
 function limparPayload(data: Record<string, string>): Partial<Colaborador> {
@@ -237,11 +238,21 @@ export function ColaboradorFormPage() {
               </div>
               <div>
                 <Label>Telefone</Label>
-                <Input name="telefone" value={form.telefone} onChange={handleChange} />
+                <Input
+                  name="telefone"
+                  value={mascaraTelefone(form.telefone)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, telefone: mascaraTelefone(e.target.value) }))}
+                  placeholder="(00) 00000-0000"
+                />
               </div>
               <div>
                 <Label>Celular</Label>
-                <Input name="celular" value={form.celular} onChange={handleChange} />
+                <Input
+                  name="celular"
+                  value={mascaraTelefone(form.celular)}
+                  onChange={(e) => setForm((prev) => ({ ...prev, celular: mascaraTelefone(e.target.value) }))}
+                  placeholder="(00) 00000-0000"
+                />
               </div>
             </CardContent>
           </Card>

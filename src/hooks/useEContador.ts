@@ -309,7 +309,28 @@ export function useEContador() {
       return null
     }
 
-    const empresaId = empresaIdPorCodigoOuNome(eContadorEmpresaId, eContadorEmpresaNome)
+    let empresaId = empresaIdPorCodigoOuNome(eContadorEmpresaId, eContadorEmpresaNome)
+
+    // Se a empresa ainda não existe no banco, cria automaticamente para vincular os colaboradores
+    if (!empresaId && eContadorEmpresaNome) {
+      const { data: novaEmpresa, error: erroEmpresa } = await supabase
+        .from('empresas')
+        .insert({
+          nome: eContadorEmpresaNome,
+          codigo_alterdata: eContadorEmpresaId || null,
+          cnpj: null,
+        })
+        .select()
+        .single()
+
+      if (erroEmpresa) {
+        console.error('Erro ao criar empresa:', erroEmpresa)
+      } else if (novaEmpresa) {
+        empresaId = novaEmpresa.id
+        await listarEmpresasDB()
+      }
+    }
+
     const departamentosMap = await sincronizarDepartamentos(lista, empresaId)
 
     for (const f of lista) {
@@ -410,7 +431,7 @@ export function useEContador() {
     })
 
     return { importados, atualizados, erros }
-  }, [empresasDB, upsertPorMatricula, sincronizarDepartamentos])
+  }, [empresasDB, upsertPorMatricula, sincronizarDepartamentos, listarEmpresasDB])
 
   const salvarHistorico = useCallback(async (item: Omit<HistoricoImportacao, 'id' | 'created_at' | 'usuario_id'>) => {
     try {
