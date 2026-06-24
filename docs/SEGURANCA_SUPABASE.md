@@ -65,6 +65,29 @@ A migração `supabase/migrations/011_storage_buckets_rls.sql` protege os bucket
 
 ---
 
+## Parte 1.6 — Aplicar a migração 012 (remover policies antigas do storage)
+
+> ⚠️ **Importante:** a migração `011` já criou policies seguras, mas ainda existem policies antigas concedendo permissão `ALL` para qualquer usuário autenticado. A migração `012` remove essas policies antigas.
+
+### Passos
+
+1. Siga o roteiro detalhado em:
+   ```
+   docs/APLICAR_MIGRATION_012.md
+   ```
+
+2. Em resumo:
+   - Acesse o painel do Supabase → SQL Editor → New query.
+   - Cole o conteúdo de `supabase/migrations/012_limpar_policies_storage_antigas.sql`.
+   - Clique em **Run**.
+
+### O que muda após aplicar
+
+- As policies antigas `Permitir admin e rh vr` e `Permitir admin e rh ocorrencias` são removidas.
+- Apenas administradores podem deletar arquivos dos buckets.
+
+---
+
 ## Parte 2 — Rotacionar as chaves do Supabase
 
 > ⚠️ **Por que rotacionar?** O arquivo `.env` foi commitado anteriormente no repositório Git. Mesmo tendo sido removido depois, as chaves ainda estão no histórico do Git e podem ser vistas por quem tem acesso ao repositório.
@@ -175,7 +198,8 @@ git push origin --force --all
 - [x] Aplicar RLS nas tabelas de negócio (migração 010 pronta)
 - [x] Preparar código para novas Publishable/Secret API keys
 - [x] Revisar storage buckets e habilitar RLS (migração 011 pronta)
-- [ ] Aplicar as migrações 010 e 011 no banco de produção
+- [x] Aplicar as migrações 010 e 011 no banco de produção
+- [x] Aplicar a migração 012 no banco de produção
 - [ ] Rotacionar as chaves `anon` e `service_role` no painel do Supabase
 - [ ] Limpar chaves antigas do histórico do Git
 - [ ] (Futuro) Migrar definitivamente das legacy API keys para Publishable keys

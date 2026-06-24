@@ -1,6 +1,6 @@
 # Como verificar se as migrations de segurança já foram aplicadas
 
-Siga os passos abaixo no painel do Supabase para confirmar se as migrations `010` e `011` já estão ativas no banco de produção.
+Siga os passos abaixo no painel do Supabase para confirmar se as migrations `010`, `011` e `012` já estão ativas no banco de produção.
 
 ## 1. Verificar RLS nas tabelas (migration 010)
 
@@ -62,8 +62,38 @@ Siga os passos abaixo no painel do Supabase para confirmar se as migrations `010
 
 4. Verifique também que os buckets estão como **Private** (não públicos).
 
-## 3. Resultado
+## 3. Verificar remoção das policies antigas (migration 012)
 
-Se todas as policies e RLS estiverem presentes, as migrations **já foram aplicadas**.
+1. Ainda em **Storage → Buckets**, clique no bucket **`ocorrencia-anexos`**.
 
-Se faltar alguma policy ou RLS, ainda é necessário executar as migrations 010 e 011 no **SQL Editor**.
+2. Na aba **Policies**, confirme que **não existe** a policy:
+   - `Permitir admin e rh ocorrencias`
+
+3. Clique no bucket **`vr-arquivos`**.
+
+4. Na aba **Policies**, confirme que **não existe** a policy:
+   - `Permitir admin e rh vr`
+
+5. Opcionalmente, execute a query abaixo no SQL Editor para confirmar que as policies antigas sumiram:
+
+   ```sql
+   SELECT policyname
+   FROM pg_policies
+   WHERE schemaname = 'storage'
+     AND tablename = 'objects'
+     AND policyname IN (
+       'Permitir admin e rh vr',
+       'Permitir admin e rh ocorrencias'
+     );
+   ```
+
+   **Resultado esperado:** nenhuma linha retornada.
+
+## 4. Resultado
+
+Se todas as policies e RLS estiverem presentes e as policies antigas tiverem sido removidas, as migrations **já foram aplicadas**.
+
+Se faltar alguma policy, RLS ou ainda existirem policies antigas, execute a migration correspondente no **SQL Editor**:
+- Migration 010: `supabase/migrations/010_rls_tabelas_negocio.sql`
+- Migration 011: `supabase/migrations/011_storage_buckets_rls.sql`
+- Migration 012: `supabase/migrations/012_limpar_policies_storage_antigas.sql`
