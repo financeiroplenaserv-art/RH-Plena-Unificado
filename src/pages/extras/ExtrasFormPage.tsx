@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Save, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -57,6 +57,19 @@ export function ExtrasFormPage() {
   const { categorias, loading, listar, listarCategorias, buscarPorId, criar, atualizar } = useExtras()
   const { listar: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
+
+  const departamentosUnicos = useMemo(() => {
+    const vistos = new Set<string>()
+    return departamentos
+      .filter(d => d.status === 'Ativo')
+      .sort((a, b) => (a.nome_curto || a.nome).localeCompare(b.nome_curto || b.nome))
+      .filter(d => {
+        const chave = (d.nome_curto || d.nome).toLowerCase().trim()
+        if (vistos.has(chave)) return false
+        vistos.add(chave)
+        return true
+      })
+  }, [departamentos])
 
   const [form, setForm] = useState<Omit<Extra, 'id' | 'created_at' | 'updated_at'>>(extraVazio())
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
@@ -218,7 +231,7 @@ export function ExtrasFormPage() {
               <Select
                 value={form.departamento_id || 'null'}
                 onValueChange={v => {
-                  const dept = departamentos.find(d => d.id === v)
+                  const dept = departamentosUnicos.find(d => d.id === v)
                   setForm(prev => ({
                     ...prev,
                     departamento_id: v === 'null' ? null : v,
@@ -237,7 +250,7 @@ export function ExtrasFormPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="null">Selecione...</SelectItem>
-                  {departamentos.map(d => (
+                  {departamentosUnicos.map(d => (
                     <SelectItem key={d.id} value={d.id}>{d.nome_curto || d.nome}</SelectItem>
                   ))}
                 </SelectContent>
