@@ -23,6 +23,11 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
+-- A função aplicar_rls_admin é um utilitário interno da migration.
+-- Ela NÃO deve ser executada por usuários autenticados, por isso
+-- não recebe GRANT EXECUTE para authenticated.
+-- A migration 013 a remove do banco após a execução bem-sucedida.
+
 -- Função auxiliar: aplica RLS e policies de forma segura em uma tabela
 CREATE OR REPLACE FUNCTION public.aplicar_rls_admin(p_tabela TEXT)
 RETURNS VOID

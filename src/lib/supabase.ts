@@ -14,10 +14,3 @@ export const supabase = createClient<Database>(
   supabaseKey || ''
 )
 
-declare module '@supabase/supabase-js' {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface SupabaseClient<Database> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from(table: string): any
-  }
-}
