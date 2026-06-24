@@ -88,6 +88,23 @@ export function AutocompleteColaborador({
     setCarregando(false)
   }, [somenteAtivos, departamentoId])
 
+  const buscarPorDepartamento = useCallback(async () => {
+    if (!departamentoId) return
+    setCarregando(true)
+    let query = supabase
+      .from('colaboradores')
+      .select('*')
+      .eq('departamento_id', departamentoId)
+    if (somenteAtivos) {
+      query = query.eq('status', 'Ativo')
+    }
+    const { data } = await query.order('nome_completo').limit(10)
+    const resultados = (data as Colaborador[]) || []
+    setColaboradores(resultados)
+    setMostrarSugestoes(resultados.length > 0)
+    setCarregando(false)
+  }, [departamentoId, somenteAtivos])
+
   const handleBuscaChange = (val: string) => {
     setBusca(val)
     if (selecionado) {
@@ -139,7 +156,11 @@ export function AutocompleteColaborador({
             value={busca}
             onChange={(e) => handleBuscaChange(e.target.value)}
             onFocus={() => {
-              if (colaboradores.length > 0) setMostrarSugestoes(true)
+              if (colaboradores.length > 0) {
+                setMostrarSugestoes(true)
+              } else if (departamentoId) {
+                buscarPorDepartamento()
+              }
             }}
             className="text-sm pl-9"
             autoComplete="off"

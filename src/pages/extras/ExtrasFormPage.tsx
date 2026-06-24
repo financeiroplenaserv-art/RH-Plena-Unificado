@@ -15,7 +15,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
-import { nomeDepartamento, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 
@@ -84,7 +84,7 @@ export function ExtrasFormPage() {
   }, [listar, listarCategorias, listarColaboradores, listarDepartamentos])
 
   useEffect(() => {
-    setValorInput(mascaraMoedaInput(String(form.valor)))
+    setValorInput(mascaraMoeda(form.valor))
   }, [form.valor])
 
   useEffect(() => {
