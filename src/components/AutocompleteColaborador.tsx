@@ -59,6 +59,29 @@ export function AutocompleteColaborador({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const buscarIdsDoGrupo = useCallback(async (id: string): Promise<{ ids: string[]; nomeCurto: string | null; nome: string | null }> => {
+    const { data: dept } = await supabase
+      .from('departamentos')
+      .select('nome_curto, nome')
+      .eq('id', id)
+      .single()
+
+    const nomeCurto = dept?.nome_curto || null
+    const nome = dept?.nome || null
+    const ids = new Set<string>([id])
+
+    if (nomeCurto) {
+      const { data: depts } = await supabase
+        .from('departamentos')
+        .select('id')
+        .eq('nome_curto', nomeCurto)
+        .eq('status', 'Ativo')
+      depts?.forEach((d) => ids.add(d.id))
+    }
+
+    return { ids: Array.from(ids), nomeCurto, nome }
+  }, [])
+
   const buscarSugestoes = useCallback(async (termo: string) => {
     if (!termo || termo.length < 2) {
       setColaboradores([])
@@ -73,12 +96,13 @@ export function AutocompleteColaborador({
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
     }
-    const { data } = await query.limit(20)
+    const { data } = await query.limit(50)
     let resultados = (data as Colaborador[]) || []
     if (departamentoId) {
+      const grupo = await buscarIdsDoGrupo(departamentoId)
       resultados = resultados.sort((a, b) => {
-        const aDoDept = a.departamento_id === departamentoId ? -1 : 1
-        const bDoDept = b.departamento_id === departamentoId ? -1 : 1
+        const aDoDept = grupo.ids.includes(a.departamento_id || '') ? -1 : 1
+        const bDoDept = grupo.ids.includes(b.departamento_id || '') ? -1 : 1
         if (aDoDept !== bDoDept) return aDoDept - bDoDept
         return a.nome_completo.localeCompare(b.nome_completo)
       })
@@ -86,24 +110,27 @@ export function AutocompleteColaborador({
     setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
-  }, [somenteAtivos, departamentoId])
+  }, [somenteAtivos, departamentoId, buscarIdsDoGrupo])
 
   const buscarPorDepartamento = useCallback(async () => {
     if (!departamentoId) return
     setCarregando(true)
-    let query = supabase
-      .from('colaboradores')
-      .select('*')
-      .eq('departamento_id', departamentoId)
+
+    const grupo = await buscarIdsDoGrupo(departamentoId)
+    const filtros: string[] = [`departamento_id.in.(${grupo.ids.join(',')})`]
+    if (grupo.nomeCurto) filtros.push(`departamento.ilike.%${grupo.nomeCurto}%`)
+    if (grupo.nome && grupo.nome !== grupo.nomeCurto) filtros.push(`departamento.ilike.%${grupo.nome}%`)
+
+    let query = supabase.from('colaboradores').select('*').or(filtros.join(','))
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
     }
-    const { data } = await query.order('nome_completo').limit(10)
+    const { data } = await query.order('nome_completo').limit(20)
     const resultados = (data as Colaborador[]) || []
-    setColaboradores(resultados)
+    setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
-  }, [departamentoId, somenteAtivos])
+  }, [departamentoId, somenteAtivos, buscarIdsDoGrupo])
 
   const handleBuscaChange = (val: string) => {
     setBusca(val)
