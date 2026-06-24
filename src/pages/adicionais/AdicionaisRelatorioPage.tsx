@@ -108,6 +108,34 @@ function calcularStatus12x36(dataInicio: string | undefined, dataAtual: string):
   return diffDias % 2 === 0 ? 'trabalhou' : 'folga'
 }
 
+function calcularStatus6x1(dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
+  if (!dataInicio) return 'trabalhou'
+  const inicio = new Date(dataInicio + 'T00:00:00')
+  const atual = new Date(dataAtual + 'T00:00:00')
+  const diffMs = atual.getTime() - inicio.getTime()
+  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  return diffDias % 7 < 6 ? 'trabalhou' : 'folga'
+}
+
+function calcularStatus5x2(dataAtual: string): 'trabalhou' | 'folga' {
+  const dia = new Date(dataAtual + 'T00:00:00').getDay()
+  return dia >= 1 && dia <= 5 ? 'trabalhou' : 'folga'
+}
+
+function calcularStatusPorRegime(regime: string | undefined, dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
+  switch (regime) {
+    case '6x1':
+      return calcularStatus6x1(dataInicio, dataAtual)
+    case '5x2':
+      return calcularStatus5x2(dataAtual)
+    case 'personalizado':
+      return 'trabalhou'
+    case '12x36':
+    default:
+      return calcularStatus12x36(dataInicio, dataAtual)
+  }
+}
+
 function gerarDiasDoPeriodo(inicio: string, fim: string): string[] {
   const dias: string[] = []
   const atual = new Date(inicio + 'T00:00:00')
@@ -127,7 +155,7 @@ interface DiaCalendarioBasico {
   substituto_colaborador_nome?: string | null
 }
 
-function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, data: string, calendarioUnico: DiaCalendarioBasico[]): DiaCalendarioBasico {
+function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, regime: string | undefined, data: string, calendarioUnico: DiaCalendarioBasico[]): DiaCalendarioBasico {
   const salvo = calendarioUnico.find(d => d.vinculo_id === vinculo.id && d.data === data)
   if (salvo) {
     return {
@@ -141,7 +169,7 @@ function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, data: strin
   return {
     vinculo_id: vinculo.id,
     data,
-    status: calcularStatus12x36(vinculo.data_inicio, data),
+    status: calcularStatusPorRegime(regime, vinculo.data_inicio, data),
     substituto_colaborador_id: null,
     substituto_colaborador_nome: null,
   }
@@ -264,15 +292,17 @@ export function AdicionaisRelatorioPage() {
     const chaveDia = (vinculoId: string, data: string) => `${vinculoId}|${data}`
     const feriasPorVinculo = new Set<string>()
     vinculosAtivosNoMes.forEach(v => {
+      const contrato = mapContrato.get(v.contrato_id)
+      const regime = contrato?.regime_trabalho
       diasDoPeriodo.forEach(data => {
-        if (getDiaEfetivo(v, data, calendarioUnico).status === 'ferias') {
+        if (getDiaEfetivo(v, regime, data, calendarioUnico).status === 'ferias') {
           feriasPorVinculo.add(chaveDia(v.id, data))
         }
       })
     })
 
-    const statusEfetivo = (vinculo: typeof vinculosAtivosNoMes[0], data: string): StatusDiaAdicional => {
-      const dia = getDiaEfetivo(vinculo, data, calendarioUnico)
+    const statusEfetivo = (vinculo: typeof vinculosAtivosNoMes[0], regime: string | undefined, data: string): StatusDiaAdicional => {
+      const dia = getDiaEfetivo(vinculo, regime, data, calendarioUnico)
       if (dia.status !== 'afastado') return dia.status
       const anterior = new Date(data)
       anterior.setDate(anterior.getDate() - 1)
@@ -313,9 +343,10 @@ export function AdicionaisRelatorioPage() {
         contagem.set(chave, registro)
       }
 
+      const regime = contrato?.regime_trabalho
       diasDoPeriodo.forEach(data => {
-        const dia = getDiaEfetivo(vinculo, data, calendarioUnico)
-        const status = statusEfetivo(vinculo, data)
+        const dia = getDiaEfetivo(vinculo, regime, data, calendarioUnico)
+        const status = statusEfetivo(vinculo, regime, data)
 
         if (status === 'trabalhou') {
           registro!.dias_trabalhados += 1
@@ -373,6 +404,18 @@ export function AdicionaisRelatorioPage() {
     })
 
     const resultado = Array.from(contagem.values())
+
+    // Regra de negócio: insalubridade/periculosidade = 30 dias se não houver faltas; senão, desconta as faltas.
+    resultado.forEach(registro => {
+      const contrato = mapContrato.get(registro.contrato_id)
+      if (!contrato) return
+      if (contrato.adicionais?.insalubridade) {
+        registro.dias_insalubridade = Math.max(0, 30 - registro.faltas)
+      }
+      if (contrato.adicionais?.periculosidade) {
+        registro.dias_periculosidade = Math.max(0, 30 - registro.faltas)
+      }
+    })
 
     return resultado
   }, [calendarioUnico, vinculosAtivosNoMes, inicioMes, fimMes, mapContrato, mapColaborador, mapDepartamento])

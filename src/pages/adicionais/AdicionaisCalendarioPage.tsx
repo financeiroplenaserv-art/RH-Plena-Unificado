@@ -79,6 +79,34 @@ function calcularStatus12x36(dataInicio: string | undefined, dataAtual: string):
   return diffDias % 2 === 0 ? 'trabalhou' : 'folga'
 }
 
+function calcularStatus6x1(dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
+  if (!dataInicio) return 'trabalhou'
+  const inicio = new Date(dataInicio + 'T00:00:00')
+  const atual = new Date(dataAtual + 'T00:00:00')
+  const diffMs = atual.getTime() - inicio.getTime()
+  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  return diffDias % 7 < 6 ? 'trabalhou' : 'folga'
+}
+
+function calcularStatus5x2(dataAtual: string): 'trabalhou' | 'folga' {
+  const dia = new Date(dataAtual + 'T00:00:00').getDay()
+  return dia >= 1 && dia <= 5 ? 'trabalhou' : 'folga'
+}
+
+function calcularStatusPorRegime(regime: string | undefined, dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
+  switch (regime) {
+    case '6x1':
+      return calcularStatus6x1(dataInicio, dataAtual)
+    case '5x2':
+      return calcularStatus5x2(dataAtual)
+    case 'personalizado':
+      return 'trabalhou'
+    case '12x36':
+    default:
+      return calcularStatus12x36(dataInicio, dataAtual)
+  }
+}
+
 function formatarDataBR(dataStr: string) {
   const [ano, mes, dia] = dataStr.split('-')
   return `${dia}/${mes}/${ano}`
@@ -179,7 +207,8 @@ export function AdicionaisCalendarioPage() {
       const status = normalizarStatus(salvo.status)
       return { ...salvo, status, __fallback: status !== salvo.status ? true : undefined }
     }
-    const statusPadrao = calcularStatus12x36(vinculo.data_inicio, data)
+    const contrato = mapContrato.get(vinculo.contrato_id)
+    const statusPadrao = calcularStatusPorRegime(contrato?.regime_trabalho, vinculo.data_inicio, data)
     return {
       vinculo_id: vinculo.id,
       data,
@@ -187,7 +216,7 @@ export function AdicionaisCalendarioPage() {
       intrajornada: false,
       __fallback: false,
     }
-  }, [alteracoes, calendario])
+  }, [alteracoes, calendario, mapContrato])
 
   const vinculosFiltrados = useMemo(() => {
     let lista = vinculosAtivosNoPeriodo

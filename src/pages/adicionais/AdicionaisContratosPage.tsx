@@ -28,9 +28,16 @@ import {
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
-import type { ContratoAdicional, AdicionaisConfig } from '@/types/adicionais'
+import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
 import { nomeDepartamento } from '@/lib/utils'
+
+const REGIMES_TRABALHO: { value: RegimeTrabalho; label: string }[] = [
+  { value: '12x36', label: '12 × 36 (dia sim, dia não)' },
+  { value: '6x1', label: '6 × 1 (6 trabalhados, 1 folga)' },
+  { value: '5x2', label: '5 × 2 (seg a sex)' },
+  { value: 'personalizado', label: 'Personalizado (preencher dia a dia)' },
+]
 
 const ADICIONAIS_OPCOES: { key: keyof AdicionaisConfig; label: string }[] = [
   { key: 'insalubridade', label: 'Insalubridade' },
@@ -56,6 +63,7 @@ function novoContratoVazio(): Omit<ContratoAdicional, 'id' | 'created_at' | 'upd
     nome: '',
     departamento_id: null,
     quantidade_colaboradores: 0,
+    regime_trabalho: '12x36',
     adicionais: {
       insalubridade: false,
       noturno: false,
@@ -132,6 +140,7 @@ export function AdicionaisContratosPage() {
       nome: c.nome,
       departamento_id: c.departamento_id,
       quantidade_colaboradores: c.quantidade_colaboradores,
+      regime_trabalho: c.regime_trabalho,
       adicionais: { ...c.adicionais },
       dias_intrajornada: [...c.dias_intrajornada],
     })
@@ -195,6 +204,22 @@ export function AdicionaisContratosPage() {
               onChange={e => setForm(prev => ({ ...prev, quantidade_colaboradores: Number(e.target.value) }))}
               className="rounded-lg"
             />
+          </div>
+          <div className="space-y-2">
+            <Label style={{ color: '#1F2937' }}>Regime de trabalho</Label>
+            <Select
+              value={form.regime_trabalho}
+              onValueChange={v => setForm(prev => ({ ...prev, regime_trabalho: v as RegimeTrabalho }))}
+            >
+              <SelectTrigger className="rounded-lg">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {REGIMES_TRABALHO.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

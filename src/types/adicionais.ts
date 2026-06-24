@@ -1,5 +1,7 @@
 export type AdicionalTipo = 'insalubridade' | 'noturno' | 'periculosidade' | 'feriado' | 'intrajornada'
 
+export type RegimeTrabalho = '12x36' | '6x1' | '5x2' | 'personalizado'
+
 export interface AdicionaisConfig {
   insalubridade: boolean
   noturno: boolean
@@ -14,6 +16,7 @@ export interface ContratoAdicional {
   departamento_id: string | null
   departamento_nome?: string
   quantidade_colaboradores: number
+  regime_trabalho: RegimeTrabalho
   adicionais: AdicionaisConfig
   dias_intrajornada: number[] // 0=dom, 1=seg, ..., 6=sab, 7=feriado
   created_at?: string
