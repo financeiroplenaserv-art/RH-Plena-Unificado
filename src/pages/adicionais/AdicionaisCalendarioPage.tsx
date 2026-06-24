@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -123,6 +123,7 @@ export function AdicionaisCalendarioPage() {
     listarCalendario,
     salvarDiaCalendario,
     salvarSubstituicao,
+    excluirDiaCalendario,
     diaIntrajornada,
   } = useAdicionaisContratuais()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
@@ -140,6 +141,7 @@ export function AdicionaisCalendarioPage() {
   const [substitutoSelecionado, setSubstitutoSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [ignorados, setIgnorados] = useState<Set<string>>(new Set())
   const [statusFiltro, setStatusFiltro] = useState<StatusDiaAdicional[]>([])
+  const [modalStatus, setModalStatus] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
 
   const periodoInicio = useMemo(() => {
     const data = new Date(periodoAno, periodoMes - 1, 20)
@@ -255,26 +257,41 @@ export function AdicionaisCalendarioPage() {
      __fallback: false faz o dia renderizar com emoji e cor.
      ============================================================ */
 
-  const toggleDia = (vinculo: VinculoAdicional, data: string) => {
+  const abrirSeletorStatus = (vinculo: VinculoAdicional, data: string) => {
+    setModalStatus({ vinculo, data })
+  }
+
+  const selecionarStatus = (vinculo: VinculoAdicional, data: string, status: StatusDiaAdicional) => {
     const contrato = mapContrato.get(vinculo.contrato_id)
     const ehIntrajornada = diaIntrajornada(contrato, data)
     const atual = getDia(vinculo, data)
-    const idx = STATUS_OPCOES.findIndex(s => s.value === atual.status)
-    const proximo = STATUS_OPCOES[(idx + 1) % STATUS_OPCOES.length].value
     const chave = `${vinculo.id}|${data}`
 
     setAlteracoes(prev => ({
       ...prev,
       [chave]: {
         ...atual,
-        status: proximo,
+        status,
         intrajornada: ehIntrajornada,
       },
     }))
 
-    if (proximo === 'folga_substituicao') {
+    setModalStatus(null)
+
+    if (status === 'folga_substituicao') {
       handleAbrirModalSubstituto(vinculo, data)
     }
+  }
+
+  const removerLancamento = async (vinculo: VinculoAdicional, data: string) => {
+    await excluirDiaCalendario(vinculo.id, data)
+    const chave = `${vinculo.id}|${data}`
+    setAlteracoes(prev => {
+      const atualizado = { ...prev }
+      delete atualizado[chave]
+      return atualizado
+    })
+    setModalStatus(null)
   }
 
   const salvarTodos = async () => {
@@ -542,7 +559,7 @@ export function AdicionaisCalendarioPage() {
                       <div key={data} className="relative">
                         <button
                           type="button"
-                          onClick={() => toggleDia(v, data)}
+                          onClick={() => abrirSeletorStatus(v, data)}
                           className={cn(
                             'w-10 h-10 rounded-lg border text-xs flex flex-col items-center justify-center transition-colors hover:opacity-90',
                             precisa && 'animate-pulse',
@@ -586,6 +603,59 @@ export function AdicionaisCalendarioPage() {
           })}
         </div>
       )}
+
+      <Dialog open={!!modalStatus} onOpenChange={() => setModalStatus(null)}>
+        <DialogContent className="sm:max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base" style={{ color: '#1F2937' }}>Alterar status do dia</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: '#94A3B8' }}>
+              {modalStatus && (
+                <>
+                  Escolha o status para <strong>{mapColaborador.get(modalStatus.vinculo.colaborador_id)?.nome || modalStatus.vinculo.colaborador_nome}</strong> no dia <strong>{formatarDataBR(modalStatus.data)}</strong>.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            {modalStatus && STATUS_OPCOES.map(s => {
+              const dia = getDia(modalStatus.vinculo, modalStatus.data)
+              const selecionado = dia.status === s.value
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => selecionarStatus(modalStatus.vinculo, modalStatus.data, s.value)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors hover:bg-slate-50',
+                    selecionado && 'ring-2 ring-slate-900'
+                  )}
+                  style={{ borderColor: '#E2E8F0', color: '#1F2937' }}
+                >
+                  <span>{s.label.split(' ')[0]}</span>
+                  <span>{s.label.split(' ').slice(1).join(' ')}</span>
+                </button>
+              )
+            })}
+          </div>
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            {modalStatus && (
+              <AdicionaisButton
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => removerLancamento(modalStatus.vinculo, modalStatus.data)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remover lançamento
+              </AdicionaisButton>
+            )}
+            <AdicionaisButton variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setModalStatus(null)}>
+              <X className="w-4 h-4 mr-2" />
+              Cancelar
+            </AdicionaisButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!modalSubstituto} onOpenChange={() => setModalSubstituto(null)}>
         <DialogContent className="sm:max-w-md rounded-xl">
