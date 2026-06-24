@@ -4,6 +4,7 @@ import type {
   VinculoAdicional,
   DiaCalendarioAdicional,
 } from '@/types/adicionais'
+import type { Extra, CategoriaExtra } from '@/types/extras'
 
 export type NivelAcesso = 'admin' | 'rh' | 'gestor' | 'visualizador'
 export type StatusColaborador = 'Ativo' | 'Inativo' | 'Afastado'
@@ -449,6 +450,18 @@ export type Database = {
         Row: HistoricoImportacao & Record<string, unknown>
         Insert: Partial<HistoricoImportacao> & Record<string, unknown>
         Update: Partial<HistoricoImportacao> & Record<string, unknown>
+        Relationships: []
+      }
+      extras: {
+        Row: Extra & Record<string, unknown>
+        Insert: Partial<Extra> & Record<string, unknown>
+        Update: Partial<Extra> & Record<string, unknown>
+        Relationships: []
+      }
+      categorias_extras: {
+        Row: CategoriaExtra & Record<string, unknown>
+        Insert: Partial<CategoriaExtra> & Record<string, unknown>
+        Update: Partial<CategoriaExtra> & Record<string, unknown>
         Relationships: []
       }
     }

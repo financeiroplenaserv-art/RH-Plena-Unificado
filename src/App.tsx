@@ -43,6 +43,10 @@ import {
   AdicionaisCalendarioPage,
   AdicionaisRelatorioPage,
   ImportarPontoPage,
+  ExtrasLancamentosPage,
+  ExtrasFormPage,
+  ExtrasBalancoPage,
+  ExtrasRelatorioPage,
 } from '@/routes/lazyPages'
 
 function SidebarWrapper({ user, isOpen, onToggle, onLogout }: {
@@ -420,6 +424,48 @@ function App() {
                 element={
                   <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
                     <ImportarPontoPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="/extras" element={<Navigate to="/extras/lancamentos" replace />} />
+              <Route
+                path="/extras/lancamentos"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                    <ExtrasLancamentosPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extras/novo"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                    <ExtrasFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extras/:id/editar"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                    <ExtrasFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extras/balanco"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                    <ExtrasBalancoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extras/relatorio"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                    <ExtrasRelatorioPage />
                   </ProtectedRoute>
                 }
               />

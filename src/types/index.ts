@@ -2,6 +2,7 @@ export * from './database'
 export * from './econtador'
 export * from './vr'
 export * from './adicionais'
+export * from './extras'
 
 export interface Modulo {
   id: string

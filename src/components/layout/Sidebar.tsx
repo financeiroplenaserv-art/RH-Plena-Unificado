@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Banknote,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Perfil, NivelAcesso } from '@/types/database'
@@ -45,6 +46,7 @@ const menuItems: MenuItem[] = [
   { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
   { path: '/ceu', label: 'Uniformes', icon: <Package className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
   { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
+  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
   { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
 ]
 
