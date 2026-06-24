@@ -5,19 +5,10 @@ import type { Perfil, NivelAcesso } from '@/types/database'
 
 const PERFIL_STORAGE_KEY = 'plena_perfil'
 
-function lerPerfilSalvo(): Perfil | null {
-  const perfilSalvo = localStorage.getItem(PERFIL_STORAGE_KEY)
-  if (!perfilSalvo) return null
-  try {
-    return JSON.parse(perfilSalvo) as Perfil
-  } catch {
-    localStorage.removeItem(PERFIL_STORAGE_KEY)
-    return null
-  }
-}
-
 export function useAuth() {
-  const [user, setUser] = useState<Perfil | null>(lerPerfilSalvo)
+  // Nunca inicializa o usuario a partir do localStorage para evitar bypass de autenticacao.
+  // O perfil so e definido apos validacao da sessao no Supabase.
+  const [user, setUser] = useState<Perfil | null>(null)
   const [loading, setLoading] = useState(true)
 
   const carregarPerfil = useCallback(async (authUser: { id: string; email?: string | null }) => {
@@ -63,8 +54,17 @@ export function useAuth() {
       if (session?.user) {
         carregarPerfil(session.user)
       } else {
+        // Sem sessao valida: descarta qualquer perfil em cache e forca tela de login.
+        setUser(null)
+        localStorage.removeItem(PERFIL_STORAGE_KEY)
         setLoading(false)
       }
+    }).catch((err) => {
+      if (ignore) return
+      console.error('Erro ao verificar sessao:', err)
+      setUser(null)
+      localStorage.removeItem(PERFIL_STORAGE_KEY)
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user?: { id: string; email?: string | null } } | null) => {
