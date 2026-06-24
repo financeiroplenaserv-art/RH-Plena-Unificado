@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from 'sonner'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
@@ -28,7 +29,7 @@ const STATUS: StatusExtra[] = ['Pendente', 'Pago', 'Cancelado']
 const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
   data_ocorrencia: new Date().toISOString().split('T')[0],
   turno: 'Dia',
-  categoria: 'Limpeza',
+  categoria: '' as CategoriaOcorrencia,
   posto: '',
   departamento_id: null,
   departamento_nome: null,
@@ -36,7 +37,7 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
   colaborador_ausente_nome: null,
   substituto_id: null,
   substituto_nome: null,
-  motivo: 'Falta sem justificativa',
+  motivo: '' as MotivoExtra,
   extra_faturado: false,
   valor: 0,
   categoria_valor_id: null,
@@ -168,6 +169,14 @@ export function ExtrasFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.categoria) {
+      toast.error('Selecione a categoria')
+      return
+    }
+    if (!form.motivo) {
+      toast.error('Selecione o motivo')
+      return
+    }
     setSalvando(true)
     const payload = { ...form }
     if (ausenteNaoAplica) {
@@ -216,11 +225,12 @@ export function ExtrasFormPage() {
 
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Categoria</Label>
-              <Select value={form.categoria} onValueChange={v => setField('categoria', v as CategoriaOcorrencia)}>
+              <Select value={form.categoria || 'null'} onValueChange={v => setField('categoria', v === 'null' ? '' as CategoriaOcorrencia : v as CategoriaOcorrencia)}>
                 <SelectTrigger className="rounded-lg">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="null">Selecione...</SelectItem>
                   {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -296,11 +306,12 @@ export function ExtrasFormPage() {
 
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Motivo</Label>
-              <Select value={form.motivo} onValueChange={v => setField('motivo', v as MotivoExtra)}>
+              <Select value={form.motivo || 'null'} onValueChange={v => setField('motivo', v === 'null' ? '' as MotivoExtra : v as MotivoExtra)}>
                 <SelectTrigger className="rounded-lg">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="null">Selecione...</SelectItem>
                   {MOTIVOS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
