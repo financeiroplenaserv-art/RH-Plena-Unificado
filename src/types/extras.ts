@@ -83,3 +83,21 @@ export interface ExtrasFiltros {
   status?: StatusExtra
   busca?: string
 }
+
+export interface ReciboExtra {
+  id: string
+  colaborador_id: string | null
+  colaborador_nome: string | null
+  data_inicio: string
+  data_fim: string
+  valor_total: number
+  quantidade_extras: number
+  assinatura_colaborador: string | null
+  extras_ids: string[]
+  marcar_pago: boolean
+  status: 'pendente_assinatura' | 'assinado' | 'cancelado'
+  data_assinatura?: string | null
+  usuario_id: string | null
+  created_at?: string
+  updated_at?: string
+}

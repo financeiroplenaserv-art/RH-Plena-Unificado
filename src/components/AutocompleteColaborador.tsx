@@ -193,7 +193,7 @@ export function AutocompleteColaborador({
     setMostrarSugestoes(false)
     setColaboradores([])
     onChange(null)
-    buscaRef.current?.focus()
+    setTimeout(() => buscaRef.current?.focus(), 50)
   }
 
   return (

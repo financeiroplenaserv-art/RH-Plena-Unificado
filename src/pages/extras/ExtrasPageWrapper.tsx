@@ -6,7 +6,9 @@ const TABS = [
   { path: '/extras/novo', label: 'Novo' },
   { path: '/extras/balanco', label: 'Balanço Diário' },
   { path: '/extras/relatorio', label: 'Relatório Semanal' },
+  { path: '/extras/recibos', label: 'Recibos' },
   { path: '/extras/categorias', label: 'Categorias' },
+  { path: '/extras/mobile', label: 'Mobile' },
 ]
 
 interface ExtrasPageWrapperProps {

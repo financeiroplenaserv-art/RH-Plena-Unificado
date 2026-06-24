@@ -177,7 +177,6 @@ export function ExtrasLancamentosPage() {
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Departamento</TableHead>
-                <TableHead>Posto</TableHead>
                 <TableHead>Ausente</TableHead>
                 <TableHead>Substituto</TableHead>
                 <TableHead>Motivo</TableHead>
@@ -189,11 +188,11 @@ export function ExtrasLancamentosPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">Carregando...</TableCell>
+                  <TableCell colSpan={8} className="text-center py-8">Carregando...</TableCell>
                 </TableRow>
               ) : extrasFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8" style={{ color: '#94A3B8' }}>
+                  <TableCell colSpan={8} className="text-center py-8" style={{ color: '#94A3B8' }}>
                     <div className="flex flex-col items-center gap-3">
                       <span>Nenhum registro encontrado</span>
                       <ExtrasButton size="sm" onClick={() => navigate('/extras/novo')}>
@@ -208,7 +207,6 @@ export function ExtrasLancamentosPage() {
                   <TableRow key={extra.id}>
                     <TableCell>{formatarDataBR(extra.data_ocorrencia)}</TableCell>
                     <TableCell>{extra.departamento_nome || '—'}</TableCell>
-                    <TableCell>{extra.posto}</TableCell>
                     <TableCell>{extra.colaborador_ausente_nome || '—'}</TableCell>
                     <TableCell>{extra.substituto_nome || '—'}</TableCell>
                     <TableCell>{extra.motivo}</TableCell>

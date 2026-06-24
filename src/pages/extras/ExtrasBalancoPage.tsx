@@ -31,6 +31,20 @@ function formatarMoeda(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const RODAPE_BALANCO = `Demais Operações:
+
+Operacional S/O
+Zelador (Dia): S/O
+Encarregado / Zelador (Noite anterior): S/O
+Medidas disciplinares: S/O
+Jardinagem: S/O
+
+Porteiros / ASG / Faltistas em apoio
+(FA LIMP 01) –
+(FA LIMP 02) –
+(FA PORT 01) –
+(FA PORT 02) –`
+
 export function ExtrasBalancoPage() {
   const navigate = useNavigate()
   const hoje = new Date().toISOString().split('T')[0]
@@ -89,7 +103,6 @@ export function ExtrasBalancoPage() {
 
     if (extrasDia.length === 0 && extrasPortariaNoiteAnterior.length === 0) {
       texto += '\n_Nenhuma ocorrência registrada._'
-      return texto
     }
 
     categoriasDia.forEach(categoria => {
@@ -142,7 +155,7 @@ export function ExtrasBalancoPage() {
       })
     }
 
-    return texto.trim()
+    return `${texto.trim()}\n\n${RODAPE_BALANCO}`
   }
 
   useEffect(() => {

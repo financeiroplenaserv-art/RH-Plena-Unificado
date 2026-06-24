@@ -47,7 +47,10 @@ import {
   ExtrasFormPage,
   ExtrasBalancoPage,
   ExtrasRelatorioPage,
+  ExtrasRecibosPage,
   ExtrasCategoriasPage,
+  ExtrasPlantaoPage,
+  MobileFaltaPage,
 } from '@/routes/lazyPages'
 
 function SidebarWrapper({ user, isOpen, onToggle, onLogout }: {
@@ -144,6 +147,16 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-right" richColors />
+      <Routes>
+        <Route
+          path="/mobile/falta"
+          element={
+            <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+              <MobileFaltaPage />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
       <div className="flex h-screen bg-slate-50">
         <SidebarWrapper
           user={user}
@@ -471,10 +484,26 @@ function App() {
                 }
               />
               <Route
+                path="/extras/recibos"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                    <ExtrasRecibosPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/extras/categorias"
                 element={
                   <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
                     <ExtrasCategoriasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extras/mobile"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                    <ExtrasPlantaoPage />
                   </ProtectedRoute>
                 }
               />
