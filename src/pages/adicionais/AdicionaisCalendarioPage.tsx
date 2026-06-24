@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -277,6 +278,7 @@ export function AdicionaisCalendarioPage() {
     }))
 
     setModalStatus(null)
+    toast.info(`Status alterado para ${STATUS_OPCOES.find(s => s.value === status)?.label ?? status}. Clique em Salvar para confirmar.`)
 
     if (status === 'folga_substituicao') {
       handleAbrirModalSubstituto(vinculo, data)
@@ -456,9 +458,9 @@ export function AdicionaisCalendarioPage() {
             />
           </div>
 
-          <AdicionaisButton onClick={salvarTodos} disabled={!temAlteracoes || loading}>
+          <AdicionaisButton onClick={salvarTodos} disabled={!temAlteracoes || loading} className={temAlteracoes ? 'ring-2 ring-amber-400' : ''}>
             <Save className="w-4 h-4 mr-2" />
-            Salvar alterações
+            Salvar {temAlteracoes ? `(${Object.keys(alteracoes).length})` : ''}
           </AdicionaisButton>
         </div>
       </AdicionaisCard>
@@ -541,6 +543,7 @@ export function AdicionaisCalendarioPage() {
                     const precisa = precisaSubstituto(v, data)
                     const ignorado = ignorados.has(`${v.id}|${data}`)
                     const isFallback = dia.__fallback === true
+                    const temAlteracaoPendente = !!alteracoes[`${v.id}|${data}`]
                     const emoji = substituto ? '✅' : isFallback ? '' : EMOJI_STATUS[dia.status]
                     const estilo = STATUS_STYLE[dia.status]
                     const tooltip = substituto
@@ -549,9 +552,9 @@ export function AdicionaisCalendarioPage() {
                         ? `${formatarDataBR(data)} — Não preenchido`
                         : precisa
                           ? 'Substituto recomendado'
-                          : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}`
-                    const borderColor = substituto ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : estilo.border
-                    const bgColor = substituto ? '#DCFCE7' : isFallback ? '#FFFFFF' : estilo.bg
+                          : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}${temAlteracaoPendente ? ' (alteração pendente)' : ''}`
+                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : estilo.border
+                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto ? '#DCFCE7' : isFallback ? '#FFFFFF' : estilo.bg
                     const textColor = isFallback ? '#CBD5E1' : estilo.text
                     // Indica direito a intrajornada (HE) quando trabalha em dia configurado (sab/dom/feriado)
                     const temIntrajornada = dia.status === 'trabalhou' && diaIntrajornada(contrato, data)
