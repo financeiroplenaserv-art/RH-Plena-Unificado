@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+
 import {
   Dialog,
   DialogContent,
@@ -111,6 +111,7 @@ export function AdicionaisCalendarioPage() {
   const [buscaSubstituto, setBuscaSubstituto] = useState('')
   const [substitutoSelecionado, setSubstitutoSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [ignorados, setIgnorados] = useState<Set<string>>(new Set())
+  const [statusFiltro, setStatusFiltro] = useState<StatusDiaAdicional[]>([])
 
   const periodoInicio = useMemo(() => {
     const data = new Date(periodoAno, periodoMes - 1, 20)
@@ -170,6 +171,24 @@ export function AdicionaisCalendarioPage() {
     })
   }, [vinculos, periodoInicio, periodoFim])
 
+  const getDia = useCallback((vinculo: VinculoAdicional, data: string): DiaCalendarioAdicional & { __fallback?: boolean } => {
+    const chave = `${vinculo.id}|${data}`
+    if (alteracoes[chave]) return alteracoes[chave]
+    const salvo = calendario.find(d => d.vinculo_id === vinculo.id && d.data === data)
+    if (salvo) {
+      const status = normalizarStatus(salvo.status)
+      return { ...salvo, status, __fallback: status !== salvo.status ? true : undefined }
+    }
+    const statusPadrao = calcularStatus12x36(vinculo.data_inicio, data)
+    return {
+      vinculo_id: vinculo.id,
+      data,
+      status: statusPadrao,
+      intrajornada: false,
+      __fallback: false,
+    }
+  }, [alteracoes, calendario])
+
   const vinculosFiltrados = useMemo(() => {
     let lista = vinculosAtivosNoPeriodo
     if (vinculoFiltro !== 'todos') {
@@ -190,31 +209,22 @@ export function AdicionaisCalendarioPage() {
         return nome.toLowerCase().includes(termo) || matricula.toLowerCase().includes(termo)
       })
     }
+    if (statusFiltro.length > 0) {
+      lista = lista.filter(v =>
+        diasDoPeriodo.some(data => {
+          const dia = getDia(v, data)
+          return statusFiltro.includes(dia.status)
+        })
+      )
+    }
     return lista
-  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, busca, mapColaborador, mapContrato])
+  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, busca, mapColaborador, mapContrato, statusFiltro, diasDoPeriodo, getDia])
 
   /* ============================================================
      CORREÇÃO: getDia agora recebe o vinculo completo e aplica
      o padrão 12x36 quando não há registro salvo no calendário.
      __fallback: false faz o dia renderizar com emoji e cor.
      ============================================================ */
-  const getDia = (vinculo: VinculoAdicional, data: string): DiaCalendarioAdicional & { __fallback?: boolean } => {
-    const chave = `${vinculo.id}|${data}`
-    if (alteracoes[chave]) return alteracoes[chave]
-    const salvo = calendario.find(d => d.vinculo_id === vinculo.id && d.data === data)
-    if (salvo) {
-      const status = normalizarStatus(salvo.status)
-      return { ...salvo, status, __fallback: status !== salvo.status ? true : undefined }
-    }
-    const statusPadrao = calcularStatus12x36(vinculo.data_inicio, data)
-    return {
-      vinculo_id: vinculo.id,
-      data,
-      status: statusPadrao,
-      intrajornada: false,
-      __fallback: false,
-    }
-  }
 
   const toggleDia = (vinculo: VinculoAdicional, data: string) => {
     const contrato = mapContrato.get(vinculo.contrato_id)
@@ -407,28 +417,48 @@ export function AdicionaisCalendarioPage() {
         </div>
       </AdicionaisCard>
 
-      <AdicionaisCard title="Legenda">
+      <AdicionaisCard title="Legenda (clique para filtrar)">
         <div className="flex flex-wrap gap-2">
           {STATUS_OPCOES.map(s => {
             const estilo = STATUS_STYLE[s.value]
+            const selecionado = statusFiltro.includes(s.value)
             return (
-              <Badge
+              <button
                 key={s.value}
-                variant="outline"
-                className="border"
-                style={{ backgroundColor: estilo.bg, borderColor: estilo.border, color: estilo.text }}
+                type="button"
+                onClick={() => {
+                  setStatusFiltro(prev =>
+                    prev.includes(s.value)
+                      ? prev.filter(x => x !== s.value)
+                      : [...prev, s.value]
+                  )
+                }}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-xs border transition-all hover:opacity-90',
+                  selecionado && 'ring-2 ring-offset-1 ring-slate-900'
+                )}
+                style={{
+                  backgroundColor: selecionado ? estilo.text : estilo.bg,
+                  borderColor: estilo.border,
+                  color: selecionado ? '#FFFFFF' : estilo.text,
+                }}
               >
                 {s.label}
-              </Badge>
+              </button>
             )
           })}
-          <Badge
-            variant="outline"
-            className="border"
-            style={{ backgroundColor: '#DCFCE7', borderColor: '#22C55E', color: '#166534' }}
+          <button
+            type="button"
+            onClick={() => setStatusFiltro([])}
+            className={cn(
+              'rounded-full px-2.5 py-1 text-xs border transition-all hover:opacity-90',
+              statusFiltro.length === 0 && 'opacity-50 cursor-not-allowed'
+            )}
+            style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', color: '#64748B' }}
+            disabled={statusFiltro.length === 0}
           >
-            ✅ Substituído (trabalhou)
-          </Badge>
+            Limpar filtros
+          </button>
         </div>
       </AdicionaisCard>
 
