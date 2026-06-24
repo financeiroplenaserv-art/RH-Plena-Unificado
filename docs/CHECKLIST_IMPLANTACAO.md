@@ -27,14 +27,15 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
   - [x] Criar migration 013 que revoga o privilégio e dropa a função.
   - [ ] Aplicar migration 013 no banco de produção via SQL Editor.
 
-### 1.3 Restringir policies do RLS por nível de acesso e escopo
-- **Arquivos:** `supabase/migrations/003_adicionais_contratuais.sql`, `005_departamentos_rls.sql`, `010_rls_tabelas_negocio.sql`
+### 1.3 Restringir policies do RLS por nível de acesso ✅
+- **Arquivos:** `supabase/migrations/010_rls_tabelas_negocio.sql`, `supabase/migrations/014_rls_restrito_por_nivel_acesso.sql`
 - **Problema:** SELECT/INSERT/UPDATE liberados para qualquer usuário autenticado.
 - **Ação:**
-  - [ ] `visualizador`: apenas SELECT.
-  - [ ] `gestor`/`rh`: SELECT/INSERT/UPDATE em seus domínios.
-  - [ ] `admin`: permissões completas.
-  - [ ] Aplicar isolamento por `empresa_id` onde fizer sentido.
+  - [x] `visualizador`: apenas SELECT.
+  - [x] `gestor`/`rh`: SELECT/INSERT/UPDATE.
+  - [x] `admin`: permissões completas (DELETE incluso).
+  - [x] Todos os usuários acessam todas as empresas (sem isolamento por `empresa_id`).
+  - [ ] Aplicar migration 014 no banco de produção via SQL Editor.
   - [ ] Validar se o sistema continua funcionando após as restrições.
 
 ### 1.4 Proteger token do eContador
