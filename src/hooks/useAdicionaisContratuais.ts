@@ -229,7 +229,7 @@ export function useAdicionaisContratuais() {
       }
       const { data, error } = await supabase
         .from('vinculos_adicionais')
-        .select('*, contratos_adicionais(nome), colaboradores(nome_completo, matricula)')
+        .select('*, contratos_adicionais(nome, adicionais), colaboradores(nome_completo, matricula)')
         .order('created_at', { ascending: false })
       if (error) throw error
       const normalizado = (data || []).map((v: Record<string, unknown>) => {
