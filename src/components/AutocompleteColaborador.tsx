@@ -73,12 +73,17 @@ export function AutocompleteColaborador({
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
     }
+    const { data } = await query.limit(20)
+    let resultados = (data as Colaborador[]) || []
     if (departamentoId) {
-      query = query.eq('departamento_id', departamentoId)
+      resultados = resultados.sort((a, b) => {
+        const aDoDept = a.departamento_id === departamentoId ? -1 : 1
+        const bDoDept = b.departamento_id === departamentoId ? -1 : 1
+        if (aDoDept !== bDoDept) return aDoDept - bDoDept
+        return a.nome_completo.localeCompare(b.nome_completo)
+      })
     }
-    const { data } = await query.limit(10)
-    const resultados = (data as Colaborador[]) || []
-    setColaboradores(resultados)
+    setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
   }, [somenteAtivos, departamentoId])
@@ -159,6 +164,9 @@ export function AutocompleteColaborador({
                       <p className="text-sm font-medium text-slate-700">{c.nome_completo}</p>
                       <p className="text-xs text-slate-500">
                         {c.matricula} — {c.cargo || '—'} — {c.departamento || '—'}
+                        {departamentoId && c.departamento_id === departamentoId && (
+                          <span className="ml-1 text-green-600 font-medium">(deste dept.)</span>
+                        )}
                       </p>
                     </div>
                     <BadgeStatus status={c.status} />
