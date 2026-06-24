@@ -321,6 +321,26 @@ export function AdicionaisCalendarioPage() {
     return calendario.find(d => d.vinculo_id === vinculoId && d.data === data && d.substituto_colaborador_id) || null
   }
 
+  const getVinculoSubstituido = (colaboradorId: string, data: string): { nome: string; vinculoId: string } | null => {
+    const alteracao = Object.values(alteracoes).find(
+      d => d.data === data && d.substituto_colaborador_id === colaboradorId
+    )
+    if (alteracao) {
+      const vinculo = vinculos.find(v => v.id === alteracao.vinculo_id)
+      return {
+        nome: vinculo?.colaborador_nome || mapColaborador.get(vinculo?.colaborador_id || '')?.nome || '—',
+        vinculoId: alteracao.vinculo_id,
+      }
+    }
+    const salvo = calendario.find(d => d.data === data && d.substituto_colaborador_id === colaboradorId)
+    if (!salvo) return null
+    const vinculo = vinculos.find(v => v.id === salvo.vinculo_id)
+    return {
+      nome: vinculo?.colaborador_nome || mapColaborador.get(vinculo?.colaborador_id || '')?.nome || '—',
+      vinculoId: salvo.vinculo_id,
+    }
+  }
+
   const precisaSubstituto = (vinculo: VinculoAdicional, data: string) => {
     const dia = getDia(vinculo, data)
     const ausente = ['falta', 'ferias', 'afastado', 'folga_substituicao'].includes(dia.status)
@@ -540,21 +560,24 @@ export function AdicionaisCalendarioPage() {
                   {diasDoPeriodo.map(data => {
                     const dia = getDia(v, data)
                     const substituto = getSubstituto(v.id, data)
+                    const substituido = getVinculoSubstituido(v.colaborador_id, data)
                     const precisa = precisaSubstituto(v, data)
                     const ignorado = ignorados.has(`${v.id}|${data}`)
                     const isFallback = dia.__fallback === true
                     const temAlteracaoPendente = !!alteracoes[`${v.id}|${data}`]
-                    const emoji = substituto ? '✅' : isFallback ? '' : EMOJI_STATUS[dia.status]
+                    const emoji = isFallback ? '' : EMOJI_STATUS[dia.status]
                     const estilo = STATUS_STYLE[dia.status]
                     const tooltip = substituto
-                      ? `Substituindo ${mapColaborador.get(v.colaborador_id)?.nome || '—'}`
-                      : isFallback
-                        ? `${formatarDataBR(data)} — Não preenchido`
-                        : precisa
-                          ? 'Substituto recomendado'
-                          : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}${temAlteracaoPendente ? ' (alteração pendente)' : ''}`
-                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : estilo.border
-                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto ? '#DCFCE7' : isFallback ? '#FFFFFF' : estilo.bg
+                      ? `${formatarDataBR(data)} — Substituído por ${substituto.substituto_colaborador_nome || mapColaborador.get(substituto.substituto_colaborador_id || '')?.nome || '—'}`
+                      : substituido
+                        ? `${formatarDataBR(data)} — Substituindo ${substituido.nome}`
+                        : isFallback
+                          ? `${formatarDataBR(data)} — Não preenchido`
+                          : precisa
+                            ? 'Substituto recomendado'
+                            : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}${temAlteracaoPendente ? ' (alteração pendente)' : ''}`
+                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto || substituido ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : estilo.border
+                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto || substituido ? '#DCFCE7' : isFallback ? '#FFFFFF' : estilo.bg
                     const textColor = isFallback ? '#CBD5E1' : estilo.text
                     // Indica direito a intrajornada (HE) quando trabalha em dia configurado (sab/dom/feriado)
                     const temIntrajornada = dia.status === 'trabalhou' && diaIntrajornada(contrato, data)
@@ -577,6 +600,15 @@ export function AdicionaisCalendarioPage() {
                           <span className="text-[10px] leading-none mb-0.5" style={{ color: textColor }}>{new Date(data + 'T00:00:00').getDate()}</span>
                           <span className="text-base leading-none">{emoji}</span>
                         </button>
+                        {/* Badge de substituto confirmado */}
+                        {(substituto || substituido) && (
+                          <span
+                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 text-white flex items-center justify-center"
+                            title={substituto ? 'Substituto definido' : 'Substituindo outro colaborador'}
+                          >
+                            <UserPlus className="w-3 h-3" />
+                          </span>
+                        )}
                         {/* Badge de substituto pendente */}
                         {precisa && (
                           <button
