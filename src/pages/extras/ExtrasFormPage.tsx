@@ -61,10 +61,10 @@ export function ExtrasFormPage() {
   const departamentosUnicos = useMemo(() => {
     const vistos = new Set<string>()
     return departamentos
-      .filter(d => d.status === 'Ativo')
-      .sort((a, b) => (a.nome_curto || a.nome).localeCompare(b.nome_curto || b.nome))
+      .filter(d => d.status === 'Ativo' && d.nome_curto && d.nome_curto.trim() !== '')
+      .sort((a, b) => a.nome_curto.localeCompare(b.nome_curto))
       .filter(d => {
-        const chave = (d.nome_curto || d.nome).toLowerCase().trim()
+        const chave = d.nome_curto.toLowerCase().trim()
         if (vistos.has(chave)) return false
         vistos.add(chave)
         return true

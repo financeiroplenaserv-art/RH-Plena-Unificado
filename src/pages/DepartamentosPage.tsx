@@ -151,7 +151,14 @@ export function DepartamentosPage() {
   }
 
   const handleSalvar = async () => {
-    if (!form.nome?.trim()) return
+    if (!form.nome?.trim()) {
+      toast.error('Informe o nome do departamento')
+      return
+    }
+    if (!form.nome_curto?.trim()) {
+      toast.error('Informe o nome curto do departamento')
+      return
+    }
     const payload = { ...form }
     if (editandoId) {
       await atualizar(editandoId, payload)
@@ -333,12 +340,13 @@ export function DepartamentosPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Nome curto</Label>
+                  <Label style={{ color: '#1F2937' }}>Nome curto *</Label>
                   <Input
                     placeholder="Ex: Solar"
                     value={form.nome_curto || ''}
                     onChange={e => setForm(prev => ({ ...prev, nome_curto: e.target.value }))}
                     className="rounded-lg"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
