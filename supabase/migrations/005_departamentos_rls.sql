@@ -23,26 +23,32 @@ add column if not exists status text not null default 'Ativo';
 
 alter table public.departamentos enable row level security;
 
-create policy if not exists "Usuários autenticados podem ler departamentos"
+-- Policies não suportam IF NOT EXISTS; usamos DROP IF EXISTS antes de criar.
+drop policy if exists "Usuários autenticados podem ler departamentos" on public.departamentos;
+drop policy if exists "Usuários autenticados podem inserir departamentos" on public.departamentos;
+drop policy if exists "Usuários autenticados podem atualizar departamentos" on public.departamentos;
+drop policy if exists "Usuários autenticados podem deletar departamentos" on public.departamentos;
+
+create policy "Usuários autenticados podem ler departamentos"
   on public.departamentos
   for select
   to authenticated
   using (true);
 
-create policy if not exists "Usuários autenticados podem inserir departamentos"
+create policy "Usuários autenticados podem inserir departamentos"
   on public.departamentos
   for insert
   to authenticated
   with check (true);
 
-create policy if not exists "Usuários autenticados podem atualizar departamentos"
+create policy "Usuários autenticados podem atualizar departamentos"
   on public.departamentos
   for update
   to authenticated
   using (true)
   with check (true);
 
-create policy if not exists "Usuários autenticados podem deletar departamentos"
+create policy "Usuários autenticados podem deletar departamentos"
   on public.departamentos
   for delete
   to authenticated

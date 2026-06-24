@@ -12,13 +12,17 @@ create table if not exists public.historico_importacoes_econtador (
 
 alter table public.historico_importacoes_econtador enable row level security;
 
-create policy if not exists "Usuários autenticados podem inserir próprio histórico"
+-- Policies não suportam IF NOT EXISTS; usamos DROP IF EXISTS antes de criar.
+drop policy if exists "Usuários autenticados podem inserir próprio histórico" on public.historico_importacoes_econtador;
+drop policy if exists "Usuários autenticados podem ler próprio histórico" on public.historico_importacoes_econtador;
+
+create policy "Usuários autenticados podem inserir próprio histórico"
   on public.historico_importacoes_econtador
   for insert
   to authenticated
   with check (auth.uid() = usuario_id);
 
-create policy if not exists "Usuários autenticados podem ler próprio histórico"
+create policy "Usuários autenticados podem ler próprio histórico"
   on public.historico_importacoes_econtador
   for select
   to authenticated
