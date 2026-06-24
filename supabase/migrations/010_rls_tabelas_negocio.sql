@@ -68,8 +68,9 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.aplicar_rls_admin(TEXT) TO authenticated;
-
+-- NOTA: a função aplicar_rls_admin não deve ser executada por usuários autenticados,
+-- pois possui SECURITY DEFINER e permite alterar policies/RLS. Ela é removida
+-- pela migration 013 após a execução bem-sucedida desta migration.
 -- ============================================================
 -- Aplica RLS nas tabelas de negócio (apenas se existirem)
 -- ============================================================
