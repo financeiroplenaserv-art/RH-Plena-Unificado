@@ -117,6 +117,7 @@ export function DepartamentosPage() {
   const { departamentos, loading, sincronizando, listar, criar, atualizar, remover, sincronizar } = useDepartamentos()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'Ativo' | 'Inativo'>('Ativo')
+  const [ordenacao, setOrdenacao] = useState<'nome_curto_asc' | 'nome_asc'>('nome_curto_asc')
   const [form, setForm] = useState<Partial<Departamento>>(formVazio)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -141,8 +142,14 @@ export function DepartamentosPage() {
         (d.nome_contato || '').toLowerCase().includes(termo)
       )
     }
+    lista = [...lista].sort((a, b) => {
+      if (ordenacao === 'nome_curto_asc') {
+        return (a.nome_curto || a.nome).localeCompare(b.nome_curto || b.nome)
+      }
+      return a.nome.localeCompare(b.nome)
+    })
     return lista
-  }, [departamentos, busca, filtroStatus])
+  }, [departamentos, busca, filtroStatus, ordenacao])
 
   const handleNovo = () => {
     setEditandoId(null)
@@ -264,7 +271,7 @@ export function DepartamentosPage() {
             <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>Filtros</h3>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94A3B8' }} />
                 <Input
@@ -286,6 +293,17 @@ export function DepartamentosPage() {
                     <SelectItem value="Ativo">Ativos</SelectItem>
                     <SelectItem value="Inativo">Inativos</SelectItem>
                     <SelectItem value="todos">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Select value={ordenacao} onValueChange={v => setOrdenacao(v as 'nome_curto_asc' | 'nome_asc')}>
+                  <SelectTrigger className="rounded-lg">
+                    <SelectValue placeholder="Ordenar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nome_curto_asc">Nome curto (A-Z)</SelectItem>
+                    <SelectItem value="nome_asc">Nome completo (A-Z)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -532,7 +550,7 @@ export function DepartamentosPage() {
                   <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
                     <TableRow>
                       <TableHead style={{ color: '#1F2937' }}>Departamento</TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>Contato portaria/adm</TableHead>
+                      <TableHead style={{ color: '#1F2937' }}>Endereço</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Síndico / Administrador</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Status</TableHead>
                       <TableHead className="w-24"></TableHead>
@@ -550,7 +568,14 @@ export function DepartamentosPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell style={{ color: '#64748B' }}>{d.contato_portaria || '—'}</TableCell>
+                        <TableCell style={{ color: '#64748B' }}>
+                          {d.endereco ? (
+                            <div className="flex flex-col">
+                              <span>{d.endereco}</span>
+                              <span className="text-xs" style={{ color: '#94A3B8' }}>{[d.bairro, d.cidade].filter(Boolean).join(' - ')}</span>
+                            </div>
+                          ) : '—'}
+                        </TableCell>
                         <TableCell style={{ color: '#64748B' }}>
                           {d.nome_contato ? (
                             <div className="flex flex-col">
