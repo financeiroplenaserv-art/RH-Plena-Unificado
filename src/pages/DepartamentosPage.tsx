@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Building2, Search, Save, Pencil, Trash2, X, FileSpreadsheet, Upload, Loader2, RefreshCw, Plus
+  Building2, Search, Save, Pencil, Trash2, X, FileSpreadsheet, Upload, Loader2, RefreshCw, Plus, ArrowUp, ArrowDown, ArrowUpDown
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -117,7 +117,16 @@ export function DepartamentosPage() {
   const { departamentos, loading, sincronizando, listar, criar, atualizar, remover, sincronizar } = useDepartamentos()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'Ativo' | 'Inativo'>('Ativo')
-  const [ordenacao, setOrdenacao] = useState<'nome_curto_asc' | 'nome_asc'>('nome_curto_asc')
+  type OrdenacaoColuna = 'nome_curto' | 'nome' | 'endereco'
+  type OrdenacaoDirecao = 'asc' | 'desc'
+  const [ordenacao, setOrdenacao] = useState<{ coluna: OrdenacaoColuna; direcao: OrdenacaoDirecao }>({ coluna: 'nome_curto', direcao: 'asc' })
+
+  const alternarOrdenacao = (coluna: OrdenacaoColuna) => {
+    setOrdenacao(prev => ({
+      coluna,
+      direcao: prev.coluna === coluna && prev.direcao === 'asc' ? 'desc' : 'asc',
+    }))
+  }
   const [form, setForm] = useState<Partial<Departamento>>(formVazio)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -143,10 +152,15 @@ export function DepartamentosPage() {
       )
     }
     lista = [...lista].sort((a, b) => {
-      if (ordenacao === 'nome_curto_asc') {
-        return (a.nome_curto || a.nome).localeCompare(b.nome_curto || b.nome)
+      let comparacao = 0
+      if (ordenacao.coluna === 'nome_curto') {
+        comparacao = (a.nome_curto || a.nome).localeCompare(b.nome_curto || b.nome)
+      } else if (ordenacao.coluna === 'nome') {
+        comparacao = a.nome.localeCompare(b.nome)
+      } else if (ordenacao.coluna === 'endereco') {
+        comparacao = (a.endereco || '').localeCompare(b.endereco || '')
       }
-      return a.nome.localeCompare(b.nome)
+      return ordenacao.direcao === 'asc' ? comparacao : -comparacao
     })
     return lista
   }, [departamentos, busca, filtroStatus, ordenacao])
@@ -271,7 +285,7 @@ export function DepartamentosPage() {
             <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>Filtros</h3>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94A3B8' }} />
                 <Input
@@ -293,17 +307,6 @@ export function DepartamentosPage() {
                     <SelectItem value="Ativo">Ativos</SelectItem>
                     <SelectItem value="Inativo">Inativos</SelectItem>
                     <SelectItem value="todos">Todos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Select value={ordenacao} onValueChange={v => setOrdenacao(v as 'nome_curto_asc' | 'nome_asc')}>
-                  <SelectTrigger className="rounded-lg">
-                    <SelectValue placeholder="Ordenar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nome_curto_asc">Nome curto (A-Z)</SelectItem>
-                    <SelectItem value="nome_asc">Nome completo (A-Z)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -549,8 +552,39 @@ export function DepartamentosPage() {
                 <Table>
                   <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
                     <TableRow>
-                      <TableHead style={{ color: '#1F2937' }}>Departamento</TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>Endereço</TableHead>
+                      <TableHead style={{ color: '#1F2937' }}>
+                        <button
+                          type="button"
+                          onClick={() => alternarOrdenacao('nome_curto')}
+                          className="flex items-center font-semibold"
+                        >
+                          Departamento
+                          {ordenacao.coluna === 'nome_curto' && ordenacao.direcao === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 ml-1" />
+                          ) : ordenacao.coluna === 'nome_curto' && ordenacao.direcao === 'desc' ? (
+                            <ArrowDown className="w-3 h-3 ml-1" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead style={{ color: '#1F2937' }}>
+                        <button
+                          type="button"
+                          onClick={() => alternarOrdenacao('endereco')}
+                          className="flex items-center font-semibold"
+                        >
+                          Endereço
+                          {ordenacao.coluna === 'endereco' && ordenacao.direcao === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 ml-1" />
+                          ) : ordenacao.coluna === 'endereco' && ordenacao.direcao === 'desc' ? (
+                            <ArrowDown className="w-3 h-3 ml-1" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead style={{ color: '#1F2937' }}>Contato portaria/adm</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Síndico / Administrador</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Status</TableHead>
                       <TableHead className="w-24"></TableHead>
@@ -573,6 +607,14 @@ export function DepartamentosPage() {
                             <div className="flex flex-col">
                               <span>{d.endereco}</span>
                               <span className="text-xs" style={{ color: '#94A3B8' }}>{[d.bairro, d.cidade].filter(Boolean).join(' - ')}</span>
+                            </div>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell style={{ color: '#64748B' }}>
+                          {d.contato_portaria || d.telefone_contato ? (
+                            <div className="flex flex-col">
+                              <span>{d.contato_portaria || '—'}</span>
+                              <span className="text-xs" style={{ color: '#94A3B8' }}>{mascaraTelefone(d.telefone_contato) || '—'}</span>
                             </div>
                           ) : '—'}
                         </TableCell>
