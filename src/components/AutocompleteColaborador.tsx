@@ -227,8 +227,10 @@ export function AutocompleteColaborador({
                 buscarPorDepartamento()
               }
             }}
-            onBlur={() => {
-              if (permitirNovo && !selecionado && busca.trim()) {
+            onBlur={(e) => {
+              const relatedTarget = e.relatedTarget as Node | null
+              const focoFoiParaDentro = relatedTarget && containerRef.current?.contains(relatedTarget)
+              if (permitirNovo && !selecionado && busca.trim() && !focoFoiParaDentro) {
                 handleSelecionarNovo(busca.trim())
               }
             }}
