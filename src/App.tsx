@@ -47,6 +47,7 @@ import {
   ExtrasFormPage,
   ExtrasBalancoPage,
   ExtrasRelatorioPage,
+  ExtrasCategoriasPage,
 } from '@/routes/lazyPages'
 
 function SidebarWrapper({ user, isOpen, onToggle, onLogout }: {
@@ -466,6 +467,14 @@ function App() {
                 element={
                   <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
                     <ExtrasRelatorioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extras/categorias"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                    <ExtrasCategoriasPage />
                   </ProtectedRoute>
                 }
               />

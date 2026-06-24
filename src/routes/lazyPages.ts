@@ -45,6 +45,7 @@ export const ExtrasLancamentosPage = lazyNamed(() => import('@/pages/extras/Extr
 export const ExtrasFormPage = lazyNamed(() => import('@/pages/extras/ExtrasFormPage'), 'ExtrasFormPage')
 export const ExtrasBalancoPage = lazyNamed(() => import('@/pages/extras/ExtrasBalancoPage'), 'ExtrasBalancoPage')
 export const ExtrasRelatorioPage = lazyNamed(() => import('@/pages/extras/ExtrasRelatorioPage'), 'ExtrasRelatorioPage')
+export const ExtrasCategoriasPage = lazyNamed(() => import('@/pages/extras/ExtrasCategoriasPage'), 'ExtrasCategoriasPage')
 
 // Outros
 export const DepartamentosPage = lazyNamed(() => import('@/pages/DepartamentosPage'), 'DepartamentosPage')

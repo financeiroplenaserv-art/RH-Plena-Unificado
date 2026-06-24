@@ -52,7 +52,6 @@ export function useExtras() {
       const { data, error } = await supabase
         .from('categorias_extras')
         .select('*')
-        .eq('ativo', true)
         .order('nome')
       if (error) throw error
       setCategorias(data || [])
@@ -60,6 +59,45 @@ export function useExtras() {
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar categorias')
       return []
+    }
+  }, [])
+
+  const criarCategoria = useCallback(async (dados: Omit<CategoriaExtra, 'id' | 'created_at' | 'updated_at'>): Promise<CategoriaExtra | null> => {
+    try {
+      const { data, error } = await supabase.from('categorias_extras').insert(dados).select().single()
+      if (error) throw error
+      toast.success('Categoria criada')
+      setCategorias(prev => [...prev, data as CategoriaExtra].sort((a, b) => a.nome.localeCompare(b.nome)))
+      return data as CategoriaExtra
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar categoria')
+      return null
+    }
+  }, [])
+
+  const atualizarCategoria = useCallback(async (id: string, dados: Partial<Omit<CategoriaExtra, 'id' | 'created_at' | 'updated_at'>>): Promise<boolean> => {
+    try {
+      const { error } = await supabase.from('categorias_extras').update(dados).eq('id', id)
+      if (error) throw error
+      toast.success('Categoria atualizada')
+      setCategorias(prev => prev.map(c => c.id === id ? { ...c, ...dados } : c).sort((a, b) => a.nome.localeCompare(b.nome)))
+      return true
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar categoria')
+      return false
+    }
+  }, [])
+
+  const removerCategoria = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.from('categorias_extras').delete().eq('id', id)
+      if (error) throw error
+      toast.success('Categoria removida')
+      setCategorias(prev => prev.filter(c => c.id !== id))
+      return true
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao remover categoria')
+      return false
     }
   }, [])
 
@@ -119,6 +157,9 @@ export function useExtras() {
     loading,
     listar,
     listarCategorias,
+    criarCategoria,
+    atualizarCategoria,
+    removerCategoria,
     buscarPorId,
     criar,
     atualizar,
