@@ -19,13 +19,13 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
   - [x] Limpar `localStorage` e estado quando não houver sessão.
   - [ ] Garantir que `ProtectedRoute` e `App.tsx` espere a validação da sessão antes de renderizar.
 
-### 1.2 Remover privilégio excessivo da função `aplicar_rls_admin`
-- **Arquivo:** `supabase/migrations/010_rls_tabelas_negocio.sql`
+### 1.2 Remover privilégio excessivo da função `aplicar_rls_admin` ✅
+- **Arquivos:** `supabase/migrations/010_rls_tabelas_negocio.sql`, `supabase/migrations/013_remover_funcao_aplicar_rls_admin.sql`
 - **Problema:** `GRANT EXECUTE ON FUNCTION public.aplicar_rls_admin(TEXT) TO authenticated;` permite que qualquer usuário logado altere policies.
 - **Ação:**
-  - [ ] Remover o `GRANT` para `authenticated`.
-  - [ ] Dropar a função após execução bem-sucedida da migration (ou mover para migration separada de cleanup).
-  - [ ] Aplicar migration corrigida no banco de produção.
+  - [x] Remover o `GRANT` para `authenticated` na migration 010.
+  - [x] Criar migration 013 que revoga o privilégio e dropa a função.
+  - [ ] Aplicar migration 013 no banco de produção via SQL Editor.
 
 ### 1.3 Restringir policies do RLS por nível de acesso e escopo
 - **Arquivos:** `supabase/migrations/003_adicionais_contratuais.sql`, `005_departamentos_rls.sql`, `010_rls_tabelas_negocio.sql`
