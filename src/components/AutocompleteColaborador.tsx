@@ -13,6 +13,7 @@ interface AutocompleteColaboradorProps {
   label?: string
   somenteAtivos?: boolean
   departamentoId?: string | null
+  permitirNovo?: boolean
 }
 
 export function AutocompleteColaborador({
@@ -22,6 +23,7 @@ export function AutocompleteColaborador({
   label,
   somenteAtivos = true,
   departamentoId,
+  permitirNovo = false,
 }: AutocompleteColaboradorProps) {
   const buscaRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<number | null>(null)
@@ -149,6 +151,42 @@ export function AutocompleteColaborador({
     onChange(colab)
   }
 
+  const handleSelecionarNovo = (nome: string) => {
+    const colab: Colaborador = {
+      id: '',
+      matricula: '',
+      nome_completo: nome.trim(),
+      cpf: null,
+      rg: null,
+      ctps: null,
+      pis_pasep: null,
+      data_admissao: null,
+      data_demissao: null,
+      data_nascimento: null,
+      cargo: null,
+      departamento: null,
+      departamento_id: null,
+      email: null,
+      telefone: null,
+      celular: null,
+      cidade: null,
+      estado: null,
+      cep: null,
+      endereco: null,
+      status: 'Ativo',
+      tipo_contrato: null,
+      empresa_id: null,
+      afastamento_motivo: null,
+      afastamento_data_inicio: null,
+      afastamento_data_fim: null,
+      dados_completos: {},
+    }
+    setSelecionado(colab)
+    setBusca(colab.nome_completo)
+    setMostrarSugestoes(false)
+    onChange(colab)
+  }
+
   const handleLimpar = () => {
     setSelecionado(null)
     setBusca('')
@@ -189,6 +227,11 @@ export function AutocompleteColaborador({
                 buscarPorDepartamento()
               }
             }}
+            onBlur={() => {
+              if (permitirNovo && !selecionado && busca.trim()) {
+                handleSelecionarNovo(busca.trim())
+              }
+            }}
             className="text-sm pl-9"
             autoComplete="off"
           />
@@ -200,7 +243,17 @@ export function AutocompleteColaborador({
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400 mx-auto"></div>
                 </div>
               ) : colaboradores.length === 0 ? (
-                <div className="p-3 text-xs text-slate-400 text-center">Nenhum colaborador encontrado</div>
+                permitirNovo && busca.trim() ? (
+                  <div
+                    className="p-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+                    onClick={() => handleSelecionarNovo(busca.trim())}
+                  >
+                    <p className="text-sm font-medium text-slate-700">+ Usar &quot;{busca.trim()}&quot;</p>
+                    <p className="text-xs text-slate-500">Colaborador não cadastrado</p>
+                  </div>
+                ) : (
+                  <div className="p-3 text-xs text-slate-400 text-center">Nenhum colaborador encontrado</div>
+                )
               ) : (
                 colaboradores.map((c) => (
                   <div

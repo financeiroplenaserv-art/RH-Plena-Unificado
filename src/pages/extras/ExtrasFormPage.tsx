@@ -141,7 +141,7 @@ export function ExtrasFormPage() {
   const handleAusenteChange = (colaborador: Colaborador | null) => {
     setForm(prev => ({
       ...prev,
-      colaborador_ausente_id: colaborador?.id || null,
+      colaborador_ausente_id: colaborador?.id ? colaborador.id : null,
       colaborador_ausente_nome: colaborador?.nome_completo || null,
     }))
     setAusenteNaoAplica(!colaborador)
@@ -276,6 +276,7 @@ export function ExtrasFormPage() {
                   onChange={handleAusenteChange}
                   placeholder="Buscar colaborador ausente..."
                   departamentoId={form.departamento_id}
+                  permitirNovo
                 />
               ) : (
                 <div className="p-3 rounded-lg border border-dashed text-sm" style={{ borderColor: '#E2E8F0', color: '#94A3B8' }}>
