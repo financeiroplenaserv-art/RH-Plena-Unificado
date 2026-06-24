@@ -260,7 +260,13 @@ export function useAdicionaisContratuais() {
         toast.success('Vínculo criado')
         return novo
       }
-      const { data, error } = await supabase.from('vinculos_adicionais').insert(dados).select().single()
+      const payload = {
+        contrato_id: dados.contrato_id,
+        colaborador_id: dados.colaborador_id,
+        data_inicio: dados.data_inicio,
+        data_fim: dados.data_fim,
+      }
+      const { data, error } = await supabase.from('vinculos_adicionais').insert(payload).select().single()
       if (error) throw error
       toast.success('Vínculo criado')
       await listarVinculos()
@@ -283,7 +289,11 @@ export function useAdicionaisContratuais() {
         toast.success('Vínculo atualizado')
         return true
       }
-      const { error } = await supabase.from('vinculos_adicionais').update(dados).eq('id', id)
+      const payload: Partial<Pick<VinculoAdicional, 'contrato_id' | 'data_inicio' | 'data_fim'>> = {}
+      if (dados.contrato_id !== undefined) payload.contrato_id = dados.contrato_id
+      if (dados.data_inicio !== undefined) payload.data_inicio = dados.data_inicio
+      if (dados.data_fim !== undefined) payload.data_fim = dados.data_fim
+      const { error } = await supabase.from('vinculos_adicionais').update(payload).eq('id', id)
       if (error) throw error
       toast.success('Vínculo atualizado')
       await listarVinculos()
