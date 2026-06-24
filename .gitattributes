@@ -1,0 +1,19 @@
+# Normaliza quebras de linha para LF em todos os arquivos de texto
+* text=auto eol=lf
+
+# Arquivos binários que não devem ser normalizados
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.xls binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
