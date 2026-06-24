@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Copy, RefreshCcw } from 'lucide-react'
+import { Copy, RefreshCcw, Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -31,6 +32,7 @@ function formatarMoeda(valor: number): string {
 }
 
 export function ExtrasBalancoPage() {
+  const navigate = useNavigate()
   const hoje = new Date().toISOString().split('T')[0]
   const [dataSelecionada, setDataSelecionada] = useState(hoje)
   const [mensagemEditada, setMensagemEditada] = useState('')
@@ -71,7 +73,8 @@ export function ExtrasBalancoPage() {
     )
   }, [extras, dataSelecionada])
 
-  const departamentoDoAusente = (extra: Extra): string => {
+  const departamentoDoExtra = (extra: Extra): string => {
+    if (extra.departamento_nome) return extra.departamento_nome
     if (!extra.colaborador_ausente_id) return 'Não informado'
     const col = mapColaborador.get(extra.colaborador_ausente_id)
     if (!col || !col.departamento_id) return 'Não informado'
@@ -92,7 +95,7 @@ export function ExtrasBalancoPage() {
     categoriasDia.forEach(categoria => {
       const daCategoria = extrasDia.filter(e => e.categoria === categoria)
       const porDepartamento = daCategoria.reduce((acc, extra) => {
-        const dept = departamentoDoAusente(extra)
+        const dept = departamentoDoExtra(extra)
         if (!acc[dept]) acc[dept] = []
         acc[dept].push(extra)
         return acc
@@ -113,7 +116,7 @@ export function ExtrasBalancoPage() {
     if (extrasPortariaNoiteAnterior.length > 0) {
       const dataAnteriorFormatada = formatarData(subtrairUmDia(dataSelecionada))
       const porDepartamento = extrasPortariaNoiteAnterior.reduce((acc, extra) => {
-        const dept = departamentoDoAusente(extra)
+        const dept = departamentoDoExtra(extra)
         if (!acc[dept]) acc[dept] = []
         acc[dept].push(extra)
         return acc
@@ -162,9 +165,15 @@ export function ExtrasBalancoPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Balanço Operacional</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Gere a mensagem diária para envio no WhatsApp</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Balanço Operacional</h2>
+          <p className="text-sm" style={{ color: '#94A3B8' }}>Gere a mensagem diária para envio no WhatsApp</p>
+        </div>
+        <ExtrasButton onClick={() => navigate('/extras/novo')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo extra
+        </ExtrasButton>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -220,8 +229,7 @@ export function ExtrasBalancoPage() {
               value={mensagemEditada}
               onChange={e => setMensagemEditada(e.target.value)}
               rows={20}
-              className="rounded-lg font-mono text-sm"
-              style={{ whiteSpace: 'pre-wrap' }}
+              className="rounded-lg font-mono text-sm whitespace-pre-wrap"
             />
             <div className="flex justify-between items-center text-xs" style={{ color: '#94A3B8' }}>
               <span>{mensagemEditada.length} caracteres</span>

@@ -47,6 +47,8 @@ export interface Extra {
   turno: TurnoExtra
   categoria: CategoriaOcorrencia
   posto: string
+  departamento_id: string | null
+  departamento_nome: string | null
   colaborador_ausente_id: string | null
   colaborador_ausente_nome: string | null
   substituto_id: string | null

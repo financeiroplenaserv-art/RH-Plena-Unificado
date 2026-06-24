@@ -11,6 +11,7 @@ interface AutocompleteColaboradorProps {
   onChange: (colaborador: Colaborador | null) => void
   placeholder?: string
   label?: string
+  somenteAtivos?: boolean
 }
 
 export function AutocompleteColaborador({
@@ -18,6 +19,7 @@ export function AutocompleteColaborador({
   onChange,
   placeholder = 'Digite nome ou matrícula...',
   label,
+  somenteAtivos = true,
 }: AutocompleteColaboradorProps) {
   const buscaRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<number | null>(null)
@@ -62,16 +64,19 @@ export function AutocompleteColaborador({
       return
     }
     setCarregando(true)
-    const { data } = await supabase
+    let query = supabase
       .from('colaboradores')
       .select('*')
       .or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
-      .limit(10)
+    if (somenteAtivos) {
+      query = query.eq('status', 'Ativo')
+    }
+    const { data } = await query.limit(10)
     const resultados = (data as Colaborador[]) || []
     setColaboradores(resultados)
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
-  }, [])
+  }, [somenteAtivos])
 
   const handleBuscaChange = (val: string) => {
     setBusca(val)

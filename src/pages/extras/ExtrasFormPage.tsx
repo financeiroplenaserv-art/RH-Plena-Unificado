@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/select'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
+import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { nomeDepartamento } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 
@@ -28,6 +30,8 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
   turno: 'Dia',
   categoria: 'Limpeza',
   posto: '',
+  departamento_id: null,
+  departamento_nome: null,
   colaborador_ausente_id: null,
   colaborador_ausente_nome: null,
   substituto_id: null,
@@ -52,6 +56,7 @@ export function ExtrasFormPage() {
   const navigate = useNavigate()
   const { categorias, loading, listar, listarCategorias, buscarPorId, criar, atualizar } = useExtras()
   const { listar: listarColaboradores } = useColaboradores()
+  const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const [form, setForm] = useState<Omit<Extra, 'id' | 'created_at' | 'updated_at'>>(extraVazio())
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
@@ -61,7 +66,8 @@ export function ExtrasFormPage() {
     listar()
     listarCategorias()
     listarColaboradores()
-  }, [listar, listarCategorias, listarColaboradores])
+    listarDepartamentos()
+  }, [listar, listarCategorias, listarColaboradores, listarDepartamentos])
 
   useEffect(() => {
     if (id) {
@@ -73,6 +79,8 @@ export function ExtrasFormPage() {
             turno: extra.turno,
             categoria: extra.categoria,
             posto: extra.posto,
+            departamento_id: extra.departamento_id,
+            departamento_nome: extra.departamento_nome,
             colaborador_ausente_id: extra.colaborador_ausente_id,
             colaborador_ausente_nome: extra.colaborador_ausente_nome,
             substituto_id: extra.substituto_id,
@@ -196,6 +204,31 @@ export function ExtrasFormPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label style={{ color: '#1F2937' }}>Departamento</Label>
+              <Select
+                value={form.departamento_id || 'null'}
+                onValueChange={v => {
+                  const dept = departamentos.find(d => d.id === v)
+                  setForm(prev => ({
+                    ...prev,
+                    departamento_id: v === 'null' ? null : v,
+                    departamento_nome: dept ? nomeDepartamento(dept) : null,
+                  }))
+                }}
+              >
+                <SelectTrigger className="rounded-lg">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="null">Selecione...</SelectItem>
+                  {departamentos.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{nomeDepartamento(d)}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
