@@ -232,12 +232,19 @@ export function useAdicionaisContratuais() {
         .select('*, contratos_adicionais(nome), colaboradores(nome_completo, matricula)')
         .order('created_at', { ascending: false })
       if (error) throw error
-      const normalizado = (data || []).map((v: Record<string, unknown>) => ({
-        ...v,
-        contrato_nome: (v.contratos_adicionais as { nome?: string } | undefined)?.nome,
-        colaborador_nome: (v.colaboradores as { nome_completo?: string; matricula?: string } | undefined)?.nome_completo,
-        colaborador_matricula: (v.colaboradores as { matricula?: string } | undefined)?.matricula,
-      })) as VinculoAdicional[]
+      const normalizado = (data || []).map((v: Record<string, unknown>) => {
+        const contrato = v.contratos_adicionais as { nome?: string; adicionais?: Record<string, boolean> } | undefined
+        const colaborador = v.colaboradores as { nome_completo?: string; matricula?: string } | undefined
+        return {
+          ...v,
+          contrato_nome: contrato?.nome,
+          colaborador_nome: colaborador?.nome_completo,
+          colaborador_matricula: colaborador?.matricula,
+          adicionais: contrato?.adicionais
+            ? Object.entries(contrato.adicionais).filter(([, ativo]) => ativo).map(([key]) => key as AdicionalTipo)
+            : [],
+        }
+      }) as VinculoAdicional[]
       setVinculos(normalizado)
       return normalizado
     } catch (err: unknown) {
