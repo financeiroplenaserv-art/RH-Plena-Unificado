@@ -24,7 +24,7 @@ import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './Adici
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
 import { diaIntrajornada } from '@/lib/adicionais/calculoAdicionais'
-import type { ContratoAdicional } from '@/types/adicionais'
+import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
 
 interface RelatorioAdicionalAgregado {
@@ -83,6 +83,68 @@ function downloadBlob(content: string, filename: string, type: string) {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+function normalizarStatus(status: unknown): StatusDiaAdicional {
+  if (
+    status === 'trabalhou' ||
+    status === 'falta' ||
+    status === 'ferias' ||
+    status === 'afastado' ||
+    status === 'folga' ||
+    status === 'folga_substituicao'
+  ) {
+    return status
+  }
+  return 'trabalhou'
+}
+
+function calcularStatus12x36(dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
+  if (!dataInicio) return 'trabalhou'
+  const inicio = new Date(dataInicio + 'T00:00:00')
+  const atual = new Date(dataAtual + 'T00:00:00')
+  const diffMs = atual.getTime() - inicio.getTime()
+  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  return diffDias % 2 === 0 ? 'trabalhou' : 'folga'
+}
+
+function gerarDiasDoPeriodo(inicio: string, fim: string): string[] {
+  const dias: string[] = []
+  const atual = new Date(inicio + 'T00:00:00')
+  const dataFim = new Date(fim + 'T00:00:00')
+  while (atual <= dataFim) {
+    dias.push(`${atual.getFullYear()}-${String(atual.getMonth() + 1).padStart(2, '0')}-${String(atual.getDate()).padStart(2, '0')}`)
+    atual.setDate(atual.getDate() + 1)
+  }
+  return dias
+}
+
+interface DiaCalendarioBasico {
+  vinculo_id: string
+  data: string
+  status: StatusDiaAdicional
+  substituto_colaborador_id?: string | null
+  substituto_colaborador_nome?: string | null
+}
+
+function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, data: string, calendarioUnico: DiaCalendarioBasico[]): DiaCalendarioBasico {
+  const salvo = calendarioUnico.find(d => d.vinculo_id === vinculo.id && d.data === data)
+  if (salvo) {
+    return {
+      vinculo_id: vinculo.id,
+      data,
+      status: normalizarStatus(salvo.status),
+      substituto_colaborador_id: salvo.substituto_colaborador_id,
+      substituto_colaborador_nome: salvo.substituto_colaborador_nome,
+    }
+  }
+  return {
+    vinculo_id: vinculo.id,
+    data,
+    status: calcularStatus12x36(vinculo.data_inicio, data),
+    substituto_colaborador_id: null,
+    substituto_colaborador_nome: null,
+  }
 }
 
 export function AdicionaisRelatorioPage() {
@@ -152,12 +214,6 @@ export function AdicionaisRelatorioPage() {
     })
   }, [vinculos, inicioMes, fimMes])
 
-  const mapVinculo = useMemo(() => {
-    const m = new Map<string, typeof vinculos[0]>()
-    vinculosAtivosNoMes.forEach(v => m.set(v.id, v))
-    return m
-  }, [vinculosAtivosNoMes])
-
   // Deduplica calendário por vinculo_id + data (mantém o mais recente)
   const calendarioUnico = useMemo(() => {
     const map = new Map<string, typeof calendario[0]>()
@@ -201,42 +257,43 @@ export function AdicionaisRelatorioPage() {
       }
     })
 
-    // Conta apenas os dias que estão no calendário
+    // Gera todos os dias do período para cada vínculo ativo, aplicando fallback 12x36
+    const diasDoPeriodo = gerarDiasDoPeriodo(inicioMes, fimMes)
 
     // Mapa auxiliar para corrigir dias 'afastado' isolados dentro de um bloco de férias
     const chaveDia = (vinculoId: string, data: string) => `${vinculoId}|${data}`
     const feriasPorVinculo = new Set<string>()
-    calendarioUnico.forEach(dia => {
-      if (dia.status === 'ferias') feriasPorVinculo.add(chaveDia(dia.vinculo_id, dia.data))
+    vinculosAtivosNoMes.forEach(v => {
+      diasDoPeriodo.forEach(data => {
+        if (getDiaEfetivo(v, data, calendarioUnico).status === 'ferias') {
+          feriasPorVinculo.add(chaveDia(v.id, data))
+        }
+      })
     })
 
-    const statusEfetivo = (dia: typeof calendario[0]): typeof dia.status => {
+    const statusEfetivo = (vinculo: typeof vinculosAtivosNoMes[0], data: string): StatusDiaAdicional => {
+      const dia = getDiaEfetivo(vinculo, data, calendarioUnico)
       if (dia.status !== 'afastado') return dia.status
-      const anterior = new Date(dia.data)
+      const anterior = new Date(data)
       anterior.setDate(anterior.getDate() - 1)
-      const posterior = new Date(dia.data)
+      const posterior = new Date(data)
       posterior.setDate(posterior.getDate() + 1)
       const antStr = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, '0')}-${String(anterior.getDate()).padStart(2, '0')}`
       const postStr = `${posterior.getFullYear()}-${String(posterior.getMonth() + 1).padStart(2, '0')}-${String(posterior.getDate()).padStart(2, '0')}`
-      if (feriasPorVinculo.has(chaveDia(dia.vinculo_id, antStr)) || feriasPorVinculo.has(chaveDia(dia.vinculo_id, postStr))) {
+      if (feriasPorVinculo.has(chaveDia(vinculo.id, antStr)) || feriasPorVinculo.has(chaveDia(vinculo.id, postStr))) {
         return 'ferias'
       }
       return 'afastado'
     }
 
-    calendarioUnico.forEach(dia => {
-      const vinculo = mapVinculo.get(dia.vinculo_id)
-      if (!vinculo) return
-      if (dia.data < inicioMes || dia.data > fimMes) return
-
+    vinculosAtivosNoMes.forEach(vinculo => {
       const contrato = mapContrato.get(vinculo.contrato_id)
       const chave = `${vinculo.colaborador_id}|${vinculo.contrato_id}`
-      let registro = contagem.get(chave)
+      const col = mapColaborador.get(vinculo.colaborador_id)
+      const dept = nomeDepartamento(mapDepartamento.get(contrato?.departamento_id || ''))
 
-      // Se não existe registro inicializado (vínculo não ativo no período), cria um fallback
+      let registro = contagem.get(chave)
       if (!registro) {
-        const col = mapColaborador.get(vinculo.colaborador_id)
-        const dept = nomeDepartamento(mapDepartamento.get(contrato?.departamento_id || ''))
         registro = {
           colaborador_id: vinculo.colaborador_id,
           colaborador_nome: col?.nome || vinculo.colaborador_nome || '—',
@@ -256,68 +313,69 @@ export function AdicionaisRelatorioPage() {
         contagem.set(chave, registro)
       }
 
-      const status = statusEfetivo(dia)
+      diasDoPeriodo.forEach(data => {
+        const dia = getDiaEfetivo(vinculo, data, calendarioUnico)
+        const status = statusEfetivo(vinculo, data)
 
-      if (status === 'trabalhou') {
-        registro.dias_trabalhados += 1
-        if (contrato?.adicionais?.noturno) registro.dias_noturno += 1
-        if (contrato?.adicionais?.periculosidade) registro.dias_periculosidade += 1
-        if (contrato?.adicionais?.insalubridade) registro.dias_insalubridade += 1
-        if (diaIntrajornada(contrato, dia.data)) registro.dias_intrajornada += 1
-      } else if (status === 'folga' || status === 'folga_substituicao') {
-        registro.folgas += 1
-      } else if (status === 'falta') {
-        registro.faltas += 1
-      } else if (status === 'ferias') {
-        registro.ferias += 1
-      } else if (status === 'afastado') {
-        registro.afastados += 1
-      }
-
-      // Se há substituto em dia de ausência, conta como trabalhado para o substituto
-      // no contrato original (onde o substituto realizou o trabalho)
-      const temSubstituto = dia.substituto_colaborador_id &&
-        (status === 'falta' || status === 'ferias' || status === 'afastado' || status === 'folga_substituicao')
-
-      if (temSubstituto) {
-        const substitutoId = dia.substituto_colaborador_id!
-        const chaveSubst = `${substitutoId}|${vinculo.contrato_id}`
-        let registroSubst = contagem.get(chaveSubst)
-
-        if (!registroSubst) {
-          const colSubst = mapColaborador.get(substitutoId)
-          const dept = nomeDepartamento(mapDepartamento.get(contrato?.departamento_id || ''))
-          registroSubst = {
-            colaborador_id: substitutoId,
-            colaborador_nome: colSubst?.nome || dia.substituto_colaborador_nome || '—',
-            contrato_id: vinculo.contrato_id,
-            contrato_nome: contrato?.nome || vinculo.contrato_nome || '—',
-            departamento: dept,
-            dias_trabalhados: 0,
-            dias_noturno: 0,
-            dias_periculosidade: 0,
-            dias_insalubridade: 0,
-            dias_intrajornada: 0,
-            folgas: 0,
-            faltas: 0,
-            ferias: 0,
-            afastados: 0,
-          }
-          contagem.set(chaveSubst, registroSubst)
+        if (status === 'trabalhou') {
+          registro!.dias_trabalhados += 1
+          if (contrato?.adicionais?.noturno) registro!.dias_noturno += 1
+          if (contrato?.adicionais?.periculosidade) registro!.dias_periculosidade += 1
+          if (contrato?.adicionais?.insalubridade) registro!.dias_insalubridade += 1
+          if (diaIntrajornada(contrato, data)) registro!.dias_intrajornada += 1
+        } else if (status === 'folga' || status === 'folga_substituicao') {
+          registro!.folgas += 1
+        } else if (status === 'falta') {
+          registro!.faltas += 1
+        } else if (status === 'ferias') {
+          registro!.ferias += 1
+        } else if (status === 'afastado') {
+          registro!.afastados += 1
         }
 
-        registroSubst.dias_trabalhados += 1
-        if (contrato?.adicionais?.noturno) registroSubst.dias_noturno += 1
-        if (contrato?.adicionais?.periculosidade) registroSubst.dias_periculosidade += 1
-        if (contrato?.adicionais?.insalubridade) registroSubst.dias_insalubridade += 1
-        if (diaIntrajornada(contrato, dia.data)) registroSubst.dias_intrajornada += 1
-      }
+        // Se há substituto em dia de ausência, conta como trabalhado para o substituto
+        const temSubstituto = dia.substituto_colaborador_id &&
+          (status === 'falta' || status === 'ferias' || status === 'afastado' || status === 'folga_substituicao')
+
+        if (temSubstituto) {
+          const substitutoId = dia.substituto_colaborador_id!
+          const chaveSubst = `${substitutoId}|${vinculo.contrato_id}`
+          let registroSubst = contagem.get(chaveSubst)
+
+          if (!registroSubst) {
+            const colSubst = mapColaborador.get(substitutoId)
+            registroSubst = {
+              colaborador_id: substitutoId,
+              colaborador_nome: colSubst?.nome || dia.substituto_colaborador_nome || '—',
+              contrato_id: vinculo.contrato_id,
+              contrato_nome: contrato?.nome || vinculo.contrato_nome || '—',
+              departamento: dept,
+              dias_trabalhados: 0,
+              dias_noturno: 0,
+              dias_periculosidade: 0,
+              dias_insalubridade: 0,
+              dias_intrajornada: 0,
+              folgas: 0,
+              faltas: 0,
+              ferias: 0,
+              afastados: 0,
+            }
+            contagem.set(chaveSubst, registroSubst)
+          }
+
+          registroSubst.dias_trabalhados += 1
+          if (contrato?.adicionais?.noturno) registroSubst.dias_noturno += 1
+          if (contrato?.adicionais?.periculosidade) registroSubst.dias_periculosidade += 1
+          if (contrato?.adicionais?.insalubridade) registroSubst.dias_insalubridade += 1
+          if (diaIntrajornada(contrato, data)) registroSubst.dias_intrajornada += 1
+        }
+      })
     })
 
     const resultado = Array.from(contagem.values())
 
     return resultado
-  }, [calendarioUnico, vinculosAtivosNoMes, inicioMes, fimMes, mapContrato, mapColaborador, mapDepartamento, mapVinculo])
+  }, [calendarioUnico, vinculosAtivosNoMes, inicioMes, fimMes, mapContrato, mapColaborador, mapDepartamento])
 
   const linhasFiltradas = useMemo(() => {
     let lista = linhasAgregadas
