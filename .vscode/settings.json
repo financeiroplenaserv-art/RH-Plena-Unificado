@@ -1,0 +1,9 @@
+{
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 2000,
+  "editor.formatOnSave": false,
+  "git.autofetch": false,
+  "extensions.ignoreRecommendations": true,
+  "files.hotExit": "onExitAndWindowClose",
+  "workbench.editor.restoreEditors": true
+}
