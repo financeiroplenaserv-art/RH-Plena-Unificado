@@ -15,7 +15,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
-import { nomeDepartamento } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoeda, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 
@@ -227,7 +227,7 @@ export function ExtrasFormPage() {
                 <SelectContent>
                   <SelectItem value="null">Selecione...</SelectItem>
                   {departamentos.map(d => (
-                    <SelectItem key={d.id} value={d.id}>{nomeDepartamento(d)}</SelectItem>
+                    <SelectItem key={d.id} value={d.id}>{d.nome_curto || d.nome}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -310,11 +310,12 @@ export function ExtrasFormPage() {
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Valor (R$)</Label>
               <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={form.valor}
-                onChange={e => setField('valor', Number(e.target.value))}
+                type="text"
+                inputMode="decimal"
+                value={mascaraMoeda(form.valor)}
+                onChange={e => setField('valor', parseMoeda(e.target.value))}
+                onBlur={e => setField('valor', parseMoeda(e.target.value))}
+                placeholder="R$ 0,00"
                 className="rounded-lg"
                 required
               />

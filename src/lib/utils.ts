@@ -49,6 +49,20 @@ export function nomeDepartamento(departamento: Departamento | null | undefined):
   return departamento.nome_curto?.trim() || departamento.nome
 }
 
+export function mascaraMoeda(valor: string | number | null | undefined): string {
+  if (valor === null || valor === undefined || valor === '') return ''
+  const numero = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(/\D/g, '')) / 100
+  if (isNaN(numero)) return ''
+  return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+export function parseMoeda(valor: string | null | undefined): number {
+  if (!valor) return 0
+  const limpo = valor.replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
+  const numero = parseFloat(limpo)
+  return isNaN(numero) ? 0 : numero
+}
+
 /**
  * Aplica máscara de telefone/celular brasileiro:
  * - Fixo: (00) 0000-0000

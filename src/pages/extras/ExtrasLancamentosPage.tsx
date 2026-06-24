@@ -57,7 +57,7 @@ export function ExtrasLancamentosPage() {
 
   useEffect(() => {
     listarCategorias()
-    listarColaboradores()
+    listarColaboradores({ status: 'Ativo' })
   }, [listarCategorias, listarColaboradores])
 
   useEffect(() => {
@@ -193,7 +193,15 @@ export function ExtrasLancamentosPage() {
                 </TableRow>
               ) : extrasFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhum registro encontrado</TableCell>
+                  <TableCell colSpan={9} className="text-center py-8" style={{ color: '#94A3B8' }}>
+                    <div className="flex flex-col items-center gap-3">
+                      <span>Nenhum registro encontrado</span>
+                      <ExtrasButton size="sm" onClick={() => navigate('/extras/novo')}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Novo extra
+                      </ExtrasButton>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ) : (
                 extrasFiltrados.map(extra => (

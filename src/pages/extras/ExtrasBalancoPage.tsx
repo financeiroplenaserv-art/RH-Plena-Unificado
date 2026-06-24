@@ -103,12 +103,15 @@ export function ExtrasBalancoPage() {
 
       texto += `\n*${categoria}*\n`
       Object.entries(porDepartamento).forEach(([dept, itens]) => {
-        texto += `\nDepartamento: ${dept}\n`
+        texto += `\n*Departamento:* ${dept}\n`
         itens.forEach(extra => {
           const ausente = extra.colaborador_ausente_nome || 'Não se aplica'
           const substituto = extra.substituto_nome || 'Não informado'
           const comunicacao = formatarComunicacao(extra)
-          texto += `• Ausente: ${ausente} | Substituto: ${substituto} | Valor: ${formatarMoeda(extra.valor)} | Cliente: ${comunicacao}\n`
+          texto += `• *Ausente:* ${ausente}\n`
+          texto += `  *Substituto:* ${substituto}\n`
+          texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
+          texto += `  *Cliente:* ${comunicacao}\n\n`
         })
       })
     })
@@ -124,12 +127,15 @@ export function ExtrasBalancoPage() {
 
       texto += `\n*Portaria – Noite anterior (${dataAnteriorFormatada})*\n`
       Object.entries(porDepartamento).forEach(([dept, itens]) => {
-        texto += `\nDepartamento: ${dept}\n`
+        texto += `\n*Departamento:* ${dept}\n`
         itens.forEach(extra => {
           const ausente = extra.colaborador_ausente_nome || 'Não se aplica'
           const substituto = extra.substituto_nome || 'Não informado'
           const comunicacao = formatarComunicacao(extra)
-          texto += `• Ausente: ${ausente} | Substituto: ${substituto} | Valor: ${formatarMoeda(extra.valor)} | Cliente: ${comunicacao}\n`
+          texto += `• *Ausente:* ${ausente}\n`
+          texto += `  *Substituto:* ${substituto}\n`
+          texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
+          texto += `  *Cliente:* ${comunicacao}\n\n`
         })
       })
     }
