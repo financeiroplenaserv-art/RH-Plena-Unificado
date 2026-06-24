@@ -1,3 +1,5 @@
+import { escapeHtml } from '@/lib/utils'
+
 /* ============================================================
    RECIBOS CEU — EPI e Uniforme/Crachá
    Colorido (digital) + Preto e Branco (impressão)
@@ -56,12 +58,12 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
     <tr>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: #1E3A5F; font-size: 10pt;">${idx + 1}</td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; font-size: 10pt;">
-        <strong style="color: #1E3A5F;">${e.item.descricao}</strong>
-        ${e.item.numero_ca ? `<br><span style="color: #64748b; font-size: 8pt; font-weight: 500;">CA: ${e.item.numero_ca}</span>` : ''}
+        <strong style="color: #1E3A5F;">${escapeHtml(e.item.descricao)}</strong>
+        ${e.item.numero_ca ? `<br><span style="color: #64748b; font-size: 8pt; font-weight: 500;">CA: ${escapeHtml(e.item.numero_ca)}</span>` : ''}
       </td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-size: 9pt;">
         <span style="background: #F97316; color: #fff; padding: 3px 8px; border-radius: 15px; font-weight: 600;">
-          ${e.item.subgrupo}
+          ${escapeHtml(e.item.subgrupo)}
         </span>
       </td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; font-size: 10pt;">${e.quantidade}</td>
@@ -69,7 +71,7 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
         <span style="background: ${e.situacao === 'Novo' ? '#16A34A20' : e.situacao === 'Substituição' ? '#F9731620' : '#3B82F620'};
                      color: ${e.situacao === 'Novo' ? '#16A34A' : e.situacao === 'Substituição' ? '#EA580C' : '#2563EB'};
                      padding: 3px 8px; border-radius: 12px; font-weight: 500;">
-          ${e.situacao}
+          ${escapeHtml(e.situacao)}
         </span>
       </td>
     </tr>
@@ -81,7 +83,7 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recibo EPI ${numeroRecibo}</title>
+  <title>Recibo EPI ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
     * { box-sizing: border-box; }
@@ -241,12 +243,12 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
   <div class="container">
     <div class="header">
       <h1>RECIBO DE ENTREGA - EPI</h1>
-      <p>${numeroRecibo} | Data: ${formatarData(dataEntrega)}</p>
+      <p>${escapeHtml(numeroRecibo)} | Data: ${formatarData(dataEntrega)}</p>
     </div>
 
     <div class="empresa-info">
-      <div class="empresa-nome">${nomeEmpresa}</div>
-      <div class="empresa-cnpj">CNPJ: ${cnpjEmpresa}</div>
+      <div class="empresa-nome">${escapeHtml(nomeEmpresa)}</div>
+      <div class="empresa-cnpj">CNPJ: ${escapeHtml(cnpjEmpresa)}</div>
     </div>
 
     <div class="section">
@@ -254,19 +256,19 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
       <div class="info-grid">
         <div class="info-item">
           <div class="info-label">Nome</div>
-          <div class="info-value">${colaborador.nome}</div>
+          <div class="info-value">${escapeHtml(colaborador.nome)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Matrícula</div>
-          <div class="info-value">${colaborador.matricula}</div>
+          <div class="info-value">${escapeHtml(colaborador.matricula)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Função</div>
-          <div class="info-value">${colaborador.funcao}</div>
+          <div class="info-value">${escapeHtml(colaborador.funcao)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Departamento</div>
-          <div class="info-value">${colaborador.departamento}</div>
+          <div class="info-value">${escapeHtml(colaborador.departamento)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">CPF</div>
@@ -305,7 +307,7 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
     <div class="declaracao">
       <div class="declaracao-title">DECLARAÇÃO DE RESPONSABILIDADE</div>
       <p style="margin: 0 0 8px 0;">
-        Eu, <strong>${colaborador.nome}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
+        Eu, <strong>${escapeHtml(colaborador.nome)}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
         declaro ter recebido os EPIs listados acima em perfeitas condições e estou ciente de que:
       </p>
       <ul style="margin: 0; padding-left: 20px; font-size: 7.5pt; line-height: 1.5;">
@@ -319,14 +321,14 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
 
     <div class="assinatura" style="margin-top: 25px;">
       <div class="assinatura-line">
-        <strong style="font-size: 9pt; color: #1E3A5F;">${colaborador.nome}</strong><br>
+        <strong style="font-size: 9pt; color: #1E3A5F;">${escapeHtml(colaborador.nome)}</strong><br>
         CPF: ${formatarCPF(colaborador.cpf)}<br>
         <span style="font-size: 7pt;">Colaborador</span>
       </div>
     </div>
 
     <div class="footer">
-      <p>Documento gerado eletronicamente - <strong style="color: #F97316;">${numeroRecibo}</strong></p>
+      <p>Documento gerado eletronicamente - <strong style="color: #F97316;">${escapeHtml(numeroRecibo)}</strong></p>
       <p>Este documento é válido para fins de comprovação de entrega de EPI</p>
     </div>
   </div>
@@ -346,12 +348,12 @@ export function gerarReciboEPIPB(data: ReciboData): string {
     <tr>
       <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${idx + 1}</td>
       <td style="padding: 6px 4px; border: 1px solid #333; font-size: 9pt;">
-        <strong>${e.item.descricao}</strong>
-        ${e.item.numero_ca ? `<br><span style="font-size: 8pt;">CA: ${e.item.numero_ca}</span>` : ''}
+        <strong>${escapeHtml(e.item.descricao)}</strong>
+        ${e.item.numero_ca ? `<br><span style="font-size: 8pt;">CA: ${escapeHtml(e.item.numero_ca)}</span>` : ''}
       </td>
-      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${e.item.subgrupo}</td>
+      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${escapeHtml(e.item.subgrupo)}</td>
       <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${e.quantidade}</td>
-      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${e.situacao}</td>
+      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${escapeHtml(e.situacao)}</td>
     </tr>
   `
     )
@@ -361,7 +363,7 @@ export function gerarReciboEPIPB(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recibo EPI ${numeroRecibo}</title>
+  <title>Recibo EPI ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
     * { box-sizing: border-box; }
@@ -486,21 +488,21 @@ export function gerarReciboEPIPB(data: ReciboData): string {
 <body>
   <div class="header">
     <h1>RECIBO DE ENTREGA - EPI</h1>
-    <p>${numeroRecibo} | Data: ${formatarData(dataEntrega)}</p>
+    <p>${escapeHtml(numeroRecibo)} | Data: ${formatarData(dataEntrega)}</p>
   </div>
 
   <div class="empresa-info">
-    <div class="empresa-nome">${nomeEmpresa}</div>
-    <div>CNPJ: ${cnpjEmpresa}</div>
+    <div class="empresa-nome">${escapeHtml(nomeEmpresa)}</div>
+    <div>CNPJ: ${escapeHtml(cnpjEmpresa)}</div>
   </div>
 
   <div class="section">
     <div class="section-title">DADOS DO COLABORADOR</div>
     <div class="info-grid">
-      <div class="info-item"><div class="info-label">Nome:</div><div class="info-value">${colaborador.nome}</div></div>
-      <div class="info-item"><div class="info-label">Matrícula:</div><div class="info-value">${colaborador.matricula}</div></div>
-      <div class="info-item"><div class="info-label">Função:</div><div class="info-value">${colaborador.funcao}</div></div>
-      <div class="info-item"><div class="info-label">Departamento:</div><div class="info-value">${colaborador.departamento}</div></div>
+      <div class="info-item"><div class="info-label">Nome:</div><div class="info-value">${escapeHtml(colaborador.nome)}</div></div>
+      <div class="info-item"><div class="info-label">Matrícula:</div><div class="info-value">${escapeHtml(colaborador.matricula)}</div></div>
+      <div class="info-item"><div class="info-label">Função:</div><div class="info-value">${escapeHtml(colaborador.funcao)}</div></div>
+      <div class="info-item"><div class="info-label">Departamento:</div><div class="info-value">${escapeHtml(colaborador.departamento)}</div></div>
       <div class="info-item"><div class="info-label">CPF:</div><div class="info-value">${formatarCPF(colaborador.cpf)}</div></div>
       <div class="info-item"><div class="info-label">Data de Admissão:</div><div class="info-value">${formatarData(colaborador.data_admissao)}</div></div>
     </div>
@@ -530,7 +532,7 @@ export function gerarReciboEPIPB(data: ReciboData): string {
   <div class="declaracao">
     <div class="declaracao-title">DECLARAÇÃO DE RESPONSABILIDADE</div>
     <p style="margin: 0 0 6px 0;">
-      Eu, <strong>${colaborador.nome}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
+      Eu, <strong>${escapeHtml(colaborador.nome)}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
       declaro ter recebido os EPIs listados acima em perfeitas condições e estou ciente de que:
     </p>
     <ul style="margin: 0; padding-left: 18px; font-size: 7.5pt; line-height: 1.4;">
@@ -544,14 +546,14 @@ export function gerarReciboEPIPB(data: ReciboData): string {
 
   <div class="assinatura" style="margin-top: 20px;">
     <div class="assinatura-line">
-      <strong>${colaborador.nome}</strong><br>
+      <strong>${escapeHtml(colaborador.nome)}</strong><br>
       CPF: ${formatarCPF(colaborador.cpf)}<br>
       Colaborador
     </div>
   </div>
 
   <div class="footer">
-    <p>${numeroRecibo} - Documento para impressão</p>
+    <p>${escapeHtml(numeroRecibo)} - Documento para impressão</p>
   </div>
 </body>
 </html>`
@@ -569,13 +571,13 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
     <tr>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: #1E3A5F; font-size: 10pt;">${idx + 1}</td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; font-size: 10pt;">
-        <strong style="color: #1E3A5F;">${e.item.descricao}</strong>
+        <strong style="color: #1E3A5F;">${escapeHtml(e.item.descricao)}</strong>
       </td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-size: 9pt;">
         <span style="background: ${e.item.grupo_macro === 'Uniformes' ? '#16A34A' : '#FACC15'};
                      color: ${e.item.grupo_macro === 'Uniformes' ? '#fff' : '#000'};
                      padding: 3px 8px; border-radius: 15px; font-weight: 600;">
-          ${e.item.subgrupo}
+          ${escapeHtml(e.item.subgrupo)}
         </span>
       </td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; font-size: 10pt;">${e.quantidade}</td>
@@ -583,7 +585,7 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
         <span style="background: ${e.situacao === 'Novo' ? '#16A34A20' : e.situacao === 'Substituição' ? '#F9731620' : '#3B82F620'};
                      color: ${e.situacao === 'Novo' ? '#16A34A' : e.situacao === 'Substituição' ? '#EA580C' : '#2563EB'};
                      padding: 3px 8px; border-radius: 12px; font-weight: 500;">
-          ${e.situacao}
+          ${escapeHtml(e.situacao)}
         </span>
       </td>
     </tr>
@@ -595,7 +597,7 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recibo Uniforme/Crachá ${numeroRecibo}</title>
+  <title>Recibo Uniforme/Crachá ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
     * { box-sizing: border-box; }
@@ -741,12 +743,12 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
   <div class="container">
     <div class="header">
       <h1>RECIBO DE ENTREGA - UNIFORME/CRACHÁ</h1>
-      <p>${numeroRecibo} | Data: ${formatarData(dataEntrega)}</p>
+      <p>${escapeHtml(numeroRecibo)} | Data: ${formatarData(dataEntrega)}</p>
     </div>
 
     <div class="empresa-info">
-      <div class="empresa-nome">${nomeEmpresa}</div>
-      <div class="empresa-cnpj">CNPJ: ${cnpjEmpresa}</div>
+      <div class="empresa-nome">${escapeHtml(nomeEmpresa)}</div>
+      <div class="empresa-cnpj">CNPJ: ${escapeHtml(cnpjEmpresa)}</div>
     </div>
 
     <div class="section">
@@ -754,19 +756,19 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
       <div class="info-grid">
         <div class="info-item">
           <div class="info-label">Nome</div>
-          <div class="info-value">${colaborador.nome}</div>
+          <div class="info-value">${escapeHtml(colaborador.nome)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Matrícula</div>
-          <div class="info-value">${colaborador.matricula}</div>
+          <div class="info-value">${escapeHtml(colaborador.matricula)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Função</div>
-          <div class="info-value">${colaborador.funcao}</div>
+          <div class="info-value">${escapeHtml(colaborador.funcao)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">Departamento</div>
-          <div class="info-value">${colaborador.departamento}</div>
+          <div class="info-value">${escapeHtml(colaborador.departamento)}</div>
         </div>
         <div class="info-item">
           <div class="info-label">CPF</div>
@@ -800,21 +802,21 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
     <div class="declaracao">
       <div class="declaracao-title">DECLARAÇÃO</div>
       <p style="margin: 0;">
-        Eu, <strong>${colaborador.nome}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
+        Eu, <strong>${escapeHtml(colaborador.nome)}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
         declaro ter recebido os itens listados em perfeitas condições.
       </p>
     </div>
 
     <div class="assinatura">
       <div class="assinatura-line">
-        <strong style="font-size: 9pt; color: #1E3A5F;">${colaborador.nome}</strong><br>
+        <strong style="font-size: 9pt; color: #1E3A5F;">${escapeHtml(colaborador.nome)}</strong><br>
         CPF: ${formatarCPF(colaborador.cpf)}<br>
         <span style="font-size: 7pt;">Colaborador</span>
       </div>
     </div>
 
     <div class="footer">
-      <p>Documento gerado eletronicamente - <strong style="color: #16A34A;">${numeroRecibo}</strong></p>
+      <p>Documento gerado eletronicamente - <strong style="color: #16A34A;">${escapeHtml(numeroRecibo)}</strong></p>
       <p>Este documento é válido para fins de comprovação de entrega de uniforme/crachá</p>
     </div>
   </div>
@@ -833,10 +835,10 @@ export function gerarReciboUniformePB(data: ReciboData): string {
       (e, idx) => `
     <tr>
       <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${idx + 1}</td>
-      <td style="padding: 6px 4px; border: 1px solid #333; font-size: 9pt;"><strong>${e.item.descricao}</strong></td>
-      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${e.item.subgrupo}</td>
+      <td style="padding: 6px 4px; border: 1px solid #333; font-size: 9pt;"><strong>${escapeHtml(e.item.descricao)}</strong></td>
+      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${escapeHtml(e.item.subgrupo)}</td>
       <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${e.quantidade}</td>
-      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${e.situacao}</td>
+      <td style="padding: 6px 4px; border: 1px solid #333; text-align: center; font-size: 9pt;">${escapeHtml(e.situacao)}</td>
     </tr>
   `
     )
@@ -846,7 +848,7 @@ export function gerarReciboUniformePB(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recibo Uniforme/Crachá ${numeroRecibo}</title>
+  <title>Recibo Uniforme/Crachá ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
     * { box-sizing: border-box; }
@@ -875,21 +877,21 @@ export function gerarReciboUniformePB(data: ReciboData): string {
 <body>
   <div class="header">
     <h1>RECIBO DE ENTREGA - UNIFORME/CRACHÁ</h1>
-    <p>${numeroRecibo} | Data: ${formatarData(dataEntrega)}</p>
+    <p>${escapeHtml(numeroRecibo)} | Data: ${formatarData(dataEntrega)}</p>
   </div>
 
   <div class="empresa-info">
-    <div class="empresa-nome">${nomeEmpresa}</div>
-    <div>CNPJ: ${cnpjEmpresa}</div>
+    <div class="empresa-nome">${escapeHtml(nomeEmpresa)}</div>
+    <div>CNPJ: ${escapeHtml(cnpjEmpresa)}</div>
   </div>
 
   <div class="section">
     <div class="section-title">DADOS DO COLABORADOR</div>
     <div class="info-grid">
-      <div class="info-item"><div class="info-label">Nome:</div><div class="info-value">${colaborador.nome}</div></div>
-      <div class="info-item"><div class="info-label">Matrícula:</div><div class="info-value">${colaborador.matricula}</div></div>
-      <div class="info-item"><div class="info-label">Função:</div><div class="info-value">${colaborador.funcao}</div></div>
-      <div class="info-item"><div class="info-label">Departamento:</div><div class="info-value">${colaborador.departamento}</div></div>
+      <div class="info-item"><div class="info-label">Nome:</div><div class="info-value">${escapeHtml(colaborador.nome)}</div></div>
+      <div class="info-item"><div class="info-label">Matrícula:</div><div class="info-value">${escapeHtml(colaborador.matricula)}</div></div>
+      <div class="info-item"><div class="info-label">Função:</div><div class="info-value">${escapeHtml(colaborador.funcao)}</div></div>
+      <div class="info-item"><div class="info-label">Departamento:</div><div class="info-value">${escapeHtml(colaborador.departamento)}</div></div>
       <div class="info-item"><div class="info-label">CPF:</div><div class="info-value">${formatarCPF(colaborador.cpf)}</div></div>
       <div class="info-item"><div class="info-label">Data de Admissão:</div><div class="info-value">${formatarData(colaborador.data_admissao)}</div></div>
     </div>
@@ -914,21 +916,21 @@ export function gerarReciboUniformePB(data: ReciboData): string {
   <div class="declaracao">
     <div class="declaracao-title">DECLARAÇÃO</div>
     <p style="margin: 0;">
-      Eu, <strong>${colaborador.nome}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
+      Eu, <strong>${escapeHtml(colaborador.nome)}</strong>, CPF <strong>${formatarCPF(colaborador.cpf)}</strong>,
       declaro ter recebido os itens acima em perfeitas condições.
     </p>
   </div>
 
   <div class="assinatura">
     <div class="assinatura-line">
-      <strong>${colaborador.nome}</strong><br>
+      <strong>${escapeHtml(colaborador.nome)}</strong><br>
       CPF: ${formatarCPF(colaborador.cpf)}<br>
       Colaborador
     </div>
   </div>
 
   <div class="footer">
-    <p>${numeroRecibo} - Documento para impressão</p>
+    <p>${escapeHtml(numeroRecibo)} - Documento para impressão</p>
   </div>
 </body>
 </html>`

@@ -1,4 +1,5 @@
 import type { VRResultadoCalculo, VRConfiguracao } from '@/types'
+import { escapeHtml } from '@/lib/utils'
 
 export function gerarComprovanteIndividualHTML(
   resultado: VRResultadoCalculo,
@@ -12,7 +13,7 @@ export function gerarComprovanteIndividualHTML(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Comprovante VR - ${resultado.nome}</title>
+  <title>Comprovante VR - ${escapeHtml(resultado.nome)}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
@@ -29,9 +30,9 @@ export function gerarComprovanteIndividualHTML(
 <body>
   <div class="card">
     <h1>🍽️ Comprovante de Vale Refeição</h1>
-    <div class="row"><span>👤 Colaborador</span><span>${resultado.nome}</span></div>
-    <div class="row"><span>🆔 CPF</span><span>${resultado.cpf}</span></div>
-    <div class="row"><span>🎫 Matrícula</span><span>${resultado.matricula || '-'}</span></div>
+    <div class="row"><span>👤 Colaborador</span><span>${escapeHtml(resultado.nome)}</span></div>
+    <div class="row"><span>🆔 CPF</span><span>${escapeHtml(resultado.cpf)}</span></div>
+    <div class="row"><span>🎫 Matrícula</span><span>${escapeHtml(resultado.matricula) || '-'}</span></div>
     <div class="row"><span>📅 Período de corte</span><span>${config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span></div>
     <div class="row"><span>✅ Dias elegíveis</span><span>${resultado.diasElegiveis}</span></div>
     <div class="row"><span>💵 Valor unitário</span><span>R$ ${config.valorVR.toFixed(2)}</span></div>
@@ -39,7 +40,7 @@ export function gerarComprovanteIndividualHTML(
     <div class="row"><span>➕ Valor extra</span><span>R$ ${valorExtra.toFixed(2)}</span></div>
     <div class="row total"><span>💰 Valor total</span><span>R$ ${valorTotal.toFixed(2)}</span></div>
     <p style="margin-top: 24px; font-size: 0.875rem; color: #6b7280;">
-      Corte: ${config.dataCorte} | Efetivação: ${config.dataEfetivacao}
+      Corte: ${escapeHtml(config.dataCorte)} | Efetivação: ${escapeHtml(config.dataEfetivacao)}
     </p>
   </div>
 </body>
@@ -54,9 +55,9 @@ export function gerarComprovanteGeralHTML(
   const total = resultados.reduce((s, r) => s + r.valorBruto, 0)
   const rows = resultados.map(r => `
     <tr>
-      <td>${r.nome}</td>
-      <td>${r.cpf}</td>
-      <td>${r.matricula || '-'}</td>
+      <td>${escapeHtml(r.nome)}</td>
+      <td>${escapeHtml(r.cpf)}</td>
+      <td>${escapeHtml(r.matricula) || '-'}</td>
       <td>${r.diasElegiveis}</td>
       <td>R$ ${config.valorVR.toFixed(2)}</td>
       <td>R$ ${r.valorBruto.toFixed(2)}</td>
@@ -79,7 +80,7 @@ export function gerarComprovanteGeralHTML(
 </head>
 <body>
   <h1>Comprovantes de Vale Refeição</h1>
-  <p>Período: ${config.dataCorte} | Total: R$ ${total.toFixed(2)}</p>
+  <p>Período: ${escapeHtml(config.dataCorte)} | Total: R$ ${total.toFixed(2)}</p>
   <table>
     <thead>
       <tr>
@@ -106,6 +107,9 @@ export function gerarRecibosLoteHTML(
 ): string {
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
   const totalGeral = resultados.reduce((s, r) => s + r.valorBruto + (r.extra || 0), 0)
+  const escProjetoNome = escapeHtml(projetoNome) || 'Plena EA Facilities'
+  const escDataCorte = config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
+  const escDataEfetivacao = config.dataEfetivacao ? new Date(config.dataEfetivacao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
 
   const recibos = resultados.map(r => {
     const valorDias = r.diasElegiveis * config.valorVR
@@ -117,24 +121,24 @@ export function gerarRecibosLoteHTML(
         <div class="header">
           <div class="icon">VR</div>
           <h1>Recibo de Vale Refeição</h1>
-          <p class="empresa">${projetoNome || 'Plena EA Facilities'}</p>
+          <p class="empresa">${escProjetoNome}</p>
         </div>
         <div class="body">
           <div class="info-row">
             <span class="label">Colaborador</span>
-            <span class="value">${r.nome}</span>
+            <span class="value">${escapeHtml(r.nome)}</span>
           </div>
           <div class="info-row">
             <span class="label">CPF</span>
-            <span class="value">${r.cpf}</span>
+            <span class="value">${escapeHtml(r.cpf)}</span>
           </div>
           <div class="info-row">
             <span class="label">Matrícula</span>
-            <span class="value">${r.matricula || '-'}</span>
+            <span class="value">${escapeHtml(r.matricula) || '-'}</span>
           </div>
           <div class="info-row">
             <span class="label">Período de corte</span>
-            <span class="value">${config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+            <span class="value">${escDataCorte}</span>
           </div>
           <div class="info-row">
             <span class="label">Dias elegíveis</span>
@@ -172,7 +176,7 @@ export function gerarRecibosLoteHTML(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recibos VR - ${projetoNome || 'Vale Refeição'}</title>
+  <title>Recibos VR - ${escProjetoNome}</title>
   <style>
     @page { size: A4; margin: 15mm; }
     * { box-sizing: border-box; }
@@ -275,8 +279,8 @@ export function gerarRecibosLoteHTML(
   <div class="cover">
     <div class="icon">🍽️</div>
     <h1>Recibos de Vale Refeição</h1>
-    <p>${projetoNome || 'Plena EA Facilities'}</p>
-    <p>Período: ${config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'} • Efetivação: ${config.dataEfetivacao ? new Date(config.dataEfetivacao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</p>
+    <p>${escProjetoNome}</p>
+    <p>Período: ${escDataCorte} • Efetivação: ${escDataEfetivacao}</p>
     <div class="total-box">
       <p>Total de colaboradores</p>
       <strong>${resultados.length}</strong>

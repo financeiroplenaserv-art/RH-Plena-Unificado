@@ -81,3 +81,17 @@ export function mascaraCEP(valor: string | null | undefined): string {
     return prefixo
   })
 }
+
+/**
+ * Escapa caracteres especiais de HTML para prevenir XSS.
+ * Converte <, >, &, " e ' em suas entidades HTML seguras.
+ */
+export function escapeHtml(valor: string | number | null | undefined): string {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
