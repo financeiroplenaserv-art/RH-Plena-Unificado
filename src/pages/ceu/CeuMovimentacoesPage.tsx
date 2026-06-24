@@ -20,6 +20,7 @@ import {
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { Paginacao } from '@/components/Paginacao'
 import { CeuPage } from '@/components/ceu/CeuPage'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -55,7 +56,7 @@ function corPorTipo(tipo: string | undefined) {
 
 export function CeuMovimentacoesPage() {
   const navigate = useNavigate()
-  const { entregas, loading, listar, devolver, remover, marcarReciboEmitido, marcarLoteReciboEmitido } = useCEUEntregas()
+  const { entregas, loading, paginacao, listar, listarPaginado, devolver, remover, marcarReciboEmitido, marcarLoteReciboEmitido } = useCEUEntregas()
   const { itens, listar: listarItens } = useCEUItens()
   const [busca, setBusca] = useState('')
   const [filtroItem, setFiltroItem] = useState('todos')
@@ -79,19 +80,27 @@ export function CeuMovimentacoesPage() {
   const [dataInicioLote, setDataInicioLote] = useState('')
   const [dataFimLote, setDataFimLote] = useState('')
   const [gerandoLote, setGerandoLote] = useState(false)
+  const [pagina, setPagina] = useState(0)
 
   useEffect(() => {
     listarItens()
   }, [listarItens])
 
+  const buildFiltrosPaginacao = () => ({
+    itemId: filtroItem !== 'todos' ? filtroItem : undefined,
+    emAberto: filtroStatus === 'em_aberto' ? true : undefined,
+    devolvido: filtroStatus === 'devolvido' ? true : undefined,
+    dataInicio: filtroDataInicio || undefined,
+    dataFim: filtroDataFim || undefined,
+    buscaColaborador: busca.trim() || undefined,
+    departamento: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+  })
+
   useEffect(() => {
-    listar({
-      itemId: filtroItem !== 'todos' ? filtroItem : undefined,
-      emAberto: filtroStatus === 'em_aberto' ? true : undefined,
-      dataInicio: filtroDataInicio || undefined,
-      dataFim: filtroDataFim || undefined,
-    })
-  }, [chaveFiltro, filtroItem, filtroStatus, filtroDataInicio, filtroDataFim, listar])
+    setPagina(0)
+    listarPaginado(buildFiltrosPaginacao(), { pagina: 0, tamanho: 50 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveFiltro, filtroItem, filtroStatus, filtroDataInicio, filtroDataFim, listarPaginado])
 
   const departamentosUnicos = useMemo(() => {
     const deps = new Set<string>()
@@ -101,25 +110,7 @@ export function CeuMovimentacoesPage() {
     return Array.from(deps).sort()
   }, [entregas])
 
-  const entregasFiltradas = entregas.filter((e) => {
-    const termo = busca.toLowerCase()
-    const colab = e.colaborador
-    const matchBusca =
-      !termo ||
-      colab?.nome_completo?.toLowerCase().includes(termo) ||
-      colab?.matricula?.toLowerCase().includes(termo)
-    const matchDevolvido =
-      filtroStatus === 'devolvido'
-        ? !!e.data_devolucao
-        : filtroStatus === 'em_aberto'
-          ? !e.data_devolucao
-          : true
-    const matchDepartamento =
-      filtroDepartamento === 'todos' || colab?.departamento === filtroDepartamento
-    const matchDataInicio = !filtroDataInicio || e.data_entrega >= filtroDataInicio
-    const matchDataFim = !filtroDataFim || e.data_entrega <= filtroDataFim
-    return matchBusca && matchDevolvido && matchDepartamento && matchDataInicio && matchDataFim
-  })
+  const entregasFiltradas = entregas
 
   const movimentacoesAgrupadas = useMemo(() => {
     const grupos = new Map<string, EntregaCEU[]>()
@@ -174,6 +165,7 @@ export function CeuMovimentacoesPage() {
   }
 
   const aplicarFiltros = () => {
+    setPagina(0)
     setChaveFiltro((k) => k + 1)
   }
 
@@ -184,6 +176,7 @@ export function CeuMovimentacoesPage() {
     setFiltroDataInicio('')
     setFiltroDataFim('')
     setFiltroDepartamento('todos')
+    setPagina(0)
     setChaveFiltro((k) => k + 1)
   }
 
@@ -397,6 +390,7 @@ export function CeuMovimentacoesPage() {
                 placeholder="Colaborador ou matrícula..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && aplicarFiltros()}
                 className="pl-10"
               />
             </div>
@@ -457,7 +451,7 @@ export function CeuMovimentacoesPage() {
         </CeuCard>
       )}
 
-      <CeuCard title={`Lista de movimentações (${movimentacoesAgrupadas.length})`} gradient="blue">
+      <CeuCard title={`Lista de movimentações (${paginacao?.total ?? movimentacoesAgrupadas.length})`} gradient="blue">
         {loading ? (
           <LoadingScreen className="h-64" />
         ) : (
@@ -551,6 +545,25 @@ export function CeuMovimentacoesPage() {
                 )}
               </TableBody>
             </Table>
+            {paginacao && paginacao.totalPaginas > 1 && (
+              <Paginacao
+                pagina={pagina}
+                totalPaginas={paginacao.totalPaginas}
+                totalRegistros={paginacao.total}
+                tamanho={paginacao.tamanho}
+                onPaginaAnterior={() => {
+                  const nova = pagina - 1
+                  setPagina(nova)
+                  listarPaginado(buildFiltrosPaginacao(), { pagina: nova, tamanho: 50 })
+                }}
+                onPaginaProxima={() => {
+                  const nova = pagina + 1
+                  setPagina(nova)
+                  listarPaginado(buildFiltrosPaginacao(), { pagina: nova, tamanho: 50 })
+                }}
+                carregando={loading}
+              />
+            )}
           </div>
         )}
       </CeuCard>

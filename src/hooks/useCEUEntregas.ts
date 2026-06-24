@@ -3,18 +3,62 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { EntregaCEU } from '@/types/database'
 
+export interface FiltrosEntrega {
+  colaboradorId?: string
+  itemId?: string
+  dataInicio?: string
+  dataFim?: string
+  emAberto?: boolean
+  devolvido?: boolean
+  buscaColaborador?: string
+  departamento?: string
+}
+
+export interface Paginacao {
+  pagina: number
+  tamanho: number
+}
+
+export interface ResultadoPaginado<T> {
+  dados: T[]
+  total: number
+  pagina: number
+  tamanho: number
+  totalPaginas: number
+}
+
+const TAMANHO_PADRAO = 50
+
 export function useCEUEntregas() {
   const [entregas, setEntregas] = useState<EntregaCEU[]>([])
   const [loading, setLoading] = useState(false)
+  const [paginacao, setPaginacao] = useState<ResultadoPaginado<EntregaCEU> | null>(null)
 
-  const listar = useCallback(async (filtros?: {
-    colaboradorId?: string
-    itemId?: string
-    dataInicio?: string
-    dataFim?: string
-    emAberto?: boolean
-  }) => {
+  const aplicarFiltros = useCallback((query: ReturnType<typeof supabase.from>, filtros?: FiltrosEntrega) => {
+    if (filtros?.colaboradorId && filtros.colaboradorId.trim() !== '' && filtros.colaboradorId !== ' ') {
+      query = query.eq('colaborador_id', filtros.colaboradorId)
+    }
+    if (filtros?.itemId && filtros.itemId.trim() !== '' && filtros.itemId !== 'todos') {
+      query = query.eq('item_id', filtros.itemId)
+    }
+    if (filtros?.dataInicio && filtros.dataInicio.trim() !== '' && filtros.dataInicio !== ' ') {
+      query = query.gte('data_entrega', filtros.dataInicio)
+    }
+    if (filtros?.dataFim && filtros.dataFim.trim() !== '' && filtros.dataFim !== ' ') {
+      query = query.lte('data_entrega', filtros.dataFim)
+    }
+    if (filtros?.emAberto) {
+      query = query.is('data_devolucao', null)
+    }
+    if (filtros?.devolvido) {
+      query = query.not('data_devolucao', 'is', null)
+    }
+    return query
+  }, [])
+
+  const listar = useCallback(async (filtros?: FiltrosEntrega) => {
     setLoading(true)
+    setPaginacao(null)
 
     const TAMANHO_PAGINA = 1000
     let todos: EntregaCEU[] = []
@@ -28,21 +72,7 @@ export function useCEUEntregas() {
         .order('data_entrega', { ascending: false })
         .range(pagina * TAMANHO_PAGINA, (pagina + 1) * TAMANHO_PAGINA - 1)
 
-      if (filtros?.colaboradorId && filtros.colaboradorId.trim() !== '' && filtros.colaboradorId !== ' ') {
-        query = query.eq('colaborador_id', filtros.colaboradorId)
-      }
-      if (filtros?.itemId && filtros.itemId.trim() !== '' && filtros.itemId !== 'todos') {
-        query = query.eq('item_id', filtros.itemId)
-      }
-      if (filtros?.dataInicio && filtros.dataInicio.trim() !== '' && filtros.dataInicio !== ' ') {
-        query = query.gte('data_entrega', filtros.dataInicio)
-      }
-      if (filtros?.dataFim && filtros.dataFim.trim() !== '' && filtros.dataFim !== ' ') {
-        query = query.lte('data_entrega', filtros.dataFim)
-      }
-      if (filtros?.emAberto) {
-        query = query.is('data_devolucao', null)
-      }
+      query = aplicarFiltros(query, filtros)
 
       const { data, error } = await query
       if (error) {
@@ -60,7 +90,87 @@ export function useCEUEntregas() {
     setEntregas(todos)
     setLoading(false)
     return todos
-  }, [])
+  }, [aplicarFiltros])
+
+  const listarPaginado = useCallback(async (
+    filtros?: FiltrosEntrega,
+    paginacaoReq?: Paginacao
+  ): Promise<ResultadoPaginado<EntregaCEU>> => {
+    setLoading(true)
+
+    const tamanho = paginacaoReq?.tamanho ?? TAMANHO_PADRAO
+    const pagina = paginacaoReq?.pagina ?? 0
+    const inicio = pagina * tamanho
+    const fim = inicio + tamanho - 1
+
+    let colaboradorIds: string[] | undefined
+    if (filtros?.buscaColaborador || filtros?.departamento) {
+      let queryColab = supabase.from('colaboradores').select('id')
+      if (filtros.buscaColaborador) {
+        const termo = filtros.buscaColaborador.trim()
+        queryColab = queryColab.or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
+      }
+      if (filtros.departamento && filtros.departamento !== 'todos') {
+        queryColab = queryColab.or(`departamento.ilike.%${filtros.departamento}%,departamento_id.eq.${filtros.departamento}`)
+      }
+      const { data } = await queryColab
+      colaboradorIds = (data || []).map((c) => c.id)
+      if (colaboradorIds.length === 0) {
+        const vazio = { dados: [], total: 0, pagina, tamanho, totalPaginas: 0 }
+        setEntregas([])
+        setPaginacao(vazio)
+        setLoading(false)
+        return vazio
+      }
+    }
+
+    let baseQuery = supabase
+      .from('entregas')
+      .select('*, colaborador:colaborador_id(*), item:item_id(*)')
+      .order('data_entrega', { ascending: false })
+
+    baseQuery = aplicarFiltros(baseQuery, filtros)
+    if (colaboradorIds) {
+      baseQuery = baseQuery.in('colaborador_id', colaboradorIds)
+    }
+
+    const countQuery = supabase
+      .from('entregas')
+      .select('*', { count: 'exact', head: true })
+    const countQueryComFiltros = aplicarFiltros(countQuery, filtros)
+    if (colaboradorIds) {
+      countQueryComFiltros.in('colaborador_id', colaboradorIds)
+    }
+
+    const [{ count, error: erroCount }, { data, error }] = await Promise.all([
+      countQueryComFiltros,
+      baseQuery.range(inicio, fim),
+    ])
+
+    if (error) {
+      toast.error('Erro ao carregar entregas: ' + error.message)
+      setLoading(false)
+      return { dados: [], total: 0, pagina, tamanho, totalPaginas: 0 }
+    }
+
+    if (erroCount) {
+      console.error('Erro ao contar entregas:', erroCount)
+    }
+
+    const total = count ?? 0
+    const resultado = {
+      dados: (data as EntregaCEU[]) || [],
+      total,
+      pagina,
+      tamanho,
+      totalPaginas: Math.ceil(total / tamanho),
+    }
+
+    setEntregas(resultado.dados)
+    setPaginacao(resultado)
+    setLoading(false)
+    return resultado
+  }, [aplicarFiltros])
 
   const criar = useCallback(async (entrega: Partial<EntregaCEU>) => {
     const { data: userData } = await supabase.auth.getUser()
@@ -130,5 +240,5 @@ export function useCEUEntregas() {
     return true
   }, [])
 
-  return { entregas, loading, listar, criar, devolver, marcarReciboEmitido, marcarLoteReciboEmitido, remover }
+  return { entregas, loading, paginacao, listar, listarPaginado, criar, devolver, marcarReciboEmitido, marcarLoteReciboEmitido, remover }
 }

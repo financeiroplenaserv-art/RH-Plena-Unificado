@@ -12,13 +12,27 @@ interface FiltrosColaborador {
   busca?: string
 }
 
+export interface Paginacao {
+  pagina: number
+  tamanho: number
+}
+
+export interface ResultadoPaginado<T> {
+  dados: T[]
+  total: number
+  pagina: number
+  tamanho: number
+  totalPaginas: number
+}
+
+const TAMANHO_PADRAO = 50
+
 export function useColaboradores() {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([])
   const [loading, setLoading] = useState(false)
+  const [paginacao, setPaginacao] = useState<ResultadoPaginado<Colaborador> | null>(null)
 
-  const listar = useCallback(async (filtros?: FiltrosColaborador) => {
-    setLoading(true)
-
+  const montarQuery = useCallback(async (filtros?: FiltrosColaborador) => {
     // Se houver filtro por nome curto do departamento, busca os IDs correspondentes primeiro
     const departamentoIds: string[] = []
     if (filtros?.departamentoNomeCurto && filtros.departamentoNomeCurto !== 'todos') {
@@ -29,15 +43,12 @@ export function useColaboradores() {
 
       if (erroDepts) {
         toast.error('Erro ao carregar departamentos: ' + erroDepts.message)
-        setLoading(false)
-        return []
+        return null
       }
 
       const ids = (depts || []).map((d: { id: string }) => d.id)
       if (ids.length === 0) {
-        setColaboradores([])
-        setLoading(false)
-        return []
+        return { query: null, vazio: true as const }
       }
       departamentoIds.push(...ids)
     }
@@ -54,7 +65,25 @@ export function useColaboradores() {
       query = query.or(`nome_completo.ilike.%${termo}%,cpf.ilike.%${termo}%,matricula.ilike.%${termo}%`)
     }
 
-    const { data, error } = await query
+    return { query, vazio: false }
+  }, [])
+
+  const listar = useCallback(async (filtros?: FiltrosColaborador) => {
+    setLoading(true)
+    setPaginacao(null)
+
+    const montada = await montarQuery(filtros)
+    if (!montada) {
+      setLoading(false)
+      return []
+    }
+    if (montada.vazio) {
+      setColaboradores([])
+      setLoading(false)
+      return []
+    }
+
+    const { data, error } = await montada.query
     if (error) {
       toast.error('Erro ao carregar colaboradores: ' + error.message)
     } else {
@@ -62,7 +91,74 @@ export function useColaboradores() {
     }
     setLoading(false)
     return (data || []) as Colaborador[]
-  }, [])
+  }, [montarQuery])
+
+  const listarPaginado = useCallback(async (
+    filtros?: FiltrosColaborador,
+    paginacaoReq?: Paginacao
+  ): Promise<ResultadoPaginado<Colaborador>> => {
+    setLoading(true)
+
+    const tamanho = paginacaoReq?.tamanho ?? TAMANHO_PADRAO
+    const pagina = paginacaoReq?.pagina ?? 0
+    const inicio = pagina * tamanho
+    const fim = inicio + tamanho - 1
+
+    const montada = await montarQuery(filtros)
+    if (!montada) {
+      setLoading(false)
+      return { dados: [], total: 0, pagina, tamanho, totalPaginas: 0 }
+    }
+    if (montada.vazio) {
+      setColaboradores([])
+      setPaginacao({ dados: [], total: 0, pagina, tamanho, totalPaginas: 0 })
+      setLoading(false)
+      return { dados: [], total: 0, pagina, tamanho, totalPaginas: 0 }
+    }
+
+    const countQuery = supabase
+      .from('colaboradores')
+      .select('*', { count: 'exact', head: true })
+
+    // Reaplica os mesmos filtros na contagem
+    if (filtros?.empresaId) countQuery.eq('empresa_id', filtros.empresaId)
+    if (filtros?.departamento) countQuery.ilike('departamento', filtros.departamento)
+    if (filtros?.cargo) countQuery.ilike('cargo', filtros.cargo)
+    if (filtros?.status) countQuery.eq('status', filtros.status)
+    if (filtros?.busca) {
+      const termo = filtros.busca.trim()
+      countQuery.or(`nome_completo.ilike.%${termo}%,cpf.ilike.%${termo}%,matricula.ilike.%${termo}%`)
+    }
+
+    const [{ count, error: erroCount }, { data, error }] = await Promise.all([
+      countQuery,
+      montada.query.range(inicio, fim),
+    ])
+
+    if (error) {
+      toast.error('Erro ao carregar colaboradores: ' + error.message)
+      setLoading(false)
+      return { dados: [], total: 0, pagina, tamanho, totalPaginas: 0 }
+    }
+
+    if (erroCount) {
+      console.error('Erro ao contar colaboradores:', erroCount)
+    }
+
+    const total = count ?? 0
+    const resultado = {
+      dados: (data || []) as Colaborador[],
+      total,
+      pagina,
+      tamanho,
+      totalPaginas: Math.ceil(total / tamanho),
+    }
+
+    setColaboradores(resultado.dados)
+    setPaginacao(resultado)
+    setLoading(false)
+    return resultado
+  }, [montarQuery])
 
   const buscarPorId = useCallback(async (id: string) => {
     const { data, error } = await supabase
@@ -188,7 +284,9 @@ export function useColaboradores() {
   return {
     colaboradores,
     loading,
+    paginacao,
     listar,
+    listarPaginado,
     buscarPorId,
     buscarPorCpf,
     buscarPorMatricula,

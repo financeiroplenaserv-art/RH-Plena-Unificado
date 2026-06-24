@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, RefreshCw, User, X, Pencil, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,11 +21,12 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { cn, formatarCPF, formatarData, mascaraTelefone } from '@/lib/utils'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { Paginacao } from '@/components/Paginacao'
 import { supabase } from '@/lib/supabase'
 import type { Colaborador, StatusColaborador, Departamento } from '@/types/database'
 
 export function ColaboradoresPage() {
-  const { colaboradores, loading, listar, atualizar } = useColaboradores()
+  const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<StatusColaborador | 'todos'>('Ativo')
   const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
@@ -38,9 +39,10 @@ export function ColaboradoresPage() {
   const [modoEdicao, setModoEdicao] = useState(false)
   const [formEdicao, setFormEdicao] = useState<Partial<Colaborador>>({})
   const [salvando, setSalvando] = useState(false)
+  const [pagina, setPagina] = useState(0)
 
   useEffect(() => {
-    listar({ status: 'Ativo' })
+    listarPaginado({ status: 'Ativo' }, { pagina: 0, tamanho: 50 })
     async function carregarOpcoes() {
       const [{ data: deptData }, { data: cargosData }, { data: empresasData }] = await Promise.all([
         supabase.from('departamentos').select('*').order('nome_curto'),
@@ -58,58 +60,20 @@ export function ColaboradoresPage() {
       setEmpresas((empresasData || []) as { id: string; nome: string }[])
     }
     carregarOpcoes()
-  }, [listar])
+  }, [listarPaginado])
 
   const aplicarFiltros = () => {
-    listar({
+    setPagina(0)
+    listarPaginado({
       busca,
       status: filtroStatus !== 'todos' ? filtroStatus : undefined,
       cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
       empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
-    })
+      departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+    }, { pagina: 0, tamanho: 50 })
   }
 
-  const colaboradoresFiltrados = useMemo(() => {
-    if (filtroDepartamento === 'todos') return colaboradores
-
-    const termo = filtroDepartamento.toLowerCase().trim()
-    if (!termo) return colaboradores
-
-    // Encontra todos os departamentos que correspondam ao termo
-    // (pode haver mais de um com o mesmo nome curto)
-    const deptsSelecionados = departamentos.filter((d) => {
-      const nomeCurto = (d.nome_curto || d.nome).toLowerCase().trim()
-      const nome = d.nome.toLowerCase().trim()
-      return nomeCurto === termo || nome === termo
-    })
-
-    if (deptsSelecionados.length === 0) return []
-
-    const ids = new Set(deptsSelecionados.map((d) => d.id))
-    const nomes = new Set(
-      deptsSelecionados.flatMap((d) => [
-        d.nome.toLowerCase().trim(),
-        (d.nome_curto || d.nome).toLowerCase().trim(),
-      ])
-    )
-
-    return colaboradores.filter((c) => {
-      // Pelo vínculo direto via departamento_id
-      if (c.departamento_id && ids.has(c.departamento_id)) return true
-
-      // Pelo nome do departamento armazenado no colaborador
-      if (!c.departamento) return false
-      const nomeColab = c.departamento.toLowerCase().trim()
-
-      // Comparação exata
-      if (nomes.has(nomeColab)) return true
-
-      // Comparação parcial para casos como "Blue Terminal - RJ" ou "Calle (unidade)"
-      return Array.from(nomes).some(
-        (n) => nomeColab.includes(n) || n.includes(nomeColab)
-      )
-    })
-  }, [colaboradores, filtroDepartamento, departamentos])
+  const colaboradoresFiltrados = colaboradores
 
   const iniciais = (nome: string) => {
     const limpo = nome?.trim()
@@ -145,7 +109,13 @@ export function ColaboradoresPage() {
     if (sucesso) {
       // Atualiza o colaborador selecionado localmente para refletir a mudança
       setColaboradorSelecionado((prev) => (prev ? { ...prev, ...formEdicao } : null))
-      await listar({ status: filtroStatus !== 'todos' ? filtroStatus : undefined })
+      await listarPaginado({
+        busca,
+        status: filtroStatus !== 'todos' ? filtroStatus : undefined,
+        cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
+        empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
+        departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+      }, { pagina, tamanho: 50 })
       setModoEdicao(false)
     }
     setSalvando(false)
@@ -158,7 +128,13 @@ export function ColaboradoresPage() {
           <h2 className="text-lg font-semibold text-[#1F2937]">Colaboradores</h2>
           <p className="text-sm text-[#94A3B8]">Dados mestres importados do e-Contador</p>
         </div>
-        <Button variant="outline" onClick={() => listar()} disabled={loading} className="bg-white border-[#E2E8F0] text-[#1F2937] hover:bg-slate-50 rounded-[8px]">
+        <Button variant="outline" onClick={() => listarPaginado({
+          busca,
+          status: filtroStatus !== 'todos' ? filtroStatus : undefined,
+          cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
+          empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
+          departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+        }, { pagina, tamanho: 50 })} disabled={loading} className="bg-white border-[#E2E8F0] text-[#1F2937] hover:bg-slate-50 rounded-[8px]">
           <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />
           Atualizar
         </Button>
@@ -258,7 +234,7 @@ export function ColaboradoresPage() {
       <Card className="bg-white rounded-[12px] shadow-sm border-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base text-[#1F2937]">
-            Lista de colaboradores ({colaboradoresFiltrados.length})
+            Lista de colaboradores ({paginacao?.total ?? colaboradoresFiltrados.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -291,6 +267,37 @@ export function ColaboradoresPage() {
                 </div>
               ))}
             </div>
+          )}
+          {paginacao && paginacao.totalPaginas > 1 && (
+            <Paginacao
+              pagina={pagina}
+              totalPaginas={paginacao.totalPaginas}
+              totalRegistros={paginacao.total}
+              tamanho={paginacao.tamanho}
+              onPaginaAnterior={() => {
+                const nova = pagina - 1
+                setPagina(nova)
+                listarPaginado({
+                  busca,
+                  status: filtroStatus !== 'todos' ? filtroStatus : undefined,
+                  cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
+                  empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
+                  departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+                }, { pagina: nova, tamanho: 50 })
+              }}
+              onPaginaProxima={() => {
+                const nova = pagina + 1
+                setPagina(nova)
+                listarPaginado({
+                  busca,
+                  status: filtroStatus !== 'todos' ? filtroStatus : undefined,
+                  cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
+                  empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
+                  departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+                }, { pagina: nova, tamanho: 50 })
+              }}
+              carregando={loading}
+            />
           )}
         </CardContent>
       </Card>

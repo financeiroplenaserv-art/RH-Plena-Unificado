@@ -27,12 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { toast } from 'sonner'
 import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal } from 'lucide-react'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
-import type { Ocorrencia, StatusOcorrencia } from '@/types/database'
+import { Paginacao } from '@/components/Paginacao'
+import { useOcorrencias } from '@/hooks/useOcorrencias'
 import { formatarData } from '@/lib/utils'
 
 const MACRO_GRUPOS = [
@@ -51,8 +51,8 @@ const GRAVIDADES = ['Leve', 'Média', 'Grave', 'Gravíssima']
 
 export function OcorrenciasPage() {
   const navigate = useNavigate()
-  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
-  const [loading, setLoading] = useState(true)
+  const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
+  const [pagina, setPagina] = useState(0)
   const [busca, setBusca] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroStatus, setFiltroStatus] = useState('todos')
@@ -77,49 +77,26 @@ export function OcorrenciasPage() {
     setEmpresas(unicos)
   }, [])
 
-  const loadOcorrencias = useCallback(async () => {
-    setLoading(true)
-    let query = supabase
-      .from('ocorrencias')
-      .select('*, colaborador:colaborador_id(matricula, nome_completo, cargo, empresa_id)')
-      .order('data_ocorrencia', { ascending: false })
+  const buildFiltros = useCallback(() => ({
+    tipo: filtroTipo !== 'todos' ? filtroTipo.trim() : undefined,
+    status: filtroStatus !== 'todos' ? filtroStatus.trim() : undefined,
+    empresa_id: filtroEmpresa !== 'todos' ? filtroEmpresa.trim() : undefined,
+    macro_grupo: filtroMacroGrupo !== 'todos' ? filtroMacroGrupo.trim() : undefined,
+    gravidade: filtroGravidade !== 'todos' ? filtroGravidade.trim() : undefined,
+    colaborador_id: filtroColaboradorId,
+    data_inicio: filtroDataInicio || undefined,
+    data_fim: filtroDataFim || undefined,
+    busca: busca.trim() || undefined,
+  }), [busca, filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim])
 
-    const tipo = filtroTipo !== 'todos' ? filtroTipo.trim() : ''
-    const status = filtroStatus !== 'todos' ? filtroStatus.trim() : ''
-    const empresa = filtroEmpresa !== 'todos' ? filtroEmpresa.trim() : ''
-    const macroGrupo = filtroMacroGrupo !== 'todos' ? filtroMacroGrupo.trim() : ''
-    const gravidade = filtroGravidade !== 'todos' ? filtroGravidade.trim() : ''
-
-    if (tipo) query = query.eq('tipo_ocorrencia', tipo)
-    if (status) query = query.eq('status', status as StatusOcorrencia)
-    if (empresa) query = query.eq('empresa_id', empresa)
-    if (macroGrupo) query = query.eq('macro_grupo', macroGrupo)
-    if (gravidade) query = query.eq('gravidade', gravidade)
-    if (filtroColaboradorId) query = query.eq('colaborador_id', filtroColaboradorId)
-    if (filtroDataInicio) query = query.gte('data_ocorrencia', filtroDataInicio)
-    if (filtroDataFim) query = query.lte('data_ocorrencia', filtroDataFim)
-
-    const { data } = await query
-    let filtered = (data as Ocorrencia[]) || []
-    if (busca) {
-      const termo = busca.toLowerCase()
-      filtered = filtered.filter(
-        (o: Ocorrencia) =>
-          o.colaborador?.nome_completo?.toLowerCase().includes(termo) ||
-          o.tipo_ocorrencia?.toLowerCase().includes(termo) ||
-          o.titulo?.toLowerCase().includes(termo)
-      )
-    }
-    setOcorrencias(filtered)
-    setLoading(false)
-  }, [busca, filtroColaboradorId, filtroDataFim, filtroDataInicio, filtroEmpresa, filtroGravidade, filtroMacroGrupo, filtroStatus, filtroTipo])
+  const loadOcorrencias = useCallback(async (paginaAtual = pagina) => {
+    await listarPaginado(buildFiltros(), { pagina: paginaAtual, tamanho: 50 })
+  }, [buildFiltros, listarPaginado, pagina])
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('ocorrencias').delete().eq('id', id)
-    if (error) toast.error('Erro ao excluir: ' + error.message)
-    else {
-      toast.success('Ocorrência removida')
-      loadOcorrencias()
+    const sucesso = await excluir(id)
+    if (sucesso) {
+      await loadOcorrencias()
     }
     setOcorrenciaParaExcluir(null)
   }
@@ -129,8 +106,19 @@ export function OcorrenciasPage() {
   }, [loadEmpresas])
 
   useEffect(() => {
-    loadOcorrencias()
-  }, [loadOcorrencias])
+    setPagina(0)
+    loadOcorrencias(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPagina(0)
+      loadOcorrencias(0)
+    }, 400)
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busca])
 
   const tiposUnicos = [...new Set(ocorrencias.map((o) => o.tipo_ocorrencia))].sort()
   const pendentesCount = ocorrencias.filter((o) => o.status === 'Pendente').length
@@ -141,7 +129,7 @@ export function OcorrenciasPage() {
         <div>
           <h2 className="text-lg font-semibold text-[#1F2937]">RH Ocorrências</h2>
           <p className="text-sm text-[#94A3B8]">
-            {ocorrencias.length} registros
+            {paginacao?.total ?? ocorrencias.length} registros
             {pendentesCount > 0 && (
               <span className="text-[#1F2937] font-medium ml-2">({pendentesCount} pendentes)</span>
             )}
@@ -272,7 +260,10 @@ export function OcorrenciasPage() {
               />
             </div>
             <Button
-              onClick={loadOcorrencias}
+              onClick={() => {
+                setPagina(0)
+                loadOcorrencias(0)
+              }}
               disabled={loading}
               className="bg-[#1F2937] hover:bg-slate-800 text-white rounded-[8px]"
             >
@@ -364,6 +355,25 @@ export function OcorrenciasPage() {
                   )}
                 </TableBody>
               </Table>
+              {paginacao && paginacao.totalPaginas > 1 && (
+                <Paginacao
+                  pagina={pagina}
+                  totalPaginas={paginacao.totalPaginas}
+                  totalRegistros={paginacao.total}
+                  tamanho={paginacao.tamanho}
+                  onPaginaAnterior={() => {
+                    const nova = pagina - 1
+                    setPagina(nova)
+                    loadOcorrencias(nova)
+                  }}
+                  onPaginaProxima={() => {
+                    const nova = pagina + 1
+                    setPagina(nova)
+                    loadOcorrencias(nova)
+                  }}
+                  carregando={loading}
+                />
+              )}
             </div>
           )}
         </CardContent>
