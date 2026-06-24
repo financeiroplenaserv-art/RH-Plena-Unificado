@@ -10,13 +10,13 @@
 
 Estes itens são blockers. O sistema não deve ser implantado sem eles.
 
-### 1.1 Corrigir bypass de autenticação via `localStorage`
+### 1.1 Corrigir bypass de autenticação via `localStorage` ✅
 - **Arquivos:** `src/hooks/useAuth.ts`, `src/App.tsx`, `src/components/layout/ProtectedRoute.tsx`
 - **Problema:** perfil é lido do `localStorage` e usado como estado inicial, permitindo acesso administrativo sem credenciais válidas.
 - **Ação:**
-  - [ ] Inicializar `user` como `null` ou `undefined` (nunca do `localStorage`).
-  - [ ] Só definir `user` após `supabase.auth.getSession()` confirmar sessão válida.
-  - [ ] Limpar `localStorage` e estado quando não houver sessão.
+  - [x] Inicializar `user` como `null` ou `undefined` (nunca do `localStorage`).
+  - [x] Só definir `user` após `supabase.auth.getSession()` confirmar sessão válida.
+  - [x] Limpar `localStorage` e estado quando não houver sessão.
   - [ ] Garantir que `ProtectedRoute` e `App.tsx` espere a validação da sessão antes de renderizar.
 
 ### 1.2 Remover privilégio excessivo da função `aplicar_rls_admin`
