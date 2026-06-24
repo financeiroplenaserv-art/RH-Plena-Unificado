@@ -49,17 +49,21 @@ export function nomeDepartamento(departamento: Departamento | null | undefined):
   return departamento.nome_curto?.trim() || departamento.nome
 }
 
-export function mascaraMoeda(valor: string | number | null | undefined): string {
-  if (valor === null || valor === undefined || valor === '') return ''
-  const numero = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(/\D/g, '')) / 100
-  if (isNaN(numero)) return ''
+export function mascaraMoeda(valor: number | null | undefined): string {
+  if (valor === null || valor === undefined || isNaN(valor)) return 'R$ 0,00'
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+export function mascaraMoedaInput(valor: string): string {
+  const digitos = valor.replace(/\D/g, '')
+  const numero = parseInt(digitos || '0', 10) / 100
   return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export function parseMoeda(valor: string | null | undefined): number {
   if (!valor) return 0
-  const limpo = valor.replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
-  const numero = parseFloat(limpo)
+  const digitos = valor.replace(/\D/g, '')
+  const numero = parseInt(digitos || '0', 10) / 100
   return isNaN(numero) ? 0 : numero
 }
 

@@ -12,6 +12,7 @@ interface AutocompleteColaboradorProps {
   placeholder?: string
   label?: string
   somenteAtivos?: boolean
+  departamentoId?: string | null
 }
 
 export function AutocompleteColaborador({
@@ -20,6 +21,7 @@ export function AutocompleteColaborador({
   placeholder = 'Digite nome ou matrícula...',
   label,
   somenteAtivos = true,
+  departamentoId,
 }: AutocompleteColaboradorProps) {
   const buscaRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<number | null>(null)
@@ -71,12 +73,15 @@ export function AutocompleteColaborador({
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
     }
+    if (departamentoId) {
+      query = query.eq('departamento_id', departamentoId)
+    }
     const { data } = await query.limit(10)
     const resultados = (data as Colaborador[]) || []
     setColaboradores(resultados)
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
-  }, [somenteAtivos])
+  }, [somenteAtivos, departamentoId])
 
   const handleBuscaChange = (val: string) => {
     setBusca(val)

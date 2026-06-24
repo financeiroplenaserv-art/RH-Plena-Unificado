@@ -15,7 +15,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
-import { nomeDepartamento, mascaraMoeda, parseMoeda } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 
@@ -61,6 +61,7 @@ export function ExtrasFormPage() {
   const [form, setForm] = useState<Omit<Extra, 'id' | 'created_at' | 'updated_at'>>(extraVazio())
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [valorInput, setValorInput] = useState(mascaraMoedaInput(String(form.valor)))
 
   useEffect(() => {
     listar()
@@ -68,6 +69,10 @@ export function ExtrasFormPage() {
     listarColaboradores()
     listarDepartamentos()
   }, [listar, listarCategorias, listarColaboradores, listarDepartamentos])
+
+  useEffect(() => {
+    setValorInput(mascaraMoedaInput(String(form.valor)))
+  }, [form.valor])
 
   useEffect(() => {
     if (id) {
@@ -218,7 +223,13 @@ export function ExtrasFormPage() {
                     ...prev,
                     departamento_id: v === 'null' ? null : v,
                     departamento_nome: dept ? nomeDepartamento(dept) : null,
+                    posto: dept ? (dept.nome_curto || dept.nome) : '',
+                    colaborador_ausente_id: null,
+                    colaborador_ausente_nome: null,
+                    substituto_id: null,
+                    substituto_nome: null,
                   }))
+                  setAusenteNaoAplica(false)
                 }}
               >
                 <SelectTrigger className="rounded-lg">
@@ -231,17 +242,6 @@ export function ExtrasFormPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Posto / Local</Label>
-              <Input
-                value={form.posto}
-                onChange={e => setField('posto', e.target.value)}
-                placeholder="Ex: CBO Niterói"
-                className="rounded-lg"
-                required
-              />
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -262,6 +262,7 @@ export function ExtrasFormPage() {
                   value={form.colaborador_ausente_id || undefined}
                   onChange={handleAusenteChange}
                   placeholder="Buscar colaborador ausente..."
+                  departamentoId={form.departamento_id}
                 />
               ) : (
                 <div className="p-3 rounded-lg border border-dashed text-sm" style={{ borderColor: '#E2E8F0', color: '#94A3B8' }}>
@@ -276,6 +277,7 @@ export function ExtrasFormPage() {
                 value={form.substituto_id || undefined}
                 onChange={handleSubstitutoChange}
                 placeholder="Buscar substituto..."
+                departamentoId={form.departamento_id}
               />
             </div>
 
@@ -312,9 +314,13 @@ export function ExtrasFormPage() {
               <Input
                 type="text"
                 inputMode="decimal"
-                value={mascaraMoeda(form.valor)}
-                onChange={e => setField('valor', parseMoeda(e.target.value))}
-                onBlur={e => setField('valor', parseMoeda(e.target.value))}
+                value={valorInput}
+                onChange={e => {
+                  const formatado = mascaraMoedaInput(e.target.value)
+                  setValorInput(formatado)
+                  setField('valor', parseMoeda(formatado))
+                }}
+                onBlur={() => setValorInput(mascaraMoedaInput(valorInput))}
                 placeholder="R$ 0,00"
                 className="rounded-lg"
                 required
