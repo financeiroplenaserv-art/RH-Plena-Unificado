@@ -200,11 +200,13 @@ git push origin --force --all
 - [x] Revisar storage buckets e habilitar RLS (migração 011 pronta)
 - [x] Aplicar as migrações 010 e 011 no banco de produção
 - [x] Aplicar a migração 012 no banco de produção
-- [ ] Rotacionar as chaves `anon` e `service_role` no painel do Supabase
-- [ ] Limpar chaves antigas do histórico do Git
+- [x] Rotacionar as chaves `anon` e `service_role` no painel do Supabase
+- [x] Limpar chaves antigas do histórico do Git
 - [ ] (Futuro) Migrar definitivamente das legacy API keys para Publishable keys
 - [ ] (Futuro) Desabilitar legacy API keys no painel do Supabase
 - [ ] (Futuro) Revogar o legacy JWT secret
+
+> **Nota sobre a rotação:** a JWT Signing Key foi rotacionada e a chave `anon` foi alterada. O `.env` vazado foi removido do histórico do Git. No entanto, o Supabase não permite revogar o legacy JWT secret enquanto as JWT-based legacy API keys (`anon`/`service_role`) estiverem habilitadas. Portanto, a chave `anon` antiga ainda é tecnicamente válida até que o sistema migre para Publishable/Secret API keys e as legacy keys sejam desabilitadas.
 
 > A migração para as novas Publishable keys apresentou erros 404 em algumas requisições (especialmente no histórico do e-Contador), possivelmente por limitações atuais da feature no Supabase. O sistema voltou a usar a `anon` key legada temporariamente, mas o código já está preparado para aceitar `VITE_SUPABASE_PUBLISHABLE_KEY` quando a migração for viável.
 
