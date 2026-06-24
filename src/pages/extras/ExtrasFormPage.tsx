@@ -277,7 +277,6 @@ export function ExtrasFormPage() {
                 value={form.substituto_id || undefined}
                 onChange={handleSubstitutoChange}
                 placeholder="Buscar substituto..."
-                departamentoId={form.departamento_id}
               />
             </div>
 
