@@ -529,7 +529,7 @@ export async function carregarDatasNascimento(arrayBuffer: ArrayBuffer): Promise
   matriculasPorNome: Map<string, string>
   matriculasPorCpf: Map<string, string>
 }> {
-  const XLSX = await import('xlsx')
+  const XLSX = await import('@e965/xlsx')
   const datas = new Map<string, string>()
   const cpfsPorNome = new Map<string, string>()
   const matriculasPorNome = new Map<string, string>()

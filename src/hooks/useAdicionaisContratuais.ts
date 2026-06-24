@@ -9,7 +9,7 @@ import type {
   StatusDiaAdicional,
 } from '@/types/adicionais'
 
-const MODO_MOCK = true
+const MODO_MOCK = import.meta.env.VITE_MODO_MOCK === 'true'
 
 function mockKey(tabela: string) {
   return `mock_${tabela}_adicionais`
@@ -158,9 +158,9 @@ export function useAdicionaisContratuais() {
       if (MODO_MOCK) {
         const lista = lerMock<ContratoAdicional>('contratos')
         const novo: ContratoAdicional = { ...dados, id: gerarId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-        lista.push(novo)
-        salvarMock('contratos', lista)
-        setContratos(lista)
+        const atualizada = [...lista, novo]
+        salvarMock('contratos', atualizada)
+        setContratos(atualizada)
         toast.success('Contrato criado')
         return novo
       }
@@ -179,11 +179,10 @@ export function useAdicionaisContratuais() {
     try {
       if (MODO_MOCK) {
         const lista = lerMock<ContratoAdicional>('contratos')
-        const idx = lista.findIndex(c => c.id === id)
-        if (idx >= 0) {
-          lista[idx] = { ...lista[idx], ...dados, updated_at: new Date().toISOString() }
-          salvarMock('contratos', lista)
-          setContratos(lista)
+        const atualizada = lista.map(c => c.id === id ? { ...c, ...dados, updated_at: new Date().toISOString() } : c)
+        if (atualizada.some(c => c.id === id)) {
+          salvarMock('contratos', atualizada)
+          setContratos(atualizada)
         }
         toast.success('Contrato atualizado')
         return true
@@ -255,9 +254,9 @@ export function useAdicionaisContratuais() {
         const lista = lerMock<VinculoAdicional>('vinculos')
         const enriquecido = enriquecerVinculoMock({ ...dados, id: gerarId() } as VinculoAdicional)
         const novo: VinculoAdicional = { ...enriquecido, id: gerarId(), created_at: new Date().toISOString() }
-        lista.push(novo)
-        salvarMock('vinculos', lista)
-        setVinculos(lista)
+        const atualizada = [...lista, novo]
+        salvarMock('vinculos', atualizada)
+        setVinculos(atualizada)
         toast.success('Vínculo criado')
         return novo
       }
@@ -276,11 +275,10 @@ export function useAdicionaisContratuais() {
     try {
       if (MODO_MOCK) {
         const lista = lerMock<VinculoAdicional>('vinculos')
-        const idx = lista.findIndex(v => v.id === id)
-        if (idx >= 0) {
-          lista[idx] = { ...lista[idx], ...dados }
-          salvarMock('vinculos', lista)
-          setVinculos(lista)
+        const atualizada = lista.map(v => v.id === id ? { ...v, ...dados } : v)
+        if (atualizada.some(v => v.id === id)) {
+          salvarMock('vinculos', atualizada)
+          setVinculos(atualizada)
         }
         toast.success('Vínculo atualizado')
         return true
@@ -393,14 +391,14 @@ export function useAdicionaisContratuais() {
       if (MODO_MOCK) {
         const lista = lerMock<DiaCalendarioAdicional>('calendario')
         const payload = { ...dados, status: normalizarStatusDia(dados.status), intrajornada: dados.intrajornada ?? false }
-        const idx = lista.findIndex(d => d.vinculo_id === payload.vinculo_id && d.data === payload.data)
-        if (idx >= 0) {
-          lista[idx] = { ...lista[idx], ...payload, updated_at: new Date().toISOString() }
-        } else {
-          lista.push({ ...payload, id: gerarId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        }
-        salvarMock('calendario', lista)
-        setCalendario(lista)
+        const existe = lista.some(d => d.vinculo_id === payload.vinculo_id && d.data === payload.data)
+        const atualizada: DiaCalendarioAdicional[] = existe
+          ? lista.map(d => d.vinculo_id === payload.vinculo_id && d.data === payload.data
+              ? { ...d, ...payload, updated_at: new Date().toISOString() }
+              : d)
+          : [...lista, { ...payload, id: gerarId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]
+        salvarMock('calendario', atualizada)
+        setCalendario(atualizada)
         return true
       }
       const { error } = await supabase
@@ -425,30 +423,33 @@ export function useAdicionaisContratuais() {
     try {
       if (MODO_MOCK) {
         const lista = lerMock<DiaCalendarioAdicional>('calendario')
-        const idx = lista.findIndex(d => d.vinculo_id === vinculoOriginalId && d.data === data)
-        if (idx >= 0) {
-          lista[idx] = {
-            ...lista[idx],
-            status: statusAtual,
-            substituto_colaborador_id: substitutoColaboradorId,
-            substituto_colaborador_nome: substitutoColaboradorNome,
-            updated_at: new Date().toISOString(),
-          }
-        } else {
-          lista.push({
-            vinculo_id: vinculoOriginalId,
-            data,
-            status: statusAtual,
-            intrajornada: false,
-            substituto_colaborador_id: substitutoColaboradorId,
-            substituto_colaborador_nome: substitutoColaboradorNome,
-            id: gerarId(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-        }
-        salvarMock('calendario', lista)
-        setCalendario(lista)
+        const existe = lista.some(d => d.vinculo_id === vinculoOriginalId && d.data === data)
+        const atualizada: DiaCalendarioAdicional[] = existe
+          ? lista.map(d => d.vinculo_id === vinculoOriginalId && d.data === data
+              ? {
+                  ...d,
+                  status: statusAtual,
+                  substituto_colaborador_id: substitutoColaboradorId,
+                  substituto_colaborador_nome: substitutoColaboradorNome,
+                  updated_at: new Date().toISOString(),
+                }
+              : d)
+          : [
+              ...lista,
+              {
+                vinculo_id: vinculoOriginalId,
+                data,
+                status: statusAtual,
+                intrajornada: false,
+                substituto_colaborador_id: substitutoColaboradorId,
+                substituto_colaborador_nome: substitutoColaboradorNome,
+                id: gerarId(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ]
+        salvarMock('calendario', atualizada)
+        setCalendario(atualizada)
         toast.success('Substituto registrado')
         return true
       }

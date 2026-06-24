@@ -65,8 +65,6 @@ export function DashboardPage() {
   const [totalItensCEU, setTotalItensCEU] = useState(0)
   const [entregasMesCEU, setEntregasMesCEU] = useState(0)
   const [itensEmAbertoCEU, setItensEmAbertoCEU] = useState(0)
-  const [estoqueBaixoCEU, setEstoqueBaixoCEU] = useState(0)
-  const [caVencendoCEU, setCaVencendoCEU] = useState(0)
   const [ultimosColaboradores, setUltimosColaboradores] = useState<Colaborador[]>([])
   const [ultimaImportacao, setUltimaImportacao] = useState<string | null>(null)
   const [alertas, setAlertas] = useState<AlertaModulo[]>([])
@@ -111,79 +109,78 @@ export function DashboardPage() {
           supabase.from('entregas').select('*'),
         ])
 
+        const pendentes = pendentesCount || 0
+        const alertasCriticosCount = alertasCount || 0
+
+        const itens = (itensCEU || []) as { id: string; nome: string; tipo: string; ca: string | null; validade: string | null; estoque: number | null; estoque_minimo: number | null }[]
+        const entregas = (entregasCEU || []) as { id: string; data_entrega: string; data_devolucao: string | null }[]
+
+        const estoqueBaixo = itens.filter(
+          (item) =>
+            typeof item.estoque === 'number' &&
+            typeof item.estoque_minimo === 'number' &&
+            item.estoque_minimo > 0 &&
+            item.estoque <= item.estoque_minimo
+        ).length
+
+        const caVencendo = itens.filter((item) => {
+          if (!item.ca || !item.validade) return false
+          const dias = diasAte(item.validade)
+          return dias >= 0 && dias <= 30
+        }).length
+
         setTotalColaboradores(total || 0)
         setAtivos(ativosCount || 0)
         setAfastados(afastadosCount || 0)
         setUltimaImportacao(colaboradores?.[0]?.created_at || null)
         setUltimosColaboradores((colaboradoresRecentes || []) as Colaborador[])
-        setOcorrenciasPendentes(pendentesCount || 0)
+        setOcorrenciasPendentes(pendentes)
         setOcorrenciasMes(
           (ocorrencias || []).filter((o: Ocorrencia) => new Date(o.data_ocorrencia) >= inicioMes).length
         )
-        setAlertasCriticos(alertasCount || 0)
+        setAlertasCriticos(alertasCriticosCount)
         setProjetosVR(projetosVRCount || 0)
         setContratosAdicionais(contratosCount || 0)
-
-        const itens = (itensCEU || []) as { id: string; nome: string; tipo: string; ca: string | null; validade: string | null; estoque: number | null; estoque_minimo: number | null }[]
-        const entregas = (entregasCEU || []) as { id: string; data_entrega: string; data_devolucao: string | null }[]
-
         setTotalItensCEU(itens.length)
         setEntregasMesCEU(entregas.filter((e) => isMesAtual(e.data_entrega)).length)
         setItensEmAbertoCEU(entregas.filter((e) => !e.data_devolucao).length)
-        setEstoqueBaixoCEU(
-          itens.filter(
-            (item) =>
-              typeof item.estoque === 'number' &&
-              typeof item.estoque_minimo === 'number' &&
-              item.estoque_minimo > 0 &&
-              item.estoque <= item.estoque_minimo
-          ).length
-        )
-        setCaVencendoCEU(
-          itens.filter((item) => {
-            if (!item.ca || !item.validade) return false
-            const dias = diasAte(item.validade)
-            return dias >= 0 && dias <= 30
-          }).length
-        )
-
         const listaAlertas: AlertaModulo[] = []
-        if (ocorrenciasPendentes > 0) {
+        if (pendentes > 0) {
           listaAlertas.push({
             id: 'rh-pendentes',
             modulo: 'RH',
             tipo: 'Ocorrências pendentes',
-            descricao: `${ocorrenciasPendentes} ocorrência(s) aguardando análise`,
+            descricao: `${pendentes} ocorrência(s) aguardando análise`,
             severidade: 'alta',
             link: '/rh/ocorrencias',
           })
         }
-        if (alertasCriticos > 0) {
+        if (alertasCriticosCount > 0) {
           listaAlertas.push({
             id: 'alertas-criticos',
             modulo: 'Alertas',
             tipo: 'Alertas críticos',
-            descricao: `${alertasCriticos} alerta(s) crítico(s) ativo(s)`,
+            descricao: `${alertasCriticosCount} alerta(s) crítico(s) ativo(s)`,
             severidade: 'critica',
             link: '/rh/alertas',
           })
         }
-        if (estoqueBaixoCEU > 0) {
+        if (estoqueBaixo > 0) {
           listaAlertas.push({
             id: 'ceu-estoque',
             modulo: 'CEU',
             tipo: 'Estoque baixo',
-            descricao: `${estoqueBaixoCEU} item(ns) com estoque abaixo do mínimo`,
+            descricao: `${estoqueBaixo} item(ns) com estoque abaixo do mínimo`,
             severidade: 'media',
             link: '/ceu/itens',
           })
         }
-        if (caVencendoCEU > 0) {
+        if (caVencendo > 0) {
           listaAlertas.push({
             id: 'ceu-ca',
             modulo: 'CEU',
             tipo: 'CA próximo do vencimento',
-            descricao: `${caVencendoCEU} certificado(s) de aprovação vencem em até 30 dias`,
+            descricao: `${caVencendo} certificado(s) de aprovação vencem em até 30 dias`,
             severidade: 'media',
             link: '/ceu/relatorios',
           })
@@ -197,7 +194,7 @@ export function DashboardPage() {
     }
 
     carregarKpis()
-  }, [ocorrenciasPendentes, alertasCriticos, estoqueBaixoCEU, caVencendoCEU])
+  }, [])
 
   const atalhos = useMemo(
     () => [

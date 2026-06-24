@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
 import { mascaraCEP, mascaraTelefone } from '@/lib/utils'
 import type { Departamento } from '@/types/database'

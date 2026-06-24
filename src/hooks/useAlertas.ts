@@ -14,7 +14,7 @@ export function useAlertas() {
       .select('*, colaborador:colaborador_id(*)')
       .order('created_at', { ascending: false })
 
-    if (status) query = query.eq('status', status)
+    if (status) query = query.eq('status', status as Alerta['status'])
 
     const { data, error } = await query
 
@@ -88,17 +88,18 @@ export function useAlertas() {
       })
 
       // Progressão disciplinar: 3+ ocorrências ativas
-      ;(colaboradores || []).forEach((c: Colaborador & { ocorrencias?: Ocorrencia[] }) => {
-        const ativas = (c.ocorrencias || []).filter((o: Ocorrencia) => o.status === 'Ativa').length
+      ;(colaboradores || []).forEach((c) => {
+        const colab = c as unknown as Colaborador & { ocorrencias?: Ocorrencia[] }
+        const ativas = (colab.ocorrencias || []).filter((o: Ocorrencia) => o.status === 'Ativa').length
         if (ativas >= 3) {
           novosAlertas.push({
             tipo: 'PROGRESSAO_DISCIPLINAR',
             titulo: 'Progressão disciplinar atingida',
-            descricao: `${c.nome_completo} possui ${ativas} ocorrências ativas.`,
+            descricao: `${colab.nome_completo} possui ${ativas} ocorrências ativas.`,
             severidade: 'critica',
             status: 'ativo',
-            colaborador_id: c.id,
-            empresa_id: c.empresa_id,
+            colaborador_id: colab.id,
+            empresa_id: colab.empresa_id,
           })
         }
       })

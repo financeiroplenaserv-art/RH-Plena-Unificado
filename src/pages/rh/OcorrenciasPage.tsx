@@ -32,7 +32,7 @@ import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal } from 'lucide-r
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
-import type { Ocorrencia } from '@/types/database'
+import type { Ocorrencia, StatusOcorrencia } from '@/types/database'
 import { formatarData } from '@/lib/utils'
 
 const MACRO_GRUPOS = [
@@ -77,7 +77,7 @@ export function OcorrenciasPage() {
     setEmpresas(unicos)
   }, [])
 
-  const loadOcorrencias = async () => {
+  const loadOcorrencias = useCallback(async () => {
     setLoading(true)
     let query = supabase
       .from('ocorrencias')
@@ -91,7 +91,7 @@ export function OcorrenciasPage() {
     const gravidade = filtroGravidade !== 'todos' ? filtroGravidade.trim() : ''
 
     if (tipo) query = query.eq('tipo_ocorrencia', tipo)
-    if (status) query = query.eq('status', status)
+    if (status) query = query.eq('status', status as StatusOcorrencia)
     if (empresa) query = query.eq('empresa_id', empresa)
     if (macroGrupo) query = query.eq('macro_grupo', macroGrupo)
     if (gravidade) query = query.eq('gravidade', gravidade)
@@ -112,7 +112,7 @@ export function OcorrenciasPage() {
     }
     setOcorrencias(filtered)
     setLoading(false)
-  }
+  }, [busca, filtroColaboradorId, filtroDataFim, filtroDataInicio, filtroEmpresa, filtroGravidade, filtroMacroGrupo, filtroStatus, filtroTipo])
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('ocorrencias').delete().eq('id', id)
@@ -130,8 +130,7 @@ export function OcorrenciasPage() {
 
   useEffect(() => {
     loadOcorrencias()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loadOcorrencias])
 
   const tiposUnicos = [...new Set(ocorrencias.map((o) => o.tipo_ocorrencia))].sort()
   const pendentesCount = ocorrencias.filter((o) => o.status === 'Pendente').length

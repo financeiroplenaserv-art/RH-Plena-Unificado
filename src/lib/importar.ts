@@ -1,7 +1,7 @@
 import type { Colaborador } from '@/types/database'
 
 async function getXLSX() {
-  return import('xlsx')
+  return import('@e965/xlsx')
 }
 
 function getString(row: Record<string, unknown>, ...keys: string[]): string {

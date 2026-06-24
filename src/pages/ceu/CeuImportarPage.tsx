@@ -6,7 +6,7 @@ import { CeuPageWrapper } from './CeuPageWrapper'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
 import type { Fornecedor, ItemCEU } from '@/types/database'
 

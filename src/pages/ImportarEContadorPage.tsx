@@ -34,7 +34,7 @@ import {
 import { useEContador } from '@/hooks/useEContador'
 import { formatarCPF } from '@/lib/utils'
 import { toast } from 'sonner'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import type { EContadorEmpresa, EContadorFuncionario } from '@/types/econtador'
 import type { HistoricoImportacao } from '@/types/econtador'
 

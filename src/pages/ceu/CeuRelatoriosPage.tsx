@@ -29,7 +29,7 @@ import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { ITENS_MOCK, ENTREGAS_MOCK } from '@/components/ceu/mockData'
 import type { Colaborador } from '@/types/database'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 
 const ABAS = [
   { id: 'colaborador', label: 'Por colaborador', icon: Users },

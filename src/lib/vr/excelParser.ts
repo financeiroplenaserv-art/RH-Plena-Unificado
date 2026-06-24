@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import type { VRColaboradorEscala, VREscalaDia } from '@/types'
 
 export function parseExcelEscala(arrayBuffer: ArrayBuffer): VRColaboradorEscala[] {

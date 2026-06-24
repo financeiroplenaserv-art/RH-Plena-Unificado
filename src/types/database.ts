@@ -1,3 +1,10 @@
+import type { HistoricoImportacao } from '@/types/econtador'
+import type {
+  ContratoAdicional,
+  VinculoAdicional,
+  DiaCalendarioAdicional,
+} from '@/types/adicionais'
+
 export type NivelAcesso = 'admin' | 'rh' | 'gestor' | 'visualizador'
 export type StatusColaborador = 'Ativo' | 'Inativo' | 'Afastado'
 export type StatusOcorrencia = 'Pendente' | 'Ativa' | 'Resolvida' | 'Cancelada'
@@ -307,100 +314,147 @@ export type Database = {
   public: {
     Tables: {
       empresas: {
-        Row: Empresa
-        Insert: Partial<Empresa>
-        Update: Partial<Empresa>
+        Row: Empresa & Record<string, unknown>
+        Insert: Partial<Empresa> & Record<string, unknown>
+        Update: Partial<Empresa> & Record<string, unknown>
+        Relationships: []
       }
       departamentos: {
-        Row: Departamento
-        Insert: Partial<Departamento>
-        Update: Partial<Departamento>
+        Row: Departamento & Record<string, unknown>
+        Insert: Partial<Departamento> & Record<string, unknown>
+        Update: Partial<Departamento> & Record<string, unknown>
+        Relationships: []
       }
       colaboradores: {
-        Row: Colaborador
-        Insert: Partial<Colaborador>
-        Update: Partial<Colaborador>
+        Row: Colaborador & Record<string, unknown>
+        Insert: Partial<Colaborador> & Record<string, unknown>
+        Update: Partial<Colaborador> & Record<string, unknown>
+        Relationships: []
       }
       perfis: {
-        Row: Perfil
-        Insert: Partial<Perfil>
-        Update: Partial<Perfil>
+        Row: Perfil & Record<string, unknown>
+        Insert: Partial<Perfil> & Record<string, unknown>
+        Update: Partial<Perfil> & Record<string, unknown>
+        Relationships: []
       }
       configuracoes: {
-        Row: Configuracao
-        Insert: Partial<Configuracao>
-        Update: Partial<Configuracao>
+        Row: Configuracao & Record<string, unknown>
+        Insert: Partial<Configuracao> & Record<string, unknown>
+        Update: Partial<Configuracao> & Record<string, unknown>
+        Relationships: []
       }
       ocorrencias: {
-        Row: Ocorrencia
-        Insert: Partial<Ocorrencia>
-        Update: Partial<Ocorrencia>
+        Row: Ocorrencia & Record<string, unknown>
+        Insert: Partial<Ocorrencia> & Record<string, unknown>
+        Update: Partial<Ocorrencia> & Record<string, unknown>
+        Relationships: []
       }
       ocorrencia_anexos: {
-        Row: OcorrenciaAnexo
-        Insert: Partial<OcorrenciaAnexo>
-        Update: Partial<OcorrenciaAnexo>
+        Row: OcorrenciaAnexo & Record<string, unknown>
+        Insert: Partial<OcorrenciaAnexo> & Record<string, unknown>
+        Update: Partial<OcorrenciaAnexo> & Record<string, unknown>
+        Relationships: []
       }
       ocorrencia_testemunhas: {
-        Row: OcorrenciaTestemunha
-        Insert: Partial<OcorrenciaTestemunha>
-        Update: Partial<OcorrenciaTestemunha>
+        Row: OcorrenciaTestemunha & Record<string, unknown>
+        Insert: Partial<OcorrenciaTestemunha> & Record<string, unknown>
+        Update: Partial<OcorrenciaTestemunha> & Record<string, unknown>
+        Relationships: []
       }
       ocorrencia_aprovacoes: {
-        Row: OcorrenciaAprovacao
-        Insert: Partial<OcorrenciaAprovacao>
-        Update: Partial<OcorrenciaAprovacao>
+        Row: OcorrenciaAprovacao & Record<string, unknown>
+        Insert: Partial<OcorrenciaAprovacao> & Record<string, unknown>
+        Update: Partial<OcorrenciaAprovacao> & Record<string, unknown>
+        Relationships: []
       }
       ocorrencia_defesas: {
-        Row: OcorrenciaDefesa
-        Insert: Partial<OcorrenciaDefesa>
-        Update: Partial<OcorrenciaDefesa>
+        Row: OcorrenciaDefesa & Record<string, unknown>
+        Insert: Partial<OcorrenciaDefesa> & Record<string, unknown>
+        Update: Partial<OcorrenciaDefesa> & Record<string, unknown>
+        Relationships: []
       }
       alertas: {
-        Row: Alerta
-        Insert: Partial<Alerta>
-        Update: Partial<Alerta>
+        Row: Alerta & Record<string, unknown>
+        Insert: Partial<Alerta> & Record<string, unknown>
+        Update: Partial<Alerta> & Record<string, unknown>
+        Relationships: []
       }
       modelos_ocorrencia: {
-        Row: ModeloOcorrencia
-        Insert: Partial<ModeloOcorrencia>
-        Update: Partial<ModeloOcorrencia>
+        Row: ModeloOcorrencia & Record<string, unknown>
+        Insert: Partial<ModeloOcorrencia> & Record<string, unknown>
+        Update: Partial<ModeloOcorrencia> & Record<string, unknown>
+        Relationships: []
       }
       auditoria: {
-        Row: AuditoriaLog
-        Insert: Partial<AuditoriaLog>
-        Update: Partial<AuditoriaLog>
+        Row: AuditoriaLog & Record<string, unknown>
+        Insert: Partial<AuditoriaLog> & Record<string, unknown>
+        Update: Partial<AuditoriaLog> & Record<string, unknown>
+        Relationships: []
       }
       log_auditoria: {
-        Row: AuditoriaLog
-        Insert: Partial<AuditoriaLog>
-        Update: Partial<AuditoriaLog>
+        Row: AuditoriaLog & Record<string, unknown>
+        Insert: Partial<AuditoriaLog> & Record<string, unknown>
+        Update: Partial<AuditoriaLog> & Record<string, unknown>
+        Relationships: []
       }
       projetos_vr: {
-        Row: ProjetoVR
-        Insert: Partial<ProjetoVR>
-        Update: Partial<ProjetoVR>
+        Row: ProjetoVR & Record<string, unknown>
+        Insert: Partial<ProjetoVR> & Record<string, unknown>
+        Update: Partial<ProjetoVR> & Record<string, unknown>
+        Relationships: []
       }
       resultados_vr: {
-        Row: ResultadoVR
-        Insert: Partial<ResultadoVR>
-        Update: Partial<ResultadoVR>
+        Row: ResultadoVR & Record<string, unknown>
+        Insert: Partial<ResultadoVR> & Record<string, unknown>
+        Update: Partial<ResultadoVR> & Record<string, unknown>
+        Relationships: []
       }
       fornecedores: {
-        Row: Fornecedor
-        Insert: Partial<Fornecedor>
-        Update: Partial<Fornecedor>
+        Row: Fornecedor & Record<string, unknown>
+        Insert: Partial<Fornecedor> & Record<string, unknown>
+        Update: Partial<Fornecedor> & Record<string, unknown>
+        Relationships: []
       }
       itens: {
-        Row: ItemCEU
-        Insert: Partial<ItemCEU>
-        Update: Partial<ItemCEU>
+        Row: ItemCEU & Record<string, unknown>
+        Insert: Partial<ItemCEU> & Record<string, unknown>
+        Update: Partial<ItemCEU> & Record<string, unknown>
+        Relationships: []
       }
       entregas: {
-        Row: EntregaCEU
-        Insert: Partial<EntregaCEU>
-        Update: Partial<EntregaCEU>
+        Row: EntregaCEU & Record<string, unknown>
+        Insert: Partial<EntregaCEU> & Record<string, unknown>
+        Update: Partial<EntregaCEU> & Record<string, unknown>
+        Relationships: []
+      }
+      contratos_adicionais: {
+        Row: ContratoAdicional & Record<string, unknown>
+        Insert: Partial<ContratoAdicional> & Record<string, unknown>
+        Update: Partial<ContratoAdicional> & Record<string, unknown>
+        Relationships: []
+      }
+      vinculos_adicionais: {
+        Row: VinculoAdicional & Record<string, unknown>
+        Insert: Partial<VinculoAdicional> & Record<string, unknown>
+        Update: Partial<VinculoAdicional> & Record<string, unknown>
+        Relationships: []
+      }
+      calendario_adicionais: {
+        Row: DiaCalendarioAdicional & Record<string, unknown>
+        Insert: Partial<DiaCalendarioAdicional> & Record<string, unknown>
+        Update: Partial<DiaCalendarioAdicional> & Record<string, unknown>
+        Relationships: []
+      }
+      historico_importacoes_econtador: {
+        Row: HistoricoImportacao & Record<string, unknown>
+        Insert: Partial<HistoricoImportacao> & Record<string, unknown>
+        Update: Partial<HistoricoImportacao> & Record<string, unknown>
+        Relationships: []
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    Views: {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    Functions: {}
   }
 }

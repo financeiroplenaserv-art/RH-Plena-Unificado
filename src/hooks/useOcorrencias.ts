@@ -25,7 +25,7 @@ export function useOcorrencias() {
         .order('data_ocorrencia', { ascending: false })
 
       if (filtros.colaborador_id) query = query.eq('colaborador_id', filtros.colaborador_id)
-      if (filtros.status) query = query.eq('status', filtros.status)
+      if (filtros.status) query = query.eq('status', filtros.status as StatusOcorrencia)
       if (filtros.tipo) query = query.eq('tipo_ocorrencia', filtros.tipo)
       if (filtros.empresa_id) query = query.eq('empresa_id', filtros.empresa_id)
       if (filtros.macro_grupo) query = query.eq('macro_grupo', filtros.macro_grupo)
