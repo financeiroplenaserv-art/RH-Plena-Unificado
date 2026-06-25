@@ -308,7 +308,7 @@ export async function gerarPDFOcorrencia(
     doc.setFontSize(7)
     doc.setTextColor(150, 150, 150)
     doc.text(
-      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema RH Plena`,
+      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema CORH`,
       w / 2,
       h - 8,
       { align: 'center' }
@@ -432,7 +432,7 @@ export async function gerarReciboEntregaCEU(
     doc.setFontSize(7)
     doc.setTextColor(150, 150, 150)
     doc.text(
-      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema RH Plena`,
+      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema CORH`,
       w / 2,
       h - 8,
       { align: 'center' }

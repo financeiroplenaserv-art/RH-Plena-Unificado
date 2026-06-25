@@ -9,7 +9,7 @@ export function Header({ user }: HeaderProps) {
   return (
     <header className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
       <div>
-        <h1 className="text-lg font-semibold text-slate-900">Plena EA — Sistema Institucional Unificado</h1>
+        <h1 className="text-lg font-semibold text-slate-900">CORH — Controle Operacional e de RH</h1>
         <p className="text-xs text-slate-500">Dados mestres compartilhados entre RH, CEU e VR</p>
       </div>
       <div className="flex items-center gap-4">

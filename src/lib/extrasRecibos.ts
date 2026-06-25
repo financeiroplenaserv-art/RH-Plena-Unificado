@@ -87,6 +87,7 @@ export async function gerarReciboExtraPDF(
   assinaturaBase64: string,
   numeroRecibo?: string,
   empresa?: EmpresaRecibo,
+  dataPagamento?: string | null,
   modoPapel = false
 ) {
   const { jsPDF, autoTable } = await getJsPDF()
@@ -95,7 +96,8 @@ export async function gerarReciboExtraPDF(
   const h = doc.internal.pageSize.getHeight()
 
   const formatarData = (data: string) => {
-    const [ano, mes, dia] = data.split('-')
+    const somenteData = data.includes('T') ? data.split('T')[0] : data
+    const [ano, mes, dia] = somenteData.split('-')
     return `${dia}/${mes}/${ano}`
   }
   const formatarMoeda = (valor: number) =>
@@ -103,20 +105,15 @@ export async function gerarReciboExtraPDF(
 
   const valorTotal = extras.reduce((acc, e) => acc + (Number(e.valor) || 0), 0)
   const hoje = new Date()
-  const dataRecebimento = hoje.toLocaleDateString('pt-BR')
   const dataEmissao = hoje.toLocaleDateString('pt-BR')
-  const nomeEmpresa = empresa?.nome || 'Plena EA Facilities Serviços'
+  const dataRecebimento = dataPagamento ? formatarData(dataPagamento) : dataEmissao
+  const nomeEmpresa = empresa?.nome || '[Empresa não informada]'
 
-  function getCnpjEmpresa(nome?: string | null, cnpj?: string | null): string {
-    const nomeNormalizado = (nome || '').toLowerCase()
-    const isFacilities = nomeNormalizado.includes('plena ea facilities') || (nomeNormalizado.includes('plena') && nomeNormalizado.includes('facilities') && !nomeNormalizado.includes('tech'))
-    const isTech = nomeNormalizado.includes('plena tech') || (nomeNormalizado.includes('plena') && nomeNormalizado.includes('tech'))
-    if (isFacilities) return '00.378.476/0001-60'
-    if (isTech) return '41.299.487/0001-32'
-    return formatarCNPJ(cnpj) || '00.378.476/0001-60'
+  function getCnpjEmpresa(cnpj?: string | null): string {
+    return formatarCNPJ(cnpj) || '[CNPJ]'
   }
 
-  const cnpjEmpresa = getCnpjEmpresa(nomeEmpresa, empresa?.cnpj)
+  const cnpjEmpresa = getCnpjEmpresa(empresa?.cnpj)
 
   // Título
   doc.setFontSize(26)
@@ -213,7 +210,7 @@ export async function gerarReciboExtraPDF(
   doc.setFontSize(7)
   doc.setTextColor(150, 150, 150)
   doc.text(
-    `Documento gerado eletronicamente em ${dataEmissao} - Sistema RH Plena`,
+    `Documento gerado eletronicamente em ${dataEmissao} - Sistema CORH`,
     w / 2,
     h - 8,
     { align: 'center' }

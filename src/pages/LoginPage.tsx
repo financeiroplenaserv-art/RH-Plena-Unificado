@@ -43,7 +43,7 @@ export function LoginPage({
               <path fill="#fff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z" />
             </svg>
           </div>
-          <span className="text-xl font-semibold tracking-tight">RH Plena</span>
+          <span className="text-xl font-semibold tracking-tight">CORH</span>
         </div>
 
         <div className="space-y-6 max-w-md">
@@ -73,7 +73,7 @@ export function LoginPage({
         </div>
 
         <p className="text-xs text-slate-500">
-          © {new Date().getFullYear()} RH Plena. Todos os direitos reservados.
+          © {new Date().getFullYear()} CORH — Plena. Todos os direitos reservados.
         </p>
       </div>
 
@@ -87,13 +87,16 @@ export function LoginPage({
                 <path fill="#fff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z" />
               </svg>
             </div>
-            <span className="text-xl font-semibold text-slate-900">RH Plena</span>
+            <span className="text-xl font-semibold text-slate-900">CORH</span>
           </div>
 
           <div className="space-y-2 text-center lg:text-left">
             <h2 className="text-2xl font-bold text-slate-900">
               {isLogin ? 'Bem-vindo de volta' : 'Criar primeira conta'}
             </h2>
+            <p className="text-xs font-medium tracking-wider text-[#1E3A5F] uppercase">
+              Controle Operacional e de RH
+            </p>
             <p className="text-slate-500 text-sm">
               {isLogin
                 ? 'Digite seu e-mail e senha para acessar o sistema'
