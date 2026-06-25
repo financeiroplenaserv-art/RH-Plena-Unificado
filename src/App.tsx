@@ -10,6 +10,7 @@ import { PageLoading } from '@/components/PageLoading'
 import { cn } from '@/lib/utils'
 import type { Perfil } from '@/types/database'
 import { LoginPage } from '@/pages/LoginPage'
+import { ConsentimentoLGPDPage } from '@/pages/ConsentimentoLGPDPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ColaboradoresPage } from '@/pages/ColaboradoresPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
@@ -67,14 +68,26 @@ function HeaderWrapper({ user }: { user: Perfil }) {
 }
 
 function App() {
-  const { user, loading, login, signUp, logout } = useAuth()
+  const { user, loading, login, signUp, logout, carregarPerfil } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
   const [primeiroAcesso, setPrimeiroAcesso] = useState(false)
   const [verificandoPrimeiroAcesso, setVerificandoPrimeiroAcesso] = useState(true)
+  const [recarregandoPerfil, setRecarregandoPerfil] = useState(false)
 
   useEffect(() => {
     async function verificar() {
+      // CORREÇÃO DE SEGURANÇA: só consulta publicamente se o modo de primeiro
+      // acesso estiver habilitado via variável de ambiente. Em produção,
+      // recomenda-se desativar o sign-up público no Supabase Auth e gerenciar
+      // usuários por convite/admin.
+      const permitirPrimeiroAcesso = import.meta.env.VITE_PERMITIR_PRIMEIRO_ACESSO === 'true'
+      if (!permitirPrimeiroAcesso) {
+        setPrimeiroAcesso(false)
+        setVerificandoPrimeiroAcesso(false)
+        return
+      }
+
       const { count, error } = await supabase
         .from('perfis')
         .select('*', { count: 'exact', head: true })
@@ -92,7 +105,9 @@ function App() {
     setLoginLoading(true)
     try {
       if (primeiroAcesso) {
-        await signUp(email, senha)
+        // CORREÇÃO DE SEGURANÇA: primeiro acesso cria admin explicitamente.
+        // Demais usuários criados via signUp ficam como visualizador por padrão.
+        await signUp(email, senha, 'admin')
         toast.success('Primeira conta criada com sucesso')
       } else {
         await login(email, senha)
@@ -122,6 +137,15 @@ function App() {
     toast.success('Sessão encerrada')
   }
 
+  const handleConsentimentoAceito = async () => {
+    setRecarregandoPerfil(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      await carregarPerfil(session.user)
+    }
+    setRecarregandoPerfil(false)
+  }
+
   if (loading || verificandoPrimeiroAcesso) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-white">
@@ -140,6 +164,23 @@ function App() {
           loading={loginLoading}
           primeiroAcesso={primeiroAcesso}
         />
+      </>
+    )
+  }
+
+  if (recarregandoPerfil) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+      </div>
+    )
+  }
+
+  if (!user.consentimento_lgpd) {
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <ConsentimentoLGPDPage onConsentimentoAceito={handleConsentimentoAceito} />
       </>
     )
   }
@@ -192,7 +233,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/importar/econtador" element={<ImportarEContadorPage />} />
+              <Route
+                path="/importar/econtador"
+                element={
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                    <ImportarEContadorPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/rh"

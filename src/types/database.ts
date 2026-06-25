@@ -81,6 +81,20 @@ export interface Perfil {
   nome: string | null
   nivel_acesso: NivelAcesso
   empresa_id: string | null
+  consentimento_lgpd: boolean
+  consentimento_lgpd_data: string | null
+  consentimento_lgpd_versao: string | null
+  consentimento_lgpd_finalidades: string[] | null
+  created_at?: string
+}
+
+export interface TermoLGPD {
+  id: string
+  versao: string
+  titulo: string
+  conteudo: string
+  finalidades: string[]
+  ativo: boolean
   created_at?: string
 }
 
@@ -336,6 +350,12 @@ export type Database = {
         Row: Perfil & Record<string, unknown>
         Insert: Partial<Perfil> & Record<string, unknown>
         Update: Partial<Perfil> & Record<string, unknown>
+        Relationships: []
+      }
+      termos_lgpd: {
+        Row: TermoLGPD & Record<string, unknown>
+        Insert: Partial<TermoLGPD> & Record<string, unknown>
+        Update: Partial<TermoLGPD> & Record<string, unknown>
         Relationships: []
       }
       configuracoes: {

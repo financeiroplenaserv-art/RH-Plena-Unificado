@@ -30,10 +30,26 @@
   - Item 4.3 marcado como parcial (depende de testes manuais).
   - Itens 5.1, 5.2 e 5.3 marcados como pendentes de dados do VPS.
 
+### 4. Consentimento LGPD
+- Criada migration `036_consentimento_lgpd.sql` com:
+  - Tabela `termos_lgpd` para versionamento de termos
+  - Campos de consentimento na tabela `perfis`
+  - RLS para termos e ajuste de RLS em perfis (usuário lê/altera próprio perfil)
+  - Seed do termo inicial
+- Criada página `ConsentimentoLGPDPage.tsx` exibida após login quando o consentimento não foi dado
+- Integrada verificação de consentimento em `App.tsx`
+- Criado componente `Checkbox` em `src/components/ui/checkbox.tsx`
+
+### 5. Validação
+- Build: ✅
+- Testes: 19 passando ✅
+- Lint nos arquivos alterados: ✅
+- Lint geral: falha por falta de memória no ambiente (problema conhecido)
+
 ## ⏳ Pendências
 
 - LGPD/CLT:
-  - Consentimento
+  - ✅ Consentimento (feito)
   - Prazo de defesa
   - Recibos de EPI completos
 - RBAC granular:
@@ -45,10 +61,18 @@
 
 - `docs/DEPLOY.md` (criado)
 - `docs/CHECKLIST_IMPLANTACAO.md` (atualizado)
+- `docs/CHECKLIST_CORRECOES.md` (atualizado)
 - `docs/RELATORIO_TRABALHO_2026_06_25.md` (este arquivo)
+- `supabase/migrations/036_consentimento_lgpd.sql` (criado)
+- `src/pages/ConsentimentoLGPDPage.tsx` (criado)
+- `src/components/ui/checkbox.tsx` (criado)
+- `src/hooks/useAuth.ts` (atualizado)
+- `src/App.tsx` (atualizado)
+- `src/types/database.ts` (atualizado)
 
 ## 🚀 Próximos passos sugeridos
 
-1. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
-2. Prosseguir com LGPD/CLT e RBAC granular.
-3. Expandir cobertura de testes (Vitest).
+1. Aplicar migration `036_consentimento_lgpd.sql` no banco de produção.
+2. Prosseguir com prazo de defesa em ocorrências ou recibos de EPI completos.
+3. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
+4. Expandir cobertura de testes (Vitest).

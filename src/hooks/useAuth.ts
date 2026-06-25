@@ -11,7 +11,10 @@ export function useAuth() {
   const [user, setUser] = useState<Perfil | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const carregarPerfil = useCallback(async (authUser: { id: string; email?: string | null }) => {
+  const carregarPerfil = useCallback(async (
+    authUser: { id: string; email?: string | null },
+    nivelPadrao: NivelAcesso = 'visualizador'
+  ) => {
     const { data: perfil, error } = await supabase
       .from('perfis')
       .select('*')
@@ -22,12 +25,19 @@ export function useAuth() {
       setUser(perfil as Perfil)
       localStorage.setItem(PERFIL_STORAGE_KEY, JSON.stringify(perfil))
     } else if (!error || error.code === 'PGRST116') {
+      // CORREÇÃO DE SEGURANÇA: nunca criar admin automaticamente.
+      // O nível padrão é 'visualizador'. Apenas fluxos explícitos (ex: primeiro acesso)
+      // devem passar outro nível.
       const novoPerfil: Omit<Perfil, 'created_at'> = {
         id: authUser.id,
         email: authUser.email || null,
         nome: authUser.email?.split('@')[0] || 'Usuário',
-        nivel_acesso: 'admin',
+        nivel_acesso: nivelPadrao,
         empresa_id: null,
+        consentimento_lgpd: false,
+        consentimento_lgpd_data: null,
+        consentimento_lgpd_versao: null,
+        consentimento_lgpd_finalidades: null,
       }
       const { data: criado, error: erroInsert } = await supabase
         .from('perfis')
@@ -89,9 +99,9 @@ export function useAuth() {
     return authUser
   }, [carregarPerfil])
 
-  const signUp = useCallback(async (email: string, senha: string) => {
+  const signUp = useCallback(async (email: string, senha: string, nivelPadrao: NivelAcesso = 'visualizador') => {
     const { user: authUser } = await cadastrarComEmail(email, senha)
-    if (authUser) await carregarPerfil(authUser)
+    if (authUser) await carregarPerfil(authUser, nivelPadrao)
     return authUser
   }, [carregarPerfil])
 
@@ -114,5 +124,5 @@ export function useAuth() {
     return niveis.some((n) => hierarquia[n] <= nivelUsuario)
   }, [user])
 
-  return { user, loading, login, signUp, logout, temAcesso }
+  return { user, loading, login, signUp, logout, temAcesso, carregarPerfil }
 }
