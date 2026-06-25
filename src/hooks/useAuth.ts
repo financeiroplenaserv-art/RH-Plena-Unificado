@@ -5,6 +5,20 @@ import type { Perfil, NivelAcesso } from '@/types/database'
 
 const PERFIL_STORAGE_KEY = 'plena_perfil'
 
+// Perfis legados mantidos para compatibilidade
+const PERFIS_ADMIN: NivelAcesso[] = ['admin', 'adm']
+const PERFIS_EDITOR: NivelAcesso[] = [
+  'admin',
+  'adm',
+  'gestor',
+  'rh',
+  'dp1',
+  'dp2',
+  'mesa',
+  'inspetoria',
+  'financeiro',
+]
+
 export function useAuth() {
   // Nunca inicializa o usuario a partir do localStorage para evitar bypass de autenticacao.
   // O perfil so e definido apos validacao da sessao no Supabase.
@@ -111,18 +125,26 @@ export function useAuth() {
     localStorage.removeItem(PERFIL_STORAGE_KEY)
   }, [])
 
-  const temAcesso = useCallback((nivelMinimo: NivelAcesso | NivelAcesso[]): boolean => {
+  /**
+   * Verifica se o usuário possui um dos perfis permitidos.
+   * Aceita um único perfil ou um array de perfis.
+   * Perfis vazios ou undefined significam "qualquer usuário autenticado".
+   */
+  const temAcesso = useCallback((perfisPermitidos?: NivelAcesso | NivelAcesso[]): boolean => {
     if (!user) return false
-    const niveis = Array.isArray(nivelMinimo) ? nivelMinimo : [nivelMinimo]
-    const hierarquia: Record<NivelAcesso, number> = {
-      visualizador: 1,
-      gestor: 2,
-      rh: 3,
-      admin: 4,
-    }
-    const nivelUsuario = hierarquia[user.nivel_acesso]
-    return niveis.some((n) => hierarquia[n] <= nivelUsuario)
+    if (!perfisPermitidos) return true
+    const perfis = Array.isArray(perfisPermitidos) ? perfisPermitidos : [perfisPermitidos]
+    if (perfis.length === 0) return true
+    return perfis.includes(user.nivel_acesso)
   }, [user])
 
-  return { user, loading, login, signUp, logout, temAcesso, carregarPerfil }
+  const ehAdmin = useCallback(() => {
+    return user ? PERFIS_ADMIN.includes(user.nivel_acesso) : false
+  }, [user])
+
+  const ehEditor = useCallback(() => {
+    return user ? PERFIS_EDITOR.includes(user.nivel_acesso) : false
+  }, [user])
+
+  return { user, loading, login, signUp, logout, temAcesso, carregarPerfil, ehAdmin, ehEditor }
 }

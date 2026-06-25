@@ -6,7 +6,17 @@ import type {
 } from '@/types/adicionais'
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
 
-export type NivelAcesso = 'admin' | 'rh' | 'gestor' | 'visualizador'
+export type NivelAcesso =
+  | 'admin' // legado, equivalente a adm
+  | 'adm'
+  | 'gestor'
+  | 'rh'
+  | 'dp1'
+  | 'dp2'
+  | 'mesa'
+  | 'inspetoria'
+  | 'financeiro'
+  | 'visualizador' // legado, apenas leitura
 export type StatusColaborador = 'Ativo' | 'Inativo' | 'Afastado'
 export type StatusOcorrencia = 'Pendente' | 'Ativa' | 'Resolvida' | 'Cancelada'
 

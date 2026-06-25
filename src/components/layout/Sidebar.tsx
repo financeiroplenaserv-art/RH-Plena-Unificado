@@ -35,19 +35,19 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/empresas', label: 'Empresas', icon: <Building className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/ceu', label: 'Uniformes', icon: <Package className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
-  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, niveis: ['admin', 'rh', 'gestor', 'visualizador'] },
+  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/empresas', label: 'Empresas', icon: <Building className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-5 h-5" />, niveis: ['admin', 'adm', 'dp1', 'dp2'] },
+  { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'] },
+  { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-5 h-5" />, niveis: ['admin', 'adm', 'dp1', 'dp2'] },
+  { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/ceu', label: 'Uniformes', icon: <Package className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'dp1', 'mesa', 'inspetoria'] },
+  { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'dp2', 'mesa', 'financeiro'] },
+  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, niveis: ['admin', 'adm', 'mesa', 'inspetoria', 'financeiro'] },
+  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
 ]
 
 export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {

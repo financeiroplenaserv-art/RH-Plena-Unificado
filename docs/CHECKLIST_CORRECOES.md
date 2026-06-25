@@ -127,16 +127,31 @@
 
 ---
 
-## 🎯 Próximos Passos Recomendados
+## 6. RBAC GRANULAR
 
-1. Responder às dúvidas acima.
-2. Aplicar migrations `027`, `028`, `029`, `030`, `031` e `033` no Supabase ✅ (aplicadas).
-3. Testar importação do e-Contador em ambas as empresas ✅ (em andamento).
-4. Configurar Vitest + React Testing Library.
-5. Criar testes unitários para cálculos críticos.
-6. Implementar consentimento LGPD ✅
-7. Isolar storage buckets por contexto.
+| # | Correção | Status | Arquivos | Observações |
+|---|----------|--------|----------|-------------|
+| 6.1 | Adicionar 8 perfis ao tipo `NivelAcesso` | ✅ Feito | `src/types/database.ts` | `adm`, `gestor`, `rh`, `dp1`, `dp2`, `mesa`, `inspetoria`, `financeiro`. Perfis legados `admin` e `visualizador` mantidos. |
+| 6.2 | Atualizar funções de permissão no frontend | ✅ Feito | `src/hooks/useAuth.ts`, `src/components/layout/ProtectedRoute.tsx` | `temAcesso` agora verifica lista de perfis. Adicionados `ehAdmin` e `ehEditor`. |
+| 6.3 | Atualizar funções RLS no banco | ✅ Feito | `supabase/migrations/037_rbac_granular.sql` | `is_admin`, `is_editor` e helpers granulares (`is_dp`, `is_mesa`, etc.). |
+| 6.4 | Aplicar permissões nas rotas | ✅ Feito | `src/App.tsx` | Cada rota mapeada para os perfis definidos em `docs/PERFIL_ACOES_MODELO.md`. |
+| 6.5 | Aplicar permissões no menu lateral | ✅ Feito | `src/components/layout/Sidebar.tsx` | Menus exibidos conforme perfil do usuário. |
+| 6.6 | Restringir ações dentro das páginas (botões, formulários) | ⏳ Futuro | Páginas específicas | Acesso às rotas protegido; permissões de ação granular dentro de cada página ainda pendente. |
+| 6.7 | Migrar usuários existentes para novos perfis | ⏳ Pendente | Supabase / admin | Usuários com `admin`, `rh`, `gestor`, `visualizador` devem ser realocados manualmente. |
 
 ---
 
-*Última atualização: 2026-06-25 (tarde)*
+## 🎯 Próximos Passos Recomendados
+
+1. Aplicar migrations `027`, `028`, `029`, `030`, `031`, `033`, `036` e `037` no Supabase.
+2. Testar importação do e-Contador em ambas as empresas ✅ (em andamento).
+3. Configurar Vitest + React Testing Library.
+4. Criar testes unitários para cálculos críticos.
+5. Implementar consentimento LGPD ✅
+6. Isolar storage buckets por contexto.
+7. Restringir ações internas nas páginas conforme RBAC granular.
+8. Migrar usuários existentes para os novos perfis.
+
+---
+
+*Última atualização: 2026-06-25 (noite)*

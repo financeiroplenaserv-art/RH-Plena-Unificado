@@ -12,15 +12,11 @@ export function ProtectedRoute({ user, nivelMinimo, children, fallback }: Protec
   if (!nivelMinimo) return <>{children}</>
 
   const niveis = Array.isArray(nivelMinimo) ? nivelMinimo : [nivelMinimo]
-  const hierarquia: Record<NivelAcesso, number> = {
-    visualizador: 1,
-    gestor: 2,
-    rh: 3,
-    admin: 4,
-  }
 
-  const nivelUsuario = hierarquia[user.nivel_acesso]
-  const permitido = niveis.some((n) => hierarquia[n] <= nivelUsuario)
+  // Nível vazio significa "qualquer usuário autenticado"
+  if (niveis.length === 0) return <>{children}</>
+
+  const permitido = niveis.includes(user.nivel_acesso)
 
   if (!permitido) {
     if (fallback) return <>{fallback}</>

@@ -63,9 +63,11 @@
   - ✅ Política de retenção (documentada)
   - ✅ Recibos de EPI (já estavam completos)
   - ✅ Assinatura digital (resolvida via Youk)
-  - ⏳ Consentimento para comunicação (WhatsApp/email) — verificar necessidade
+  - ⚪ Consentimento para comunicação (WhatsApp/email) — considerado desnecessário pelo cliente
 - RBAC granular:
-  - Implementar 8 perfis (ADM, GESTOR, RH, DP1, DP2, MESA, INSPETORIA, FINANCEIRO)
+  - ✅ Implementar 8 perfis (ADM, GESTOR, RH, DP1, DP2, MESA, INSPETORIA, FINANCEIRO)
+  - ⏳ Restringir ações dentro das páginas (botões, formulários)
+  - ⏳ Migrar usuários existentes para novos perfis
 - Testes manuais no deploy local
 - Dados do VPS para aplicar roteiro de deploy
 
@@ -82,12 +84,16 @@
 - `src/components/ui/checkbox.tsx` (criado)
 - `src/hooks/useAuth.ts` (atualizado)
 - `src/App.tsx` (atualizado)
+- `src/components/layout/ProtectedRoute.tsx` (atualizado)
+- `src/components/layout/Sidebar.tsx` (atualizado)
+- `src/components/layout/Header.tsx` (atualizado)
 - `src/types/database.ts` (atualizado)
+- `supabase/migrations/037_rbac_granular.sql` (criado)
 
 ## 🚀 Próximos passos sugeridos
 
-1. Aplicar migration `036_consentimento_lgpd.sql` no banco de produção.
-2. Definir se será necessário consentimento específico para comunicação (WhatsApp/email).
-3. Prosseguir com RBAC granular.
-4. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
-5. Expandir cobertura de testes (Vitest).
+1. Aplicar migrations `036_consentimento_lgpd.sql` e `037_rbac_granular.sql` no banco de produção.
+2. Migrar usuários existentes para os novos perfis (admin→adm, rh, gestor, visualizador).
+3. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
+4. Expandir cobertura de testes (Vitest).
+5. Restringir ações internas nas páginas conforme RBAC granular (futuro).

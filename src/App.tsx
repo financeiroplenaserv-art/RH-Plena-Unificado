@@ -192,7 +192,7 @@ function App() {
         <Route
           path="/mobile/falta"
           element={
-            <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+            <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
               <MobileFaltaPage />
             </ProtectedRoute>
           }
@@ -220,7 +220,7 @@ function App() {
               <Route
                 path="/departamentos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
                     <DepartamentosPage />
                   </ProtectedRoute>
                 }
@@ -228,7 +228,7 @@ function App() {
               <Route
                 path="/empresas"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
                     <EmpresasPage />
                   </ProtectedRoute>
                 }
@@ -236,7 +236,7 @@ function App() {
               <Route
                 path="/importar/econtador"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'dp2']}>
                     <ImportarEContadorPage />
                   </ProtectedRoute>
                 }
@@ -245,7 +245,7 @@ function App() {
               <Route
                 path="/rh"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria']}>
                     <Navigate to="/rh/ocorrencias" replace />
                   </ProtectedRoute>
                 }
@@ -253,7 +253,7 @@ function App() {
               <Route
                 path="/rh/ocorrencias"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria']}>
                     <OcorrenciasPage />
                   </ProtectedRoute>
                 }
@@ -261,7 +261,7 @@ function App() {
               <Route
                 path="/rh/ocorrencias/novo"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa']}>
                     <OcorrenciaFormPage />
                   </ProtectedRoute>
                 }
@@ -269,7 +269,7 @@ function App() {
               <Route
                 path="/rh/ocorrencias/colaborador/:colaboradorId"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa']}>
                     <OcorrenciaFormPage />
                   </ProtectedRoute>
                 }
@@ -277,7 +277,7 @@ function App() {
               <Route
                 path="/rh/ocorrencias/:id"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa']}>
                     <OcorrenciaDetailPage />
                   </ProtectedRoute>
                 }
@@ -285,7 +285,7 @@ function App() {
               <Route
                 path="/rh/colaboradores/:id"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
                     <ColaboradorDetailPage />
                   </ProtectedRoute>
                 }
@@ -293,7 +293,7 @@ function App() {
               <Route
                 path="/rh/colaboradores/:id/editar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa']}>
                     <ColaboradorFormPage />
                   </ProtectedRoute>
                 }
@@ -301,7 +301,7 @@ function App() {
               <Route
                 path="/rh/importar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'rh', 'dp1', 'dp2']}>
                     <ImportarRhPage />
                   </ProtectedRoute>
                 }
@@ -309,7 +309,7 @@ function App() {
               <Route
                 path="/rh/modelos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2']}>
                     <ModelosPage />
                   </ProtectedRoute>
                 }
@@ -317,7 +317,7 @@ function App() {
               <Route
                 path="/rh/alertas"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1']}>
                     <AlertasPage />
                   </ProtectedRoute>
                 }
@@ -327,7 +327,7 @@ function App() {
               <Route
                 path="/ceu/dashboard"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
                     <CeuDashboardPage />
                   </ProtectedRoute>
                 }
@@ -335,7 +335,7 @@ function App() {
               <Route
                 path="/ceu/itens"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'mesa']}>
                     <CeuItensPage />
                   </ProtectedRoute>
                 }
@@ -343,7 +343,7 @@ function App() {
               <Route
                 path="/ceu/itens/novo"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'mesa']}>
                     <CeuItemFormPage />
                   </ProtectedRoute>
                 }
@@ -351,7 +351,7 @@ function App() {
               <Route
                 path="/ceu/itens/:id/editar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'mesa']}>
                     <CeuItemFormPage />
                   </ProtectedRoute>
                 }
@@ -359,7 +359,7 @@ function App() {
               <Route
                 path="/ceu/fornecedores"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp1']}>
                     <CeuFornecedoresPage />
                   </ProtectedRoute>
                 }
@@ -367,7 +367,7 @@ function App() {
               <Route
                 path="/ceu/movimentacoes"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp1', 'mesa', 'inspetoria']}>
                     <CeuMovimentacoesPage />
                   </ProtectedRoute>
                 }
@@ -375,7 +375,7 @@ function App() {
               <Route
                 path="/ceu/movimentacoes/novo"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp1']}>
                     <CeuEntregaFormPage />
                   </ProtectedRoute>
                 }
@@ -383,7 +383,7 @@ function App() {
               <Route
                 path="/ceu/lancamento-rapido"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp1']}>
                     <CeuLancamentoRapidoPage />
                   </ProtectedRoute>
                 }
@@ -391,7 +391,7 @@ function App() {
               <Route
                 path="/ceu/relatorios"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp1', 'mesa']}>
                     <CeuRelatoriosPage />
                   </ProtectedRoute>
                 }
@@ -400,7 +400,7 @@ function App() {
               <Route
                 path="/ceu/importar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1']}>
                     <CeuImportarPage />
                   </ProtectedRoute>
                 }
@@ -409,7 +409,7 @@ function App() {
               <Route
                 path="/vr/projetos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'dp2']}>
                     <VrProjetosPage />
                   </ProtectedRoute>
                 }
@@ -417,7 +417,7 @@ function App() {
               <Route
                 path="/vr/projetos/novo"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp2']}>
                     <VrProjetoFormPage />
                   </ProtectedRoute>
                 }
@@ -425,7 +425,7 @@ function App() {
               <Route
                 path="/vr/projetos/:id"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'dp2']}>
                     <VrProjetoDetailPage />
                   </ProtectedRoute>
                 }
@@ -433,7 +433,7 @@ function App() {
               <Route
                 path="/vr/projetos/:id/editar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp2']}>
                     <VrProjetoFormPage />
                   </ProtectedRoute>
                 }
@@ -442,7 +442,7 @@ function App() {
               <Route
                 path="/configuracoes"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp2']}>
                     <ConfiguracoesPage />
                   </ProtectedRoute>
                 }
@@ -452,7 +452,7 @@ function App() {
               <Route
                 path="/adicionais/contratos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp2', 'mesa', 'financeiro']}>
                     <AdicionaisContratosPage />
                   </ProtectedRoute>
                 }
@@ -460,7 +460,7 @@ function App() {
               <Route
                 path="/adicionais/vinculos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp2', 'mesa']}>
                     <AdicionaisVinculosPage />
                   </ProtectedRoute>
                 }
@@ -468,7 +468,7 @@ function App() {
               <Route
                 path="/adicionais/calendario"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp2', 'mesa']}>
                     <AdicionaisCalendarioPage />
                   </ProtectedRoute>
                 }
@@ -476,7 +476,7 @@ function App() {
               <Route
                 path="/adicionais/relatorio"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'mesa', 'financeiro']}>
                     <AdicionaisRelatorioPage />
                   </ProtectedRoute>
                 }
@@ -484,7 +484,7 @@ function App() {
               <Route
                 path="/adicionais/importar-ponto"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp2', 'mesa']}>
                     <ImportarPontoPage />
                   </ProtectedRoute>
                 }
@@ -494,7 +494,7 @@ function App() {
               <Route
                 path="/extras/lancamentos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria', 'financeiro']}>
                     <ExtrasLancamentosPage />
                   </ProtectedRoute>
                 }
@@ -502,7 +502,7 @@ function App() {
               <Route
                 path="/extras/novo"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
                     <ExtrasFormPage />
                   </ProtectedRoute>
                 }
@@ -510,7 +510,7 @@ function App() {
               <Route
                 path="/extras/:id/editar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
                     <ExtrasFormPage />
                   </ProtectedRoute>
                 }
@@ -518,7 +518,7 @@ function App() {
               <Route
                 path="/extras/balanco"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
                     <ExtrasBalancoPage />
                   </ProtectedRoute>
                 }
@@ -526,7 +526,7 @@ function App() {
               <Route
                 path="/extras/relatorio"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro']}>
                     <ExtrasRelatorioPage />
                   </ProtectedRoute>
                 }
@@ -534,7 +534,7 @@ function App() {
               <Route
                 path="/extras/recibos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'dp1', 'financeiro']}>
                     <ExtrasRecibosPage />
                   </ProtectedRoute>
                 }
@@ -542,7 +542,7 @@ function App() {
               <Route
                 path="/extras/categorias"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria', 'financeiro']}>
                     <ExtrasCategoriasPage />
                   </ProtectedRoute>
                 }
@@ -550,7 +550,7 @@ function App() {
               <Route
                 path="/extras/mobile"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'rh', 'gestor']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
                     <ExtrasPlantaoPage />
                   </ProtectedRoute>
                 }

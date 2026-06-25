@@ -23,7 +23,7 @@ export function Header({ user }: HeaderProps) {
           </div>
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-slate-900">{user.nome || user.email}</p>
-            <p className="text-xs text-slate-500 capitalize">{user.nivel_acesso}</p>
+            <p className="text-xs text-slate-500 uppercase">{user.nivel_acesso}</p>
           </div>
         </div>
       </div>
