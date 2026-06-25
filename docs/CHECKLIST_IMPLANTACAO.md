@@ -83,18 +83,21 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
   - [ ] Substituir `select('*')` sem limites por `range()` + `count: 'exact'`.
   - [ ] Aplicar filtros de busca no backend (`.ilike()`).
 
-### 2.4 Sanitizar HTML em recibos e comprovantes
+### 2.4 Sanitizar HTML em recibos e comprovantes ✅
 - **Arquivos:** `src/lib/ceuRecibos.ts`, `src/lib/vr/comprovanteVR.ts`
 - **Ação:**
-  - [ ] Escapar caracteres especiais ou usar biblioteca de sanitização.
-  - [ ] Aplicar CSP no iframe.
+  - [x] Escapar caracteres especiais (dados dinâmicos já usam `escapeHtml`).
+  - [x] Aplicar CSP no iframe via meta tag `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'` em todos os templates HTML de CEU e VR.
+  - [x] Iframe de preview do recibo já possui `sandbox="allow-same-origin"`.
 
-### 2.5 Corrigir tratamento de erros silenciados
+### 2.5 Corrigir tratamento de erros silenciados ✅
 - **Arquivos:** `src/hooks/useEContador.ts`, `src/hooks/useResultadosVR.ts`, `src/pages/DashboardPage.tsx`
 - **Ação:**
-  - [ ] Verificar erros de `delete`, `insert`, `update` no Supabase.
-  - [ ] Não silenciar `catch` vazio.
-  - [ ] Retornar erros detalhados para a UI.
+  - [x] Verificar erros de `delete`, `insert`, `update` no Supabase.
+  - [x] Não silenciar `catch` vazio (Dashboard agora exibe toast e loga no console).
+  - [x] Retornar erros detalhados para a UI via `toast.error`.
+  - [x] `useResultadosVR.salvarLote` agora verifica erro do `delete` antes de inserir.
+  - [x] `useEContador` agora trata erros de token, histórico, criação de empresa e sincronização de departamentos.
 
 ### 2.6 Gerar IDs seguros
 - **Arquivos:** `src/lib/ceuLogs.ts`, `src/hooks/useDepartamentos.ts`, `src/hooks/useAdicionaisContratuais.ts`
@@ -136,19 +139,19 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
 
 ## 🖥️ Fase 4 — Deploy Local
 
-### 4.1 Preparar ambiente local
+### 4.1 Preparar ambiente local ✅
 - **Ação:**
-  - [ ] Confirmar que `.env` local está configurado com a nova `anon` key.
-  - [ ] Verificar se todas as migrations do Supabase foram aplicadas.
-  - [ ] Rodar `npm run build` e `npm run lint` sem erros.
+  - [x] Confirmar que `.env` local está configurado com a nova `anon` key.
+  - [x] Verificar se todas as migrations do Supabase foram aplicadas.
+  - [x] Rodar `npm run build` e `npm run lint` sem erros.
 
-### 4.2 Servir o build localmente
+### 4.2 Servir o build localmente ✅
 - **Ação:**
-  - [ ] Testar `npm run preview`.
-  - [ ] Ou servir a pasta `dist/` com um servidor estático (nginx, serve, etc.).
-  - [ ] Verificar se as rotas do React Router funcionam (fallback para `index.html`).
+  - [x] Testar `npm run preview`.
+  - [x] Verificar se as rotas do React Router funcionam (fallback para `index.html`).
+  - Testado em `http://localhost:4173`: `/`, `/colaboradores`, `/rh/ocorrencias`, `/vr/projetos`, `/ceu/dashboard` retornaram HTTP 200.
 
-### 4.3 Testes manuais no deploy local
+### 4.3 Testes manuais no deploy local 🟡
 - **Ação:**
   - [ ] Login com usuário comum, gestor, rh e admin.
   - [ ] CRUD de colaboradores, empresas, departamentos.
@@ -157,30 +160,34 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
   - [ ] Calcular/importar VR.
   - [ ] Importar e-Contador.
   - [ ] Verificar permissões: usuário não-admin não deve conseguir deletar.
+- **Observação:** roteiro documentado em `docs/DEPLOY.md`. Execução dos testes manuais depende de disponibilidade do ambiente.
 
 ---
 
 ## 🌐 Fase 5 — Preparação para VPS
 
-### 5.1 Configurar headers de segurança
+### 5.1 Configurar headers de segurança 🟡
 - **Arquivos:** config do servidor (nginx, Vercel, Netlify, etc.)
 - **Ação:**
   - [ ] `Content-Security-Policy`
   - [ ] `X-Frame-Options: DENY`
   - [ ] `X-Content-Type-Options: nosniff`
   - [ ] `Referrer-Policy: strict-origin-when-cross-origin`
+- **Observação:** exemplos de configuração documentados em `docs/DEPLOY.md`. Aguardando dados do VPS.
 
-### 5.2 HTTPS e domínio
+### 5.2 HTTPS e domínio 🟡
 - **Ação:**
   - [ ] Configurar certificado SSL (Let's Encrypt).
   - [ ] Configurar domínio/apontamento DNS.
+- **Observação:** aguardando dados do VPS.
 
-### 5.3 Servir build no VPS
+### 5.3 Servir build no VPS 🟡
 - **Ação:**
   - [ ] Instalar Node.js/npm no VPS ou usar Docker.
   - [ ] Copiar `dist/` para o servidor (ou fazer build no servidor).
   - [ ] Configurar nginx/caddy para servir arquivos estáticos e fallback do React Router.
   - [ ] Configurar `.env` no VPS (não commitado).
+- **Observação:** roteiro documentado em `docs/DEPLOY.md`. Aguardando dados do VPS.
 
 ### 5.4 Backup e monitoramento
 - **Ação:**
