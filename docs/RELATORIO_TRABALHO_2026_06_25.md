@@ -50,6 +50,12 @@
   - Política de retenção: documentada ✅
 - Atualizado `docs/CHECKLIST_CORRECOES.md` com os novos status.
 
+### 5. Correção de duplicidade de departamentos
+- Identificado que departamentos sem `nome_curto` estavam sendo exibidos na listagem.
+- Atualizado `src/hooks/useDepartamentos.ts` para listar apenas departamentos com `nome_curto` preenchido.
+- Criada migration `038_departamentos_sem_nome_curto_inativos.sql` para marcar como `Inativo` todos os departamentos sem `nome_curto`.
+- Migration aplicada no banco remoto.
+
 ### 6. Validação
 - Build: ✅
 - Testes: 19 passando ✅
@@ -80,8 +86,11 @@
 - `docs/POLITICA_RETENCAO_DADOS.md` (criado)
 - `docs/RELATORIO_TRABALHO_2026_06_25.md` (este arquivo)
 - `supabase/migrations/036_consentimento_lgpd.sql` (criado)
+- `supabase/migrations/037_rbac_granular.sql` (criado)
+- `supabase/migrations/038_departamentos_sem_nome_curto_inativos.sql` (criado)
 - `src/pages/ConsentimentoLGPDPage.tsx` (criado)
 - `src/components/ui/checkbox.tsx` (criado)
+- `src/hooks/useDepartamentos.ts` (atualizado)
 - `src/hooks/useAuth.ts` (atualizado)
 - `src/App.tsx` (atualizado)
 - `src/components/layout/ProtectedRoute.tsx` (atualizado)
@@ -92,7 +101,7 @@
 
 ## 🚀 Próximos passos sugeridos
 
-1. Aplicar migrations `036_consentimento_lgpd.sql` e `037_rbac_granular.sql` no banco de produção.
+1. Aplicar migrations `036_consentimento_lgpd.sql`, `037_rbac_granular.sql` e `038_departamentos_sem_nome_curto_inativos.sql` no banco de produção.
 2. Migrar usuários existentes para os novos perfis (admin→adm, rh, gestor, visualizador).
 3. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
 4. Expandir cobertura de testes (Vitest).

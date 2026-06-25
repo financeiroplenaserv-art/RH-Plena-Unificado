@@ -38,7 +38,12 @@ export function useDepartamentos() {
         setDepartamentos(filtrados)
         return filtrados
       }
-      let query = supabase.from('departamentos').select('*').order('nome')
+      let query = supabase
+        .from('departamentos')
+        .select('*')
+        .not('nome_curto', 'is', null)
+        .neq('nome_curto', '')
+        .order('nome')
       if (empresaId) query = query.eq('empresa_id', empresaId)
       const { data, error } = await query
       if (error) throw error
