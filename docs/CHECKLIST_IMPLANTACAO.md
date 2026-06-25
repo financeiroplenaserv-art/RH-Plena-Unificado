@@ -25,7 +25,7 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
 - **Ação:**
   - [x] Remover o `GRANT` para `authenticated` na migration 010.
   - [x] Criar migration 013 que revoga o privilégio e dropa a função.
-  - [ ] Aplicar migration 013 no banco de produção via SQL Editor.
+  - [x] Aplicar migration 013 no banco de produção via SQL Editor / CLI.
 
 ### 1.3 Restringir policies do RLS por nível de acesso ✅
 - **Arquivos:** `supabase/migrations/010_rls_tabelas_negocio.sql`, `supabase/migrations/014_rls_restrito_por_nivel_acesso.sql`
@@ -35,8 +35,8 @@ Estes itens são blockers. O sistema não deve ser implantado sem eles.
   - [x] `gestor`/`rh`: SELECT/INSERT/UPDATE.
   - [x] `admin`: permissões completas (DELETE incluso).
   - [x] Todos os usuários acessam todas as empresas (sem isolamento por `empresa_id`).
-  - [ ] Aplicar migration 014 no banco de produção via SQL Editor.
-  - [ ] Validar se o sistema continua funcionando após as restrições.
+  - [x] Aplicar migration 014 no banco de produção via SQL Editor / CLI.
+  - [x] Validar se o sistema continua funcionando após as restrições.
 
 ### 1.4 Proteger token do eContador
 - **Arquivos:** `src/services/econtadorApi.ts`, `supabase/migrations/010_rls_tabelas_negocio.sql`
