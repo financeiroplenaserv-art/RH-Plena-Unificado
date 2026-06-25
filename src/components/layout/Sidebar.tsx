@@ -63,14 +63,11 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
     >
       <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
         {isOpen && (
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-white font-bold" style={{ fontSize: '16px' }}>
-              RH
-            </span>
-            <span className="font-light" style={{ color: '#94A3B8', fontSize: '8px' }}>
-              Plena
-            </span>
-          </div>
+          <img
+            src="/logo_plena_cab.jpg"
+            alt="Plena"
+            className="h-7 w-auto object-contain rounded"
+          />
         )}
         <button
           onClick={onToggle}

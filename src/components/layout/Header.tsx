@@ -8,9 +8,17 @@ interface HeaderProps {
 export function Header({ user }: HeaderProps) {
   return (
     <header className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">CORH — Controle Operacional e de RH</h1>
-        <p className="text-xs text-slate-500">Dados mestres compartilhados entre RH, CEU e VR</p>
+      <div className="flex items-center gap-4">
+        <img
+          src="/logo_plena_cab.jpg"
+          alt="Plena"
+          className="h-8 w-auto object-contain"
+        />
+        <div className="hidden sm:block h-6 w-px bg-slate-200" />
+        <div className="hidden sm:block">
+          <h1 className="text-lg font-semibold text-slate-900">CORH</h1>
+          <p className="text-xs text-slate-500">Controle Operacional e de RH</p>
+        </div>
       </div>
       <div className="flex items-center gap-4">
         <button className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full">
