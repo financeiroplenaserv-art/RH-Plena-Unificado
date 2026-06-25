@@ -67,11 +67,11 @@
 | # | Correção | Status | Arquivos | Observações |
 |---|----------|--------|----------|-------------|
 | 4.1 | Implementar consentimento LGPD | ✅ Feito | `supabase/migrations/036_consentimento_lgpd.sql`, `src/pages/ConsentimentoLGPDPage.tsx`, `src/hooks/useAuth.ts`, `src/App.tsx` | Tela de termos após login; versionamento no banco; RLS ajustada para perfil próprio. |
-| 4.2 | Definir política de retenção de dados | ⏳ Pendente | Documentação + código | Demitidos, ocorrências resolvidas. |
-| 4.3 | Garantir prazo de defesa em ocorrências | ⏳ Pendente | `src/pages/rh/OcorrenciaFormPage.tsx`, `OcorrenciaDetailPage.tsx` | Campo obrigatório, bloqueio de penalidade. |
-| 4.4 | Completar recibos de EPI | ⏳ Pendente | `src/lib/ceu/recibo.ts` | CNPJ, item, CA, data, assinatura. |
-| 4.5 | Revisar assinatura digital dos recibos | ⏳ Pendente | `src/lib/extrasRecibos.ts` | Hash + timestamp ou certificado. |
-| 4.6 | Registrar consentimento para comunicação | ⏳ Pendente | `src/pages/extras/ExtrasBalancoPage.tsx` | WhatsApp/email. |
+| 4.2 | Definir política de retenção de dados | ✅ Feito | `docs/POLITICA_RETENCAO_DADOS.md` | Prazos de guarda e descarte documentados. Implementação automatizada futura. |
+| 4.3 | Garantir prazo de defesa em ocorrências | ⚪ N/A | `src/pages/rh/OcorrenciaFormPage.tsx`, `OcorrenciaDetailPage.tsx` | Processo interno não prevê prazo formal; colaborador é ouvido e ocorrência encerrada no ato. |
+| 4.4 | Completar recibos de EPI | ✅ Feito | `src/lib/ceuRecibos.ts` | Template já contém CNPJ, item, CA, data, identificação e assinatura. |
+| 4.5 | Revisar assinatura digital dos recibos | ✅ Feito | `src/lib/extrasRecibos.ts` | Assinatura realizada externamente via Youk. Não é necessário implementar assinatura própria. |
+| 4.6 | Registrar consentimento para comunicação | ⏳ Pendente | `src/pages/extras/ExtrasBalancoPage.tsx` | WhatsApp/email. Verificar necessidade com cliente. |
 
 ### 5. ARQUITETURA E CÓDIGO
 

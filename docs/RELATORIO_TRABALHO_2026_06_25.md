@@ -40,7 +40,17 @@
 - Integrada verificação de consentimento em `App.tsx`
 - Criado componente `Checkbox` em `src/components/ui/checkbox.tsx`
 
-### 5. Validação
+### 5. Revisão e documentação de LGPD/CLT
+- Criado `docs/POLITICA_RETENCAO_DADOS.md` com prazos de retenção e descarte.
+- Atualizado `docs/AUDITORIA_COMPLIANCE_LGPD_CLT.md`:
+  - Consentimento LGPD: implementado ✅
+  - Recibos de EPI: reavaliados como completos ✅
+  - Assinatura digital: reavaliada — assinatura externa via Youk ✅
+  - Prazo de defesa: reavaliado como não aplicável ao processo interno ⚪
+  - Política de retenção: documentada ✅
+- Atualizado `docs/CHECKLIST_CORRECOES.md` com os novos status.
+
+### 6. Validação
 - Build: ✅
 - Testes: 19 passando ✅
 - Lint nos arquivos alterados: ✅
@@ -50,8 +60,10 @@
 
 - LGPD/CLT:
   - ✅ Consentimento (feito)
-  - Prazo de defesa
-  - Recibos de EPI completos
+  - ✅ Política de retenção (documentada)
+  - ✅ Recibos de EPI (já estavam completos)
+  - ✅ Assinatura digital (resolvida via Youk)
+  - ⏳ Consentimento para comunicação (WhatsApp/email) — verificar necessidade
 - RBAC granular:
   - Implementar 8 perfis (ADM, GESTOR, RH, DP1, DP2, MESA, INSPETORIA, FINANCEIRO)
 - Testes manuais no deploy local
@@ -62,6 +74,8 @@
 - `docs/DEPLOY.md` (criado)
 - `docs/CHECKLIST_IMPLANTACAO.md` (atualizado)
 - `docs/CHECKLIST_CORRECOES.md` (atualizado)
+- `docs/AUDITORIA_COMPLIANCE_LGPD_CLT.md` (atualizado)
+- `docs/POLITICA_RETENCAO_DADOS.md` (criado)
 - `docs/RELATORIO_TRABALHO_2026_06_25.md` (este arquivo)
 - `supabase/migrations/036_consentimento_lgpd.sql` (criado)
 - `src/pages/ConsentimentoLGPDPage.tsx` (criado)
@@ -73,6 +87,7 @@
 ## 🚀 Próximos passos sugeridos
 
 1. Aplicar migration `036_consentimento_lgpd.sql` no banco de produção.
-2. Prosseguir com prazo de defesa em ocorrências ou recibos de EPI completos.
-3. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
-4. Expandir cobertura de testes (Vitest).
+2. Definir se será necessário consentimento específico para comunicação (WhatsApp/email).
+3. Prosseguir com RBAC granular.
+4. Reunir dados do VPS (IP, domínio, SO, acesso SSH).
+5. Expandir cobertura de testes (Vitest).
