@@ -50,13 +50,19 @@
   - Política de retenção: documentada ✅
 - Atualizado `docs/CHECKLIST_CORRECOES.md` com os novos status.
 
-### 5. Correção de duplicidade de departamentos
+### 5. Nova tela de login
+- Redesenhada `src/pages/LoginPage.tsx` com layout dividido (branding + formulário).
+- Usada a logo existente (`favicon.svg`) e a identidade roxa (#863bff).
+- Adicionado botão de mostrar/ocultar senha.
+- Mantido o fluxo de primeiro acesso.
+
+### 6. Correção de duplicidade de departamentos
 - Identificado que departamentos sem `nome_curto` estavam sendo exibidos na listagem.
 - Atualizado `src/hooks/useDepartamentos.ts` para listar apenas departamentos com `nome_curto` preenchido.
 - Criada migration `038_departamentos_sem_nome_curto_inativos.sql` para marcar como `Inativo` todos os departamentos sem `nome_curto`.
 - Migration aplicada no banco remoto.
 
-### 6. Validação
+### 7. Validação
 - Build: ✅
 - Testes: 19 passando ✅
 - Lint nos arquivos alterados: ✅
@@ -88,6 +94,7 @@
 - `supabase/migrations/036_consentimento_lgpd.sql` (criado)
 - `supabase/migrations/037_rbac_granular.sql` (criado)
 - `supabase/migrations/038_departamentos_sem_nome_curto_inativos.sql` (criado)
+- `src/pages/LoginPage.tsx` (atualizado)
 - `src/pages/ConsentimentoLGPDPage.tsx` (criado)
 - `src/components/ui/checkbox.tsx` (criado)
 - `src/hooks/useDepartamentos.ts` (atualizado)
@@ -97,7 +104,6 @@
 - `src/components/layout/Sidebar.tsx` (atualizado)
 - `src/components/layout/Header.tsx` (atualizado)
 - `src/types/database.ts` (atualizado)
-- `supabase/migrations/037_rbac_granular.sql` (criado)
 
 ## 🚀 Próximos passos sugeridos
 
