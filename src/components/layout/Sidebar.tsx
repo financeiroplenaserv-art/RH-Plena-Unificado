@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Banknote,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Perfil, NivelAcesso } from '@/types/database'
@@ -46,8 +47,9 @@ const menuItems: MenuItem[] = [
   { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
   { path: '/ceu', label: 'Uniformes', icon: <Package className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'dp1', 'mesa', 'inspetoria'] },
   { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'dp2', 'mesa', 'financeiro'] },
-  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, niveis: ['admin', 'adm', 'mesa', 'inspetoria', 'financeiro'] },
+  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, niveis: ['admin', 'adm', 'mesa', 'financeiro', 'dp1'] },
   { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
+  { path: '/configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" />, niveis: ['admin', 'adm', 'dp1', 'dp2'] },
 ]
 
 export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {

@@ -309,14 +309,14 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Sessão inválida' }), { status: 401, headers: corsHeaders })
   }
 
-  // Verifica permissão (admin ou rh) - futuramente usar sistema granular
+  // Verifica permissão (admin/adm, dp1 ou dp2)
   const { data: perfil } = await supabase
     .from('perfis')
     .select('nivel_acesso')
     .eq('id', user.id)
     .single()
 
-  if (!perfil || !['admin', 'rh'].includes(perfil.nivel_acesso)) {
+  if (!perfil || !['admin', 'adm', 'dp1', 'dp2'].includes(perfil.nivel_acesso)) {
     return new Response(JSON.stringify({ error: 'Sem permissão' }), { status: 403, headers: corsHeaders })
   }
 

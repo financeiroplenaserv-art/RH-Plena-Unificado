@@ -446,7 +446,7 @@ function App() {
               <Route
                 path="/configuracoes"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'dp2']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'dp1', 'dp2']}>
                     <ConfiguracoesPage />
                   </ProtectedRoute>
                 }

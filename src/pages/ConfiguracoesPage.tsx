@@ -82,7 +82,7 @@ export function ConfiguracoesPage() {
               </>
             ) : (
               <p className="text-sm text-slate-500">
-                Apenas perfis DP2 podem configurar o token do e-Contador.
+                Apenas perfis administrador, DP1 e DP2 podem configurar o token do e-Contador.
               </p>
             )}
           </CardContent>

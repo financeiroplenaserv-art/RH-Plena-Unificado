@@ -164,8 +164,8 @@ export const podeGerenciarAlertas = (p: NivelAcesso) =>
 
 /** Quem pode visualizar configurações (9.1) */
 export const podeVerConfiguracoes = (p: NivelAcesso) =>
-  isAdm(p) || p === 'gestor'
+  isAdm(p) || p === 'dp1' || p === 'dp2'
 
 /** Quem pode configurar token do e-Contador (9.2) */
 export const podeConfigurarTokenEContador = (p: NivelAcesso) =>
-  isAdm(p) || p === 'dp2'
+  isAdm(p) || p === 'dp1' || p === 'dp2'
