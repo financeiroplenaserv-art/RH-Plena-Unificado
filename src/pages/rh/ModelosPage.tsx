@@ -15,7 +15,9 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
+import { podeGerenciarModelosOcorrencia } from '@/lib/permissoes'
 import type { ModeloOcorrencia } from '@/types/database'
 
 const MODELOS_PADRAO = [
@@ -72,6 +74,10 @@ const MODELOS_PADRAO = [
 ]
 
 export function ModelosPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeGerenciar = perfil ? podeGerenciarModelosOcorrencia(perfil) : false
+
   const [modelos, setModelos] = useState<ModeloOcorrencia[]>([])
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState('')
@@ -154,15 +160,18 @@ export function ModelosPage() {
           <h2 className="text-lg font-semibold text-slate-900">Modelos de Ocorrência</h2>
           <p className="text-sm text-slate-500">{modelos.length} modelos cadastrados</p>
         </div>
-        <Button
-          onClick={cadastrarPadroes}
-          size="sm"
-          className="text-xs bg-slate-900 hover:bg-slate-800"
-        >
-          Cadastrar 46 Padrões
-        </Button>
+        {podeGerenciar && (
+          <Button
+            onClick={cadastrarPadroes}
+            size="sm"
+            className="text-xs bg-slate-900 hover:bg-slate-800"
+          >
+            Cadastrar 46 Padrões
+          </Button>
+        )}
       </div>
 
+      {podeGerenciar && (
       <Card className="border-slate-100">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Adicionar Novo Modelo</CardTitle>
@@ -202,6 +211,7 @@ export function ModelosPage() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {loading ? (
         <LoadingScreen mensagem="Carregando modelos..." className="py-8" />
@@ -221,14 +231,16 @@ export function ModelosPage() {
                     className="flex items-center justify-between py-2 px-1 group"
                   >
                     <span className="text-sm text-slate-700">{m.nome}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setRemoverId(m.id)}
-                      className="text-slate-300 hover:text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    {podeGerenciar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRemoverId(m.id)}
+                        className="text-slate-300 hover:text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

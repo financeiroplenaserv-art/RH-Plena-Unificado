@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Copy, RefreshCcw, Plus } from 'lucide-react'
+import { Copy, RefreshCcw, Plus, MessageCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -164,13 +164,55 @@ export function ExtrasBalancoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extrasDia, extrasPortariaNoiteAnterior, dataSelecionada, mapColaborador, mapDepartamento])
 
+  const copiarFallback = (texto: string): boolean => {
+    const textarea = document.createElement('textarea')
+    textarea.value = texto
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    textarea.style.top = '0'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    try {
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return ok
+    } catch {
+      document.body.removeChild(textarea)
+      return false
+    }
+  }
+
   const handleCopiar = async () => {
     try {
-      await navigator.clipboard.writeText(mensagemEditada)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(mensagemEditada)
+      } else {
+        const ok = copiarFallback(mensagemEditada)
+        if (!ok) throw new Error('Fallback falhou')
+      }
       toast.success('Mensagem copiada para a área de transferência')
     } catch {
       toast.error('Erro ao copiar mensagem')
     }
+  }
+
+  const handleWhatsApp = () => {
+    const texto = mensagemEditada.trim()
+    if (!texto) {
+      toast.error('Gere a mensagem do balanço antes de enviar pelo WhatsApp')
+      return
+    }
+    // WhatsApp tem limite prático para URLs muito longas; trunca com aviso se necessário
+    const MAX_WHATSAPP_URL = 3000
+    let textoFinal = texto
+    if (encodeURIComponent(texto).length > MAX_WHATSAPP_URL) {
+      const truncado = texto.slice(0, 2000)
+      textoFinal = `${truncado}\n\n[Mensagem truncada - copie o restante pelo botão Copiar]`
+      toast.info('Mensagem muito longa; enviada parte inicial pelo WhatsApp')
+    }
+    const url = `https://wa.me/?text=${encodeURIComponent(textoFinal)}`
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const handleRegenerar = () => {
@@ -236,6 +278,10 @@ export function ExtrasBalancoPage() {
             <ExtrasButton size="sm" onClick={handleCopiar}>
               <Copy className="w-4 h-4 mr-2" />
               Copiar mensagem
+            </ExtrasButton>
+            <ExtrasButton size="sm" variant="outline" onClick={handleWhatsApp}>
+              <MessageCircle className="w-4 h-4 mr-2" />
+              WhatsApp
             </ExtrasButton>
           </div>
         </ExtrasCard>

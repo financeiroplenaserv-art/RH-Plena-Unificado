@@ -28,11 +28,17 @@ import {
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
 import { nomeDepartamento } from '@/lib/utils'
+import { podeEditarVinculoAdicional } from '@/lib/permissoes'
 import type { VinculoAdicional, AdicionalTipo } from '@/types/adicionais'
 
 export function AdicionaisVinculosPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarVinculoAdicional(perfil) : false
+
   const {
     contratos,
     vinculos,
@@ -268,17 +274,20 @@ export function AdicionaisVinculosPage() {
           <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Vínculos de colaboradores</h2>
           <p className="text-sm" style={{ color: '#94A3B8' }}>Relacione colaboradores aos contratos e períodos de atuação</p>
         </div>
-        <div className="flex gap-2">
-          <AdicionaisButton variant="outline" onClick={handleCorrigirVinculos}>
-            Corrigir vínculos
-          </AdicionaisButton>
-          <AdicionaisButton variant="outline" onClick={() => setModalCopiar(true)}>
-            <Copy className="w-4 h-4 mr-2" />
-            Copiar do período anterior
-          </AdicionaisButton>
-        </div>
+        {podeEditar && (
+          <div className="flex gap-2">
+            <AdicionaisButton variant="outline" onClick={handleCorrigirVinculos}>
+              Corrigir vínculos
+            </AdicionaisButton>
+            <AdicionaisButton variant="outline" onClick={() => setModalCopiar(true)}>
+              <Copy className="w-4 h-4 mr-2" />
+              Copiar do período anterior
+            </AdicionaisButton>
+          </div>
+        )}
       </div>
 
+      {podeEditar && (
       <AdicionaisCard title="Novo vínculo">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="space-y-2">
@@ -326,6 +335,7 @@ export function AdicionaisVinculosPage() {
           Adicionar vínculo
         </AdicionaisButton>
       </AdicionaisCard>
+      )}
 
       <AdicionaisCard title="Vínculos cadastrados">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -474,10 +484,12 @@ export function AdicionaisVinculosPage() {
               <X className="w-4 h-4 mr-2" />
               Cancelar
             </AdicionaisButton>
-            <AdicionaisButton size="sm" onClick={handleSalvarEdicao} disabled={!editContratoId || !editDataInicio || !editDataFim}>
-              <Check className="w-4 h-4 mr-2" />
-              Salvar
-            </AdicionaisButton>
+            {podeEditar && (
+              <AdicionaisButton size="sm" onClick={handleSalvarEdicao} disabled={!editContratoId || !editDataInicio || !editDataFim}>
+                <Check className="w-4 h-4 mr-2" />
+                Salvar
+              </AdicionaisButton>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

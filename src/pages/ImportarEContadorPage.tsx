@@ -32,7 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
-import { formatarCPF } from '@/lib/utils'
+import { formatarCPF, mascararCPF } from '@/lib/utils'
+import { isModoEdgeFunction, TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
 import { toast } from 'sonner'
 import * as XLSX from '@e965/xlsx'
 import type { EContadorEmpresa, EContadorFuncionario } from '@/types/econtador'
@@ -85,7 +86,7 @@ function exportarCSV(funcionarios: EContadorFuncionario[]) {
   const rows = funcionarios.map(f => [
     f.codigo,
     f.nome,
-    f.cpf,
+    mascararCPF(f.cpf),
     f.departamento || '',
     f.status,
     f.nomefuncao || '',
@@ -101,7 +102,7 @@ function exportarExcel(funcionarios: EContadorFuncionario[]) {
   const rows = funcionarios.map(f => ({
     Matrícula: f.codigo,
     Nome: f.nome,
-    CPF: f.cpf,
+    CPF: mascararCPF(f.cpf),
     Departamento: f.departamento || '',
     Status: f.status,
     Cargo: f.nomefuncao || '',
@@ -146,13 +147,16 @@ export function ImportarEContadorPage() {
   const [token, setToken] = useState('')
   const [carregandoToken, setCarregandoToken] = useState(true)
   const [empresaSelecionada, setEmpresaSelecionada] = useState<EContadorEmpresa | null>(null)
-  const [resultadoImportacao, setResultadoImportacao] = useState<{ importados: number; atualizados: number; erros: number } | null>(null)
+  const [resultadoImportacao, setResultadoImportacao] = useState<{ importados: number; atualizados: number; erros: number; detalhesErros: { nome: string; erro: string }[] } | null>(null)
 
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(1)
   const [reimportandoId, setReimportandoId] = useState<string | null>(null)
   const [confirmarLimparHistorico, setConfirmarLimparHistorico] = useState(false)
   const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+
+  const tokenSalvoNaEdge = token === TOKEN_SALVO_NA_EDGE_FUNCTION
 
   useEffect(() => {
     carregarToken().then((t) => {
@@ -163,6 +167,11 @@ export function ImportarEContadorPage() {
   }, [carregarToken, listarHistorico])
 
   const handleSalvarToken = async () => {
+    // Se o token já está salvo de forma segura na Edge Function, apenas lista empresas
+    if (tokenSalvoNaEdge && isModoEdgeFunction()) {
+      await listarEmpresas()
+      return
+    }
     if (!token.trim()) return
     await salvarToken(token.trim())
     await listarEmpresas()
@@ -172,6 +181,7 @@ export function ImportarEContadorPage() {
     setEmpresaSelecionada(empresa)
     setPagina(1)
     setResultadoImportacao(null)
+    setSelecionados(new Set())
     // Se o modo for ativos, já filtra pela API; para demissão filtramos localmente
     const status = modoImportacao === 'ativos' ? 'Ativo' : undefined
     await listarFuncionarios(empresa.id, status)
@@ -179,8 +189,16 @@ export function ImportarEContadorPage() {
 
   const handleImportar = async () => {
     if (!empresaSelecionada || funcionariosPorModo.length === 0) return
-    const resultado = await importarFuncionarios(funcionariosPorModo, empresaSelecionada.codigo, empresaSelecionada.nome)
+    const listaImportar = selecionados.size > 0
+      ? funcionariosPorModo.filter(f => selecionados.has(f.id))
+      : funcionariosPorModo
+    if (listaImportar.length === 0) {
+      toast.error('Selecione pelo menos um funcionário para importar.')
+      return
+    }
+    const resultado = await importarFuncionarios(listaImportar, empresaSelecionada.codigo, empresaSelecionada.nome)
     setResultadoImportacao(resultado)
+    setSelecionados(new Set())
   }
 
   const handleReimportar = async (item: HistoricoImportacao) => {
@@ -210,6 +228,30 @@ export function ImportarEContadorPage() {
   const totalFuncionarios = funcionariosPorModo.length
   const totalNovos = resultadoImportacao?.importados ?? 0
   const totalAtualizados = resultadoImportacao?.atualizados ?? 0
+
+  const toggleSelecionado = (id: string) => {
+    setSelecionados(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selecionarTodosPagina = (checked: boolean) => {
+    if (checked) {
+      const novos = new Set(selecionados)
+      funcionariosPaginados.forEach(f => novos.add(f.id))
+      setSelecionados(novos)
+    } else {
+      const novos = new Set(selecionados)
+      funcionariosPaginados.forEach(f => novos.delete(f.id))
+      setSelecionados(novos)
+    }
+  }
+
+  const todosDaPaginaSelecionados = funcionariosPaginados.length > 0 && funcionariosPaginados.every(f => selecionados.has(f.id))
+  const algumDaPaginaSelecionado = funcionariosPaginados.some(f => selecionados.has(f.id))
 
   const limparHistoricoLocal = () => {
     setConfirmarLimparHistorico(false)
@@ -263,23 +305,29 @@ export function ImportarEContadorPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="token" style={{ color: '#1F2937' }}>Token JWT</Label>
-              <Input
-                id="token"
-                type="password"
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="rounded-lg"
-              />
+              {tokenSalvoNaEdge ? (
+                <div className="rounded-lg border px-4 py-2.5 text-sm" style={{ borderColor: '#E2E8F0', color: '#1F2937', backgroundColor: '#F8FAFC' }}>
+                  🔒 Token salvo. Clique em Listar Empresas.
+                </div>
+              ) : (
+                <Input
+                  id="token"
+                  type="password"
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className="rounded-lg"
+                />
+              )}
             </div>
             <Button
               onClick={handleSalvarToken}
-              disabled={!token.trim() || loading || carregandoToken}
+              disabled={(!token.trim() && !tokenSalvoNaEdge) || loading || carregandoToken}
               className="rounded-lg h-11 px-6"
               style={{ backgroundColor: '#1F2937' }}
             >
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-              Salvar token e listar empresas
+              {tokenSalvoNaEdge ? 'Listar empresas' : 'Salvar token e listar empresas'}
             </Button>
           </CardContent>
         </Card>
@@ -342,6 +390,11 @@ export function ImportarEContadorPage() {
                 {funcionariosFiltrados.length} funcionário{funcionariosFiltrados.length !== 1 ? 's' : ''} encontrado{funcionariosFiltrados.length !== 1 ? 's' : ''}
                 {modoImportacao === 'ativos' && ' (ativos)'}
                 {modoImportacao === 'demissao15dias' && ' (demitidos até 15 dias)'}
+                {selecionados.size > 0 && (
+                  <span className="ml-2 text-emerald-600">
+                    • {selecionados.size} selecionado{selecionados.size !== 1 ? 's' : ''}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -352,6 +405,7 @@ export function ImportarEContadorPage() {
                   onValueChange={(v) => {
                     setModoImportacao(v as ModoImportacao)
                     setPagina(1)
+                    setSelecionados(new Set())
                     if (empresaSelecionada) {
                       const status = v === 'ativos' ? 'Ativo' : undefined
                       listarFuncionarios(empresaSelecionada.id, status)
@@ -403,6 +457,17 @@ export function ImportarEContadorPage() {
                 <Table>
                   <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-300 text-[#1F2937] focus:ring-[#1F2937]"
+                          checked={todosDaPaginaSelecionados}
+                          ref={(el) => {
+                            if (el) el.indeterminate = algumDaPaginaSelecionado && !todosDaPaginaSelecionados
+                          }}
+                          onChange={(e) => selecionarTodosPagina(e.target.checked)}
+                        />
+                      </TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Matrícula</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Nome</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>CPF</TableHead>
@@ -414,6 +479,14 @@ export function ImportarEContadorPage() {
                   <TableBody>
                     {funcionariosPaginados.map((f) => (
                       <TableRow key={f.id} className="hover:bg-slate-50">
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-slate-300 text-[#1F2937] focus:ring-[#1F2937]"
+                            checked={selecionados.has(f.id)}
+                            onChange={() => toggleSelecionado(f.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium" style={{ color: '#1F2937' }}>{f.codigo}</TableCell>
                         <TableCell style={{ color: '#1F2937' }}>{f.nome}</TableCell>
                         <TableCell style={{ color: '#64748B' }}>{formatarCPF(f.cpf)}</TableCell>
@@ -469,19 +542,49 @@ export function ImportarEContadorPage() {
                 ) : (
                   <Download className="w-4 h-4 mr-2" />
                 )}
-                Importar para dados mestres
+                {selecionados.size > 0
+                  ? `Importar ${selecionados.size} selecionado${selecionados.size !== 1 ? 's' : ''}`
+                  : `Importar ${funcionariosPorModo.length} funcionário${funcionariosPorModo.length !== 1 ? 's' : ''}`}
               </Button>
 
               {resultadoImportacao && (
-                <div className="flex flex-wrap gap-3 text-sm">
-                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 px-3 py-1">
-                    {resultadoImportacao.importados} novos
-                  </Badge>
-                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 px-3 py-1">
-                    {resultadoImportacao.atualizados} atualizados
-                  </Badge>
-                  {resultadoImportacao.erros > 0 && (
-                    <Badge variant="destructive" className="px-3 py-1">{resultadoImportacao.erros} erros</Badge>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 px-3 py-1">
+                      {resultadoImportacao.importados} novos
+                    </Badge>
+                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 px-3 py-1">
+                      {resultadoImportacao.atualizados} atualizados
+                    </Badge>
+                    {resultadoImportacao.erros > 0 && (
+                      <Badge variant="destructive" className="px-3 py-1">{resultadoImportacao.erros} erros</Badge>
+                    )}
+                  </div>
+
+                  {resultadoImportacao.detalhesErros.length > 0 && (
+                    <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#FECACA' }}>
+                      <div className="px-4 py-2 text-sm font-medium" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+                        Detalhes dos erros
+                      </div>
+                      <div className="max-h-48 overflow-auto">
+                        <Table>
+                          <TableHeader style={{ backgroundColor: '#FEF2F2' }}>
+                            <TableRow>
+                              <TableHead className="text-xs" style={{ color: '#7F1D1D' }}>Colaborador</TableHead>
+                              <TableHead className="text-xs" style={{ color: '#7F1D1D' }}>Erro</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {resultadoImportacao.detalhesErros.map((e, i) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-sm font-medium" style={{ color: '#1F2937' }}>{e.nome}</TableCell>
+                                <TableCell className="text-sm" style={{ color: '#64748B' }}>{e.erro}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

@@ -405,7 +405,9 @@ export function AdicionaisRelatorioPage() {
 
     const resultado = Array.from(contagem.values())
 
+    // REVERTIDO: mantida a regra original do sistema conforme solicitado.
     // Regra de negócio: insalubridade/periculosidade = 30 dias se não houver faltas; senão, desconta as faltas.
+    // Para escala 12×36 o adicional é cheio (30 dias), independentemente dos dias trabalhados.
     resultado.forEach(registro => {
       const contrato = mapContrato.get(registro.contrato_id)
       if (!contrato) return

@@ -8,6 +8,7 @@ import {
 import { useProjetosVR } from '@/hooks/useProjetosVR'
 import { useResultadosVR } from '@/hooks/useResultadosVR'
 import { useCalculoVR } from '@/hooks/useCalculoVR'
+import { useAuth } from '@/hooks/useAuth'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -45,6 +46,7 @@ import {
   gerarRecibosLoteHTML,
 } from '@/lib/vr/comprovanteVR'
 import { uploadVRArquivo } from '@/lib/vr/storageVR'
+import { podeGerenciarVR } from '@/lib/permissoes'
 import type { ProjetoVR, VRConfiguracao, VRResultadoCalculo } from '@/types'
 
 function downloadConteudo(conteudo: string, nome: string, mimeType: string) {
@@ -91,6 +93,10 @@ function statusDoResultado(r: VRResultadoCalculo): StatusFiltro {
 
 export function VrProjetoDetailPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeGerenciarVR(perfil) : false
+
   const { id } = useParams<{ id: string }>()
   const { buscarPorId } = useProjetosVR()
   const { resultados: resultadosSalvos, listarPorProjeto, salvarLote } = useResultadosVR()
@@ -333,9 +339,11 @@ export function VrProjetoDetailPage() {
           </VrButton>
         </div>
         <div className="flex flex-wrap gap-2">
-          <VrButton variant="outline" size="sm" onClick={() => navigate(`/vr/projetos/${id}/editar`)}>
-            Editar configuração
-          </VrButton>
+          {podeEditar && (
+            <VrButton variant="outline" size="sm" onClick={() => navigate(`/vr/projetos/${id}/editar`)}>
+              Editar configuração
+            </VrButton>
+          )}
         </div>
       </div>
 
@@ -349,7 +357,7 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarPdfAnterior, 'pdf_anterior')}
           />
-          <VrButton variant="outline" className="w-full" onClick={() => refPdfAnterior.current?.click()}>
+          <VrButton variant="outline" className="w-full" onClick={() => refPdfAnterior.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar PDF
           </VrButton>
@@ -372,7 +380,7 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarPdfAtual, 'pdf_atual')}
           />
-          <VrButton variant="outline" className="w-full" onClick={() => refPdfAtual.current?.click()}>
+          <VrButton variant="outline" className="w-full" onClick={() => refPdfAtual.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar PDF
           </VrButton>
@@ -395,7 +403,7 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarEscala, 'escala')}
           />
-          <VrButton variant="outline" className="w-full border-amber-500 text-amber-700 hover:bg-amber-50" onClick={() => refEscala.current?.click()}>
+          <VrButton variant="outline" className="w-full border-amber-500 text-amber-700 hover:bg-amber-50" onClick={() => refEscala.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar escala
           </VrButton>
@@ -418,7 +426,7 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarBase, 'base')}
           />
-          <VrButton variant="outline" className="w-full border-green-600 text-green-700 hover:bg-green-50" onClick={() => refBase.current?.click()}>
+          <VrButton variant="outline" className="w-full border-green-600 text-green-700 hover:bg-green-50" onClick={() => refBase.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar base
           </VrButton>
@@ -437,33 +445,41 @@ export function VrProjetoDetailPage() {
       {/* Botões grandes de ação */}
       <VrCard title="Ações principais" icon={<Calculator className="w-4 h-4" />} color="white">
         <div className="flex flex-wrap gap-3">
-          <VrButton onClick={handleCalcular} disabled={loading} size="lg">
-            <Calculator className="w-5 h-5 mr-2" />
-            {loading ? 'Calculando...' : 'Calcular VR'}
-          </VrButton>
+          {podeEditar && (
+            <VrButton onClick={handleCalcular} disabled={loading} size="lg">
+              <Calculator className="w-5 h-5 mr-2" />
+              {loading ? 'Calculando...' : 'Calcular VR'}
+            </VrButton>
+          )}
 
           {resultados.length > 0 && (
             <>
-              <VrButton variant="outline" size="lg" onClick={handleSalvarResultados}>
-                <Save className="w-5 h-5 mr-2" />
-                Salvar resultados
-              </VrButton>
+              {podeEditar && (
+                <VrButton variant="outline" size="lg" onClick={handleSalvarResultados}>
+                  <Save className="w-5 h-5 mr-2" />
+                  Salvar resultados
+                </VrButton>
+              )}
               <VrButton variant="secondary" size="lg" onClick={handleTodosOsRecibos}>
                 <Receipt className="w-5 h-5 mr-2" />
                 Todos os recibos
               </VrButton>
-              <VrButton variant="outline" size="lg" onClick={handleExportarPAT}>
-                <FileText className="w-5 h-5 mr-2" />
-                TXT PAT
-              </VrButton>
-              <VrButton variant="outline" size="lg" onClick={handleExportarAlterdata}>
-                <FileText className="w-5 h-5 mr-2" />
-                TXT Alterdata
-              </VrButton>
-              <VrButton variant="outline" size="lg" onClick={handleExportarConferencia}>
-                <FileSpreadsheet className="w-5 h-5 mr-2" />
-                Conferência
-              </VrButton>
+              {podeEditar && (
+                <>
+                  <VrButton variant="outline" size="lg" onClick={handleExportarPAT}>
+                    <FileText className="w-5 h-5 mr-2" />
+                    TXT PAT
+                  </VrButton>
+                  <VrButton variant="outline" size="lg" onClick={handleExportarAlterdata}>
+                    <FileText className="w-5 h-5 mr-2" />
+                    TXT Alterdata
+                  </VrButton>
+                  <VrButton variant="outline" size="lg" onClick={handleExportarConferencia}>
+                    <FileSpreadsheet className="w-5 h-5 mr-2" />
+                    Conferência
+                  </VrButton>
+                </>
+              )}
               <VrButton variant="outline" size="lg" onClick={handleExportarComprovantes}>
                 <Download className="w-5 h-5 mr-2" />
                 Comprovantes
@@ -539,11 +555,25 @@ export function VrProjetoDetailPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <VrButton variant="danger" size="sm" onClick={() => setConfirmarRemoverZero(true)}>
-                <FilterX className="w-4 h-4 mr-2" />
-                Remover 0 dias
-              </VrButton>
+              {podeEditar && (
+                <VrButton variant="danger" size="sm" onClick={() => setConfirmarRemoverZero(true)}>
+                  <FilterX className="w-4 h-4 mr-2" />
+                  Remover 0 dias
+                </VrButton>
+              )}
             </div>
+
+            {resultados.some(r => r.diasElegiveis === 0) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Colaboradores com 0 dias elegíveis</p>
+                  <p className="text-xs">
+                    Eles podem estar de férias, afastados ou de folga. Só use "Remover 0 dias" se tiver certeza de que não devem constar no TXT deste mês.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="border-2 border-slate-200 rounded-lg overflow-hidden">
               <Table>
@@ -597,9 +627,11 @@ export function VrProjetoDetailPage() {
                               type="number"
                               value={r.diasElegiveis}
                               onChange={e => {
+                                if (!podeEditar) return
                                 const dias = parseInt(e.target.value) || 0
                                 atualizarResultado(idxOriginal, { diasElegiveis: dias }, config.valorVR)
                               }}
+                              readOnly={!podeEditar}
                               className="h-7 text-xs w-20 mx-auto text-center"
                             />
                           </TableCell>
@@ -610,9 +642,11 @@ export function VrProjetoDetailPage() {
                               min="0"
                               value={r.extra || 0}
                               onChange={e => {
+                                if (!podeEditar) return
                                 const extra = parseFloat(e.target.value) || 0
                                 atualizarResultado(idxOriginal, { extra }, config.valorVR)
                               }}
+                              readOnly={!podeEditar}
                               className="h-7 text-xs w-28 ml-auto text-right"
                             />
                           </TableCell>
@@ -627,13 +661,15 @@ export function VrProjetoDetailPage() {
                               >
                                 <FileDown className="w-4 h-4" />
                               </button>
-                              <button
-                                type="button"
-                                className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                onClick={() => removerResultado(idxOriginal)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {podeEditar && (
+                                <button
+                                  type="button"
+                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                  onClick={() => removerResultado(idxOriginal)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -680,8 +716,15 @@ export function VrProjetoDetailPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">Remover colaboradores com 0 dias?</DialogTitle>
-            <DialogDescription className="text-xs">
-              {resultados.filter(r => r.diasElegiveis === 0).length} colaborador(es) serão removidos da lista. Esta ação não pode ser desfeita.
+            <DialogDescription className="text-xs space-y-2">
+              <p>
+                {resultados.filter(r => r.diasElegiveis === 0).length} colaborador(es) serão removidos da lista.
+              </p>
+              <p className="text-amber-600 font-medium">
+                Atenção: colaboradores com 0 dias podem estar de férias, afastados ou com folga no período.
+                Só remova se tiver certeza de que não devem constar no TXT deste mês.
+              </p>
+              <p>Esta ação não pode ser desfeita após recarregar a página.</p>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">

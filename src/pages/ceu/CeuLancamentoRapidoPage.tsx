@@ -301,7 +301,7 @@ export function CeuLancamentoRapidoPage() {
                         />
                       </td>
 
-                      <td className="px-2 py-1.5 relative">
+                      <td className="px-2 py-1.5 relative max-w-[260px]">
                         <div className="relative">
                           <User className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                           <Input
@@ -371,7 +371,7 @@ export function CeuLancamentoRapidoPage() {
                         </div>
                       </td>
 
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-1.5 max-w-[220px]">
                         <div className="relative">
                           <Package className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                           <Input

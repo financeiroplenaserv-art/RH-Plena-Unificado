@@ -242,7 +242,7 @@ export function CeuImportarPage() {
                         )}
                       </td>
                       {tipoAtual.colunas.map((col) => (
-                        <td key={col} className="px-3 py-2 whitespace-nowrap">
+                        <td key={col} className="px-3 py-2 break-words max-w-[200px]">
                           {linha.dados[col] || linha.dados[col.charAt(0).toUpperCase() + col.slice(1)] || '—'}
                         </td>
                       ))}

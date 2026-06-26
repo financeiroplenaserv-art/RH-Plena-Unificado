@@ -1,6 +1,7 @@
 async function getPdfjsLib() {
-  if (typeof document === 'undefined') {
-    // Node.js: usa o legacy build que não depende do DOM
+  const isVitest = typeof process !== 'undefined' && process.env?.VITEST === 'true'
+  if (typeof document === 'undefined' || isVitest) {
+    // Node.js / Vitest: usa o legacy build que não depende do DOM nem de worker
     const pdfjsLibNode = await import('pdfjs-dist/legacy/build/pdf.mjs')
     return pdfjsLibNode
   }
@@ -18,7 +19,13 @@ export async function extrairTextoPDF(file: File | ArrayBuffer): Promise<string>
 export async function extrairPaginasPDF(file: File | ArrayBuffer): Promise<string[]> {
   const arrayBuffer = file instanceof File ? await file.arrayBuffer() : file
   const pdfjsLib = await getPdfjsLib()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  // CORREÇÃO: em ambiente Node.js (testes/scripts), usa fontes do sistema
+  // para evitar UnknownErrorException sobre standardFontDataUrl.
+  const isNode = typeof document === 'undefined'
+  const pdf = await pdfjsLib.getDocument({
+    data: arrayBuffer,
+    useSystemFonts: isNode,
+  }).promise
 
   const paginas: string[] = []
   for (let i = 1; i <= pdf.numPages; i++) {

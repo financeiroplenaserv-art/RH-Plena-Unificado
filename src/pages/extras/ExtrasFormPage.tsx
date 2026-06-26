@@ -16,7 +16,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
-import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 
@@ -55,7 +55,7 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
 export function ExtrasFormPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { categorias, loading, listar, listarCategorias, buscarPorId, criar, atualizar } = useExtras()
+  const { categorias, loading, listar, listarCategorias, buscarPorId, criar, atualizar, verificarDuplicado } = useExtras()
   const { listar: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
@@ -183,6 +183,24 @@ export function ExtrasFormPage() {
       payload.colaborador_ausente_id = null
       payload.colaborador_ausente_nome = null
     }
+
+    if (!id) {
+      const duplicado = await verificarDuplicado(
+        payload.data_ocorrencia,
+        payload.departamento_id,
+        payload.colaborador_ausente_id,
+        payload.colaborador_ausente_nome
+      )
+      if (duplicado) {
+        setSalvando(false)
+        toast.error(
+          `Já existe um extra lançado para ${payload.colaborador_ausente_nome || 'este colaborador'} no departamento ${payload.departamento_nome || ''} em ${formatarData(payload.data_ocorrencia)}. Verifique os lançamentos.`,
+          { duration: 6000 }
+        )
+        return
+      }
+    }
+
     const sucesso = id
       ? await atualizar(id, payload)
       : await criar(payload)

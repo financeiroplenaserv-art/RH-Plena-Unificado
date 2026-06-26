@@ -641,6 +641,9 @@ export function CeuEntregaFormPage() {
                     value={dataEntrega}
                     onChange={(e) => setDataEntrega(e.target.value)}
                   />
+                  <p className="text-xs text-slate-500">
+                    Pode ser usada a data de 1º do mês, mesmo que o recibo seja preparado antes.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="observacao">Observação</Label>

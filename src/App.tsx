@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster, toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -74,6 +74,8 @@ function App() {
   const [primeiroAcesso, setPrimeiroAcesso] = useState(false)
   const [verificandoPrimeiroAcesso, setVerificandoPrimeiroAcesso] = useState(true)
   const [recarregandoPerfil, setRecarregandoPerfil] = useState(false)
+  const location = useLocation()
+  const isMobileFalta = location.pathname === '/mobile/falta'
 
   useEffect(() => {
     async function verificar() {
@@ -186,7 +188,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <>
       <Toaster position="top-right" richColors />
       <Routes>
         <Route
@@ -198,23 +200,25 @@ function App() {
           }
         />
       </Routes>
-      <div className="flex h-screen bg-slate-50">
-        <SidebarWrapper
-          user={user}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-          onLogout={handleLogout}
-        />
+      {!isMobileFalta && (
+        <div className="flex h-screen bg-slate-50">
+          <SidebarWrapper
+            user={user}
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+            onLogout={handleLogout}
+          />
         <div
           className={cn(
-            'flex-1 flex flex-col transition-all duration-300',
+            'flex-1 flex flex-col min-w-0 transition-all duration-300',
             sidebarOpen ? 'ml-60' : 'ml-16'
           )}
         >
           <HeaderWrapper user={user} />
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
             <Suspense fallback={<PageLoading />}>
               <Routes>
+              <Route path="/mobile/falta" element={null} />
               <Route path="/" element={<DashboardPage />} />
               <Route path="/colaboradores" element={<ColaboradoresPage />} />
               <Route
@@ -566,7 +570,8 @@ function App() {
           </main>
         </div>
       </div>
-    </BrowserRouter>
+      )}
+    </>
   )
 }
 

@@ -43,5 +43,6 @@ export interface HistoricoImportacao {
   importados: number
   atualizados: number
   erros: number
+  detalhes_erros?: { nome: string; erro: string }[]
   created_at?: string
 }

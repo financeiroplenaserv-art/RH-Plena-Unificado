@@ -18,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { cn, formatarData } from '@/lib/utils'
+import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import type { Ocorrencia, Colaborador } from '@/types/database'
 
@@ -186,8 +187,10 @@ export function DashboardPage() {
           })
         }
         setAlertas(listaAlertas)
-      } catch {
-        // Silencia erros para não travar o dashboard
+      } catch (err: unknown) {
+        const mensagem = err instanceof Error ? err.message : 'Erro ao carregar dashboard'
+        console.error('Erro ao carregar KPIs do dashboard:', err)
+        toast.error(mensagem)
       } finally {
         setCarregando(false)
       }

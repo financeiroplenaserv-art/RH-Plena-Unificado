@@ -1,5 +1,160 @@
-import type { VRColaboradorPonto, VRColaboradorEscala, VRResultadoCalculo, VRConfiguracao } from '@/types'
+import type { VRColaboradorPonto, VRColaboradorEscala, VRResultadoCalculo, VRConfiguracao, VRMatchTipo, VRColaborador } from '@/types'
+import { validarCPF } from '@/lib/utils'
 import { contarAbatimentos, contarDiasPdf6h } from './pdfParser'
+
+// ============================================================
+// MATCHING SEGURO DE COLABORADORES
+// Prioridade: CPF > nome exato > palavras (primeiro+segundo) > similaridade
+// Substring pura de nome foi removida por ser insegura.
+// ============================================================
+
+function normalizarNome(nome: string): string {
+  return nome.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+function cpfLimpo(cpf?: string | null): string {
+  return (cpf || '').replace(/\D/g, '')
+}
+
+function distanciaLevenshtein(a: string, b: string): number {
+  const m = a.length
+  const n = b.length
+  if (m === 0) return n
+  if (n === 0) return m
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) dp[i][0] = i
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const custo = a[i - 1] === b[j - 1] ? 0 : 1
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + custo
+      )
+    }
+  }
+  return dp[m][n]
+}
+
+function scoreSimilaridadeNomes(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length)
+  if (maxLen === 0) return 1
+  return 1 - distanciaLevenshtein(a, b) / maxLen
+}
+
+interface MatchEscala {
+  escala?: VRColaboradorEscala
+  tipo: VRMatchTipo
+}
+
+function encontrarEscalaPorColaborador(
+  colab: VRColaborador,
+  escalaPorNome: Map<string, VRColaboradorEscala>,
+  processados: Set<string>
+): MatchEscala {
+  const nomeNorm = normalizarNome(colab.nome)
+  const cpf = cpfLimpo(colab.cpf)
+
+  // 1. Match por CPF (mais seguro)
+  if (cpf.length === 11) {
+    for (const esc of escalaPorNome.values()) {
+      const nomeEscNorm = normalizarNome(esc.colaborador.nome)
+      if (processados.has(nomeEscNorm)) continue
+      if (cpfLimpo(esc.colaborador.cpf) === cpf) {
+        return { escala: esc, tipo: 'cpf' }
+      }
+    }
+  }
+
+  // 2. Nome exato
+  const exato = escalaPorNome.get(nomeNorm)
+  if (exato) {
+    const nomeEscNorm = normalizarNome(exato.colaborador.nome)
+    if (!processados.has(nomeEscNorm)) {
+      return { escala: exato, tipo: 'nome_exato' }
+    }
+  }
+
+  // 3. Match por palavras (primeiro nome + segundo nome)
+  const palavras = nomeNorm.split(' ').filter(p => p.length >= 3)
+  if (palavras.length >= 1) {
+    let melhor: VRColaboradorEscala | undefined
+    for (const esc of escalaPorNome.values()) {
+      const nomeEscNorm = normalizarNome(esc.colaborador.nome)
+      if (processados.has(nomeEscNorm)) continue
+      const palavrasEsc = nomeEscNorm.split(' ').filter(p => p.length >= 3)
+      if (palavrasEsc.length === 0) continue
+      if (palavras[0] === palavrasEsc[0]) {
+        const segundoMatch = palavras.length === 1 || palavrasEsc.length === 1 || palavras[1] === palavrasEsc[1]
+        if (segundoMatch) {
+          melhor = esc
+          if (palavras.length > 1 && palavrasEsc.length > 1 && palavras[1] === palavrasEsc[1]) {
+            return { escala: esc, tipo: 'nome_palavras' }
+          }
+        }
+      }
+    }
+    if (melhor) return { escala: melhor, tipo: 'nome_palavras' }
+  }
+
+  // 4. Match por similaridade (Levenshtein), threshold 0.85
+  let melhorScore = 0
+  let melhorEsc: VRColaboradorEscala | undefined
+  for (const esc of escalaPorNome.values()) {
+    const nomeEscNorm = normalizarNome(esc.colaborador.nome)
+    if (processados.has(nomeEscNorm)) continue
+    const score = scoreSimilaridadeNomes(nomeNorm, nomeEscNorm)
+    if (score > melhorScore) {
+      melhorScore = score
+      melhorEsc = esc
+    }
+  }
+  if (melhorScore >= 0.85) {
+    return { escala: melhorEsc, tipo: 'nome_similar' }
+  }
+
+  return { tipo: 'nenhum' }
+}
+
+function encontrarPontoPorColaborador(
+  colab: VRColaborador,
+  pdfAnterior: Map<string, VRColaboradorPonto>,
+  pdfAtual: Map<string, VRColaboradorPonto>
+): VRColaboradorPonto | undefined {
+  const nomeNorm = normalizarNome(colab.nome)
+  const cpf = cpfLimpo(colab.cpf)
+
+  // 1. Por CPF
+  if (cpf.length === 11) {
+    for (const ponto of pdfAtual.values()) {
+      if (cpfLimpo(ponto.colaborador.cpf) === cpf) return ponto
+    }
+    for (const ponto of pdfAnterior.values()) {
+      if (cpfLimpo(ponto.colaborador.cpf) === cpf) return ponto
+    }
+  }
+
+  // 2. Por nome exato
+  if (pdfAtual.has(nomeNorm)) return pdfAtual.get(nomeNorm)
+  if (pdfAnterior.has(nomeNorm)) return pdfAnterior.get(nomeNorm)
+
+  // 3. Por similaridade
+  let melhorScore = 0
+  let melhor: VRColaboradorPonto | undefined
+  for (const ponto of [pdfAtual, pdfAnterior]) {
+    for (const p of ponto.values()) {
+      const score = scoreSimilaridadeNomes(nomeNorm, normalizarNome(p.colaborador.nome))
+      if (score > melhorScore) {
+        melhorScore = score
+        melhor = p
+      }
+    }
+  }
+  if (melhorScore >= 0.85) return melhor
+
+  return undefined
+}
 
 
 /**
@@ -26,69 +181,46 @@ export function calcularVR(
   const resultados: VRResultadoCalculo[] = []
   const processados = new Set<string>()
 
-  for (const [nomePdfKey, pontoAtual] of pdfAtual) {
-    const nomePdf = pontoAtual.colaborador.nome
-    const nomePdfNorm = normalizarNome(nomePdf)
+  for (const pontoAtual of pdfAtual.values()) {
+    const { colaborador } = pontoAtual
+    const nomePdfNorm = normalizarNome(colaborador.nome)
 
-    let escalaColab = escalaPorNome.get(nomePdfNorm)
-    if (!escalaColab) {
-      for (const [nomeEscNorm, esc] of escalaPorNome) {
-        if (nomeEscNorm.startsWith(nomePdfNorm.substring(0, 25)) ||
-            nomePdfNorm.startsWith(nomeEscNorm.substring(0, 25))) {
-          escalaColab = esc
-          break
-        }
-      }
-    }
-    // Matching por primeiras 2 palavras (primeiro nome + segundo nome)
-    if (!escalaColab) {
-      const palavrasPdf = nomePdfNorm.split(' ').filter(p => p.length >= 3)
-      if (palavrasPdf.length >= 1) {
-        for (const [nomeEscNorm, esc] of escalaPorNome) {
-          const palavrasEsc = nomeEscNorm.split(' ').filter(p => p.length >= 3)
-          if (palavrasPdf[0] === palavrasEsc[0]) {
-            if (palavrasPdf.length === 1 || palavrasEsc.length === 1 ||
-                palavrasPdf[1] === palavrasEsc[1]) {
-              escalaColab = esc
-              break
-            }
-          }
-        }
-      }
-    }
+    const { escala: escalaColab, tipo: matchTipo } = encontrarEscalaPorColaborador(
+      colaborador,
+      escalaPorNome,
+      processados
+    )
 
     const nomeChave = escalaColab ? normalizarNome(escalaColab.colaborador.nome) : nomePdfNorm
     processados.add(nomeChave)
 
-    let pontoAnt: VRColaboradorPonto | undefined
-    pontoAnt = pdfAnterior.get(nomePdfKey)
-    if (!pontoAnt) {
-      pontoAnt = pdfAnterior.get(nomePdfNorm)
-    }
-    if (!pontoAnt && escalaColab) {
-      pontoAnt = pdfAnterior.get(normalizarNome(escalaColab.colaborador.nome))
-    }
+    const pontoAnt = encontrarPontoPorColaborador(
+      escalaColab?.colaborador || colaborador,
+      pdfAnterior,
+      new Map()
+    ) || pdfAnterior.get(nomePdfNorm)
 
     const diasPdf = contarDiasPdf6h(pontoAtual)
     const diasEscala = escalaColab
       ? escalaColab.dias.filter(d => d.tipo === 'T' && d.minutosTrabalhados > 360).length
       : 0
     const diasAbatimento = contarAbatimentos(pontoAnt)
+    // REVERTIDO: mantida a regra original do sistema conforme solicitado.
+    // Regra: dias trabalhados no PDF + dias a trabalhar na escala - abatimentos (faltas mês anterior).
     const diasElegiveis = Math.max(0, diasPdf + diasEscala - diasAbatimento)
 
-    const nomeFinal = escalaColab?.colaborador.nome || nomePdf
-    let cpfFinal = escalaColab?.colaborador.cpf || pontoAtual.colaborador.cpf
+    const nomeFinal = escalaColab?.colaborador.nome || colaborador.nome
+    let cpfFinal = escalaColab?.colaborador.cpf || colaborador.cpf
     let matriculaFinal = escalaColab?.colaborador.matricula || ''
 
     // Buscar CPF se nao encontrado
-    if (!cpfFinal || cpfFinal.replace(/\D/g, '').length !== 11) {
+    if (cpfLimpo(cpfFinal).length !== 11) {
       cpfFinal = buscarCPFPorNome(nomeFinal, pdfAnterior, pdfAtual, cpfsPorNome)
     }
 
     // Buscar matricula no arquivo de dados de nascimento se nao tiver na escala
-    if (!matriculaFinal && cpfFinal && cpfFinal.replace(/\D/g, '').length === 11) {
-      const cpfLimpo = cpfFinal.replace(/\D/g, '')
-      matriculaFinal = matriculasPorCpf?.get(cpfLimpo) || ''
+    if (!matriculaFinal && cpfLimpo(cpfFinal).length === 11) {
+      matriculaFinal = matriculasPorCpf?.get(cpfLimpo(cpfFinal)) || ''
     }
     if (!matriculaFinal && nomeFinal) {
       matriculaFinal = matriculasPorNome?.get(nomeFinal) || ''
@@ -103,6 +235,7 @@ export function calcularVR(
       diasEscala,
       diasAbatimento,
       valorBruto: diasElegiveis * config.valorVR,
+      matchTipo,
       detalhes: [
         `DIAS TRABALHADOS MES ATUAL: ${diasPdf}`,
         `DIAS A TRABALHAR MES ATUAL: ${diasEscala}`,
@@ -112,25 +245,25 @@ export function calcularVR(
     })
   }
 
-  for (const [nomeNormEsc, escalaColab] of escalaPorNome) {
+  for (const escalaColab of escalaPorNome.values()) {
+    const nomeNormEsc = normalizarNome(escalaColab.colaborador.nome)
     if (processados.has(nomeNormEsc)) continue
 
-    const pontoAnt = pdfAnterior.get(nomeNormEsc)
-      || pdfAnterior.get(normalizarNome(escalaColab.colaborador.nome))
+    const pontoAnt = encontrarPontoPorColaborador(escalaColab.colaborador, pdfAnterior, new Map())
+      || pdfAnterior.get(nomeNormEsc)
     const diasAbatimento = contarAbatimentos(pontoAnt)
     const diasEscala = escalaColab.dias.filter(d => d.tipo === 'T' && d.minutosTrabalhados > 360).length
     const diasElegiveis = Math.max(0, diasEscala - diasAbatimento)
 
     let cpfFinal = escalaColab.colaborador.cpf || ''
     let matriculaFinal = escalaColab.colaborador.matricula || ''
-    if (!cpfFinal || cpfFinal.replace(/\D/g, '').length !== 11) {
+    if (cpfLimpo(cpfFinal).length !== 11) {
       cpfFinal = buscarCPFPorNome(escalaColab.colaborador.nome, pdfAnterior, pdfAtual, cpfsPorNome)
     }
 
     // Buscar matricula no arquivo de dados de nascimento se nao tiver na escala
-    if (!matriculaFinal && cpfFinal && cpfFinal.replace(/\D/g, '').length === 11) {
-      const cpfLimpo = cpfFinal.replace(/\D/g, '')
-      matriculaFinal = matriculasPorCpf?.get(cpfLimpo) || ''
+    if (!matriculaFinal && cpfLimpo(cpfFinal).length === 11) {
+      matriculaFinal = matriculasPorCpf?.get(cpfLimpo(cpfFinal)) || ''
     }
     if (!matriculaFinal) {
       matriculaFinal = matriculasPorNome?.get(escalaColab.colaborador.nome) || ''
@@ -145,6 +278,7 @@ export function calcularVR(
       diasEscala,
       diasAbatimento,
       valorBruto: diasElegiveis * config.valorVR,
+      matchTipo: 'nenhum',
       detalhes: [
         `DIAS TRABALHADOS MES ATUAL: 0`,
         `DIAS A TRABALHAR MES ATUAL: ${diasEscala}`,
@@ -356,7 +490,7 @@ export function gerarArquivoVRPAT(
 
   for (const r of resultados) {
     const cpfLimpo = campoNum(r.cpf, 11)
-    if (cpfLimpo === '00000000000' || cpfLimpo.length !== 11) {
+    if (cpfLimpo === '00000000000' || cpfLimpo.length !== 11 || !validarCPF(cpfLimpo)) {
       pulados.push(r.nome)
       continue
     }
@@ -607,10 +741,6 @@ export async function carregarDatasNascimento(arrayBuffer: ArrayBuffer): Promise
   return { datas, cpfsPorNome, matriculasPorNome, matriculasPorCpf }
 }
 
-function normalizarNome(nome: string): string {
-  return nome.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
-}
-
 export function gerarExcelConferencia(
   resultados: VRResultadoCalculo[],
   config: VRConfiguracao
@@ -632,5 +762,3 @@ export function gerarExcelConferencia(
   linhas.push(`\nTOTAL\t\t\t\t\t${resultados.reduce((s, r) => s + r.diasElegiveis, 0)}\t\t\tR$ ${resultados.reduce((s, r) => s + r.valorBruto, 0).toFixed(2)}`)
   return linhas.join('\n')
 }
-
-export { normalizarNome }

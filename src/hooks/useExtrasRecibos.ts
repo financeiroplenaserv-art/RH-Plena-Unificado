@@ -51,7 +51,7 @@ export function useExtrasRecibos() {
     }
   }, [])
 
-  const criar = useCallback(async (dados: Omit<ReciboExtra, 'id' | 'created_at' | 'updated_at' | 'data_assinatura'>): Promise<ReciboExtra | null> => {
+  const criar = useCallback(async (dados: Omit<ReciboExtra, 'id' | 'created_at' | 'updated_at'>): Promise<ReciboExtra | null> => {
     try {
       const { data, error } = await supabase.from('recibos_extras').insert(dados).select().single()
       if (error) throw error

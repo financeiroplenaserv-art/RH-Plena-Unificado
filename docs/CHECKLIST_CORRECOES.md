@@ -113,6 +113,14 @@
 - [x] Ajustado `upsertPorMatricula` para considerar empresa e tratar conflitos.
 - [ ] Isolar storage buckets.
 - [x] Implementar consentimento LGPD.
+- [x] Criar helpers de permissão RBAC (`src/lib/permissoes.ts`).
+- [x] Criar componente `Permissao.tsx`.
+- [x] Aplicar restrições finas em dados mestres (empresas, departamentos, colaboradores).
+- [x] Aplicar restrições finas em extras (lançamentos, categorias, recibos).
+- [x] Aplicar restrições finas em VR e adicionais contratuais.
+- [x] Aplicar restrições finas em ocorrências, modelos, alertas e configurações.
+- [x] Criar testes unitários para permissões.
+- [x] Atualizar testes para Fase C.
 
 ---
 
@@ -136,7 +144,7 @@
 | 6.3 | Atualizar funções RLS no banco | ✅ Feito | `supabase/migrations/037_rbac_granular.sql` | `is_admin`, `is_editor` e helpers granulares (`is_dp`, `is_mesa`, etc.). |
 | 6.4 | Aplicar permissões nas rotas | ✅ Feito | `src/App.tsx` | Cada rota mapeada para os perfis definidos em `docs/PERFIL_ACOES_MODELO.md`. |
 | 6.5 | Aplicar permissões no menu lateral | ✅ Feito | `src/components/layout/Sidebar.tsx` | Menus exibidos conforme perfil do usuário. |
-| 6.6 | Restringir ações dentro das páginas (botões, formulários) | ⏳ Futuro | Páginas específicas | Acesso às rotas protegido; permissões de ação granular dentro de cada página ainda pendente. |
+| 6.6 | Restringir ações dentro das páginas (botões, formulários) | ✅ Feito | `src/lib/permissoes.ts`, `src/components/Permissao.tsx`, páginas de dados mestres, extras, VR, adicionais, ocorrências, modelos, alertas e configurações | Todas as fases A+B+C aplicadas conforme `docs/PERFIL_ACOES_MODELO.md`. |
 | 6.7 | Migrar usuários existentes para novos perfis | ⏳ Pendente | Supabase / admin | Usuários com `admin`, `rh`, `gestor`, `visualizador` devem ser realocados manualmente. |
 
 ---

@@ -246,31 +246,73 @@ export function useColaboradores() {
   }, [])
 
   const upsertPorMatricula = useCallback(async (dados: Omit<Colaborador, 'id' | 'created_at' | 'updated_at'>) => {
-    let existente: { id: string; empresa_id: string | null } | null = null
+    // Busca por CPF e por matrícula separadamente para detectar conflitos
+    let porCpf: { id: string; empresa_id: string | null; matricula: string | null } | null = null
+    let porMatricula: { id: string; empresa_id: string | null; cpf: string | null } | null = null
 
     if (dados.cpf) {
-      const { data } = await supabase
+      let query = supabase
         .from('colaboradores')
-        .select('id, empresa_id')
+        .select('id, empresa_id, matricula')
         .eq('cpf', dados.cpf)
-        .maybeSingle()
-      existente = data as { id: string; empresa_id: string | null } | null
+      if (dados.empresa_id) query = query.eq('empresa_id', dados.empresa_id)
+      const { data } = await query.maybeSingle()
+      porCpf = data as { id: string; empresa_id: string | null; matricula: string | null } | null
     }
 
-    if (!existente && dados.matricula) {
-      const { data } = await supabase
+    if (dados.matricula) {
+      let query = supabase
         .from('colaboradores')
-        .select('id, empresa_id')
+        .select('id, empresa_id, cpf')
         .eq('matricula', dados.matricula)
-        .maybeSingle()
-      existente = data as { id: string; empresa_id: string | null } | null
+      if (dados.empresa_id) query = query.eq('empresa_id', dados.empresa_id)
+      const { data } = await query.maybeSingle()
+      porMatricula = data as { id: string; empresa_id: string | null; cpf: string | null } | null
     }
+
+    // Conflito grave: CPF e matrícula apontam para registros diferentes
+    if (porCpf && porMatricula && porCpf.id !== porMatricula.id) {
+      throw new Error(
+        `Conflito de dados na empresa ${dados.empresa_id}: CPF ${dados.cpf} pertence a um registro e matrícula ${dados.matricula} pertence a outro. Verifique duplicatas no cadastro.`
+      )
+    }
+
+    const existente = porCpf || porMatricula
 
     if (existente) {
       const dadosUpdate = { ...dados }
       if (existente.empresa_id) {
         delete (dadosUpdate as Partial<typeof dados>).empresa_id
       }
+
+      // Se achou por CPF e a matrícula nova já existe em outro registro (da mesma empresa), não sobrescreve
+      if (porCpf && dados.matricula && porCpf.matricula !== dados.matricula) {
+        let query = supabase
+          .from('colaboradores')
+          .select('id')
+          .eq('matricula', dados.matricula)
+          .neq('id', porCpf.id)
+        if (dados.empresa_id) query = query.eq('empresa_id', dados.empresa_id)
+        const { data: matriculaOutro } = await query.maybeSingle()
+        if (matriculaOutro) {
+          delete (dadosUpdate as Partial<typeof dados>).matricula
+        }
+      }
+
+      // Se achou por matrícula e o CPF novo já existe em outro registro (da mesma empresa), não sobrescreve
+      if (porMatricula && dados.cpf && porMatricula.cpf !== dados.cpf) {
+        let query = supabase
+          .from('colaboradores')
+          .select('id')
+          .eq('cpf', dados.cpf)
+          .neq('id', porMatricula.id)
+        if (dados.empresa_id) query = query.eq('empresa_id', dados.empresa_id)
+        const { data: cpfOutro } = await query.maybeSingle()
+        if (cpfOutro) {
+          delete (dadosUpdate as Partial<typeof dados>).cpf
+        }
+      }
+
       const { error } = await supabase.from('colaboradores').update(dadosUpdate as Partial<Colaborador>).eq('id', existente.id)
       if (error) throw error
       return { acao: 'atualizado', id: existente.id } as const

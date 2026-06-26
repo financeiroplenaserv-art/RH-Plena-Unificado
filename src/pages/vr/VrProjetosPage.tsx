@@ -155,7 +155,7 @@ export function VrProjetosPage() {
               type="date"
               value={filtroDataCorte}
               onChange={(e) => setFiltroDataCorte(e.target.value)}
-              className="w-auto"
+              className="w-full sm:w-auto"
             />
           </div>
         </div>

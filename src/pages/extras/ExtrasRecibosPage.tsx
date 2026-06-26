@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Pencil, RefreshCcw, Trash2, X, ArrowUp, ArrowDown } from 'lucide-react'
+import { FileText, DollarSign, RefreshCcw, Trash2, X, ArrowUp, ArrowDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,9 +23,15 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useEmpresas } from '@/hooks/useEmpresas'
 import { useExtrasRecibos } from '@/hooks/useExtrasRecibos'
+import { useAuth } from '@/hooks/useAuth'
 import { AssinaturaCanvas, type AssinaturaCanvasRef } from '@/components/extras/AssinaturaCanvas'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
 import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
+import {
+  podeGerenciarReciboExtra,
+  podeMarcarExtraComoPago,
+  podeCancelarReciboExtra,
+} from '@/lib/permissoes'
 import type { Extra, ReciboExtra } from '@/types/extras'
 
 function getInicioSemana(data: Date): Date {
@@ -57,6 +63,12 @@ interface GrupoSubstituto {
 }
 
 export function ExtrasRecibosPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeGerenciarRecibo = perfil ? podeGerenciarReciboExtra(perfil) : false
+  const podeMarcarPago = perfil ? podeMarcarExtraComoPago(perfil) : false
+  const podeCancelarRecibo = perfil ? podeCancelarReciboExtra(perfil) : false
+
   const hoje = new Date()
   const inicioSemana = getInicioSemana(hoje)
   const fimSemana = new Date(inicioSemana)
@@ -98,25 +110,16 @@ export function ExtrasRecibosPage() {
 
   const empresaPadrao = useMemo(() => ({
     id: '',
-    nome: 'Plena EA Facilities Serviços',
-    cnpj: '00.378.476/0001-60',
+    nome: '[Empresa não selecionada]',
+    cnpj: null,
   }), [])
 
   const empresaSelecionada = useMemo(() => {
     const empresa = empresaId
       ? empresas.find(e => e.id === empresaId)
-      : empresas.find(e => e.nome.toLowerCase().includes('plena ea facilities'))
+      : empresas[0]
 
-    if (!empresa) return empresaPadrao
-
-    const nomeLower = empresa.nome.toLowerCase()
-    const isFacilities = nomeLower.includes('plena ea facilities') || (nomeLower.includes('plena') && nomeLower.includes('facilities') && !nomeLower.includes('tech'))
-
-    if (isFacilities) {
-      return { ...empresa, cnpj: '00.378.476/0001-60' }
-    }
-
-    return empresa
+    return empresa || empresaPadrao
   }, [empresas, empresaId, empresaPadrao])
 
   const grupos = useMemo<GrupoSubstituto[]>(() => {
@@ -192,6 +195,7 @@ export function ExtrasRecibosPage() {
       extras_ids: grupo.extras.map(e => e.id),
       marcar_pago: false,
       status: modoPapel ? 'assinado' : 'pendente_assinatura',
+      data_assinatura: modoPapel ? new Date().toISOString() : null,
       usuario_id: null,
     })
 
@@ -210,6 +214,7 @@ export function ExtrasRecibosPage() {
           '',
           recibo.id,
           { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj },
+          recibo.data_assinatura,
           true
         )
         toast.success('Recibo para impressão gerado')
@@ -250,7 +255,8 @@ export function ExtrasRecibosPage() {
           recibo.data_fim,
           assinatura,
           recibo.id,
-          { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj }
+          { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj },
+          recibo.data_assinatura
         )
       } catch (err) {
         toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
@@ -290,7 +296,8 @@ export function ExtrasRecibosPage() {
         recibo.data_fim,
         recibo.assinatura_colaborador || '',
         recibo.id,
-        { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj }
+        { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj },
+        recibo.data_assinatura
       )
     } catch (err) {
       toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
@@ -310,6 +317,19 @@ export function ExtrasRecibosPage() {
       toast.info('Todos os extras deste colaborador já estão pagos')
       return
     }
+
+    // CORREÇÃO DE SEGURANÇA/COMPLIANCE: só permite marcar como pago se houver
+    // recibo assinado para o colaborador no período. Isso garante prova de pagamento.
+    const reciboAssinado = recibos.find(r => {
+      const mesmoColaborador = grupo.substituto_id ? r.colaborador_id === grupo.substituto_id : r.colaborador_nome === grupo.substituto_nome
+      return mesmoColaborador && r.data_inicio === dataInicio && r.data_fim === dataFim && r.status === 'assinado'
+    })
+
+    if (!reciboAssinado) {
+      toast.error('É necessário gerar o recibo (com assinatura digital ou em papel) antes de marcar os extras como pagos.')
+      return
+    }
+
     const confirmar = window.confirm(`Marcar ${pendentes.length} extra(s) de ${grupo.substituto_nome} como Pago?`)
     if (!confirmar) return
 
@@ -321,7 +341,8 @@ export function ExtrasRecibosPage() {
 
     if (sucessos > 0) {
       toast.success(`${sucessos} extra(s) marcado(s) como Pago`)
-      listar({ dataInicio, dataFim })
+      await listar({ dataInicio, dataFim })
+      await listarRecibos({ dataInicio, dataFim })
     }
   }
 
@@ -335,7 +356,7 @@ export function ExtrasRecibosPage() {
       </div>
 
       <ExtrasCard title="Filtros">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Data início</Label>
             <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="rounded-lg" />
@@ -361,6 +382,7 @@ export function ExtrasRecibosPage() {
               onChange={e => setEmpresaId(e.target.value)}
               className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm"
             >
+              <option value="">{empresas.length > 0 ? empresas[0].nome : 'Selecione uma empresa'}</option>
               {empresas.map(empresa => (
                 <option key={empresa.id} value={empresa.id}>{empresa.nome}</option>
               ))}
@@ -378,7 +400,7 @@ export function ExtrasRecibosPage() {
               <span>Emissão em papel (sem assinatura digital)</span>
             </label>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 md:col-span-2 xl:col-span-1">
             <ExtrasButton variant="outline" size="sm" onClick={() => { listar({ dataInicio, dataFim }); listarRecibos({ dataInicio, dataFim }) }}>
               <RefreshCcw className="w-4 h-4 mr-2" />
               Atualizar
@@ -443,7 +465,7 @@ export function ExtrasRecibosPage() {
                   })
                   return (
                     <TableRow key={grupo.substituto_id || grupo.substituto_nome}>
-                      <TableCell className="font-medium">{grupo.substituto_nome}</TableCell>
+                      <TableCell className="font-medium break-words">{grupo.substituto_nome}</TableCell>
                       <TableCell>{grupo.extras.length}</TableCell>
                       <TableCell>{formatarMoeda(grupo.valorTotal)}</TableCell>
                       <TableCell>
@@ -457,18 +479,22 @@ export function ExtrasRecibosPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <ExtrasButton variant="outline" size="sm" onClick={() => marcarExtrasComoPago(grupo)} title="Marcar como pago">
-                            <Pencil className="w-4 h-4" />
-                          </ExtrasButton>
+                          {podeMarcarPago && !todosPagos && (
+                            <ExtrasButton variant="outline" size="sm" onClick={() => marcarExtrasComoPago(grupo)} title="Marcar extras como pagos">
+                              <DollarSign className="w-4 h-4" />
+                            </ExtrasButton>
+                          )}
                           {reciboJaEmitido && !modoPapel ? (
                             <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
                               Recibo já emitido
                             </span>
                           ) : (
-                            <ExtrasButton size="sm" onClick={() => handleGerarRecibo(grupo)}>
-                              <FileText className="w-4 h-4 mr-2" />
-                              {modoPapel ? 'Gerar para impressão' : 'Gerar e assinar'}
-                            </ExtrasButton>
+                            podeGerenciarRecibo && (
+                              <ExtrasButton size="sm" onClick={() => handleGerarRecibo(grupo)}>
+                                <FileText className="w-4 h-4 mr-2" />
+                                {modoPapel ? 'Gerar para impressão' : 'Gerar e assinar'}
+                              </ExtrasButton>
+                            )
                           )}
                         </div>
                       </TableCell>
@@ -498,8 +524,8 @@ export function ExtrasRecibosPage() {
               <TableBody>
                 {recibosAssinados.map(recibo => (
                   <TableRow key={recibo.id}>
-                    <TableCell className="font-medium">{recibo.colaborador_nome}</TableCell>
-                    <TableCell>{formatarDataBR(recibo.data_inicio)} a {formatarDataBR(recibo.data_fim)}</TableCell>
+                    <TableCell className="font-medium break-words">{recibo.colaborador_nome}</TableCell>
+                    <TableCell className="break-words">{formatarDataBR(recibo.data_inicio)} a {formatarDataBR(recibo.data_fim)}</TableCell>
                     <TableCell>{recibo.quantidade_extras}</TableCell>
                     <TableCell>{formatarMoeda(recibo.valor_total)}</TableCell>
                     <TableCell>{recibo.data_assinatura ? formatarDataBR(recibo.data_assinatura.split('T')[0]) : '—'}</TableCell>
@@ -509,9 +535,11 @@ export function ExtrasRecibosPage() {
                           <FileText className="w-4 h-4 mr-2" />
                           PDF
                         </ExtrasButton>
-                        <ExtrasButton variant="outline" size="sm" onClick={() => handleRemoverRecibo(recibo.id)} title="Remover">
-                          <Trash2 className="w-4 h-4" />
-                        </ExtrasButton>
+                        {podeCancelarRecibo && (
+                          <ExtrasButton variant="outline" size="sm" onClick={() => handleRemoverRecibo(recibo.id)} title="Remover">
+                            <Trash2 className="w-4 h-4" />
+                          </ExtrasButton>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -591,15 +619,17 @@ export function ExtrasRecibosPage() {
                 <p className="text-xs" style={{ color: '#94A3B8' }}>Peça para o colaborador assinar no quadro acima com o dedo ou mouse.</p>
               </div>
 
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={marcarPago}
-                  onChange={e => setMarcarPago(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300"
-                />
-                Marcar os extras como <strong>Pago</strong> após assinar
-              </label>
+              {podeMarcarPago && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={marcarPago}
+                    onChange={e => setMarcarPago(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300"
+                  />
+                  Marcar os extras como <strong>Pago</strong> após assinar
+                </label>
+              )}
             </div>
           )}
 

@@ -112,6 +112,37 @@ export function useExtras() {
     }
   }, [])
 
+  const verificarDuplicado = useCallback(async (dataOcorrencia: string, departamentoId: string | null, colaboradorAusenteId: string | null, colaboradorAusenteNome: string | null): Promise<Extra | null> => {
+    if (!dataOcorrencia || !departamentoId) return null
+    try {
+      let query = supabase
+        .from('extras')
+        .select('*')
+        .eq('data_ocorrencia', dataOcorrencia)
+        .eq('departamento_id', departamentoId)
+        .neq('status', 'Cancelado')
+
+      if (colaboradorAusenteId) {
+        query = query.eq('colaborador_ausente_id', colaboradorAusenteId)
+      } else if (colaboradorAusenteNome) {
+        query = query.eq('colaborador_ausente_nome', colaboradorAusenteNome)
+      } else {
+        // Sem colaborador ausente: considera duplicado se já houver registro no mesmo dia/depto sem ausente
+        query = query.is('colaborador_ausente_id', null)
+      }
+
+      const { data, error } = await query.limit(1).single()
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 = no rows returned
+        throw error
+      }
+      return (data as Extra) || null
+    } catch (err: unknown) {
+      console.error('Erro ao verificar duplicidade:', err)
+      return null
+    }
+  }, [])
+
   const criar = useCallback(async (dados: Omit<Extra, 'id' | 'created_at' | 'updated_at'>): Promise<Extra | null> => {
     try {
       const { data, error } = await supabase.from('extras').insert(dados).select().single()
@@ -161,6 +192,7 @@ export function useExtras() {
     atualizarCategoria,
     removerCategoria,
     buscarPorId,
+    verificarDuplicado,
     criar,
     atualizar,
     remover,

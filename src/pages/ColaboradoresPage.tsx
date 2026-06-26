@@ -18,7 +18,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useColaboradores } from '@/hooks/useColaboradores'
+import { useAuth } from '@/hooks/useAuth'
 import { cn, formatarCPF, formatarData, mascaraTelefone } from '@/lib/utils'
+import { podeEditarColaboradorBasico } from '@/lib/permissoes'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -26,6 +28,10 @@ import { supabase } from '@/lib/supabase'
 import type { Colaborador, StatusColaborador, Departamento } from '@/types/database'
 
 export function ColaboradoresPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
+
   const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<StatusColaborador | 'todos'>('Ativo')
@@ -246,7 +252,7 @@ export function ColaboradoresPage() {
               <p>Nenhum colaborador encontrado.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {colaboradoresFiltrados.map((c) => (
                 <div
                   key={c.id}
@@ -261,8 +267,8 @@ export function ColaboradoresPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-medium text-[#1F2937] leading-tight line-clamp-2">{c.nome_completo}</p>
-                    <p className="text-[12px] font-normal text-[#94A3B8] mt-0.5 line-clamp-1">{c.cargo || c.departamento || '—'}</p>
+                    <p className="text-[14px] font-medium text-[#1F2937] leading-tight line-clamp-3 sm:line-clamp-2 break-words">{c.nome_completo}</p>
+                    <p className="text-[12px] font-normal text-[#94A3B8] mt-0.5 line-clamp-2 sm:line-clamp-1 break-words">{c.cargo || c.departamento || '—'}</p>
                   </div>
                 </div>
               ))}
@@ -312,7 +318,7 @@ export function ColaboradoresPage() {
                     {modoEdicao ? 'Editar colaborador' : 'Detalhes'}
                   </DialogTitle>
                   <div className="flex items-center gap-1">
-                    {!modoEdicao && (
+                    {!modoEdicao && podeEditar && (
                       <Button
                         variant="ghost"
                         size="sm"

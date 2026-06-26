@@ -27,10 +27,12 @@ import {
 } from '@/components/ui/dialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
 import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
 import { nomeDepartamento } from '@/lib/utils'
+import { podeEditarContratoAdicional } from '@/lib/permissoes'
 
 const REGIMES_TRABALHO: { value: RegimeTrabalho; label: string }[] = [
   { value: '12x36', label: '12 × 36 (dia sim, dia não)' },
@@ -76,6 +78,10 @@ function novoContratoVazio(): Omit<ContratoAdicional, 'id' | 'created_at' | 'upd
 }
 
 export function AdicionaisContratosPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarContratoAdicional(perfil) : false
+
   const { contratos, vinculos, loading, listarContratos, listarVinculos, criarContrato, atualizarContrato, removerContrato } = useAdicionaisContratuais()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
   const [form, setForm] = useState(novoContratoVazio())
@@ -166,6 +172,7 @@ export function AdicionaisContratosPage() {
         <p className="text-sm" style={{ color: '#94A3B8' }}>Cadastre contratos com os adicionais contratuais por departamento</p>
       </div>
 
+      {podeEditar && (
       <AdicionaisCard title={editandoId ? 'Editar contrato' : 'Novo contrato'}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="space-y-2">
@@ -272,6 +279,7 @@ export function AdicionaisContratosPage() {
           )}
         </div>
       </AdicionaisCard>
+      )}
 
       <AdicionaisCard title="Contratos cadastrados">
         <div className="mb-4 w-full md:w-72">
@@ -341,19 +349,23 @@ export function AdicionaisContratosPage() {
                       </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <button
-                          className="p-1.5 rounded-md hover:bg-slate-100"
-                          style={{ color: '#1F2937' }}
-                          onClick={() => handleEditar(c)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
-                          onClick={() => setConfirmarExclusao(c.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {podeEditar && (
+                          <button
+                            className="p-1.5 rounded-md hover:bg-slate-100"
+                            style={{ color: '#1F2937' }}
+                            onClick={() => handleEditar(c)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        {podeEditar && (
+                          <button
+                            className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
+                            onClick={() => setConfirmarExclusao(c.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

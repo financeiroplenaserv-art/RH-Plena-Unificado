@@ -20,6 +20,15 @@ import { gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAnexos } from '@/hooks/useAnexos'
 import { useTestemunhas } from '@/hooks/useTestemunhas'
 import { useAuditoria } from '@/hooks/useAuditoria'
+import { useAuth } from '@/hooks/useAuth'
+import {
+  podeGerarPDFOcorrencia,
+  podeAprovarOcorrencia,
+  podeCancelarOcorrencia,
+  podeAnexarOcorrencia,
+  podeAdicionarTestemunha,
+  podeVerAuditoria,
+} from '@/lib/permissoes'
 import {
   ArrowLeft,
   Printer,
@@ -61,6 +70,15 @@ const TIPOS_COM_DOCUMENTO_OBRIGATORIO = [
 
 export function OcorrenciaDetailPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeGerarPDF = perfil ? podeGerarPDFOcorrencia(perfil) : false
+  const podeAprovar = perfil ? podeAprovarOcorrencia(perfil) : false
+  const podeCancelar = perfil ? podeCancelarOcorrencia(perfil) : false
+  const podeAnexar = perfil ? podeAnexarOcorrencia(perfil) : false
+  const podeTestemunha = perfil ? podeAdicionarTestemunha(perfil) : false
+  const podeAuditoria = perfil ? podeVerAuditoria(perfil) : false
+
   const { id } = useParams<{ id: string }>()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -290,15 +308,18 @@ export function OcorrenciaDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGerarPDF}
-            className="gap-1 text-xs h-8"
-          >
-            <Printer className="h-3.5 w-3.5" /> Gerar PDF
-          </Button>
+          {podeGerarPDF && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGerarPDF}
+              className="gap-1 text-xs h-8"
+            >
+              <Printer className="h-3.5 w-3.5" /> Gerar PDF
+            </Button>
+          )}
           {isPendente &&
+            podeAprovar &&
             TIPOS_COM_DOCUMENTO_OBRIGATORIO.includes(ocorrencia.tipo_penalidade || '') && (
               <Button
                 size="sm"
@@ -311,7 +332,7 @@ export function OcorrenciaDetailPage() {
                 {ativando ? 'Ativando...' : 'Ativar'}
               </Button>
             )}
-          {(isPendente || isAtiva) && (
+          {(isPendente || isAtiva) && podeCancelar && (
             <Button
               variant="outline"
               size="sm"
@@ -465,10 +486,12 @@ export function OcorrenciaDetailPage() {
                 <UserPlus className="h-3.5 w-3.5" />
                 Testemunhas ({testemunhas.length})
               </TabsTrigger>
-              <TabsTrigger value="auditoria" className="gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
-                Auditoria
-              </TabsTrigger>
+              {podeAuditoria && (
+                <TabsTrigger value="auditoria" className="gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  Auditoria
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="anexos">
@@ -479,7 +502,7 @@ export function OcorrenciaDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isCancelada && (
+                {!isCancelada && podeAnexar && (
                   <div className="bg-slate-50 rounded-lg p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <Upload className="h-4 w-4 text-slate-500" />
@@ -589,7 +612,7 @@ export function OcorrenciaDetailPage() {
                                   <Eye className="h-3.5 w-3.5" />
                                 </a>
                               </Button>
-                              {!isCancelada && (
+                              {!isCancelada && podeAnexar && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -617,7 +640,7 @@ export function OcorrenciaDetailPage() {
                 <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                   Testemunhas da Ocorrência
                 </CardTitle>
-                {!isCancelada && (
+                {!isCancelada && podeTestemunha && (
                   <Button
                     size="sm"
                     onClick={() => setMostrarFormTestemunha(!mostrarFormTestemunha)}
@@ -724,7 +747,7 @@ export function OcorrenciaDetailPage() {
                             </p>
                           </div>
                         </div>
-                        {!isCancelada && (
+                        {!isCancelada && podeTestemunha && (
                           <Button
                             variant="ghost"
                             size="sm"

@@ -22,6 +22,8 @@ export function useResultadosVR() {
       }
 
       setResultados((data as ResultadoVR[]) || [])
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro inesperado ao carregar resultados')
     } finally {
       setLoading(false)
     }
@@ -29,7 +31,11 @@ export function useResultadosVR() {
 
   const salvarLote = useCallback(async (projetoId: string, items: Partial<ResultadoVR>[]) => {
     // Remove resultados antigos do projeto
-    await supabase.from('resultados_vr').delete().eq('projeto_id', projetoId)
+    const { error: erroDelete } = await supabase.from('resultados_vr').delete().eq('projeto_id', projetoId)
+    if (erroDelete) {
+      toast.error('Erro ao limpar resultados anteriores: ' + erroDelete.message)
+      return false
+    }
 
     if (items.length === 0) return true
 

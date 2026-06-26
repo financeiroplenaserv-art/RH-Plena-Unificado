@@ -333,7 +333,7 @@ export function CeuRelatoriosPage() {
                       return (
                         <tr key={e.id} className="border-t border-slate-100">
                           <td className="px-4 py-2 whitespace-nowrap">{formatarData(e.data_entrega)}</td>
-                          <td className="px-4 py-2">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
+                          <td className="px-4 py-2 break-words max-w-[200px]">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
                           <td className="px-4 py-2">
                             <CeuBadge type={badgeType(tipo)}>
                               {tipo || '—'}
@@ -382,8 +382,8 @@ export function CeuRelatoriosPage() {
                 entregasFiltradas.map((e) => (
                   <tr key={e.id} className="border-t border-slate-100">
                     <td className="px-4 py-2">{formatarData(e.data_entrega)}</td>
-                    <td className="px-4 py-2">{e.colaborador?.nome_completo || e.colaborador_id}</td>
-                    <td className="px-4 py-2">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
+                    <td className="px-4 py-2 break-words max-w-[220px]">{e.colaborador?.nome_completo || e.colaborador_id}</td>
+                    <td className="px-4 py-2 break-words max-w-[200px]">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
                     <td className="px-4 py-2">
                       <CeuBadge type={badgeType(e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || '')}>
                         {e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || '—'}

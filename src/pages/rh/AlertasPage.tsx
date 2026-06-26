@@ -4,8 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAlertas } from '@/hooks/useAlertas'
+import { useAuth } from '@/hooks/useAuth'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { podeGerenciarAlertas } from '@/lib/permissoes'
 import type { Alerta } from '@/types/database'
 import {
   Bell,
@@ -60,6 +62,10 @@ const tipoIcones: Record<string, LucideIcon> = {
 
 export function AlertasPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeGerenciar = perfil ? podeGerenciarAlertas(perfil) : false
+
   const { alertas, loading, loadAlertas, marcarComoLido, arquivar, gerarAlertasAutomaticos } =
     useAlertas()
   const [filtroSeveridade, setFiltroSeveridade] = useState('')
@@ -114,15 +120,17 @@ export function AlertasPage() {
           </div>
           <p className="text-sm text-slate-500">Alertas automáticos de conformidade legal</p>
         </div>
-        <Button
-          size="sm"
-          onClick={handleGerarAlertas}
-          disabled={gerando}
-          className="gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${gerando ? 'animate-spin' : ''}`} />{' '}
-          {gerando ? 'Analisando...' : 'Verificar Alertas'}
-        </Button>
+        {podeGerenciar && (
+          <Button
+            size="sm"
+            onClick={handleGerarAlertas}
+            disabled={gerando}
+            className="gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${gerando ? 'animate-spin' : ''}`} />{' '}
+            {gerando ? 'Analisando...' : 'Verificar Alertas'}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -234,7 +242,7 @@ export function AlertasPage() {
                       )}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      {a.status === 'ativo' && (
+                      {a.status === 'ativo' && podeGerenciar && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -245,6 +253,7 @@ export function AlertasPage() {
                           <CheckCircle className="h-4 w-4" />
                         </Button>
                       )}
+                      {podeGerenciar && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -254,6 +263,7 @@ export function AlertasPage() {
                       >
                         <Archive className="h-4 w-4" />
                       </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

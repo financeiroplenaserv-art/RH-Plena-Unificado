@@ -20,7 +20,9 @@ import {
 } from '@/components/ui/table'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
+import { useAuth } from '@/hooks/useAuth'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { podeEditarExtra } from '@/lib/permissoes'
 import type { StatusExtra, CategoriaOcorrencia } from '@/types/extras'
 
 const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
@@ -38,6 +40,10 @@ function formatarMoeda(valor: number) {
 
 export function ExtrasLancamentosPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarExtra(perfil) : false
+
   const { extras, loading, listar, listarCategorias, remover } = useExtras()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
 
@@ -103,14 +109,16 @@ export function ExtrasLancamentosPage() {
           <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Lançamentos de extras</h2>
           <p className="text-sm" style={{ color: '#94A3B8' }}>Controle de faltas, coberturas e pagamentos em cash</p>
         </div>
-        <ExtrasButton onClick={() => navigate('/extras/novo')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo extra
-        </ExtrasButton>
+        {podeEditar && (
+          <ExtrasButton onClick={() => navigate('/extras/novo')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo extra
+          </ExtrasButton>
+        )}
       </div>
 
       <ExtrasCard title="Filtros">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Data início</Label>
             <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="rounded-lg" />
@@ -143,7 +151,7 @@ export function ExtrasLancamentosPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 lg:col-span-2">
+          <div className="space-y-2 md:col-span-2">
             <Label style={{ color: '#1F2937' }}>Colaborador</Label>
             <Select value={colaboradorFiltro} onValueChange={setColaboradorFiltro}>
               <SelectTrigger className="rounded-lg">
@@ -155,7 +163,7 @@ export function ExtrasLancamentosPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 lg:col-span-2">
+          <div className="space-y-2 md:col-span-2">
             <Label style={{ color: '#1F2937' }}>Buscar</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -195,10 +203,12 @@ export function ExtrasLancamentosPage() {
                   <TableCell colSpan={8} className="text-center py-8" style={{ color: '#94A3B8' }}>
                     <div className="flex flex-col items-center gap-3">
                       <span>Nenhum registro encontrado</span>
-                      <ExtrasButton size="sm" onClick={() => navigate('/extras/novo')}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Novo extra
-                      </ExtrasButton>
+                      {podeEditar && (
+                        <ExtrasButton size="sm" onClick={() => navigate('/extras/novo')}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Novo extra
+                        </ExtrasButton>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -206,10 +216,10 @@ export function ExtrasLancamentosPage() {
                 extrasFiltrados.map(extra => (
                   <TableRow key={extra.id}>
                     <TableCell>{formatarDataBR(extra.data_ocorrencia)}</TableCell>
-                    <TableCell>{extra.departamento_nome || '—'}</TableCell>
-                    <TableCell>{extra.colaborador_ausente_nome || '—'}</TableCell>
-                    <TableCell>{extra.substituto_nome || '—'}</TableCell>
-                    <TableCell>{extra.motivo}</TableCell>
+                    <TableCell className="break-words">{extra.departamento_nome || '—'}</TableCell>
+                    <TableCell className="break-words">{extra.colaborador_ausente_nome || '—'}</TableCell>
+                    <TableCell className="break-words">{extra.substituto_nome || '—'}</TableCell>
+                    <TableCell className="break-words">{extra.motivo}</TableCell>
                     <TableCell>{formatarMoeda(extra.valor)}</TableCell>
                     <TableCell>
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -222,12 +232,16 @@ export function ExtrasLancamentosPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <ExtrasButton variant="outline" size="sm" onClick={() => navigate(`/extras/${extra.id}/editar`)}>
-                          <Pencil className="w-3 h-3" />
-                        </ExtrasButton>
-                        <ExtrasButton variant="danger" size="sm" onClick={() => handleExcluir(extra.id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </ExtrasButton>
+                        {podeEditar && (
+                          <>
+                            <ExtrasButton variant="outline" size="sm" onClick={() => navigate(`/extras/${extra.id}/editar`)}>
+                              <Pencil className="w-3 h-3" />
+                            </ExtrasButton>
+                            <ExtrasButton variant="danger" size="sm" onClick={() => handleExcluir(extra.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </ExtrasButton>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

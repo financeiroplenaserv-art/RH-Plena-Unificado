@@ -13,6 +13,7 @@ export function gerarComprovanteIndividualHTML(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Comprovante VR - ${escapeHtml(resultado.nome)}</title>
   <style>
     * { box-sizing: border-box; }
@@ -69,6 +70,7 @@ export function gerarComprovanteGeralHTML(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Comprovantes VR</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; }
@@ -176,6 +178,7 @@ export function gerarRecibosLoteHTML(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Recibos VR - ${escProjetoNome}</title>
   <style>
     @page { size: A4; margin: 15mm; }

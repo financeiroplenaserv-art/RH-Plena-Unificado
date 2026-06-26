@@ -14,6 +14,8 @@ import {
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { gerarPDFColaborador, gerarPDFOcorrencia } from '@/lib/pdf'
+import { useAuth } from '@/hooks/useAuth'
+import { podeEditarColaboradorBasico, podeEditarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
 import {
   ArrowLeft,
   Edit,
@@ -32,6 +34,11 @@ import type { Colaborador, Ocorrencia } from '@/types/database'
 export function ColaboradorDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
+  const podeEditarOc = perfil ? podeEditarOcorrencia(perfil) : false
+  const podeCancelarOc = perfil ? podeCancelarOcorrencia(perfil) : false
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [loading, setLoading] = useState(true)
@@ -117,13 +124,15 @@ export function ColaboradorDetailPage() {
           >
             <Printer className="h-3.5 w-3.5" /> Ficha PDF
           </Button>
-          <Button
-            size="sm"
-            onClick={() => navigate(`/rh/colaboradores/${id}/editar`)}
-            className="gap-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
-          >
-            <Edit className="h-3.5 w-3.5" /> Editar
-          </Button>
+          {podeEditar && (
+            <Button
+              size="sm"
+              onClick={() => navigate(`/rh/colaboradores/${id}/editar`)}
+              className="gap-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+            >
+              <Edit className="h-3.5 w-3.5" /> Editar
+            </Button>
+          )}
         </div>
       </div>
 
@@ -201,13 +210,15 @@ export function ColaboradorDetailPage() {
               </span>
             )}
           </div>
-          <Button
-            size="sm"
-            onClick={() => navigate(`/rh/ocorrencias/colaborador/${id}`)}
-            className="gap-1 text-xs bg-amber-600 hover:bg-amber-700"
-          >
-            <Plus className="h-3.5 w-3.5" /> Nova Ocorrência
-          </Button>
+          {podeEditarOc && (
+            <Button
+              size="sm"
+              onClick={() => navigate(`/rh/ocorrencias/colaborador/${id}`)}
+              className="gap-1 text-xs bg-amber-600 hover:bg-amber-700"
+            >
+              <Plus className="h-3.5 w-3.5" /> Nova Ocorrência
+            </Button>
+          )}
         </div>
 
         {ocorrencias.length === 0 ? (
@@ -264,7 +275,7 @@ export function ColaboradorDetailPage() {
                       >
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
-                      {o.status !== 'Cancelada' && (
+                      {o.status !== 'Cancelada' && podeCancelarOc && (
                         <Button
                           variant="ghost"
                           size="sm"

@@ -83,6 +83,7 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Recibo EPI ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
@@ -363,6 +364,7 @@ export function gerarReciboEPIPB(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Recibo EPI ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
@@ -597,6 +599,7 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Recibo Uniforme/Crachá ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }
@@ -848,6 +851,7 @@ export function gerarReciboUniformePB(data: ReciboData): string {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
   <title>Recibo Uniforme/Crachá ${escapeHtml(numeroRecibo)}</title>
   <style>
     @page { size: A4; margin: 1.5cm; }

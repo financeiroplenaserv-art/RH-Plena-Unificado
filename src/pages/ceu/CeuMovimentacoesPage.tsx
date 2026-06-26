@@ -496,13 +496,13 @@ export function CeuMovimentacoesPage() {
                     return (
                       <TableRow key={`${mov.data}|${mov.colaborador_id}`}>
                         <TableCell className="whitespace-nowrap">{formatarData(mov.data)}</TableCell>
-                        <TableCell>
+                        <TableCell className="break-words max-w-[220px]">
                           <div>
                             <p className="font-medium">{mov.colaborador?.nome_completo || '—'}</p>
                             <p className="text-xs text-slate-500">{mov.colaborador?.matricula || '—'}</p>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="break-words max-w-[260px]">
                           <div className="flex flex-wrap gap-x-3 gap-y-1">
                             {mov.entregas.map((e) => {
                               const nome = e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'

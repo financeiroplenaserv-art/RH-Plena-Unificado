@@ -59,6 +59,8 @@ export interface VRConfiguracao {
   dadosEmpresa: VRDadosEmpresa
 }
 
+export type VRMatchTipo = 'cpf' | 'nome_exato' | 'nome_palavras' | 'nome_similar' | 'base_cpf' | 'nenhum'
+
 export interface VRResultadoCalculo {
   cpf: string
   nome: string
@@ -69,6 +71,7 @@ export interface VRResultadoCalculo {
   diasAbatimento: number
   valorBruto: number
   extra?: number
+  matchTipo?: VRMatchTipo
   detalhes: string[]
 }
 

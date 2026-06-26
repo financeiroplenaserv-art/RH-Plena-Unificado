@@ -21,8 +21,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useEmpresas } from '@/hooks/useEmpresas'
+import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { formatarCNPJ } from '@/lib/utils'
+import { podeEditarEmpresa, podeExcluirEmpresa } from '@/lib/permissoes'
+import { toast } from 'sonner'
 import type { Empresa } from '@/types/database'
 
 const emptyForm = {
@@ -32,6 +35,11 @@ const emptyForm = {
 }
 
 export function EmpresasPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarEmpresa(perfil) : false
+  const podeExcluir = perfil ? podeExcluirEmpresa(perfil) : false
+
   const { empresas, loading, listar, criar, atualizar, remover } = useEmpresas()
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState(emptyForm)
@@ -51,8 +59,8 @@ export function EmpresasPage() {
     )
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!form.nome.trim()) return
 
     const payload = {
@@ -61,14 +69,18 @@ export function EmpresasPage() {
       codigo_alterdata: form.codigo_alterdata.trim() || null,
     }
 
-    if (editandoId) {
-      await atualizar(editandoId, payload)
-    } else {
-      await criar(payload)
+    try {
+      if (editandoId) {
+        await atualizar(editandoId, payload)
+      } else {
+        await criar(payload)
+      }
+      setForm(emptyForm)
+      setEditandoId(null)
+    } catch (err) {
+      console.error('Erro ao salvar empresa:', err)
+      toast.error('Erro ao salvar empresa. Tente novamente.')
     }
-
-    setForm(emptyForm)
-    setEditandoId(null)
   }
 
   const handleEditar = (empresa: Empresa) => {
@@ -99,6 +111,7 @@ export function EmpresasPage() {
         </div>
       </div>
 
+      {podeEditar && (
       <Card className="border-none shadow-sm rounded-[12px]">
         <CardHeader>
           <CardTitle className="text-base font-semibold text-[#1F2937]">
@@ -143,6 +156,7 @@ export function EmpresasPage() {
               <Button
                 type="submit"
                 disabled={!form.nome.trim()}
+                onClick={handleSubmit}
                 className="bg-[#1F2937] hover:bg-[#111827]"
               >
                 {editandoId ? (
@@ -166,6 +180,7 @@ export function EmpresasPage() {
           </form>
         </CardContent>
       </Card>
+      )}
 
       <Card className="border-none shadow-sm rounded-[12px]">
         <CardHeader>
@@ -214,22 +229,26 @@ export function EmpresasPage() {
                         <TableCell>{empresa.codigo_alterdata || '—'}</TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditar(empresa)}
-                              className="h-8 w-8 text-slate-500 hover:text-[#1F2937]"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setRemoverId(empresa.id)}
-                              className="h-8 w-8 text-slate-400 hover:text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {podeEditar && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditar(empresa)}
+                                className="h-8 w-8 text-slate-500 hover:text-[#1F2937]"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {podeExcluir && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRemoverId(empresa.id)}
+                                className="h-8 w-8 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -191,25 +191,37 @@ function parsePagina(texto: string): PontoColaborador | null {
 
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i]
-    const dataMatch = linha.match(/^(\d{2}\/\d{2})(?:\/\d{2,4})?\s*-\s*[A-Za-zÀ-ÿ]{3}/)
+    // CORREÇÃO: regex flexível para aceitar PDFs com e sem dia da semana,
+    // e também PDFs onde data e conteúdo estão em linhas separadas.
+    const dataMatch = linha.match(/^(\d{2}\/\d{2})(?:\/\d{2,4})?(?:\s*[-–]\s*[A-Za-zÀ-ÿ]{3})?/i)
     if (!dataMatch) continue
 
     const dataCompleta = dataMatch[0].includes('/20') ? dataMatch[0] : `${dataMatch[1]}/${anoReferencia || new Date().getFullYear()}`
     const data = converterData(dataCompleta)
     if (!data) continue
 
+    // Pega o resto da própria linha (se houver) e as próximas linhas não-vazias
+    // que sejam continuação do registro de ponto (até encontrar outra data ou cabeçalho).
+    const partes: string[] = []
     const resto = linha.substring(dataMatch[0].length).trim()
-    let proximaLinha = ''
+    if (resto) partes.push(resto)
 
-    // Se a linha seguinte não for data nem cabeçalho conhecido, pode ser continuação (ex: Folga, 00:00)
-    if (i + 1 < linhas.length) {
-      const next = linhas[i + 1].trim()
-      if (next && !/^\d{2}\/\d{2}/.test(next) && !linhaContem(next, ['colaborador', 'matrícula', 'matricula', 'período', 'periodo', 'data', 'realizado', 'h.trab', 'htrab'])) {
-        proximaLinha = next
+    let j = i + 1
+    while (j < linhas.length) {
+      const proxima = linhas[j].trim()
+      if (!proxima) {
+        j++
+        continue
       }
+      // Parar se encontrar outra data ou cabeçalho conhecido
+      if (/^\d{2}\/\d{2}/.test(proxima)) break
+      if (linhaContem(proxima, ['colaborador', 'matrícula', 'matricula', 'período', 'periodo', 'data', 'realizado', 'h.trab', 'htrab'])) break
+      partes.push(proxima)
+      j++
+      if (partes.length >= 3) break // limite de segurança
     }
 
-    const textoParaAnalise = [resto, proximaLinha].filter(Boolean).join(' ')
+    const textoParaAnalise = partes.join(' ')
     const { status, horarios, observacao, revisao } = detectarStatus(textoParaAnalise, statusAnterior)
     statusAnterior = status
 

@@ -29,9 +29,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { useAuth } from '@/hooks/useAuth'
 import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
 import { mascaraCEP, mascaraTelefone } from '@/lib/utils'
+import {
+  podeEditarDepartamento,
+  podeExcluirDepartamento,
+  podeImportarDepartamentos,
+} from '@/lib/permissoes'
 import type { Departamento } from '@/types/database'
 
 function getStatusBadge(status: string) {
@@ -114,6 +120,12 @@ const formVazio: Partial<Departamento> = {
 }
 
 export function DepartamentosPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarDepartamento(perfil) : false
+  const podeExcluir = perfil ? podeExcluirDepartamento(perfil) : false
+  const podeImportar = perfil ? podeImportarDepartamentos(perfil) : false
+
   const { departamentos, loading, sincronizando, listar, criar, atualizar, remover, sincronizar } = useDepartamentos()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'Ativo' | 'Inativo'>('Ativo')
@@ -269,14 +281,16 @@ export function DepartamentosPage() {
             <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Departamentos</h2>
             <p className="text-sm" style={{ color: '#94A3B8' }}>Gestão de condomínios, empresas e hospitais</p>
           </div>
-          <button
-            onClick={handleNovo}
-            className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: '#1F2937' }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Novo departamento
-          </button>
+          {podeEditar && (
+            <button
+              onClick={handleNovo}
+              className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium text-white transition-colors"
+              style={{ backgroundColor: '#1F2937' }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo departamento
+            </button>
+          )}
         </div>
 
         {/* Filtros */}
@@ -319,23 +333,27 @@ export function DepartamentosPage() {
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                   Excel
                 </button>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors"
-                  style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  CSV
-                </button>
-                <button
-                  onClick={sincronizar}
-                  disabled={sincronizando || departamentos.length === 0}
-                  className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
-                  style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-                >
-                  {sincronizando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                  Sync
-                </button>
+                {podeImportar && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors"
+                    style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    CSV
+                  </button>
+                )}
+                {podeImportar && (
+                  <button
+                    onClick={sincronizar}
+                    disabled={sincronizando || departamentos.length === 0}
+                    className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
+                  >
+                    {sincronizando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    Sync
+                  </button>
+                )}
                 <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportarCSV} />
               </div>
             </div>
@@ -343,7 +361,7 @@ export function DepartamentosPage() {
         </div>
 
         {/* Formulário */}
-        {mostrarForm && (
+        {podeEditar && mostrarForm && (
           <div className="rounded-xl shadow-sm border-0 overflow-hidden" style={{ backgroundColor: '#FFFFFF' }}>
             <div className="px-6 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
               <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>{editandoId ? 'Editar departamento' : 'Novo departamento'}</h3>
@@ -629,23 +647,27 @@ export function DepartamentosPage() {
                         <TableCell>{getStatusBadge(d.status)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              className="p-1.5 rounded-md hover:bg-slate-100"
-                              style={{ color: '#1F2937' }}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleEditar(d)
-                              }}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
-                              onClick={() => setConfirmarExclusao(d.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {podeEditar && (
+                              <button
+                                type="button"
+                                className="p-1.5 rounded-md hover:bg-slate-100"
+                                style={{ color: '#1F2937' }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditar(d)
+                                }}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                            )}
+                            {podeExcluir && (
+                              <button
+                                className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
+                                onClick={() => setConfirmarExclusao(d.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

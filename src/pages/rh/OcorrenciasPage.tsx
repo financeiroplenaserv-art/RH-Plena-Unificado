@@ -33,7 +33,13 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { Paginacao } from '@/components/Paginacao'
 import { useOcorrencias } from '@/hooks/useOcorrencias'
+import { useAuth } from '@/hooks/useAuth'
 import { formatarData } from '@/lib/utils'
+import {
+  podeCriarOcorrencia,
+  podeVerDetalhesOcorrencia,
+  podeCancelarOcorrencia,
+} from '@/lib/permissoes'
 
 const MACRO_GRUPOS = [
   '1. Jornada e Ponto',
@@ -51,6 +57,12 @@ const GRAVIDADES = ['Leve', 'Média', 'Grave', 'Gravíssima']
 
 export function OcorrenciasPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeCriar = perfil ? podeCriarOcorrencia(perfil) : false
+  const podeVerDetalhes = perfil ? podeVerDetalhesOcorrencia(perfil) : false
+  const podeCancelar = perfil ? podeCancelarOcorrencia(perfil) : false
+
   const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
   const [pagina, setPagina] = useState(0)
   const [busca, setBusca] = useState('')
@@ -135,12 +147,14 @@ export function OcorrenciasPage() {
             )}
           </p>
         </div>
-        <Button
-          onClick={() => navigate('/rh/ocorrencias/novo')}
-          className="gap-2 bg-[#1F2937] hover:bg-slate-800"
-        >
-          <Plus className="h-4 w-4" /> Nova Ocorrência
-        </Button>
+        {podeCriar && (
+          <Button
+            onClick={() => navigate('/rh/ocorrencias/novo')}
+            className="gap-2 bg-[#1F2937] hover:bg-slate-800"
+          >
+            <Plus className="h-4 w-4" /> Nova Ocorrência
+          </Button>
+        )}
       </div>
 
       <Card className="bg-white rounded-[12px] shadow-sm border-none">
@@ -281,7 +295,7 @@ export function OcorrenciasPage() {
           {loading ? (
             <LoadingScreen className="h-64" />
           ) : (
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="border border-slate-200 rounded-lg overflow-hidden overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -307,20 +321,20 @@ export function OcorrenciasPage() {
                         key={o.id}
                         className={o.status === 'Pendente' ? 'bg-slate-50/50' : ''}
                       >
-                        <TableCell className="whitespace-nowrap text-xs text-[#94A3B8]">
+                        <TableCell className="text-xs text-[#94A3B8]">
                           {formatarData(o.data_ocorrencia)}
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium text-[#1F2937]">
+                          <p className="font-medium text-[#1F2937] break-words">
                             {o.colaborador?.nome_completo || 'N/A'}
                           </p>
                           <p className="text-xs text-[#94A3B8]">{o.colaborador?.matricula}</p>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-xs text-[#94A3B8]">
+                        <TableCell className="hidden lg:table-cell text-xs text-[#94A3B8] break-words">
                           {o.macro_grupo || '—'}
                         </TableCell>
-                        <TableCell className="text-[#1F2937]">{o.tipo_ocorrencia}</TableCell>
-                        <TableCell className="hidden md:table-cell max-w-xs truncate text-[#1F2937]">
+                        <TableCell className="text-[#1F2937] break-words">{o.tipo_ocorrencia}</TableCell>
+                        <TableCell className="hidden md:table-cell max-w-[12rem] lg:max-w-xs break-words text-[#1F2937]">
                           {o.titulo || <span className="text-[#94A3B8] italic">Sem título</span>}
                         </TableCell>
                         <TableCell>
@@ -328,16 +342,18 @@ export function OcorrenciasPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => navigate(`/rh/ocorrencias/${o.id}`)}
-                              className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white h-8 w-8"
-                              title="Ver detalhes"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {o.status !== 'Cancelada' && (
+                            {podeVerDetalhes && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => navigate(`/rh/ocorrencias/${o.id}`)}
+                                className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white h-8 w-8"
+                                title="Ver detalhes"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {o.status !== 'Cancelada' && podeCancelar && (
                               <Button
                                 variant="outline"
                                 size="icon"

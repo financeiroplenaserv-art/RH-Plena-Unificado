@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Save, X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { Save, X, ChevronLeft, ChevronRight, Check, House } from 'lucide-react'
 import { toast } from 'sonner'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
-import { mascaraMoeda, mascaraMoedaInput, parseMoeda, nomeDepartamento } from '@/lib/utils'
-import type { Extra, TurnoExtra, MotivoExtra, ComunicacaoTipo, CategoriaOcorrencia } from '@/types/extras'
+import { mascaraMoeda, mascaraMoedaInput, parseMoeda, nomeDepartamento, formatarData } from '@/lib/utils'
+import type { Extra, TurnoExtra, MotivoExtra, ComunicacaoTipo } from '@/types/extras'
 
 const TURNOS: TurnoExtra[] = ['Dia', 'Manhã', 'Tarde', 'Noite', 'Noite anterior']
 const MOTIVOS: MotivoExtra[] = [
@@ -22,7 +22,6 @@ const MOTIVOS: MotivoExtra[] = [
   'Cobertura férias extra faturadas',
   'Outros',
 ]
-const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
 const MEIOS_COMUNICACAO: ComunicacaoTipo[] = ['WhatsApp', 'Email', 'Não se aplica']
 
 const PASSOS = [
@@ -33,25 +32,206 @@ const PASSOS = [
   { num: 5, titulo: 'Revisar', descricao: 'Confira e salve o registro' },
 ]
 
+interface OpcaoProps {
+  label: string
+  selecionado: boolean
+  onClick: () => void
+}
+
+function BotaoOpcao({ label, selecionado, onClick }: OpcaoProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-[2.75rem] sm:min-h-[3.25rem] w-full rounded-xl border px-3 py-2 text-sm sm:text-base font-medium leading-tight transition-colors ${
+        selecionado
+          ? 'border-slate-800 bg-slate-800 text-white shadow-sm'
+          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+function ErroCampo({ mensagem }: { mensagem?: string }) {
+  if (!mensagem) return null
+  return <p className="text-sm text-red-600 mt-1.5 font-medium">{mensagem}</p>
+}
+
+interface BuscaColaboradorProps {
+  label: string
+  valor: string
+  opcoes: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }[]
+  opcoesDestaque?: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }[]
+  placeholder: string
+  naoAplica?: boolean
+  onChange: (valor: string) => void
+  erro?: string
+  desabilitado?: boolean
+}
+
+function BuscaColaborador({
+  label,
+  valor,
+  opcoes,
+  opcoesDestaque,
+  placeholder,
+  naoAplica = false,
+  onChange,
+  erro,
+  desabilitado = false,
+}: BuscaColaboradorProps) {
+  const [aberto, setAberto] = useState(false)
+  const [termo, setTermo] = useState('')
+
+  const selecionado = useMemo(() => opcoes.find(c => c.id === valor), [opcoes, valor])
+
+  const normalizar = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+  const filtradas = useMemo(() => {
+    const t = normalizar(termo)
+    if (!t) return opcoes
+    return opcoes.filter(c => {
+      const nome = normalizar(c.nome_completo)
+      const mat = (c.matricula || '').toLowerCase()
+      return nome.includes(t) || mat.includes(t)
+    })
+  }, [opcoes, termo])
+
+  const temDestaque = (opcoesDestaque || []).length > 0
+
+  const destacadas = useMemo(() => {
+    if (termo.trim()) return []
+    return opcoesDestaque || []
+  }, [opcoesDestaque, termo])
+
+  const outras = useMemo(() => {
+    if (termo.trim()) return filtradas
+    // Se não há destaque configurado, mostra todas as opções ao abrir (ex: substituto)
+    if (!temDestaque) return opcoes
+    return []
+  }, [opcoes, filtradas, termo, temDestaque])
+
+  useEffect(() => {
+    if (!aberto) setTermo('')
+  }, [aberto])
+
+  const exibirTexto = () => {
+    if (naoAplica && valor === '__nao_aplica__') return 'Não se aplica'
+    return selecionado?.nome_completo || ''
+  }
+
+  const renderItem = (c: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }) => (
+    <button
+      key={c.id}
+      type="button"
+      onMouseDown={() => {
+        onChange(c.id)
+        setAberto(false)
+      }}
+      className={`w-full text-left px-4 py-3 text-sm border-b border-slate-100 last:border-0 ${
+        valor === c.id ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+      }`}
+    >
+      <span className="block">{c.nome_completo}</span>
+      {(c.matricula || c.departamento) && (
+        <span className="block text-xs text-slate-500">
+          {[c.matricula, c.departamento].filter(Boolean).join(' — ')}
+        </span>
+      )}
+    </button>
+  )
+
+  return (
+    <div>
+      <label className="block text-base font-semibold text-slate-800 mb-2">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          value={aberto ? termo : exibirTexto()}
+          onChange={e => {
+            setTermo(e.target.value)
+            if (!aberto) setAberto(true)
+          }}
+          onFocus={() => setAberto(true)}
+          onBlur={() => setTimeout(() => setAberto(false), 200)}
+          placeholder={aberto ? 'Digite para buscar em todos...' : placeholder}
+          disabled={desabilitado}
+          className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white ${
+            erro ? 'border-red-400 bg-red-50' : 'border-slate-300'
+          }`}
+        />
+        {aberto && (
+          <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-auto">
+            {naoAplica && (
+              <button
+                type="button"
+                onMouseDown={() => {
+                  onChange('__nao_aplica__')
+                  setAberto(false)
+                }}
+                className={`w-full text-left px-4 py-3 text-sm border-b border-slate-100 last:border-0 ${
+                  valor === '__nao_aplica__' ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+                }`}
+              >
+                Não se aplica
+              </button>
+            )}
+
+            {destacadas.length > 0 && (
+              <>
+                <div className="px-4 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 uppercase tracking-wide">Deste departamento</div>
+                {destacadas.map(renderItem)}
+              </>
+            )}
+
+            {outras.length > 0 && (
+              <>
+                {termo.trim() && filtradas.length > 0 && (
+                  <div className="px-4 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 uppercase tracking-wide">Resultados da busca</div>
+                )}
+                {outras.map(renderItem)}
+              </>
+            )}
+
+            {!termo.trim() && temDestaque && destacadas.length === 0 && (
+              <div className="px-4 py-3 text-sm text-slate-500">
+                Nenhum colaborador deste departamento.<br />
+                <span className="text-xs">Digite o nome para buscar em todos.</span>
+              </div>
+            )}
+
+            {termo.trim() && filtradas.length === 0 && (
+              <div className="px-4 py-3 text-sm text-slate-500">Nenhum colaborador encontrado.</div>
+            )}
+          </div>
+        )}
+      </div>
+      <ErroCampo mensagem={erro} />
+    </div>
+  )
+}
+
 export function MobileFaltaPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { categorias, listarCategorias, criar } = useExtras()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
-  const { departamentos, listar: listarDepartamentos } = useDepartamentos()
+  const { categorias, listarCategorias, criar, verificarDuplicado, loading: loadingExtras } = useExtras()
+  const { colaboradores, listar: listarColaboradores, loading: loadingColaboradores } = useColaboradores()
+  const { departamentos, listar: listarDepartamentos, loading: loadingDepartamentos } = useDepartamentos()
 
   const [passo, setPasso] = useState(1)
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [erros, setErros] = useState<Record<string, string>>({})
 
   const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
   const [turno, setTurno] = useState<TurnoExtra>('Dia')
-  const [categoria, setCategoria] = useState<CategoriaOcorrencia>('Operacional')
   const [departamentoId, setDepartamentoId] = useState('')
+  const [motivo, setMotivo] = useState<MotivoExtra>('Falta sem justificativa')
   const [ausenteId, setAusenteId] = useState('')
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
   const [substitutoId, setSubstitutoId] = useState('')
-  const [motivo, setMotivo] = useState<MotivoExtra>('Falta sem justificativa')
   const [categoriaValorId, setCategoriaValorId] = useState<string>('acordado')
   const [valorInput, setValorInput] = useState('')
   const [extraFaturado, setExtraFaturado] = useState(false)
@@ -60,6 +240,8 @@ export function MobileFaltaPage() {
   const [comunicacaoHora, setComunicacaoHora] = useState('')
   const [comunicacaoDetalhes, setComunicacaoDetalhes] = useState('')
   const [observacoes, setObservacoes] = useState('')
+
+  const carregando = loadingExtras || loadingColaboradores || loadingDepartamentos
 
   useEffect(() => {
     listarCategorias()
@@ -86,15 +268,21 @@ export function MobileFaltaPage() {
       .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo))
   }, [colaboradores])
 
+  const normalizarBusca = useCallback((s: string) => {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  }, [])
+
   const colaboradoresDoDept = useMemo(() => {
     if (!departamentoId) return colaboradoresAtivos
     const dept = departamentosAtivos.find(d => d.id === departamentoId)
     if (!dept) return colaboradoresAtivos
-    return colaboradoresAtivos.filter(c =>
-      c.departamento_id === departamentoId ||
-      (c.departamento && dept.nome_curto && c.departamento.toLowerCase().includes(dept.nome_curto.toLowerCase()))
-    )
-  }, [colaboradoresAtivos, departamentosAtivos, departamentoId])
+    const deptNome = normalizarBusca(dept.nome_curto || '')
+    return colaboradoresAtivos.filter(c => {
+      if (c.departamento_id === departamentoId) return true
+      const colabDept = c.departamento ? normalizarBusca(c.departamento) : ''
+      return colabDept && (colabDept.includes(deptNome) || deptNome.includes(colabDept))
+    })
+  }, [colaboradoresAtivos, departamentosAtivos, departamentoId, normalizarBusca])
 
   const getColaborador = (id: string) => colaboradoresAtivos.find(c => c.id === id)
   const getDepartamento = (id: string) => departamentosAtivos.find(d => d.id === id)
@@ -112,12 +300,11 @@ export function MobileFaltaPage() {
     setPasso(1)
     setData(new Date().toISOString().split('T')[0])
     setTurno('Dia')
-    setCategoria('Operacional')
     setDepartamentoId('')
+    setMotivo('Falta sem justificativa')
     setAusenteId('')
     setAusenteNaoAplica(false)
     setSubstitutoId('')
-    setMotivo('Falta sem justificativa')
     setCategoriaValorId('acordado')
     setValorInput('')
     setExtraFaturado(false)
@@ -129,28 +316,46 @@ export function MobileFaltaPage() {
     setSucesso(false)
   }
 
-  const validarPasso = () => {
-    if (passo === 1) {
-      if (!departamentoId) return 'Selecione o departamento'
-      if (!data) return 'Informe a data'
+  const validarPasso = (p = passo) => {
+    const novosErros: Record<string, string> = {}
+    if (p === 1) {
+      if (!data) novosErros.data = 'Informe a data'
+      if (!departamentoId) novosErros.departamento = 'Selecione o departamento'
+      if (!motivo) novosErros.motivo = 'Selecione o motivo'
     }
-    if (passo === 2) {
-      if (!ausenteNaoAplica && !ausenteId) return 'Selecione quem faltou ou marque "Não se aplica"'
-      if (!substitutoId) return 'Selecione o substituto'
+    if (p === 2) {
+      if (!ausenteNaoAplica && !ausenteId) novosErros.ausente = 'Selecione quem faltou ou marque "Não se aplica"'
+      if (!substitutoId) novosErros.substituto = 'Selecione o substituto'
     }
-    if (passo === 3) {
-      if (!valorInput || parseMoeda(valorInput) <= 0) return 'Informe o valor a pagar'
+    if (p === 3) {
+      if (!valorInput || parseMoeda(valorInput) <= 0) novosErros.valor = 'Informe o valor a pagar'
     }
-    return null
+    return novosErros
   }
 
   const avancar = () => {
-    const erro = validarPasso()
-    if (erro) {
-      toast.error(erro)
+    const novosErros = validarPasso()
+    setErros(novosErros)
+    if (Object.keys(novosErros).length > 0) {
+      toast.error('Preencha os campos obrigatórios')
       return
     }
-    setPasso(p => Math.min(p + 1, 5))
+    setPasso(p => Math.min(p + 1, PASSOS.length))
+  }
+
+  const irParaPasso = (p: number) => {
+    if (p < 1 || p > PASSOS.length || p === passo) return
+    // Só permite voltar para passos já visitados
+    if (p > passo) {
+      const novosErros = validarPasso()
+      setErros(novosErros)
+      if (Object.keys(novosErros).length > 0) {
+        toast.error('Preencha os campos obrigatórios')
+        return
+      }
+    }
+    setPasso(p)
+    setErros({})
   }
 
   const voltar = () => {
@@ -158,9 +363,10 @@ export function MobileFaltaPage() {
   }
 
   const handleSubmit = async () => {
-    const erro = validarPasso()
-    if (erro) {
-      toast.error(erro)
+    const novosErros = validarPasso()
+    setErros(novosErros)
+    if (Object.keys(novosErros).length > 0) {
+      toast.error('Preencha os campos obrigatórios')
       return
     }
 
@@ -172,10 +378,12 @@ export function MobileFaltaPage() {
     const payload: Omit<Extra, 'id' | 'created_at' | 'updated_at'> = {
       data_ocorrencia: data,
       turno,
-      categoria,
+      categoria: 'Operacional',
       posto: dept?.nome_curto || dept?.nome || '',
       departamento_id: dept?.id || null,
       departamento_nome: dept ? nomeDepartamento(dept) : null,
+      // Quando ausenteNaoAplica=true, o registro representa um reforço extra/faturado:
+      // há um substituto trabalhando no posto, mas não está cobrindo falta de ninguém.
       colaborador_ausente_id: ausente?.id || null,
       colaborador_ausente_nome: ausente?.nome_completo || null,
       substituto_id: substituto?.id || null,
@@ -196,6 +404,23 @@ export function MobileFaltaPage() {
     }
 
     setSalvando(true)
+
+    const duplicado = await verificarDuplicado(
+      payload.data_ocorrencia,
+      payload.departamento_id,
+      payload.colaborador_ausente_id,
+      payload.colaborador_ausente_nome
+    )
+
+    if (duplicado) {
+      setSalvando(false)
+      toast.error(
+        `Já existe um extra lançado para ${payload.colaborador_ausente_nome || 'este colaborador'} no departamento ${payload.departamento_nome || ''} em ${formatarData(payload.data_ocorrencia)}. Verifique os lançamentos.`,
+        { duration: 6000 }
+      )
+      return
+    }
+
     const sucesso = await criar(payload)
     setSalvando(false)
 
@@ -209,25 +434,32 @@ export function MobileFaltaPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-sm p-8 w-full max-w-sm text-center space-y-6">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <Check className="w-8 h-8 text-green-600" />
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <Check className="w-10 h-10 text-green-600" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Registro salvo!</h2>
-            <p className="text-sm text-slate-500 mt-1">A falta foi registrada com sucesso.</p>
+            <h2 className="text-2xl font-bold text-slate-800">Registro salvo!</h2>
+            <p className="text-base text-slate-500 mt-2">A falta foi registrada com sucesso.</p>
           </div>
           <div className="space-y-3">
             <button
               onClick={limpar}
-              className="w-full h-12 rounded-xl bg-slate-800 text-white font-medium text-base"
+              className="w-full h-12 sm:h-14 rounded-xl bg-slate-800 text-white font-semibold text-base sm:text-lg"
             >
               Novo registro
             </button>
             <button
               onClick={() => navigate('/extras/lancamentos')}
-              className="w-full h-12 rounded-xl bg-white border border-slate-300 text-slate-700 font-medium text-base"
+              className="w-full h-12 sm:h-14 rounded-xl bg-white border border-slate-300 text-slate-700 font-medium text-base sm:text-lg"
             >
               Ver lançamentos
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full h-14 rounded-xl bg-slate-100 text-slate-700 font-medium text-base sm:text-lg flex items-center justify-center"
+            >
+              <House className="w-5 h-5 mr-2" />
+              Voltar ao início
             </button>
           </div>
         </div>
@@ -239,76 +471,86 @@ export function MobileFaltaPage() {
     switch (passo) {
       case 1:
         return (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Data da ocorrência</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Data da ocorrência</label>
               <input
                 type="date"
                 value={data}
-                onChange={e => setData(e.target.value)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800"
+                onChange={e => {
+                  setData(e.target.value)
+                  if (erros.data) setErros(prev => ({ ...prev, data: '' }))
+                }}
+                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 ${erros.data ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
                 required
               />
+              <ErroCampo mensagem={erros.data} />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Turno</label>
-              <select
-                value={turno}
-                onChange={e => setTurno(e.target.value as TurnoExtra)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
-              >
-                {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Turno</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {TURNOS.map(t => (
+                  <BotaoOpcao
+                    key={t}
+                    label={t}
+                    selecionado={turno === t}
+                    onClick={() => setTurno(t)}
+                  />
+                ))}
+              </div>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-              <select
-                value={categoria}
-                onChange={e => setCategoria(e.target.value as CategoriaOcorrencia)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
-              >
-                {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Departamento</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Departamento</label>
               <select
                 value={departamentoId}
                 onChange={e => {
                   setDepartamentoId(e.target.value)
                   setAusenteId('')
                   setSubstitutoId('')
+                  if (erros.departamento) setErros(prev => ({ ...prev, departamento: '' }))
                 }}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
+                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white ${erros.departamento ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
                 required
               >
-                <option value="">Selecione...</option>
+                <option value="">Selecione o posto...</option>
                 {departamentosAtivos.map(d => (
                   <option key={d.id} value={d.id}>{d.nome_curto || d.nome}</option>
                 ))}
               </select>
+              <ErroCampo mensagem={erros.departamento} />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Motivo</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Motivo</label>
               <select
                 value={motivo}
-                onChange={e => setMotivo(e.target.value as MotivoExtra)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
+                onChange={e => {
+                  setMotivo(e.target.value as MotivoExtra)
+                  if (erros.motivo) setErros(prev => ({ ...prev, motivo: '' }))
+                }}
+                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white ${erros.motivo ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
               >
                 {MOTIVOS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
+              <ErroCampo mensagem={erros.motivo} />
             </div>
           </div>
         )
+
       case 2:
         return (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Colaborador ausente</label>
-              <select
-                value={ausenteNaoAplica ? '' : ausenteId}
-                onChange={e => {
-                  const val = e.target.value
+              <BuscaColaborador
+                label="Colaborador ausente"
+                valor={ausenteNaoAplica ? '__nao_aplica__' : ausenteId}
+                opcoes={colaboradoresAtivos}
+                opcoesDestaque={colaboradoresDoDept}
+                placeholder="Selecione o colaborador ausente..."
+                naoAplica
+                onChange={val => {
                   if (val === '__nao_aplica__') {
                     setAusenteNaoAplica(true)
                     setAusenteId('')
@@ -316,40 +558,40 @@ export function MobileFaltaPage() {
                     setAusenteNaoAplica(false)
                     setAusenteId(val)
                   }
+                  if (erros.ausente) setErros(prev => ({ ...prev, ausente: '' }))
                 }}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
-              >
-                <option value="__nao_aplica__">Não se aplica</option>
-                {colaboradoresDoDept.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome_completo}</option>
-                ))}
-              </select>
+                erro={erros.ausente}
+                desabilitado={carregando}
+              />
+              {departamentoId && colaboradoresDoDept.length === 0 && !carregando && (
+                <p className="text-sm text-amber-600 mt-2">Nenhum colaborador ativo neste departamento.</p>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Substituto</label>
-              <select
-                value={substitutoId}
-                onChange={e => setSubstitutoId(e.target.value)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
-                required
-              >
-                <option value="">Selecione...</option>
-                {colaboradoresAtivos.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome_completo}</option>
-                ))}
-              </select>
-            </div>
+
+            <BuscaColaborador
+              label="Substituto"
+              valor={substitutoId}
+              opcoes={colaboradoresAtivos}
+              placeholder="Selecione o substituto..."
+              onChange={val => {
+                setSubstitutoId(val)
+                if (erros.substituto) setErros(prev => ({ ...prev, substituto: '' }))
+              }}
+              erro={erros.substituto}
+              desabilitado={carregando}
+            />
           </div>
         )
+
       case 3:
         return (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Categoria de valor</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Categoria de valor</label>
               <select
                 value={categoriaValorId}
                 onChange={e => handleCategoriaValorChange(e.target.value)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
+                className="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
               >
                 <option value="acordado">Valor acordado</option>
                 {categorias.map(c => (
@@ -357,105 +599,167 @@ export function MobileFaltaPage() {
                 ))}
               </select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Valor a pagar (R$)</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Valor a pagar (R$)</label>
               <input
                 type="text"
                 inputMode="decimal"
                 value={valorInput}
-                onChange={e => setValorInput(mascaraMoedaInput(e.target.value))}
+                onChange={e => {
+                  setValorInput(mascaraMoedaInput(e.target.value))
+                  if (erros.valor) setErros(prev => ({ ...prev, valor: '' }))
+                }}
                 placeholder="R$ 0,00"
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800"
+                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 ${erros.valor ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
                 required
               />
+              <ErroCampo mensagem={erros.valor} />
             </div>
-            <label className="flex items-center gap-3 py-2">
-              <input
-                type="checkbox"
-                checked={extraFaturado}
-                onChange={e => setExtraFaturado(e.target.checked)}
-                className="w-6 h-6 rounded border-slate-300"
-              />
-              <span className="text-base font-medium text-slate-700">Extra faturado</span>
-            </label>
+
+            <div>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Tipo</label>
+              <div className="grid grid-cols-2 gap-3">
+                <BotaoOpcao
+                  label="Extra normal"
+                  selecionado={!extraFaturado}
+                  onClick={() => setExtraFaturado(false)}
+                />
+                <BotaoOpcao
+                  label="Extra faturado"
+                  selecionado={extraFaturado}
+                  onClick={() => setExtraFaturado(true)}
+                />
+              </div>
+            </div>
           </div>
         )
+
       case 4:
         return (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Meio de comunicação</label>
-              <select
-                value={meioComunicacao}
-                onChange={e => setMeioComunicacao(e.target.value as ComunicacaoTipo)}
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
-              >
-                {MEIOS_COMUNICACAO.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-                <input
-                  type="date"
-                  value={comunicacaoData}
-                  onChange={e => setComunicacaoData(e.target.value)}
-                  className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Hora</label>
-                <input
-                  type="time"
-                  value={comunicacaoHora}
-                  onChange={e => setComunicacaoHora(e.target.value)}
-                  className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800"
-                />
+              <label className="block text-base font-semibold text-slate-800 mb-2">Meio de comunicação</label>
+              <div className="grid grid-cols-3 gap-2">
+                {MEIOS_COMUNICACAO.map(c => (
+                  <BotaoOpcao
+                    key={c}
+                    label={c}
+                    selecionado={meioComunicacao === c}
+                    onClick={() => setMeioComunicacao(c)}
+                  />
+                ))}
               </div>
             </div>
+
+            {meioComunicacao !== 'Não se aplica' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-base font-semibold text-slate-800 mb-2">Data</label>
+                  <input
+                    type="date"
+                    value={comunicacaoData}
+                    onChange={e => setComunicacaoData(e.target.value)}
+                    className="w-full h-12 sm:h-14 px-3 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-base font-semibold text-slate-800 mb-2">Hora</label>
+                  <input
+                    type="time"
+                    value={comunicacaoHora}
+                    onChange={e => setComunicacaoHora(e.target.value)}
+                    className="w-full h-12 sm:h-14 px-3 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  />
+                </div>
+              </div>
+            )}
+
+            {meioComunicacao !== 'Não se aplica' && (
+              <div>
+                <label className="block text-base font-semibold text-slate-800 mb-2">Detalhes</label>
+                <input
+                  type="text"
+                  value={comunicacaoDetalhes}
+                  onChange={e => setComunicacaoDetalhes(e.target.value)}
+                  placeholder="Ex: WhatsApp às 7h15"
+                  className="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800"
+                />
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Detalhes</label>
-              <input
-                type="text"
-                value={comunicacaoDetalhes}
-                onChange={e => setComunicacaoDetalhes(e.target.value)}
-                placeholder="Ex: WhatsApp às 7h15"
-                className="w-full h-12 px-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Observações</label>
               <textarea
                 value={observacoes}
                 onChange={e => setObservacoes(e.target.value)}
                 placeholder="Informações adicionais"
                 rows={3}
-                className="w-full p-3 rounded-lg border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-slate-800"
+                className="w-full p-3 sm:p-4 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800"
               />
             </div>
           </div>
         )
+
       case 5:
         return (
           <div className="space-y-4">
-            <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
-              <p><span className="font-medium text-slate-600">Data:</span> {data}</p>
-              <p><span className="font-medium text-slate-600">Turno:</span> {turno}</p>
-              <p><span className="font-medium text-slate-600">Categoria:</span> {categoria}</p>
-              <p><span className="font-medium text-slate-600">Departamento:</span> {getDepartamento(departamentoId)?.nome_curto || '—'}</p>
-              <p><span className="font-medium text-slate-600">Motivo:</span> {motivo}</p>
+            <div className="bg-slate-50 rounded-xl p-5 space-y-3 text-base">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-sm text-slate-500 block">Data</span>
+                  <span className="font-medium text-slate-800">{data}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-slate-500 block">Turno</span>
+                  <span className="font-medium text-slate-800">{turno}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-sm text-slate-500 block">Departamento</span>
+                <span className="font-medium text-slate-800 break-words">{getDepartamento(departamentoId)?.nome_curto || '—'}</span>
+              </div>
+              <div>
+                <span className="text-sm text-slate-500 block">Motivo</span>
+                <span className="font-medium text-slate-800 break-words">{motivo}</span>
+              </div>
               <hr className="border-slate-200" />
-              <p><span className="font-medium text-slate-600">Ausente:</span> {ausenteNaoAplica ? 'Não se aplica' : (getColaborador(ausenteId)?.nome_completo || '—')}</p>
-              <p><span className="font-medium text-slate-600">Substituto:</span> {getColaborador(substitutoId)?.nome_completo || '—'}</p>
+              <div>
+                <span className="text-sm text-slate-500 block">Ausente</span>
+                <span className="font-medium text-slate-800 break-words">
+                  {ausenteNaoAplica ? 'Não se aplica (reforço extra/faturado)' : (getColaborador(ausenteId)?.nome_completo || '—')}
+                </span>
+              </div>
+              <div>
+                <span className="text-sm text-slate-500 block">Substituto</span>
+                <span className="font-medium text-slate-800 break-words">{getColaborador(substitutoId)?.nome_completo || '—'}</span>
+              </div>
               <hr className="border-slate-200" />
-              <p><span className="font-medium text-slate-600">Valor:</span> {mascaraMoeda(parseMoeda(valorInput))}</p>
-              <p><span className="font-medium text-slate-600">Faturado:</span> {extraFaturado ? 'Sim' : 'Não'}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-sm text-slate-500 block">Valor</span>
+                  <span className="font-medium text-slate-800">{mascaraMoeda(parseMoeda(valorInput))}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-slate-500 block">Faturado</span>
+                  <span className="font-medium text-slate-800">{extraFaturado ? 'Sim' : 'Não'}</span>
+                </div>
+              </div>
               <hr className="border-slate-200" />
-              <p><span className="font-medium text-slate-600">Comunicação:</span> {meioComunicacao}</p>
-              {comunicacaoDetalhes && <p><span className="font-medium text-slate-600">Detalhes:</span> {comunicacaoDetalhes}</p>}
+              <div>
+                <span className="text-sm text-slate-500 block">Comunicação</span>
+                <span className="font-medium text-slate-800 break-words">{meioComunicacao}</span>
+              </div>
+              {comunicacaoDetalhes && (
+                <div>
+                  <span className="text-sm text-slate-500 block">Detalhes</span>
+                  <span className="font-medium text-slate-800 break-words">{comunicacaoDetalhes}</span>
+                </div>
+              )}
             </div>
           </div>
         )
+
       default:
         return null
     }
@@ -463,45 +767,54 @@ export function MobileFaltaPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
         <div>
-          <h1 className="text-lg font-bold text-slate-800">Nova falta</h1>
-          <p className="text-xs text-slate-500">Passo {passo} de 5</p>
+          <h1 className="text-xl font-bold text-slate-800">Nova falta</h1>
+          <p className="text-sm text-slate-500">Passo {passo} de {PASSOS.length}</p>
         </div>
         <button
           onClick={() => navigate('/extras/lancamentos')}
-          className="p-2 rounded-lg hover:bg-slate-100"
+          className="p-3 rounded-xl hover:bg-slate-100"
           aria-label="Voltar"
         >
-          <X className="w-5 h-5 text-slate-600" />
+          <X className="w-6 h-6 text-slate-600" />
         </button>
       </div>
 
       <div className="flex-1 p-4 max-w-md mx-auto w-full">
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             {PASSOS.map(p => (
-              <div
+              <button
                 key={p.num}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                type="button"
+                onClick={() => irParaPasso(p.num)}
+                disabled={p.num > passo + 1}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
                   p.num === passo
                     ? 'bg-slate-800 text-white'
                     : p.num < passo
                       ? 'bg-green-100 text-green-700'
-                      : 'bg-slate-200 text-slate-500'
+                      : 'bg-slate-200 text-slate-500 disabled:opacity-50'
                 }`}
               >
-                {p.num < passo ? <Check className="w-4 h-4" /> : p.num}
-              </div>
+                {p.num < passo ? <Check className="w-5 h-5" /> : p.num}
+              </button>
             ))}
           </div>
           <div className="text-center">
-            <h2 className="text-base font-semibold text-slate-800">{PASSOS[passo - 1].titulo}</h2>
-            <p className="text-xs text-slate-500">{PASSOS[passo - 1].descricao}</p>
+            <h2 className="text-lg font-bold text-slate-800">{PASSOS[passo - 1].titulo}</h2>
+            <p className="text-sm text-slate-500">{PASSOS[passo - 1].descricao}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 shadow-sm relative">
+          {carregando && (
+            <div className="absolute inset-0 bg-white/80 rounded-2xl flex flex-col items-center justify-center z-10">
+              <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+              <p className="mt-3 text-sm text-slate-600 font-medium">Carregando...</p>
+            </div>
+          )}
           {renderPasso()}
         </div>
       </div>
@@ -512,29 +825,29 @@ export function MobileFaltaPage() {
             <button
               type="button"
               onClick={voltar}
-              className="h-14 px-4 rounded-xl bg-white border border-slate-300 text-slate-700 font-medium text-base flex items-center"
+              className="h-14 sm:h-16 px-5 rounded-xl bg-white border border-slate-300 text-slate-700 font-semibold text-base sm:text-lg flex items-center"
             >
-              <ChevronLeft className="w-5 h-5 mr-1" />
+              <ChevronLeft className="w-6 h-6 mr-1" />
               Voltar
             </button>
           )}
-          {passo < 5 ? (
+          {passo < PASSOS.length ? (
             <button
               type="button"
               onClick={avancar}
-              className="flex-1 h-14 rounded-xl bg-slate-800 text-white font-semibold text-lg flex items-center justify-center"
+              className="flex-1 h-14 sm:h-16 rounded-xl bg-slate-800 text-white font-bold text-lg sm:text-xl flex items-center justify-center shadow-sm active:bg-slate-900"
             >
               Próximo
-              <ChevronRight className="w-5 h-5 ml-1" />
+              <ChevronRight className="w-6 h-6 ml-1" />
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
               disabled={salvando}
-              className="flex-1 h-14 rounded-xl bg-green-600 text-white font-semibold text-lg flex items-center justify-center disabled:opacity-60"
+              className="flex-1 h-16 rounded-xl bg-green-600 text-white font-bold text-xl flex items-center justify-center disabled:opacity-60 shadow-sm active:bg-green-700"
             >
-              <Save className="w-5 h-5 mr-2" />
+              <Save className="w-6 h-6 mr-2" />
               {salvando ? 'Salvando...' : 'Salvar'}
             </button>
           )}

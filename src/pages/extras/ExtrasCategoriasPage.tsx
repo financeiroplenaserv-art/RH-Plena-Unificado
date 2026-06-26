@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { useExtras } from '@/hooks/useExtras'
+import { useAuth } from '@/hooks/useAuth'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
 import { mascaraMoeda, parseMoeda, mascaraMoedaInput } from '@/lib/utils'
+import { podeEditarCategoriaExtra, podeExcluirCategoriaExtra } from '@/lib/permissoes'
 import type { CategoriaExtra } from '@/types/extras'
 
 interface FormCategoria {
@@ -29,6 +31,11 @@ const categoriaVazia = (): FormCategoria => ({
 })
 
 export function ExtrasCategoriasPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarCategoriaExtra(perfil) : false
+  const podeExcluir = perfil ? podeExcluirCategoriaExtra(perfil) : false
+
   const { categorias, loading, listarCategorias, criarCategoria, atualizarCategoria, removerCategoria } = useExtras()
   const [editando, setEditando] = useState<string | null>(null)
   const [form, setForm] = useState<FormCategoria>(categoriaVazia())
@@ -96,16 +103,18 @@ export function ExtrasCategoriasPage() {
       </div>
 
       <ExtrasCard>
-        <div className="flex justify-end mb-4">
-          {editando !== 'novo' && (
-            <ExtrasButton onClick={handleNovo}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova categoria
-            </ExtrasButton>
-          )}
-        </div>
+        {podeEditar && (
+          <div className="flex justify-end mb-4">
+            {editando !== 'novo' && (
+              <ExtrasButton onClick={handleNovo}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova categoria
+              </ExtrasButton>
+            )}
+          </div>
+        )}
 
-        {editando && (
+        {podeEditar && editando && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 rounded-lg" style={{ backgroundColor: '#F8FAFC' }}>
             <div className="space-y-2 md:col-span-2">
               <Label style={{ color: '#1F2937' }}>Nome</Label>
@@ -189,12 +198,16 @@ export function ExtrasCategoriasPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <ExtrasButton variant="outline" size="sm" onClick={() => handleEditar(categoria)}>
-                          <Pencil className="w-3 h-3" />
-                        </ExtrasButton>
-                        <ExtrasButton variant="danger" size="sm" onClick={() => handleExcluir(categoria.id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </ExtrasButton>
+                        {podeEditar && (
+                          <ExtrasButton variant="outline" size="sm" onClick={() => handleEditar(categoria)}>
+                            <Pencil className="w-3 h-3" />
+                          </ExtrasButton>
+                        )}
+                        {podeExcluir && (
+                          <ExtrasButton variant="danger" size="sm" onClick={() => handleExcluir(categoria.id)}>
+                            <Trash2 className="w-3 h-3" />
+                          </ExtrasButton>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

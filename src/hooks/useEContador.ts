@@ -22,11 +22,23 @@ export function useEContador() {
   }, [listarEmpresasDB])
 
   const carregarToken = useCallback(async () => {
-    return econtadorApi.carregarToken()
+    try {
+      return await econtadorApi.carregarToken()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar token do e-Contador')
+      return null
+    }
   }, [])
 
   const salvarToken = useCallback(async (token: string) => {
-    await econtadorApi.salvarToken(token)
+    try {
+      await econtadorApi.salvarToken(token)
+      toast.success('Token salvo')
+      return true
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar token do e-Contador')
+      return false
+    }
   }, [])
 
   const listarEmpresas = useCallback(async () => {
@@ -64,6 +76,15 @@ export function useEContador() {
     }
   }, [])
 
+  const normalizarMatch = (texto: string): string => {
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+  }
+
   const sincronizarDepartamentos = useCallback(async (
     lista: EContadorFuncionario[],
     empresaId: string | null
@@ -74,26 +95,49 @@ export function useEContador() {
 
     if (nomesUnicos.length === 0) return new Map<string, string>()
 
-    let query = supabase.from('departamentos').select('id, nome')
+    // Busca todos os departamentos ativos da empresa (ou sem empresa)
+    let query = supabase.from('departamentos').select('id, nome, nome_curto')
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
-    } else {
-      query = query.is('empresa_id', null)
+      query = query.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
     }
+    query = query.eq('status', 'Ativo')
 
     const { data: existentes, error: erroBusca } = await query
     if (erroBusca) throw erroBusca
 
     const map = new Map<string, string>()
-    const existentesSet = new Set<string>()
+    const novos: string[] = []
 
-    for (const d of (existentes || []) as Pick<Departamento, 'id' | 'nome'>[]) {
-      const chave = d.nome.toLowerCase()
-      map.set(chave, d.id)
-      existentesSet.add(chave)
+    for (const nomeEContador of nomesUnicos) {
+      const nomeChave = nomeEContador.toLowerCase()
+
+      // 1. Tenta match exato pelo nome
+      const matchExato = (existentes || []).find(
+        d => d.nome.toLowerCase() === nomeChave
+      )
+      if (matchExato) {
+        map.set(nomeChave, matchExato.id)
+        continue
+      }
+
+      // 2. Tenta match pelo nome_curto contido no nome do e-contador (palavra inteira)
+      const nomeNormalizado = normalizarMatch(nomeEContador)
+      const matchCurto = (existentes || []).find((d) => {
+        if (!d.nome_curto) return false
+        const curtoNormalizado = normalizarMatch(d.nome_curto)
+        if (curtoNormalizado.length < 2) return false
+        const regex = new RegExp(`\\b${curtoNormalizado.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+        return regex.test(nomeNormalizado)
+      })
+      if (matchCurto) {
+        map.set(nomeChave, matchCurto.id)
+        continue
+      }
+
+      // 3. Se não achou, vai criar novo
+      novos.push(nomeEContador)
     }
 
-    const novos = nomesUnicos.filter(n => !existentesSet.has(n.toLowerCase()))
     if (novos.length > 0) {
       const { data: inseridos, error: erroInsert } = await supabase
         .from('departamentos')
@@ -118,7 +162,9 @@ export function useEContador() {
 
   const listarHistorico = useCallback(async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser()
+      const { data: userData, error: erroAuth } = await supabase.auth.getUser()
+      if (erroAuth) throw erroAuth
+
       const { data, error } = await supabase
         .from('historico_importacoes_econtador')
         .select('*')
@@ -126,19 +172,20 @@ export function useEContador() {
         .order('created_at', { ascending: false })
         .limit(10)
 
-      if (error) {
-        console.error('Erro ao listar histórico:', error)
-        return
-      }
+      if (error) throw error
       setHistorico(data || [])
-    } catch (err) {
+    } catch (err: unknown) {
+      const mensagem = err instanceof Error ? err.message : 'Erro ao listar histórico de importações'
       console.error('Erro ao listar histórico:', err)
+      toast.error(mensagem)
     }
   }, [])
 
   const salvarHistorico = useCallback(async (item: Omit<HistoricoImportacao, 'id' | 'created_at' | 'usuario_id'>) => {
     try {
-      const { data: userData } = await supabase.auth.getUser()
+      const { data: userData, error: erroAuth } = await supabase.auth.getUser()
+      if (erroAuth) throw erroAuth
+
       const { error } = await supabase.from('historico_importacoes_econtador').insert({
         usuario_id: userData.user?.id || null,
         empresa_id: item.empresa_id,
@@ -147,14 +194,14 @@ export function useEContador() {
         importados: item.importados,
         atualizados: item.atualizados,
         erros: item.erros,
+        detalhes_erros: item.detalhes_erros || [],
       })
-      if (error) {
-        console.error('Erro ao salvar histórico:', error)
-      } else {
-        await listarHistorico()
-      }
-    } catch (err) {
+      if (error) throw error
+      await listarHistorico()
+    } catch (err: unknown) {
+      const mensagem = err instanceof Error ? err.message : 'Erro ao salvar histórico de importação'
       console.error('Erro ao salvar histórico:', err)
+      toast.error(mensagem)
     }
   }, [listarHistorico])
 
@@ -162,11 +209,12 @@ export function useEContador() {
     lista: EContadorFuncionario[],
     eContadorEmpresaId?: string,
     eContadorEmpresaNome?: string
-  ) => {
+  ): Promise<{ importados: number; atualizados: number; erros: number; detalhesErros: { nome: string; erro: string }[] }> => {
     setLoading(true)
     let importados = 0
     let atualizados = 0
     let erros = 0
+    const detalhesErros: { nome: string; erro: string }[] = []
 
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
@@ -220,14 +268,27 @@ export function useEContador() {
         .single()
 
       if (erroEmpresa) {
-        console.error('Erro ao criar empresa:', erroEmpresa)
+        const msg = 'Erro ao criar empresa: ' + erroEmpresa.message
+        console.error(msg, erroEmpresa)
+        toast.error(msg)
+        detalhesErros.push({ nome: eContadorEmpresaNome, erro: msg })
+        erros++
       } else if (novaEmpresa) {
         empresaId = novaEmpresa.id
         await listarEmpresasDB()
       }
     }
 
-    const departamentosMap = await sincronizarDepartamentos(lista, empresaId)
+    let departamentosMap = new Map<string, string>()
+    try {
+      departamentosMap = await sincronizarDepartamentos(lista, empresaId)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao sincronizar departamentos'
+      console.error('Erro ao sincronizar departamentos:', err)
+      toast.error(msg)
+      detalhesErros.push({ nome: 'Sincronização de departamentos', erro: msg })
+      erros++
+    }
 
     for (const f of lista) {
       try {
@@ -309,7 +370,24 @@ export function useEContador() {
         else atualizados++
       } catch (err: unknown) {
         erros++
-        console.error('Erro geral:', f.nome, err)
+        let mensagem = 'Erro desconhecido'
+        let erroSerializado = String(err)
+        if (err instanceof Error) {
+          mensagem = err.message
+          erroSerializado = JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
+        } else if (typeof err === 'string') {
+          mensagem = err
+        } else if (err && typeof err === 'object') {
+          try {
+            erroSerializado = JSON.stringify(err, null, 2)
+            mensagem = erroSerializado.slice(0, 500)
+          } catch {
+            erroSerializado = 'Erro não serializável'
+            mensagem = erroSerializado
+          }
+        }
+        detalhesErros.push({ nome: f.nome, erro: mensagem })
+        console.error('Erro geral:', f.nome, '\n', erroSerializado, '\nDados do funcionário:', f)
       }
     }
 
@@ -324,9 +402,10 @@ export function useEContador() {
       importados,
       atualizados,
       erros,
+      detalhes_erros: detalhesErros,
     })
 
-    return { importados, atualizados, erros }
+    return { importados, atualizados, erros, detalhesErros }
   }, [empresasDB, upsertPorMatricula, sincronizarDepartamentos, listarEmpresasDB, salvarHistorico])
 
   const reimportar = useCallback(async (item: HistoricoImportacao) => {

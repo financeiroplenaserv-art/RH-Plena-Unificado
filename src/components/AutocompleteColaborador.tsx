@@ -203,7 +203,7 @@ export function AutocompleteColaborador({
       {selecionado ? (
         <div className="p-3 bg-blue-50 rounded-lg flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-800">{selecionado.nome_completo}</p>
+            <p className="text-sm font-medium text-slate-800 break-words">{selecionado.nome_completo}</p>
             <p className="text-xs text-slate-500">
               Matrícula: {selecionado.matricula} | {selecionado.cargo || '—'}
             </p>
@@ -264,7 +264,7 @@ export function AutocompleteColaborador({
                     onClick={() => handleSelecionar(c)}
                   >
                     <div>
-                      <p className="text-sm font-medium text-slate-700">{c.nome_completo}</p>
+                      <p className="text-sm font-medium text-slate-700 break-words">{c.nome_completo}</p>
                       <p className="text-xs text-slate-500">
                         {c.matricula} — {c.cargo || '—'} — {c.departamento || '—'}
                         {departamentoId && c.departamento_id === departamentoId && (

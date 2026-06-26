@@ -45,8 +45,8 @@ export const AssinaturaCanvas = forwardRef<AssinaturaCanvasRef, AssinaturaCanvas
 
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.lineWidth = 2.5
-      ctx.strokeStyle = '#1F2937'
+      ctx.lineWidth = 3
+      ctx.strokeStyle = '#000000'
 
       desenharFundo(canvas, ctx)
     }, [])
@@ -102,8 +102,8 @@ export const AssinaturaCanvas = forwardRef<AssinaturaCanvasRef, AssinaturaCanvas
       desenharFundo(canvas, ctx)
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.lineWidth = 2.5
-      ctx.strokeStyle = '#1F2937'
+      ctx.lineWidth = 3
+      ctx.strokeStyle = '#000000'
       setTemAssinatura(false)
     }
 
