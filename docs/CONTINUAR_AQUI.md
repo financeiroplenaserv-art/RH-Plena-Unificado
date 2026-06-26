@@ -52,6 +52,14 @@
 - **`ProtectedRoute`, `App.tsx` e `Sidebar`** usam permissões dinâmicas ✅
 - **Bug "Apenas para administradores" corrigido** em `/permissoes` — aguarda `authLoading` antes de validar perfil ✅
 
+### Segurança do token e-Contador
+- **Corrigida exposição/indisponibilidade** do token: a migration 041 bloqueou SELECT de `econtador_token` no frontend, mas `econtadorApi.ts` ainda consultava a tabela diretamente ✅
+- **Adicionados endpoints `/token-status` e `/remover-token`** na Edge Function `econtador` ✅
+- **Frontend verifica token apenas pela Edge Function**, sem acesso direto ao valor cifrado ✅
+- **Input de token continua `type="password"`** e exibe mensagem segura quando já salvo ✅
+- **Botão "Redefinir token"** permite remover o token sem expor o valor ✅
+- **Edge Function `econtador` re-deployada** no Supabase ✅
+
 ### Validação final
 - `npm run lint` ✅
 - `npm test -- --run` → 40/40 ✅
