@@ -224,7 +224,7 @@ function App() {
               <Route
                 path="/departamentos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro', 'dp1']}>
                     <DepartamentosPage />
                   </ProtectedRoute>
                 }
@@ -232,7 +232,7 @@ function App() {
               <Route
                 path="/empresas"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro', 'dp1']}>
                     <EmpresasPage />
                   </ProtectedRoute>
                 }
@@ -498,7 +498,7 @@ function App() {
               <Route
                 path="/extras/lancamentos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria', 'financeiro']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro', 'dp1']}>
                     <ExtrasLancamentosPage />
                   </ProtectedRoute>
                 }
@@ -506,7 +506,7 @@ function App() {
               <Route
                 path="/extras/novo"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'dp1']}>
                     <ExtrasFormPage />
                   </ProtectedRoute>
                 }
@@ -514,7 +514,7 @@ function App() {
               <Route
                 path="/extras/:id/editar"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'dp1']}>
                     <ExtrasFormPage />
                   </ProtectedRoute>
                 }
@@ -530,7 +530,7 @@ function App() {
               <Route
                 path="/extras/relatorio"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro', 'dp1']}>
                     <ExtrasRelatorioPage />
                   </ProtectedRoute>
                 }
@@ -538,7 +538,7 @@ function App() {
               <Route
                 path="/extras/recibos"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'dp1', 'financeiro']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro', 'dp1']}>
                     <ExtrasRecibosPage />
                   </ProtectedRoute>
                 }
@@ -546,7 +546,7 @@ function App() {
               <Route
                 path="/extras/categorias"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria', 'financeiro']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'financeiro', 'dp1']}>
                     <ExtrasCategoriasPage />
                   </ProtectedRoute>
                 }
@@ -554,7 +554,7 @@ function App() {
               <Route
                 path="/extras/mobile"
                 element={
-                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'inspetoria']}>
+                  <ProtectedRoute user={user} nivelMinimo={['admin', 'adm', 'mesa', 'dp1']}>
                     <ExtrasPlantaoPage />
                   </ProtectedRoute>
                 }
