@@ -43,14 +43,15 @@ async function fetchEdgeFunction(
 export const TOKEN_SALVO_NA_EDGE_FUNCTION = '[TOKEN_SALVO_NA_EDGE_FUNCTION]'
 
 export async function carregarToken(): Promise<string> {
-  // O token JWT nunca transita no frontend. Verificamos apenas se existe um
-  // token cifrado salvo no banco pela Edge Function.
-  const { data: config } = await supabase
-    .from('configuracoes')
-    .select('valor_cifrado')
-    .eq('chave', 'econtador_token')
-    .single()
-  return config?.valor_cifrado ? TOKEN_SALVO_NA_EDGE_FUNCTION : ''
+  // O token JWT nunca transita no frontend. Verificamos apenas, via Edge
+  // Function, se existe um token cifrado salvo no banco.
+  const response = await fetchEdgeFunction('token-status')
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Erro ao verificar token' }))
+    throw new Error(error.error || 'Erro ao verificar token')
+  }
+  const { configurado } = (await response.json()) as { configurado?: boolean }
+  return configurado ? TOKEN_SALVO_NA_EDGE_FUNCTION : ''
 }
 
 export async function salvarToken(token: string): Promise<void> {
@@ -62,6 +63,17 @@ export async function salvarToken(token: string): Promise<void> {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Erro ao salvar token' }))
     throw new Error(error.error || 'Erro ao salvar token')
+  }
+}
+
+export async function removerToken(): Promise<void> {
+  const response = await fetchEdgeFunction('remover-token', {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Erro ao remover token' }))
+    throw new Error(error.error || 'Erro ao remover token')
   }
 }
 

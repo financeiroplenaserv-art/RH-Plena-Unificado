@@ -43,6 +43,18 @@ export function useEContador() {
     }
   }, [])
 
+  const removerToken = useCallback(async () => {
+    try {
+      await econtadorApi.removerToken()
+      toast.success('Token removido')
+      return true
+    } catch (err: unknown) {
+      console.error('Erro ao remover token do e-Contador:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao remover token do e-Contador')
+      return false
+    }
+  }, [])
+
   const listarEmpresas = useCallback(async () => {
     try {
       const filtradas = await econtadorApi.listarEmpresas()
@@ -430,6 +442,7 @@ export function useEContador() {
     historico,
     token: carregarToken,
     salvarToken,
+    removerToken,
     listarEmpresas,
     listarFuncionarios,
     importarFuncionarios,

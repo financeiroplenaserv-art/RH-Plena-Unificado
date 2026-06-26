@@ -137,6 +137,7 @@ export function ImportarEContadorPage() {
     historico,
     token: carregarToken,
     salvarToken,
+    removerToken,
     listarEmpresas,
     listarFuncionarios,
     importarFuncionarios,
@@ -174,8 +175,19 @@ export function ImportarEContadorPage() {
     }
     if (!token.trim()) return
 
-    await salvarToken(token.trim())
-    await listarEmpresas()
+    const ok = await salvarToken(token.trim())
+    if (ok) {
+      setToken(TOKEN_SALVO_NA_EDGE_FUNCTION)
+      await listarEmpresas()
+    }
+  }
+
+  const handleRemoverToken = async () => {
+    const ok = await removerToken()
+    if (ok) {
+      setToken('')
+      setEmpresaSelecionada(null)
+    }
   }
 
   const handleCarregarFuncionarios = async (empresa: EContadorEmpresa) => {
@@ -308,28 +320,43 @@ export function ImportarEContadorPage() {
               <Label htmlFor="token" style={{ color: '#1F2937' }}>Token JWT</Label>
               {tokenSalvoNaEdge ? (
                 <div className="rounded-lg border px-4 py-2.5 text-sm" style={{ borderColor: '#E2E8F0', color: '#1F2937', backgroundColor: '#F8FAFC' }}>
-                  🔒 Token salvo. Clique em Listar Empresas.
+                  🔒 Token salvo de forma segura na Edge Function. Ele não é exibido nem transita pelo frontend.
                 </div>
               ) : (
                 <Input
                   id="token"
                   type="password"
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  placeholder="cole o token JWT aqui..."
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
+                  autoComplete="off"
                   className="rounded-lg"
                 />
               )}
             </div>
-            <Button
-              onClick={handleSalvarToken}
-              disabled={(!token.trim() && !tokenSalvoNaEdge) || loading || carregandoToken}
-              className="rounded-lg h-11 px-6"
-              style={{ backgroundColor: '#1F2937' }}
-            >
-              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-              {tokenSalvoNaEdge ? 'Listar empresas' : 'Salvar token e listar empresas'}
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={handleSalvarToken}
+                disabled={(!token.trim() && !tokenSalvoNaEdge) || loading || carregandoToken}
+                className="rounded-lg h-11 px-6"
+                style={{ backgroundColor: '#1F2937' }}
+              >
+                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                {tokenSalvoNaEdge ? 'Listar empresas' : 'Salvar token e listar empresas'}
+              </Button>
+              {tokenSalvoNaEdge && (
+                <Button
+                  variant="outline"
+                  onClick={handleRemoverToken}
+                  disabled={loading}
+                  className="rounded-lg h-11 px-6"
+                  style={{ borderColor: '#1F2937', color: '#1F2937' }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Redefinir token
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 

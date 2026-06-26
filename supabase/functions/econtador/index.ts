@@ -282,6 +282,20 @@ function mapearFuncionario(item: FuncionarioItem, included: unknown[]): Record<s
   }
 }
 
+async function tokenStatus(): Promise<Response> {
+  const cifrado = await getTokenCifrado()
+  return new Response(JSON.stringify({ configurado: !!cifrado?.valor_cifrado }), { status: 200 })
+}
+
+async function removerToken(): Promise<Response> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.from('configuracoes').delete().eq('chave', 'econtador_token')
+  if (error) {
+    return new Response(JSON.stringify({ error: 'Erro ao remover token: ' + error.message }), { status: 500 })
+  }
+  return new Response(JSON.stringify({ ok: true }), { status: 200 })
+}
+
 async function listarFuncionarios(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const empresaId = url.searchParams.get('empresaId')
@@ -376,7 +390,11 @@ Deno.serve(async (req: Request) => {
     const path = url.pathname.replace(/^\/econtador/, '').replace(/^\//, '')
 
     let response: Response
-    if (path === 'salvar-token' && req.method === 'POST') {
+    if (path === 'token-status' && req.method === 'GET') {
+      response = await tokenStatus()
+    } else if (path === 'remover-token' && req.method === 'POST') {
+      response = await removerToken()
+    } else if (path === 'salvar-token' && req.method === 'POST') {
       response = await salvarToken(req)
     } else if (path === 'empresas' && req.method === 'GET') {
       response = await listarEmpresas()
