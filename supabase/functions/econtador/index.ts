@@ -16,6 +16,50 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 
 const BASE_URL = 'https://dp.pack.alterdata.com.br/api/v1'
 const PERMITIDAS = ['plena ea', 'plena tech']
+const ALTERDATA_TIMEOUT_MS = 60000
+const EDGE_TIMEOUT_MS = 60000
+
+// Controle simples de rate limiting em memória (por usuário)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 30
+const RATE_LIMIT_WINDOW_MS = 60_000
+
+function getAllowedOrigins(): string[] {
+  const env = Deno.env.get('ALLOWED_ORIGINS')
+  if (!env) return []
+  return env.split(',').map((o) => o.trim()).filter(Boolean)
+}
+
+function isOriginAllowed(origin: string): boolean {
+  const allowed = getAllowedOrigins()
+  if (allowed.length === 0) return true
+  return allowed.includes(origin)
+}
+
+function getCorsHeaders(origin: string): Record<string, string> {
+  const allowOrigin = isOriginAllowed(origin) ? origin : getAllowedOrigins()[0] || ''
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Max-Age': '86400',
+    'Content-Type': 'application/json',
+  }
+}
+
+function checkRateLimit(userId: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now()
+  const entry = rateLimitMap.get(userId)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return { allowed: true }
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) }
+  }
+  entry.count++
+  return { allowed: true }
+}
 
 interface EContadorResponseItem {
   id?: string
@@ -121,7 +165,7 @@ async function getToken(): Promise<string | null> {
 // Helpers da API Alterdata
 // ============================================================
 
-async function fetchAlterdata(path: string, token: string, timeoutMs = 15000): Promise<unknown> {
+async function fetchAlterdata(path: string, token: string, timeoutMs = ALTERDATA_TIMEOUT_MS): Promise<unknown> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -275,7 +319,6 @@ async function listarFuncionarios(req: Request): Promise<Response> {
 
     if (data.links?.next) offset += limit
     else hasMore = false
-    if (offset > 5000) hasMore = false
   }
 
   return new Response(JSON.stringify(todos), { status: 200 })
@@ -286,12 +329,8 @@ async function listarFuncionarios(req: Request): Promise<Response> {
 // ============================================================
 
 Deno.serve(async (req: Request) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Content-Type': 'application/json',
-  }
+  const origin = req.headers.get('origin') || ''
+  const corsHeaders = getCorsHeaders(origin)
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -303,27 +342,39 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Não autenticado' }), { status: 401, headers: corsHeaders })
   }
 
-  const supabase = getSupabaseClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-  if (authError || !user) {
-    return new Response(JSON.stringify({ error: 'Sessão inválida' }), { status: 401, headers: corsHeaders })
-  }
-
-  // Verifica permissão (admin/adm, dp1 ou dp2)
-  const { data: perfil } = await supabase
-    .from('perfis')
-    .select('nivel_acesso')
-    .eq('id', user.id)
-    .single()
-
-  if (!perfil || !['admin', 'adm', 'dp1', 'dp2'].includes(perfil.nivel_acesso)) {
-    return new Response(JSON.stringify({ error: 'Sem permissão' }), { status: 403, headers: corsHeaders })
-  }
-
-  const url = new URL(req.url)
-  const path = url.pathname.replace(/^\/econtador/, '').replace(/^\//, '')
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), EDGE_TIMEOUT_MS)
 
   try {
+    const supabase = getSupabaseClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Sessão inválida' }), { status: 401, headers: corsHeaders })
+    }
+
+    // Rate limiting por usuário
+    const rate = checkRateLimit(user.id)
+    if (!rate.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em instantes.' }),
+        { status: 429, headers: { ...corsHeaders, 'Retry-After': String(rate.retryAfter) } }
+      )
+    }
+
+    // Verifica permissão (admin/adm, dp1 ou dp2)
+    const { data: perfil } = await supabase
+      .from('perfis')
+      .select('nivel_acesso')
+      .eq('id', user.id)
+      .single()
+
+    if (!perfil || !['admin', 'adm', 'dp1', 'dp2'].includes(perfil.nivel_acesso)) {
+      return new Response(JSON.stringify({ error: 'Sem permissão' }), { status: 403, headers: corsHeaders })
+    }
+
+    const url = new URL(req.url)
+    const path = url.pathname.replace(/^\/econtador/, '').replace(/^\//, '')
+
     let response: Response
     if (path === 'salvar-token' && req.method === 'POST') {
       response = await salvarToken(req)
@@ -336,7 +387,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Adiciona CORS na resposta
-    response.headers.set('Access-Control-Allow-Origin', '*')
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value)
+    })
     return response
   } catch (err) {
     console.error('Erro na Edge Function econtador:', err)
@@ -344,5 +397,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({ error: err instanceof Error ? err.message : 'Erro interno' }),
       { status: 500, headers: corsHeaders }
     )
+  } finally {
+    clearTimeout(timeoutId)
   }
 })

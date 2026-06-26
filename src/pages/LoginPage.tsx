@@ -6,31 +6,17 @@ import { Label } from '@/components/ui/label'
 
 interface LoginPageProps {
   onLogin: (email: string, senha: string) => Promise<void>
-  onLoginExistente?: (email: string, senha: string) => Promise<void>
   loading?: boolean
-  primeiroAcesso?: boolean
 }
 
-export function LoginPage({
-  onLogin,
-  onLoginExistente,
-  loading = false,
-  primeiroAcesso = false,
-}: LoginPageProps) {
+export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
-  const [modoLogin, setModoLogin] = useState(false)
-
-  const isLogin = !primeiroAcesso || modoLogin
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (primeiroAcesso && modoLogin && onLoginExistente) {
-      await onLoginExistente(email, senha)
-    } else {
-      await onLogin(email, senha)
-    }
+    await onLogin(email, senha)
   }
 
   return (
@@ -97,15 +83,13 @@ export function LoginPage({
 
           <div className="space-y-2 text-center lg:text-left">
             <h2 className="text-2xl font-bold text-slate-900">
-              {isLogin ? 'Bem-vindo de volta' : 'Criar primeira conta'}
+              Bem-vindo de volta
             </h2>
             <p className="text-xs font-medium tracking-wider text-[#1E3A5F] uppercase">
               Controle Operacional e de RH
             </p>
             <p className="text-slate-500 text-sm">
-              {isLogin
-                ? 'Digite seu e-mail e senha para acessar o sistema'
-                : 'Este será o usuário administrador inicial do sistema'}
+              Digite seu e-mail e senha para acessar o sistema
             </p>
           </div>
 
@@ -159,34 +143,12 @@ export function LoginPage({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isLogin ? 'Entrando...' : 'Criando conta...'}
+                  Entrando...
                 </>
               ) : (
-                isLogin ? 'Entrar' : 'Criar conta e entrar'
+                'Entrar'
               )}
             </Button>
-
-            {primeiroAcesso && (
-              <div className="text-center">
-                {modoLogin ? (
-                  <button
-                    type="button"
-                    onClick={() => setModoLogin(false)}
-                    className="text-sm text-[#1E3A5F] hover:underline font-medium"
-                  >
-                    Criar nova conta administradora
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setModoLogin(true)}
-                    className="text-sm text-slate-500 hover:text-slate-700"
-                  >
-                    Já tem conta? <span className="text-[#1E3A5F] hover:underline font-medium">Fazer login</span>
-                  </button>
-                )}
-              </div>
-            )}
           </form>
 
           <p className="text-center text-xs text-slate-400">

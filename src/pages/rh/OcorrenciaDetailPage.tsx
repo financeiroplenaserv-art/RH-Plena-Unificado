@@ -18,6 +18,7 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAnexos } from '@/hooks/useAnexos'
+import { getOcorrenciaAnexoUrl } from '@/lib/storage'
 import { useTestemunhas } from '@/hooks/useTestemunhas'
 import { useAuditoria } from '@/hooks/useAuditoria'
 import { useAuth } from '@/hooks/useAuth'
@@ -92,6 +93,7 @@ export function OcorrenciaDetailPage() {
   const [descricaoUpload, setDescricaoUpload] = useState('')
 
   const { anexos, loading: loadingAnexos, loadAnexos, uploadAnexo, removerAnexo } = useAnexos()
+  const [urlsAssinadas, setUrlsAssinadas] = useState<Record<string, string>>({})
   const {
     testemunhas,
     loading: loadingTest,
@@ -158,6 +160,33 @@ export function OcorrenciaDetailPage() {
 
     loadData()
   }, [loadData])
+
+  useEffect(() => {
+    if (!anexos.length) {
+      setUrlsAssinadas({})
+      return
+    }
+
+    let cancelado = false
+    const gerar = async () => {
+      const urls: Record<string, string> = {}
+      await Promise.all(
+        anexos.map(async (a) => {
+          try {
+            urls[a.id] = await getOcorrenciaAnexoUrl(a.caminho_storage)
+          } catch (err) {
+            console.error(`Erro ao gerar URL assinada para anexo ${a.id}:`, err)
+          }
+        })
+      )
+      if (!cancelado) setUrlsAssinadas(urls)
+    }
+
+    gerar()
+    return () => {
+      cancelado = true
+    }
+  }, [anexos])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -562,15 +591,15 @@ export function OcorrenciaDetailPage() {
                           key={a.id}
                           className="p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors"
                         >
-                          {isVideo && a.url_publica && (
+                          {isVideo && urlsAssinadas[a.id] && (
                             <video controls className="w-full max-h-48 rounded-lg mb-2 bg-slate-900">
-                              <source src={a.url_publica} type={a.tipo_arquivo} />
+                              <source src={urlsAssinadas[a.id]} type={a.tipo_arquivo} />
                               Seu navegador não suporta vídeo.
                             </video>
                           )}
-                          {isAudio && a.url_publica && (
+                          {isAudio && urlsAssinadas[a.id] && (
                             <audio controls className="w-full mb-2">
-                              <source src={a.url_publica} type={a.tipo_arquivo} />
+                              <source src={urlsAssinadas[a.id]} type={a.tipo_arquivo} />
                               Seu navegador não suporta áudio.
                             </audio>
                           )}
@@ -604,7 +633,7 @@ export function OcorrenciaDetailPage() {
                                 className="text-slate-400 hover:text-blue-600 h-7 w-7 p-0"
                               >
                                 <a
-                                  href={a.url_publica || '#'}
+                                  href={urlsAssinadas[a.id] || '#'}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   title="Abrir arquivo"
@@ -785,22 +814,22 @@ export function OcorrenciaDetailPage() {
                         <div className="flex items-center justify-between mb-1">
                           <span
                             className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                              l.acao === 'INSERT'
+                              l.operacao === 'INSERT'
                                 ? 'bg-emerald-50 text-emerald-700'
-                                : l.acao === 'UPDATE'
+                                : l.operacao === 'UPDATE'
                                   ? 'bg-blue-50 text-blue-700'
-                                  : l.acao === 'CANCEL'
+                                  : l.operacao === 'CANCEL'
                                     ? 'bg-red-50 text-red-700'
                                     : 'bg-slate-50 text-slate-600'
                             }`}
                           >
-                            {l.acao}
+                            {l.operacao}
                           </span>
                           <span className="text-xs text-slate-400">{fmtDateTime(l.created_at || '')}</span>
                         </div>
                         {l.dados_novos && (
                           <div className="text-xs text-slate-600 mt-1">
-                            {l.acao === 'UPDATE' &&
+                            {l.operacao === 'UPDATE' &&
                             l.tabela === 'ocorrencias' &&
                             l.dados_novos.status &&
                             l.dados_anteriores?.status ? (
@@ -809,7 +838,7 @@ export function OcorrenciaDetailPage() {
                                 <strong>{String(l.dados_novos.status)}</strong>
                               </span>
                             ) : null}
-                            {l.acao === 'INSERT' && l.tabela === 'ocorrencias' ? (
+                            {l.operacao === 'INSERT' && l.tabela === 'ocorrencias' ? (
                               <span>
                                 Ocorrência criada:{' '}
                                 <strong>{String(l.dados_novos.tipo_ocorrencia || '')}</strong>

@@ -27,7 +27,6 @@ import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
-import { ITENS_MOCK, ENTREGAS_MOCK } from '@/components/ceu/mockData'
 import type { Colaborador } from '@/types/database'
 import * as XLSX from '@e965/xlsx'
 
@@ -97,7 +96,6 @@ export function CeuRelatoriosPage() {
   const { entregas, loading: loadingEntregas, listar: listarEntregas } = useCEUEntregas()
 
   const [abaAtiva, setAbaAtiva] = useState<AbaId>('colaborador')
-  const [modoMock, setModoMock] = useState(false)
   const [filtroDataInicio, setFiltroDataInicio] = useState('')
   const [filtroDataFim, setFiltroDataFim] = useState('')
   const [filtroColaborador, setFiltroColaborador] = useState('todos')
@@ -111,8 +109,8 @@ export function CeuRelatoriosPage() {
     listarEntregas()
   }, [listarItens, listarEntregas])
 
-  const dadosItens = modoMock ? ITENS_MOCK : itens
-  const dadosEntregas = modoMock ? ENTREGAS_MOCK : entregas
+  const dadosItens = itens
+  const dadosEntregas = entregas
 
   const colaboradoresUnicos = useMemo(() => {
     const map = new Map<string, Colaborador>()
@@ -637,9 +635,7 @@ export function CeuRelatoriosPage() {
             <h2 className="text-lg font-semibold text-slate-900">Relatórios CEU</h2>
             <p className="text-sm text-slate-500">Análise de entregas, itens e alertas</p>
           </div>
-          <CeuButton variant="outline" size="sm" onClick={() => setModoMock((m) => !m)}>
-            {modoMock ? 'Usar dados reais' : 'Usar dados de demonstração'}
-          </CeuButton>
+
         </div>
 
         <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
@@ -767,7 +763,7 @@ export function CeuRelatoriosPage() {
         </div>
 
         <CeuCard title={ABAS.find((a) => a.id === abaAtiva)?.label || ''} gradient="blue">
-          {(loadingItens || loadingEntregas) && !modoMock ? (
+          {(loadingItens || loadingEntregas) ? (
             <div className="text-center py-12 text-slate-500">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#3B82F6] mx-auto mb-2" />
               Carregando dados...

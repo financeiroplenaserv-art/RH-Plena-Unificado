@@ -16,10 +16,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Banknote,
-  Settings,
+  ClipboardList,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Perfil, NivelAcesso } from '@/types/database'
+import { verificarPermissao } from '@/lib/permissoes'
+import type { Perfil } from '@/types/database'
 
 interface SidebarProps {
   user: Perfil
@@ -32,28 +34,30 @@ interface MenuItem {
   path: string
   label: string
   icon: React.ReactNode
-  niveis: NivelAcesso[]
+  permissao: { recurso: string; acao: string }
 }
 
 const menuItems: MenuItem[] = [
-  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/empresas', label: 'Empresas', icon: <Building className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-5 h-5" />, niveis: ['admin', 'adm', 'dp1', 'dp2'] },
-  { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'] },
-  { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-5 h-5" />, niveis: ['admin', 'adm', 'dp1', 'dp2'] },
-  { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/ceu', label: 'Uniformes', icon: <Package className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'dp1', 'mesa', 'inspetoria'] },
-  { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'dp2', 'mesa', 'financeiro'] },
-  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, niveis: ['admin', 'adm', 'mesa', 'financeiro', 'dp1'] },
-  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, niveis: ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro', 'visualizador'] },
-  { path: '/configuracoes', label: 'Configurações', icon: <Settings className="w-5 h-5" />, niveis: ['admin', 'adm', 'dp1', 'dp2'] },
+  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'dashboard' } },
+  { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'colaboradores' } },
+  { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'departamentos' } },
+  { path: '/empresas', label: 'Empresas', icon: <Building className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'empresas' } },
+  { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'econtador' } },
+  { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'escalas' } },
+  { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'rh' } },
+  { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'vr' } },
+  { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'ferias' } },
+  { path: '/ceu', label: 'Uniformes', icon: <Package className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'ceu' } },
+  { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'adicionais' } },
+  { path: '/extras', label: 'Extras', icon: <Banknote className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'extras' } },
+  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'relatorios' } },
+  { path: '/auditoria', label: 'Auditoria', icon: <ClipboardList className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'auditoria' } },
+  { path: '/permissoes', label: 'Permissões', icon: <Shield className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'permissoes' } },
 ]
 
 export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
-  const podeVer = (niveis: NivelAcesso[]) => niveis.includes(user.nivel_acesso)
+  const podeVer = (permissao: { recurso: string; acao: string }) =>
+    verificarPermissao(user.nivel_acesso, permissao.recurso, permissao.acao)
 
   return (
     <aside
@@ -85,7 +89,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
 
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {menuItems.map((item) =>
-          podeVer(item.niveis) ? (
+          podeVer(item.permissao) ? (
             <NavLink
               key={item.path}
               to={item.path}

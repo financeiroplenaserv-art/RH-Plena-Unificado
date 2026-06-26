@@ -40,6 +40,7 @@ export function useExtras() {
       setExtras(data || [])
       return data || []
     } catch (err: unknown) {
+      console.error('Erro ao carregar extras:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar extras')
       return []
     } finally {
@@ -57,6 +58,7 @@ export function useExtras() {
       setCategorias(data || [])
       return data || []
     } catch (err: unknown) {
+      console.error('Erro ao carregar categorias:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar categorias')
       return []
     }
@@ -70,6 +72,7 @@ export function useExtras() {
       setCategorias(prev => [...prev, data as CategoriaExtra].sort((a, b) => a.nome.localeCompare(b.nome)))
       return data as CategoriaExtra
     } catch (err: unknown) {
+      console.error('Erro ao criar categoria:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao criar categoria')
       return null
     }
@@ -83,6 +86,7 @@ export function useExtras() {
       setCategorias(prev => prev.map(c => c.id === id ? { ...c, ...dados } : c).sort((a, b) => a.nome.localeCompare(b.nome)))
       return true
     } catch (err: unknown) {
+      console.error('Erro ao atualizar categoria:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar categoria')
       return false
     }
@@ -96,6 +100,7 @@ export function useExtras() {
       setCategorias(prev => prev.filter(c => c.id !== id))
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover categoria:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover categoria')
       return false
     }
@@ -107,6 +112,7 @@ export function useExtras() {
       if (error) throw error
       return data as Extra
     } catch (err: unknown) {
+      console.error('Erro ao buscar extra:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao buscar extra')
       return null
     }
@@ -151,6 +157,7 @@ export function useExtras() {
       setExtras(prev => [data as Extra, ...prev])
       return data as Extra
     } catch (err: unknown) {
+      console.error('Erro ao registrar extra:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao registrar extra')
       return null
     }
@@ -164,6 +171,7 @@ export function useExtras() {
       setExtras(prev => prev.map(e => e.id === id ? { ...e, ...dados } : e))
       return true
     } catch (err: unknown) {
+      console.error('Erro ao atualizar extra:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar extra')
       return false
     }
@@ -177,6 +185,7 @@ export function useExtras() {
       setExtras(prev => prev.filter(e => e.id !== id))
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover extra:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover extra')
       return false
     }

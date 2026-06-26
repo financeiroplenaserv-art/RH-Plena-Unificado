@@ -25,6 +25,7 @@ export function useEContador() {
     try {
       return await econtadorApi.carregarToken()
     } catch (err: unknown) {
+      console.error('Erro ao carregar token do e-Contador:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar token do e-Contador')
       return null
     }
@@ -36,6 +37,7 @@ export function useEContador() {
       toast.success('Token salvo')
       return true
     } catch (err: unknown) {
+      console.error('Erro ao salvar token do e-Contador:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar token do e-Contador')
       return false
     }
@@ -50,6 +52,7 @@ export function useEContador() {
       }
       return filtradas
     } catch (err: unknown) {
+      console.error('Erro ao consultar empresas do e-Contador:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao consultar empresas')
       return []
     }
@@ -68,6 +71,7 @@ export function useEContador() {
       toast.success(`${todos.length} funcionários carregados`)
       return todos
     } catch (err: unknown) {
+      console.error('Erro ao consultar funcionários do e-Contador:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao consultar eContador')
       return []
     } finally {

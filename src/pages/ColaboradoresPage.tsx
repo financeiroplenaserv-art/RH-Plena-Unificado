@@ -75,7 +75,7 @@ export function ColaboradoresPage() {
       status: filtroStatus !== 'todos' ? filtroStatus : undefined,
       cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
       empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
-      departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+      departamentoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
     }, { pagina: 0, tamanho: 50 })
   }
 
@@ -120,7 +120,7 @@ export function ColaboradoresPage() {
         status: filtroStatus !== 'todos' ? filtroStatus : undefined,
         cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
         empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
-        departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+        departamentoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
       }, { pagina, tamanho: 50 })
       setModoEdicao(false)
     }
@@ -139,7 +139,7 @@ export function ColaboradoresPage() {
           status: filtroStatus !== 'todos' ? filtroStatus : undefined,
           cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
           empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
-          departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+          departamentoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
         }, { pagina, tamanho: 50 })} disabled={loading} className="bg-white border-[#E2E8F0] text-[#1F2937] hover:bg-slate-50 rounded-[8px]">
           <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />
           Atualizar
@@ -175,7 +175,7 @@ export function ColaboradoresPage() {
                 {departamentos.map((d) => {
                   const label = d.nome_curto || d.nome
                   return (
-                    <SelectItem key={d.id} value={label}>
+                    <SelectItem key={d.id} value={d.id}>
                       {label}
                       {d.nome_curto ? <span className="ml-1 text-slate-400 text-xs">({d.nome})</span> : null}
                     </SelectItem>
@@ -288,7 +288,7 @@ export function ColaboradoresPage() {
                   status: filtroStatus !== 'todos' ? filtroStatus : undefined,
                   cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
                   empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
-                  departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+                  departamentoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
                 }, { pagina: nova, tamanho: 50 })
               }}
               onPaginaProxima={() => {
@@ -299,7 +299,7 @@ export function ColaboradoresPage() {
                   status: filtroStatus !== 'todos' ? filtroStatus : undefined,
                   cargo: filtroCargo !== 'todos' ? filtroCargo : undefined,
                   empresaId: filtroEmpresa !== 'todos' ? filtroEmpresa : undefined,
-                  departamentoNomeCurto: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+                  departamentoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
                 }, { pagina: nova, tamanho: 50 })
               }}
               carregando={loading}

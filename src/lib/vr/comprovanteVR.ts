@@ -108,7 +108,7 @@ export function gerarRecibosLoteHTML(
   projetoNome?: string
 ): string {
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
-  const totalGeral = resultados.reduce((s, r) => s + r.valorBruto + (r.extra || 0), 0)
+  const totalGeral = resultados.reduce((s, r) => s + r.valorBruto, 0)
   const escProjetoNome = escapeHtml(projetoNome) || 'Plena EA Facilities'
   const escDataCorte = config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
   const escDataEfetivacao = config.dataEfetivacao ? new Date(config.dataEfetivacao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'

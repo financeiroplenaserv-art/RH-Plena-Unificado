@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { loginComEmail, logout as logoutAuth, cadastrarComEmail } from '@/lib/auth'
+import { setPermissoesCache } from '@/lib/permissoes'
 import type { Perfil, NivelAcesso } from '@/types/database'
 
 const PERFIL_STORAGE_KEY = 'plena_perfil'
@@ -25,6 +26,24 @@ export function useAuth() {
   const [user, setUser] = useState<Perfil | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const carregarPermissoesDoPerfil = useCallback(async (perfil: NivelAcesso) => {
+    try {
+      const { data, error } = await supabase
+        .from('permissoes_perfil')
+        .select('*')
+        .eq('perfil', perfil)
+      if (error) {
+        console.error('Erro ao carregar permissões do perfil:', error)
+        setPermissoesCache([])
+      } else {
+        setPermissoesCache((data as { perfil: NivelAcesso; recurso: string; acao: string; permitido: boolean }[]) || [])
+      }
+    } catch (err) {
+      console.error('Erro ao carregar permissões do perfil:', err)
+      setPermissoesCache([])
+    }
+  }, [])
+
   const carregarPerfil = useCallback(async (
     authUser: { id: string; email?: string | null },
     nivelPadrao: NivelAcesso = 'visualizador'
@@ -38,6 +57,8 @@ export function useAuth() {
     if (perfil) {
       setUser(perfil as Perfil)
       localStorage.setItem(PERFIL_STORAGE_KEY, JSON.stringify(perfil))
+      // Carrega permissões dinâmicas do perfil
+      await carregarPermissoesDoPerfil((perfil as Perfil).nivel_acesso)
     } else if (!error || error.code === 'PGRST116') {
       // CORREÇÃO DE SEGURANÇA: nunca criar admin automaticamente.
       // O nível padrão é 'visualizador'. Apenas fluxos explícitos (ex: primeiro acesso)
@@ -66,9 +87,10 @@ export function useAuth() {
         setUser((criado || novoPerfil) as Perfil)
         localStorage.setItem(PERFIL_STORAGE_KEY, JSON.stringify(criado || novoPerfil))
       }
+      await carregarPermissoesDoPerfil(nivelPadrao)
     }
     setLoading(false)
-  }, [])
+  }, [carregarPermissoesDoPerfil])
 
   useEffect(() => {
     let ignore = false

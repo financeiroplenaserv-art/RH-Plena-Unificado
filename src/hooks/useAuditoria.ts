@@ -15,7 +15,7 @@ export function useAuditoria() {
   const loadLogs = useCallback(async (filtros: FiltrosAuditoria = {}) => {
     setLoading(true)
     let query = supabase
-      .from('auditoria')
+      .from('log_auditoria')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(200)
@@ -35,7 +35,7 @@ export function useAuditoria() {
 
   const registrar = useCallback(
     async (payload: Partial<AuditoriaLog>) => {
-      const { error } = await supabase.from('auditoria').insert(payload)
+      const { error } = await supabase.from('log_auditoria').insert(payload)
       if (error) {
         console.warn('Erro ao registrar auditoria:', error.message)
       }

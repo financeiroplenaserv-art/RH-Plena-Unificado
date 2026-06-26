@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { getOcorrenciaAnexoUrl } from '@/lib/storage'
 import type { OcorrenciaAnexo } from '@/types/database'
 
 const BUCKET_NAME = 'ocorrencia-anexos'
@@ -39,10 +40,6 @@ export function useAnexos() {
         return null
       }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path)
-
       const { data, error } = await supabase
         .from('ocorrencia_anexos')
         .insert({
@@ -52,7 +49,7 @@ export function useAnexos() {
           tamanho_bytes: file.size,
           descricao: descricao || null,
           caminho_storage: path,
-          url_publica: publicUrl,
+          url_publica: null,
         })
         .select()
         .single()
@@ -93,5 +90,9 @@ export function useAnexos() {
     return true
   }, [])
 
-  return { anexos, loading, loadAnexos, uploadAnexo, removerAnexo }
+  const gerarUrlAssinada = useCallback(async (caminhoStorage: string) => {
+    return getOcorrenciaAnexoUrl(caminhoStorage)
+  }, [])
+
+  return { anexos, loading, loadAnexos, uploadAnexo, removerAnexo, gerarUrlAssinada }
 }

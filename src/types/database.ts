@@ -98,6 +98,16 @@ export interface Perfil {
   created_at?: string
 }
 
+export interface PermissaoPerfil {
+  id?: string
+  perfil: NivelAcesso
+  recurso: string
+  acao: string
+  permitido: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface TermoLGPD {
   id: string
   versao: string
@@ -226,7 +236,7 @@ export interface AuditoriaLog {
   id: string
   tabela: string
   registro_id: string
-  acao: 'INSERT' | 'UPDATE' | 'DELETE' | 'CANCEL'
+  operacao: 'INSERT' | 'UPDATE' | 'DELETE' | 'CANCEL'
   dados_anteriores: Record<string, unknown> | null
   dados_novos: Record<string, unknown> | null
   usuario_id: string | null
@@ -498,6 +508,12 @@ export type Database = {
         Row: ReciboExtra & Record<string, unknown>
         Insert: Partial<ReciboExtra> & Record<string, unknown>
         Update: Partial<ReciboExtra> & Record<string, unknown>
+        Relationships: []
+      }
+      permissoes_perfil: {
+        Row: PermissaoPerfil & Record<string, unknown>
+        Insert: Partial<PermissaoPerfil> & Record<string, unknown>
+        Update: Partial<PermissaoPerfil> & Record<string, unknown>
         Relationships: []
       }
     }

@@ -33,6 +33,7 @@ export function useExtrasRecibos() {
       setRecibos(data || [])
       return data || []
     } catch (err: unknown) {
+      console.error('Erro ao carregar recibos:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar recibos')
       return []
     } finally {
@@ -46,6 +47,7 @@ export function useExtrasRecibos() {
       if (error) throw error
       return data as ReciboExtra
     } catch (err: unknown) {
+      console.error('Erro ao buscar recibo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao buscar recibo')
       return null
     }
@@ -60,6 +62,7 @@ export function useExtrasRecibos() {
       setRecibos(prev => [data as ReciboExtra, ...prev])
       return data as ReciboExtra
     } catch (err: unknown) {
+      console.error('Erro ao gerar recibo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar recibo')
       return null
     }
@@ -93,6 +96,7 @@ export function useExtrasRecibos() {
       setRecibos(prev => prev.map(r => r.id === id ? (data as ReciboExtra) : r))
       return data as ReciboExtra
     } catch (err: unknown) {
+      console.error('Erro ao assinar recibo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao assinar recibo')
       return null
     }
@@ -105,6 +109,7 @@ export function useExtrasRecibos() {
       setRecibos(prev => prev.map(r => r.id === id ? { ...r, ...dados } : r))
       return data as ReciboExtra
     } catch (err: unknown) {
+      console.error('Erro ao atualizar recibo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar recibo')
       return null
     }
@@ -118,6 +123,7 @@ export function useExtrasRecibos() {
       setRecibos(prev => prev.filter(r => r.id !== id))
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover recibo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover recibo')
       return false
     }

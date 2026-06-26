@@ -219,6 +219,7 @@ export function ExtrasRecibosPage() {
         )
         toast.success('Recibo para impressão gerado')
       } catch (err) {
+        console.error('Erro ao gerar recibo para impressão:', err)
         toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
       }
       return
@@ -259,6 +260,7 @@ export function ExtrasRecibosPage() {
           recibo.data_assinatura
         )
       } catch (err) {
+        console.error('Erro ao gerar PDF assinado:', err)
         toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
         setEmitindo(false)
         return
@@ -300,6 +302,7 @@ export function ExtrasRecibosPage() {
         recibo.data_assinatura
       )
     } catch (err) {
+      console.error('Erro ao reemitir PDF do recibo:', err)
       toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
     }
   }
@@ -327,6 +330,20 @@ export function ExtrasRecibosPage() {
 
     if (!reciboAssinado) {
       toast.error('É necessário gerar o recibo (com assinatura digital ou em papel) antes de marcar os extras como pagos.')
+      return
+    }
+
+    // Amarração recibo ↔ extras: todos os extras a pagar devem constar no recibo
+    // e o valor total do recibo deve corresponder à soma dos extras do grupo.
+    const idsNoRecibo = new Set(reciboAssinado.extras_ids || [])
+    const todosIdsNoRecibo = pendentes.every(e => idsNoRecibo.has(e.id))
+    const valorPendentes = pendentes.reduce((s, e) => s + (Number(e.valor) || 0), 0)
+    const valorBate = Math.abs(reciboAssinado.valor_total - valorPendentes) < 0.01
+
+    if (!todosIdsNoRecibo || !valorBate) {
+      toast.error(
+        'Os extras atuais não correspondem ao recibo assinado. Gere um novo recibo antes de marcar como pago.'
+      )
       return
     }
 

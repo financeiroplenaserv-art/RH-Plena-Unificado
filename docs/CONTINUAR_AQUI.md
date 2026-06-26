@@ -8,7 +8,7 @@
 
 ---
 
-## ✅ Estado atual (pós sessão 2026-06-26)
+## ✅ Estado atual
 
 ### Responsividade mobile / PWA
 - Página `/mobile/falta` com inputs reduzidos no celular ✅
@@ -22,41 +22,58 @@
 - Regra validada com a usuária ✅
 
 ### Segurança / RLS
-- Migration 038 aplicada: RLS de `extras`, `recibos_extras`, `categorias_extras` e `ocorrencias` ✅
+- Migrations 038–045 aplicadas: RLS de `extras`, `recibos_extras`, `categorias_extras`, `ocorrencias`, storage e isolamento por contexto ✅
 - Migration 039 aplicada: RLS granular dos buckets `ocorrencia-anexos` e `vr-arquivos` ✅
+- Migrations 040–043 aplicadas: correção de SELECT aberto, token e-Contador restrito e limpeza de RLS sensíveis ✅
+- Migrations 044–045 aplicadas: isolamento de storage por `ocorrencia_id`/`projeto_id` via path ✅
 - Script manual disponível: `scripts/aplicar_rls_038_039_manual.sql` ✅
 - Edge Function `econtador` re-deployada com permissão adm/dp1/dp2 ✅
-- Menu **Configurações** adicionado na Sidebar ✅
 - Regras de negócio documentadas em `docs/REGRAS_NEGOCIO.md` ✅
 
-### Commits da sessão
-- `28ca098` — responsividade mobile, PWA e formulário `/mobile/falta`
-- `eebb0c2` — RLS de extras/ocorrências e regras de negócio
-- `d663412` — ativa Edge Function e-Contador e adiciona Configurações no menu
-- `7d3510c` — migration 039 de RLS granular do Storage
-- `7d0764c` — script SQL manual para aplicação das migrations 038 e 039
+### Qualidade / Preparação para produção (sessão anterior)
+- **Permissões de configurações e e-Contador** corrigidas em `src/lib/permissoes.ts` para refletir `PERFIL_ACOES_MODELO.md` ✅
+- **Tela administrativa de permissões** criada em `src/pages/PermissoesPage.tsx`, rota `/permissoes` e menu no sidebar para `adm`/`admin` ✅
+- **Rotas e menus controlados pela tela de permissões** via `ProtectedRoute` e `Sidebar` ✅
+- **Testes passando:** `npm test -- --run` → 40/40 ✅
+- **Erros silenciados tratados:** `catch` vazios agora logam `console.error`; hooks e páginas principais unificam `console.error` + `toast.error` ✅
+- **Mocks removidos do bundle de produção:** `mockData.ts` excluído, modo demonstração removido das páginas CEU, `VITE_MODO_MOCK` desativado em `useAdicionaisContratuais.ts` ✅
+
+### Correções de usabilidade (sessão atual)
+- **Filtro por departamento na tela de colaboradores** corrigido em `src/hooks/useColaboradores.ts` — agora busca por `departamento_id` **e** por `departamento` (nome), cobrindo registros importados do e-Contador ✅
+- **Menu e-Contador unificado:** removido do sidebar a entrada duplicada "Configurações"; token do e-Contador fica apenas na tela `/importar/econtador`, com validação antes de salvar ✅
+- **Página de auditoria global** criada em `src/pages/AuditoriaPage.tsx`, rota `/auditoria` adicionada e menu no sidebar visível para `adm`/`admin`/`gestor` ✅
+- **Build de produção estabilizado:** `cross-env` adicionado ao script `build` com `--max-old-space-size=4096` para evitar falhas de memória ✅
+
+### Permissões dinâmicas finalizadas
+- **Tabela `permissoes_perfil`** criada via migration `046_tabela_permissoes_perfil.sql` ✅
+- **Seed de 132 permissões de ações** + menu/rota via migration `047_permissoes_rotas_menus.sql` ✅
+- **Hook `usePermissoes`** carrega e salva permissões do banco ✅
+- **`src/lib/permissoes.ts`** refatorado para consultar DB com fallback seguro ✅
+- **`ProtectedRoute`, `App.tsx` e `Sidebar`** usam permissões dinâmicas ✅
+- **Bug "Apenas para administradores" corrigido** em `/permissoes` — aguarda `authLoading` antes de validar perfil ✅
+
+### Validação final
+- `npm run lint` ✅
+- `npm test -- --run` → 40/40 ✅
+- `npm run build` ✅
 
 ---
 
 ## 🎯 Próximos passos pendentes (priorizados)
 
-### 🔴 Crítico / antes de produção
-1. **Resolver falha de memória nos testes** — `npm test` falha com `out of memory`. Ajustar `vitest.config.ts`.
-2. **Tratar erros silenciados** — substituir `catch` vazio por toast + log.
-3. **Remover mocks do bundle de produção** — `VITE_MODO_MOCK` e `mockData.ts`.
-4. **Padronizar tratamento de erros** — unificar toast/console.error em hooks e páginas.
-
 ### 🟠 Alto
-5. **Aplicar migrations futuras** com cuidado — verificar com `migration list` antes do `db push`.
-6. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
-7. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
-8. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
+1. **Testes manuais de login/perfis** — verificar menus e rotas para cada perfil de teste.
+2. **Testes manuais de storage** — upload/Visualização de anexos de ocorrências e arquivos VR.
+3. **Testes manuais do fluxo de extras** — cálculo, pagamento e auditoria.
+4. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
+5. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
+6. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
 
 ### 🟡 Médio / após auditoria
-9. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
-10. **Testar validação de duplicidade de extras** em cenário real.
-11. **Definir design system** antes de implementar módulos novos.
-12. **Módulos placeholders:** `/ferias`, `/escalas`, `/relatorios`.
+7. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
+8. **Testar validação de duplicidade de extras** em cenário real.
+9. **Definir design system** antes de implementar módulos novos.
+10. **Módulos placeholders:** `/ferias`, `/escalas`, `/relatorios`.
 
 ---
 
@@ -65,8 +82,8 @@
 - **Não alterar regras de cálculo de VR/adicionais sem consultar a usuária.**
 - **Regras de negócio validadas estão em `docs/REGRAS_NEGOCIO.md`.**
 - Sempre rodar `npm run build`, `npm run lint` e `npm test` após alterações.
-- Build/testes podem falhar por falta de memória no ambiente; repetir se necessário.
 - **Workflow de defesa em ocorrências:** não será implementado por decisão de negócio.
+- **Preview local ativo:** `http://localhost:4178/` (se o servidor ainda estiver rodando).
 
 ---
 

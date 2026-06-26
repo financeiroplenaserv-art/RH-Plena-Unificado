@@ -209,8 +209,8 @@ export function CeuLancamentoRapidoPage() {
           snapshot_item: undefined,
         })
         if (result) sucesso++
-      } catch {
-        // continua
+      } catch (err) {
+        console.error('Erro ao registrar entrega:', linha, err)
       }
     }
 

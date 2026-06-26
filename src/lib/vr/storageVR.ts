@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getVRArquivoUrl } from '@/lib/storage'
 
 const BUCKET = 'vr-arquivos'
 
@@ -6,7 +7,7 @@ export async function uploadVRArquivo(
   projetoId: string,
   tipo: 'pdf_anterior' | 'pdf_atual' | 'escala' | 'base',
   file: File
-): Promise<{ path: string; url: string }> {
+): Promise<{ path: string }> {
   const path = `${projetoId}/${tipo}/${crypto.randomUUID()}_${file.name}`
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
@@ -16,8 +17,11 @@ export async function uploadVRArquivo(
 
   if (uploadError) throw uploadError
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-  return { path, url: data.publicUrl }
+  return { path }
+}
+
+export async function getVRArquivoSignedUrl(path: string): Promise<string> {
+  return getVRArquivoUrl(path)
 }
 
 export async function removerVRArquivo(path: string): Promise<void> {

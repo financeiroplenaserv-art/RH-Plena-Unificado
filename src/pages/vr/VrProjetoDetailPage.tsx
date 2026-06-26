@@ -153,8 +153,8 @@ export function VrProjetoDetailPage() {
           if (dados.resultados?.length) setResultados(dados.resultados)
           if (dados.arquivos?.length) setArquivos(dados.arquivos)
         }
-      } catch {
-        // ignora erro de parse
+      } catch (err) {
+        console.error('Erro ao parsear rascunho VR:', err)
       }
 
       setCarregando(false)
@@ -199,6 +199,7 @@ export function VrProjetoDetailPage() {
       setArquivos(prev => [...prev.filter(a => a.tipo !== tipo), { tipo, nome: file.name }])
       toast.success(`${file.name} processado`)
     } catch (err: unknown) {
+      console.error('Erro ao processar arquivo VR:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao processar arquivo')
     } finally {
       e.target.value = ''

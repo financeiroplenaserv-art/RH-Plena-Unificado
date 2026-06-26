@@ -14,7 +14,8 @@ export function listarLogsExclusao(): LogExclusaoCEU[] {
   if (!salvo) return []
   try {
     return JSON.parse(salvo)
-  } catch {
+  } catch (err) {
+    console.error('Erro ao parsear logs de exclusão CEU:', err)
     return []
   }
 }

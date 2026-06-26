@@ -20,7 +20,6 @@ import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
-import { COLABORADORES_MOCK, ITENS_MOCK } from '@/components/ceu/mockData'
 import type { Colaborador, ItemCEU, EntregaCEU } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -46,7 +45,6 @@ export function CeuEntregaFormPage() {
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
 
   const [passo, setPasso] = useState(1)
-  const [modoMock, setModoMock] = useState(false)
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)
   const [colabInput, setColabInput] = useState('')
   const [dropdownAberto, setDropdownAberto] = useState(false)
@@ -104,7 +102,7 @@ export function CeuEntregaFormPage() {
     setDropdownAberto(false)
   }
 
-  const itensDisponiveis = useMemo(() => (modoMock ? ITENS_MOCK : itens), [modoMock, itens])
+  const itensDisponiveis = useMemo(() => itens, [itens])
 
   const selecionadosArray = useMemo(
     () => Object.values(itensSelecionados),
@@ -177,27 +175,26 @@ export function CeuEntregaFormPage() {
 
     setSalvando(true)
     try {
-      if (!modoMock) {
-        for (const { item, quantidade } of selecionadosArray) {
-          await criar({
-            colaborador_id: colaborador.id,
-            item_id: item.id,
-            data_entrega: dataEntrega,
-            quantidade,
-            observacao: observacao || null,
-            snapshot_item: {
-              nome: item.nome,
-              tipo: item.tipo,
-              ca: item.ca || '',
-              prazo_uso_dias: item.prazo_uso_dias || null,
-            },
-          })
-        }
+      for (const { item, quantidade } of selecionadosArray) {
+        await criar({
+          colaborador_id: colaborador.id,
+          item_id: item.id,
+          data_entrega: dataEntrega,
+          quantidade,
+          observacao: observacao || null,
+          snapshot_item: {
+            nome: item.nome,
+            tipo: item.tipo,
+            ca: item.ca || '',
+            prazo_uso_dias: item.prazo_uso_dias || null,
+          },
+        })
       }
-      toast.success(modoMock ? 'Entrega simulada com sucesso (modo demonstração)' : 'Entregas registradas com sucesso')
+      toast.success('Entregas registradas com sucesso')
       setConcluido(true)
       setPasso(4)
-    } catch {
+    } catch (err) {
+      console.error('Erro ao registrar entrega:', err)
       toast.error('Erro ao registrar entrega')
     } finally {
       setSalvando(false)
@@ -258,71 +255,43 @@ export function CeuEntregaFormPage() {
               </div>
             ))}
           </div>
-          <CeuButton variant="outline" size="sm" onClick={() => setModoMock((m) => !m)}>
-            {modoMock ? 'Usar dados reais' : 'Usar dados de demonstração'}
-          </CeuButton>
+
         </div>
 
         {passo === 1 && (
           <CeuCard title="Passo 1: Selecionar colaborador" icon={<User className="w-4 h-4" />} gradient="blue">
             <div className="space-y-4">
-              {modoMock ? (
-                <div className="space-y-2">
-                  <Label>Colaborador de demonstração</Label>
-                  <Select
-                    value={colaborador?.id || '__placeholder__'}
-                    onValueChange={(id) => {
-                      if (id === '__placeholder__') return
-                      const c = COLABORADORES_MOCK.find((c) => c.id === id) || null
-                      setColaborador(c)
-                    }}
-                  >
-                    <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
-                      <SelectValue placeholder="Selecione um colaborador..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__placeholder__" disabled>Selecione um colaborador...</SelectItem>
-                      {COLABORADORES_MOCK.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nome_completo} — {c.matricula}
-                        </SelectItem>
+              <div className="space-y-2">
+                <Label>Colaborador</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    ref={inputColabRef}
+                    value={colabInput}
+                    onChange={(e) => handleColabInput(e.target.value)}
+                    onFocus={() => setDropdownAberto(true)}
+                    onBlur={() => setTimeout(() => setDropdownAberto(false), 200)}
+                    placeholder="Buscar por nome ou matrícula..."
+                    className="pl-10"
+                    autoComplete="off"
+                  />
+                  {dropdownAberto && colaboradoresSugeridos.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                      {colaboradoresSugeridos.map((colab) => (
+                        <button
+                          key={colab.id}
+                          type="button"
+                          onMouseDown={() => selecionarColaborador(colab)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0"
+                        >
+                          <p className="font-medium text-slate-900">{colab.nome_completo}</p>
+                          <p className="text-xs text-slate-500">{colab.matricula} — {colab.departamento || '—'}</p>
+                        </button>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Colaborador</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input
-                      ref={inputColabRef}
-                      value={colabInput}
-                      onChange={(e) => handleColabInput(e.target.value)}
-                      onFocus={() => setDropdownAberto(true)}
-                      onBlur={() => setTimeout(() => setDropdownAberto(false), 200)}
-                      placeholder="Buscar por nome ou matrícula..."
-                      className="pl-10"
-                      autoComplete="off"
-                    />
-                    {dropdownAberto && colaboradoresSugeridos.length > 0 && (
-                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
-                        {colaboradoresSugeridos.map((colab) => (
-                          <button
-                            key={colab.id}
-                            type="button"
-                            onMouseDown={() => selecionarColaborador(colab)}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0"
-                          >
-                            <p className="font-medium text-slate-900">{colab.nome_completo}</p>
-                            <p className="text-xs text-slate-500">{colab.matricula} — {colab.departamento || '—'}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              </div>
 
               {colaborador && (
                 <>
@@ -404,7 +373,7 @@ export function CeuEntregaFormPage() {
         {passo === 2 && (
           <CeuCard title="Passo 2: Selecionar itens" icon={<Package className="w-4 h-4" />} gradient="blue">
             <div className="space-y-4">
-              {carregandoItens && !modoMock ? (
+              {carregandoItens ? (
                 <div className="text-center py-8 text-slate-500">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#3B82F6] mx-auto mb-2" />
                   Carregando itens...

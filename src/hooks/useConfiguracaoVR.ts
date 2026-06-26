@@ -26,7 +26,8 @@ export function useConfiguracaoVR() {
       if (data?.valor) {
         try {
           setConfig(JSON.parse(data.valor) as VRConfiguracao)
-        } catch {
+        } catch (err) {
+          console.error('Erro ao parsear configuração VR:', err)
           setConfig(null)
         }
       }

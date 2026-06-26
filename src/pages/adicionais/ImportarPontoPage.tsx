@@ -163,6 +163,7 @@ export function ImportarPontoPage() {
         })
       }
     } catch (err) {
+      console.error('Erro ao processar PDF de ponto:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao processar PDF')
     } finally {
       setProcessando(false)

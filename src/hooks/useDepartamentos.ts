@@ -15,7 +15,8 @@ function lerMock(): Departamento[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     return raw ? (JSON.parse(raw) as Departamento[]) : []
-  } catch {
+  } catch (err) {
+    console.error('Erro ao ler mock de departamentos:', err)
     return []
   }
 }
@@ -50,6 +51,7 @@ export function useDepartamentos() {
       setDepartamentos((data || []) as Departamento[])
       return (data || []) as Departamento[]
     } catch (err: unknown) {
+      console.error('Erro ao carregar departamentos:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar departamentos')
       return []
     } finally {
@@ -78,6 +80,7 @@ export function useDepartamentos() {
       await listar(departamento.empresa_id || undefined)
       return data as Departamento
     } catch (err: unknown) {
+      console.error('Erro ao criar departamento:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao criar departamento')
       return null
     }
@@ -105,6 +108,7 @@ export function useDepartamentos() {
       await listar(empresaId)
       return true
     } catch (err: unknown) {
+      console.error('Erro ao atualizar departamento:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar departamento')
       return false
     }
@@ -125,6 +129,7 @@ export function useDepartamentos() {
       await listar(empresaId)
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover departamento:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover departamento')
       return false
     }
@@ -197,6 +202,7 @@ export function useDepartamentos() {
 
       return { sucesso, falha }
     } catch (err: unknown) {
+      console.error('Erro ao sincronizar departamentos:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar departamentos')
       return { sucesso, falha }
     } finally {

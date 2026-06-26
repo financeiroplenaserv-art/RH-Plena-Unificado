@@ -55,3 +55,5 @@ export const DepartamentosPage = lazyNamed(() => import('@/pages/DepartamentosPa
 export const EmpresasPage = lazyNamed(() => import('@/pages/EmpresasPage'), 'EmpresasPage')
 export const ImportarEContadorPage = lazyNamed(() => import('@/pages/ImportarEContadorPage'), 'ImportarEContadorPage')
 export const ConfiguracoesPage = lazyNamed(() => import('@/pages/ConfiguracoesPage'), 'ConfiguracoesPage')
+export const AuditoriaPage = lazyNamed(() => import('@/pages/AuditoriaPage'), 'AuditoriaPage')
+export const PermissoesPage = lazyNamed(() => import('@/pages/PermissoesPage'), 'PermissoesPage')

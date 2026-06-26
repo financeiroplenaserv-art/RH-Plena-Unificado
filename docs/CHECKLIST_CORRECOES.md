@@ -25,7 +25,7 @@
 | 1.2 | Proteger rota `/importar/econtador` com `ProtectedRoute` | 🟡 Revisar | `src/App.tsx` | Atualmente apenas `admin` ou `rh` acessam. Cliente deseja permissões granulares: inspetores podem lançar extras mas NÃO acessar e-Contador. |
 | 1.3 | Fechar RLS de `extras`, `categorias_extras`, `recibos_extras` | ✅ Feito | `supabase/migrations/027_rls_extras_e_recibos.sql` | Regras `is_admin`, `is_editor`, SELECT para autenticados. |
 | 1.4 | Proteger/mover token do e-Contador | ✅ Feito | `supabase/functions/econtador/index.ts`, `supabase/migrations/030_criptografar_token_econtador.sql`, `src/services/econtadorApi.ts`, `.env.example` | Edge Function deployada. Token criptografado com AES-256-GCM. `VITE_USAR_EDGE_FUNCTION_ECONTADOR=true` ativado. Migration 030 aplicada. |
-| 1.5 | Isolar storage buckets por contexto | 🟡 Parcial | `supabase/migrations/035_isolar_storage_buckets.sql` | Buckets privados. SELECT/INSERT/UPDATE restritos a editores. DELETE apenas admin. Isolamento por contexto específico (ex: só anexos de ocorrências que o usuário pode ver) ainda pendente. |
+| 1.5 | Isolar storage buckets por contexto | ✅ Feito | `supabase/migrations/035_isolar_storage_buckets.sql`, `039_rls_storage_contexto.sql`, `044_isolar_storage_contexto.sql`, `045_restringir_insert_storage_contexto.sql`, `src/lib/storage.ts`, `src/hooks/useAnexos.ts`, `src/lib/vr/storageVR.ts`, `src/pages/rh/OcorrenciaDetailPage.tsx` | Buckets privados com policies por perfil. `getPublicUrl()` substituído por `createSignedUrl()`. INSERT/SELECT/UPDATE/DELETE restringidos pelo path (`ocorrencia_id` / `projeto_id`) verificando existência do registro. |
 | 1.6 | Remover SELECT irrestrito em dados sensíveis | ✅ Feito | `supabase/migrations/034_restringir_select_dados_sensiveis.sql` | `visualizador` não lê mais `perfis`, `configuracoes`, `log_auditoria` e `auditoria`. `is_editor` atualizado com novos perfis. |
 | 1.7 | Proteger primeiro acesso (contagem pública de perfis) | ✅ Feito | `src/App.tsx`, `.env.example` | Consulta pública só ocorre se `VITE_PERMITIR_PRIMEIRO_ACESSO=true`. Em produção deve ser `false`. |
 | 1.8 | Implementar auditoria automática no banco | ✅ Feito | `supabase/migrations/029_auditoria_automatica.sql` | Triggers em `ocorrencias`, `colaboradores`, `extras`, `recibos_extras`, `projetos_vr`, `resultados_vr`. |
@@ -111,7 +111,8 @@
 - [x] Criada migration `031_historico_importacao_detalhes_erros.sql` para detalhar erros.
 - [x] Criada migration `033_matricula_unica_por_empresa.sql`.
 - [x] Ajustado `upsertPorMatricula` para considerar empresa e tratar conflitos.
-- [ ] Isolar storage buckets.
+- [x] Substituir `getPublicUrl` por `createSignedUrl` nos anexos e arquivos VR.
+- [x] Isolar storage buckets por `ocorrencia_id`/`projeto_id` via path e policies (044/045).
 - [x] Implementar consentimento LGPD.
 - [x] Criar helpers de permissão RBAC (`src/lib/permissoes.ts`).
 - [x] Criar componente `Permissao.tsx`.
@@ -144,19 +145,19 @@
 | 6.3 | Atualizar funções RLS no banco | ✅ Feito | `supabase/migrations/037_rbac_granular.sql` | `is_admin`, `is_editor` e helpers granulares (`is_dp`, `is_mesa`, etc.). |
 | 6.4 | Aplicar permissões nas rotas | ✅ Feito | `src/App.tsx` | Cada rota mapeada para os perfis definidos em `docs/PERFIL_ACOES_MODELO.md`. |
 | 6.5 | Aplicar permissões no menu lateral | ✅ Feito | `src/components/layout/Sidebar.tsx` | Menus exibidos conforme perfil do usuário. |
-| 6.6 | Restringir ações dentro das páginas (botões, formulários) | ✅ Feito | `src/lib/permissoes.ts`, `src/components/Permissao.tsx`, páginas de dados mestres, extras, VR, adicionais, ocorrências, modelos, alertas e configurações | Todas as fases A+B+C aplicadas conforme `docs/PERFIL_ACOES_MODELO.md`. |
+| 6.6 | Restringir ações dentro das páginas (botões, formulários), rotas e menus | ✅ Feito | `src/lib/permissoes.ts`, `src/components/Permissao.tsx`, `src/components/layout/ProtectedRoute.tsx`, `src/components/layout/Sidebar.tsx`, `src/App.tsx`, `src/pages/PermissoesPage.tsx` | Todas as fases A+B+C aplicadas. Tela administrativa `/permissoes` permite ao administrador ajustar permissões de ações, rotas e menus sem editar código. |
 | 6.7 | Migrar usuários existentes para novos perfis | ⏳ Pendente | Supabase / admin | Usuários com `admin`, `rh`, `gestor`, `visualizador` devem ser realocados manualmente. |
 
 ---
 
 ## 🎯 Próximos Passos Recomendados
 
-1. Aplicar migrations `027`, `028`, `029`, `030`, `031`, `033`, `036` e `037` no Supabase.
+1. Aplicar migrations `027`–`043` no Supabase ✅ (aplicadas em 2026-06-26).
 2. Testar importação do e-Contador em ambas as empresas ✅ (em andamento).
 3. Configurar Vitest + React Testing Library.
 4. Criar testes unitários para cálculos críticos.
 5. Implementar consentimento LGPD ✅
-6. Isolar storage buckets por contexto.
+6. Isolar storage buckets por contexto (owner/ocorrencia_id/projeto_id).
 7. Restringir ações internas nas páginas conforme RBAC granular.
 8. Migrar usuários existentes para os novos perfis.
 

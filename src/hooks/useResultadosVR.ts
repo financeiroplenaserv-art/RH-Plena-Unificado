@@ -23,6 +23,7 @@ export function useResultadosVR() {
 
       setResultados((data as ResultadoVR[]) || [])
     } catch (err: unknown) {
+      console.error('Erro inesperado ao carregar resultados VR:', err)
       toast.error(err instanceof Error ? err.message : 'Erro inesperado ao carregar resultados')
     } finally {
       setLoading(false)

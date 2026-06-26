@@ -3,6 +3,31 @@ AGENTES CONFORME OPINIÃO DO KIMI INSTANT. SÃO AGENTES DE CHAT NÃO SÃO AGENTE
 AGENTES DE AVALIAÇÃO — RH Plena Unificado
 ===
 
+## 🚨 REGRA DE OURO — BACKUP ANTES DE QUALQUER ALTERAÇÃO NO BANCO
+
+> **TODOS os agentes DEVEM garantir um backup do banco de dados antes de aplicar migrations, alterar RLS, funções, triggers ou qualquer mudança estrutural no Supabase.**
+
+### Procedimento obrigatório
+
+1. Antes de qualquer migration, oriente o usuário a fazer backup pelo Supabase Dashboard:
+   - **Project Settings → Database → Backups** (quando disponível), ou
+   - **SQL Editor → New query** e rode: `SELECT pg_export_snapshot();` + exportação manual, ou
+   - Agende um backup via interface do Supabase.
+
+2. Sempre que possível, gere um script SQL de **rollback** (comando para desfazer a alteração) e entregue ao usuário junto com a migration.
+
+3. Aplique migrations preferencialmente em horários de baixo uso.
+
+4. NUNCA peça ou aceita senhas, service role keys, tokens de API ou chaves privadas no chat. Oriente o usuário a manter esses dados apenas no `.env` local e no Supabase Dashboard.
+
+5. Após aplicar qualquer migration, peça ao usuário para testar a funcionalidade afetada imediatamente.
+
+### Contexto
+
+O projeto RH Plena Unificado não possui ambiente de teste/staging configurado por falta de suporte técnico dedicado. Portanto, as alterações são testadas diretamente em produção. O backup é a principal linha de defesa contra erros.
+
+---
+
 ## Ordem de Prioridade (Camada 1 → 3)
 
 > \*\*Sistema:\*\* RH Plena Unificado

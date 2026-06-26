@@ -6,6 +6,7 @@ import type { Colaborador, StatusColaborador } from '@/types/database'
 interface FiltrosColaborador {
   empresaId?: string
   departamento?: string
+  departamentoId?: string
   departamentoNomeCurto?: string
   cargo?: string
   status?: StatusColaborador
@@ -33,31 +34,58 @@ export function useColaboradores() {
   const [paginacao, setPaginacao] = useState<ResultadoPaginado<Colaborador> | null>(null)
 
   const montarQuery = useCallback(async (filtros?: FiltrosColaborador) => {
-    // Se houver filtro por nome curto do departamento, busca os IDs correspondentes primeiro
-    const departamentoIds: string[] = []
-    if (filtros?.departamentoNomeCurto && filtros.departamentoNomeCurto !== 'todos') {
+    // Se houver filtro por ID de departamento, usa diretamente.
+    // O fallback por nome permanece para compatibilidade com integrações antigas.
+    let departamentoIds: string[] = []
+    let nomesDepartamento: string[] = []
+
+    if (filtros?.departamentoId && filtros.departamentoId !== 'todos') {
+      departamentoIds = [filtros.departamentoId]
+      // Muitos colaboradores importados do e-Contador só têm o nome do departamento preenchido.
+      // Buscamos o departamento para também filtrar pelo nome/nome_curto.
+      const { data: dept } = await supabase
+        .from('departamentos')
+        .select('nome, nome_curto')
+        .eq('id', filtros.departamentoId)
+        .single()
+      if (dept) {
+        if (dept.nome_curto) nomesDepartamento.push(dept.nome_curto)
+        if (dept.nome) nomesDepartamento.push(dept.nome)
+      }
+    } else if (filtros?.departamentoNomeCurto && filtros.departamentoNomeCurto !== 'todos') {
       const { data: depts, error: erroDepts } = await supabase
         .from('departamentos')
-        .select('id')
-        .ilike('nome_curto', `%${filtros.departamentoNomeCurto}%`)
+        .select('id, nome, nome_curto')
+        .or(`nome_curto.ilike.%${filtros.departamentoNomeCurto}%,nome.ilike.%${filtros.departamentoNomeCurto}%`)
 
       if (erroDepts) {
         toast.error('Erro ao carregar departamentos: ' + erroDepts.message)
         return null
       }
 
-      const ids = (depts || []).map((d: { id: string }) => d.id)
-      if (ids.length === 0) {
+      departamentoIds = (depts || []).map((d: { id: string }) => d.id)
+      nomesDepartamento = (depts || []).map((d: { nome: string; nome_curto?: string }) => d.nome_curto || d.nome)
+
+      if (departamentoIds.length === 0 && nomesDepartamento.length === 0) {
         return { query: null, vazio: true as const }
       }
-      departamentoIds.push(...ids)
     }
 
     let query = supabase.from('colaboradores').select('*').order('nome_completo')
 
     if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
     if (filtros?.departamento) query = query.ilike('departamento', filtros.departamento)
-    if (departamentoIds.length > 0) query = query.in('departamento_id', departamentoIds)
+    if (departamentoIds.length > 0 || nomesDepartamento.length > 0) {
+      // Colaboradores podem ter departamento_id preenchido OU apenas o nome do departamento
+      const filtrosDepto: string[] = []
+      if (departamentoIds.length > 0) {
+        filtrosDepto.push(`departamento_id.in.(${departamentoIds.join(',')})`)
+      }
+      nomesDepartamento.forEach((nome) => {
+        filtrosDepto.push(`departamento.ilike.%${nome}%`)
+      })
+      query = query.or(filtrosDepto.join(','))
+    }
     if (filtros?.cargo) query = query.ilike('cargo', filtros.cargo)
     if (filtros?.status) query = query.eq('status', filtros.status)
     if (filtros?.busca) {
@@ -65,7 +93,7 @@ export function useColaboradores() {
       query = query.or(`nome_completo.ilike.%${termo}%,cpf.ilike.%${termo}%,matricula.ilike.%${termo}%`)
     }
 
-    return { query, vazio: false }
+    return { query, departamentoIds, nomesDepartamento, vazio: false }
   }, [])
 
   const listar = useCallback(async (filtros?: FiltrosColaborador) => {
@@ -123,6 +151,16 @@ export function useColaboradores() {
     // Reaplica os mesmos filtros na contagem
     if (filtros?.empresaId) countQuery.eq('empresa_id', filtros.empresaId)
     if (filtros?.departamento) countQuery.ilike('departamento', filtros.departamento)
+    if (montada.departamentoIds?.length || montada.nomesDepartamento?.length) {
+      const filtrosDepto: string[] = []
+      if (montada.departamentoIds?.length) {
+        filtrosDepto.push(`departamento_id.in.(${montada.departamentoIds.join(',')})`)
+      }
+      montada.nomesDepartamento?.forEach((nome) => {
+        filtrosDepto.push(`departamento.ilike.%${nome}%`)
+      })
+      countQuery.or(filtrosDepto.join(','))
+    }
     if (filtros?.cargo) countQuery.ilike('cargo', filtros.cargo)
     if (filtros?.status) countQuery.eq('status', filtros.status)
     if (filtros?.busca) {

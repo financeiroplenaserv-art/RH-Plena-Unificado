@@ -9,7 +9,7 @@ import type {
   StatusDiaAdicional,
 } from '@/types/adicionais'
 
-const MODO_MOCK = import.meta.env.VITE_MODO_MOCK === 'true'
+const MODO_MOCK = false
 
 function mockKey(tabela: string) {
   return `mock_${tabela}_adicionais`
@@ -19,7 +19,8 @@ function lerMock<T>(tabela: string): T[] {
   try {
     const raw = localStorage.getItem(mockKey(tabela))
     return raw ? (JSON.parse(raw) as T[]) : []
-  } catch {
+  } catch (err) {
+    console.error(`Erro ao ler mock de ${tabela}:`, err)
     return []
   }
 }
@@ -32,7 +33,8 @@ function lerMockRaw(tabela: string): unknown[] {
   try {
     const raw = localStorage.getItem(mockKey(tabela))
     return raw ? (JSON.parse(raw) as unknown[]) : []
-  } catch {
+  } catch (err) {
+    console.error(`Erro ao ler mock raw de ${tabela}:`, err)
     return []
   }
 }
@@ -146,6 +148,7 @@ export function useAdicionaisContratuais() {
       setContratos(normalizado)
       return normalizado
     } catch (err: unknown) {
+      console.error('Erro ao carregar contratos:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar contratos')
       return []
     } finally {
@@ -170,6 +173,7 @@ export function useAdicionaisContratuais() {
       await listarContratos()
       return data as ContratoAdicional
     } catch (err: unknown) {
+      console.error('Erro ao criar contrato:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao criar contrato')
       return null
     }
@@ -193,6 +197,7 @@ export function useAdicionaisContratuais() {
       await listarContratos()
       return true
     } catch (err: unknown) {
+      console.error('Erro ao atualizar contrato:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar contrato')
       return false
     }
@@ -213,6 +218,7 @@ export function useAdicionaisContratuais() {
       await listarContratos()
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover contrato:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover contrato')
       return false
     }
@@ -248,6 +254,7 @@ export function useAdicionaisContratuais() {
       setVinculos(normalizado)
       return normalizado
     } catch (err: unknown) {
+      console.error('Erro ao carregar vínculos:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar vínculos')
       return []
     } finally {
@@ -279,6 +286,7 @@ export function useAdicionaisContratuais() {
       await listarVinculos()
       return data as VinculoAdicional
     } catch (err: unknown) {
+      console.error('Erro ao criar vínculo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao criar vínculo')
       return null
     }
@@ -306,6 +314,7 @@ export function useAdicionaisContratuais() {
       await listarVinculos()
       return true
     } catch (err: unknown) {
+      console.error('Erro ao atualizar vínculo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar vínculo')
       return false
     }
@@ -350,6 +359,7 @@ export function useAdicionaisContratuais() {
       toast.info('Correção disponível apenas no modo mock')
       return { ok: true, alterados: 0 }
     } catch (err: unknown) {
+      console.error('Erro ao corrigir vínculos:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao corrigir vínculos')
       return { ok: false, alterados: 0 }
     }
@@ -370,6 +380,7 @@ export function useAdicionaisContratuais() {
       await listarVinculos()
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover vínculo:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover vínculo')
       return false
     }
@@ -396,6 +407,7 @@ export function useAdicionaisContratuais() {
       setCalendario(data || [])
       return data || []
     } catch (err: unknown) {
+      console.error('Erro ao carregar calendário:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar calendário')
       return []
     } finally {
@@ -425,6 +437,7 @@ export function useAdicionaisContratuais() {
       await listarCalendario({ dataInicio: dados.data, dataFim: dados.data })
       return true
     } catch (err: unknown) {
+      console.error('Erro ao salvar dia no calendário:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar dia')
       return false
     }
@@ -487,6 +500,7 @@ export function useAdicionaisContratuais() {
       toast.success('Substituto registrado')
       return true
     } catch (err: unknown) {
+      console.error('Erro ao salvar substituto:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar substituto')
       return false
     }
@@ -515,6 +529,7 @@ export function useAdicionaisContratuais() {
       toast.success('Substituição removida')
       return true
     } catch (err: unknown) {
+      console.error('Erro ao remover substituição:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao remover substituição')
       return false
     }
@@ -533,6 +548,7 @@ export function useAdicionaisContratuais() {
       await listarCalendario({ dataInicio: data, dataFim: data })
       return true
     } catch (err: unknown) {
+      console.error('Erro ao excluir dia do calendário:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao excluir dia')
       return false
     }

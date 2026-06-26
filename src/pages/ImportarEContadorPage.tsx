@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
 import { formatarCPF, mascararCPF } from '@/lib/utils'
-import { isModoEdgeFunction, TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
+import { TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
 import { toast } from 'sonner'
 import * as XLSX from '@e965/xlsx'
 import type { EContadorEmpresa, EContadorFuncionario } from '@/types/econtador'
@@ -168,11 +168,12 @@ export function ImportarEContadorPage() {
 
   const handleSalvarToken = async () => {
     // Se o token já está salvo de forma segura na Edge Function, apenas lista empresas
-    if (tokenSalvoNaEdge && isModoEdgeFunction()) {
+    if (tokenSalvoNaEdge) {
       await listarEmpresas()
       return
     }
     if (!token.trim()) return
+
     await salvarToken(token.trim())
     await listarEmpresas()
   }

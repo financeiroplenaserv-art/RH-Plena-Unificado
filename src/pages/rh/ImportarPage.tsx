@@ -38,7 +38,8 @@ export function ImportarPage() {
       const data = await parseExcelColaboradores(selected)
       setPreview(data.slice(0, 10))
       toast.success(`${data.length} registros encontrados no arquivo`)
-    } catch {
+    } catch (err) {
+      console.error('Erro ao ler arquivo Excel:', err)
       toast.error('Erro ao ler arquivo')
     }
   }, [])
@@ -71,6 +72,7 @@ export function ImportarPage() {
       setFile(null)
       setPreview([])
     } catch (error: unknown) {
+      console.error('Erro na importação de colaboradores:', error)
       toast.error('Erro na importação: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     }
 

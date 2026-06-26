@@ -137,8 +137,8 @@ export function CeuImportarPage() {
           const result = await criarFornecedor(payload)
           if (result) sucesso++
         }
-      } catch {
-        // continua
+      } catch (err) {
+        console.error('Erro ao importar linha:', row, err)
       }
     }
 
