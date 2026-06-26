@@ -320,7 +320,7 @@ export function ImportarEContadorPage() {
               <Label htmlFor="token" style={{ color: '#1F2937' }}>Token JWT</Label>
               {tokenSalvoNaEdge ? (
                 <div className="rounded-lg border px-4 py-2.5 text-sm" style={{ borderColor: '#E2E8F0', color: '#1F2937', backgroundColor: '#F8FAFC' }}>
-                  🔒 Token salvo de forma segura na Edge Function. Ele não é exibido nem transita pelo frontend.
+                  🔒 Token salvo de forma segura. Ele não é exibido nem transita nesta página.
                 </div>
               ) : (
                 <Input
