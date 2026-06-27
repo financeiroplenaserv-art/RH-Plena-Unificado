@@ -1,0 +1,662 @@
+[
+  {
+    "id": "84f25518-a285-4214-a904-d52fe0002afc",
+    "nome": "3º OFICIO DE NOTAS DA COMARCA DE NITEROI",
+    "nome_curto": "CARTÓRIO"
+  },
+  {
+    "id": "56afc27c-b6eb-407c-8c3a-8034d46f285c",
+    "nome": "ABAETÉ",
+    "nome_curto": "ABAETÉ"
+  },
+  {
+    "id": "3222402c-7358-4eba-acd4-e1ac05eb1dc1",
+    "nome": "ADMINISTRATIVO - PLENA",
+    "nome_curto": "ADM PLENA"
+  },
+  {
+    "id": "434a7d15-8cf1-45a5-839d-3e739fa81c74",
+    "nome": "ADMINISTRATIVO PLENA",
+    "nome_curto": "ADMINISTRATIVO PLENA"
+  },
+  {
+    "id": "b5f87b18-b540-47b2-992c-0bae4ee56bb0",
+    "nome": "ALIANÇA S/A - INDÚSTRIA NAVAL E EMPRESA DE NAVEGAÇÃO",
+    "nome_curto": "CBO"
+  },
+  {
+    "id": "bc1ef673-71f6-42e1-abbe-6c3f6f883352",
+    "nome": "ASSOCIACAO DA IGREJA METODISTA SETIMA REGIAO ECLES",
+    "nome_curto": "IGREJA METODISTA"
+  },
+  {
+    "id": "a42d9726-4923-4a32-95a9-50cc2de9f98f",
+    "nome": "BACK ART",
+    "nome_curto": "BACK ART"
+  },
+  {
+    "id": "856c6046-31da-4706-9a01-f1ef87a99d2b",
+    "nome": "BLUE TERMINAIS",
+    "nome_curto": "BLUE TERMINAIS"
+  },
+  {
+    "id": "14d93bfd-a783-4218-a353-755aae7287f4",
+    "nome": "BLUE TERMINAL DEEP WATERS SA – ZMAX GROUP",
+    "nome_curto": "BLUE TERMINAL"
+  },
+  {
+    "id": "f60e2af5-6ef2-458c-b43b-87209a33f25e",
+    "nome": "BUSINESS CENTER",
+    "nome_curto": "BUSINESS CENTER"
+  },
+  {
+    "id": "8035826b-0e66-486a-a98e-bbc987042e09",
+    "nome": "CALLE MAGGIORE",
+    "nome_curto": "CALLE MAGGIORE"
+  },
+  {
+    "id": "62a34792-96fd-430a-9915-5019f1574841",
+    "nome": "CARMO CAMPANELLA",
+    "nome_curto": "CARMO CAMPANELLA"
+  },
+  {
+    "id": "6700c5a9-13ef-42b3-9519-286252f3250a",
+    "nome": "CARVALHO NETO",
+    "nome_curto": "CARVALHO NETO"
+  },
+  {
+    "id": "4aa5befa-908d-4303-9618-eaeb08c6e309",
+    "nome": "CASCAIS",
+    "nome_curto": "CASCAIS"
+  },
+  {
+    "id": "57787180-3d9f-4c8f-ba08-c705e59dee43",
+    "nome": "CBO MACAÉ",
+    "nome_curto": "CBO MACAÉ"
+  },
+  {
+    "id": "2ad4864d-0240-4770-9954-7d486d888466",
+    "nome": "CBO NITERÓI",
+    "nome_curto": "CBO NITERÓI"
+  },
+  {
+    "id": "ae46ff3f-a3d0-49d8-90b4-630c0317c52c",
+    "nome": "CBO SERVICOS MARITIMOS S.A.",
+    "nome_curto": "CBO MACAÉ"
+  },
+  {
+    "id": "6e27efca-86df-49dd-87c1-168915890057",
+    "nome": "CENTRAL DE MONITORAMENTO",
+    "nome_curto": "CENTRAL DE MONITORAMENTO"
+  },
+  {
+    "id": "770c77dd-f2ba-4f26-b250-f3f28f2a73d3",
+    "nome": "CENTRAL PORTARIA REMOTA",
+    "nome_curto": "CENTRAL PORTARIA REMOTA"
+  },
+  {
+    "id": "db04b6bf-78e9-4c0c-aa23-f7db0c656722",
+    "nome": "CENTRO AUDITIVO TELEX",
+    "nome_curto": "CENTRO AUDITIVO TELEX"
+  },
+  {
+    "id": "9305df67-eaa2-4d47-9485-c454beffe2a9",
+    "nome": "CENTRO AUDITIVO TELEX CENTRO RJ I",
+    "nome_curto": "CENTRO AUDITIVO TELEX"
+  },
+  {
+    "id": "da379183-dd46-4907-b4ef-cf115d06cefe",
+    "nome": "CHÁCARA DO ABAETÉ",
+    "nome_curto": "CHÁCARA DO ABAETÉ"
+  },
+  {
+    "id": "22885380-32b6-4af5-99c1-1effe4d13468",
+    "nome": "CHÁCARA ITAGUAÍ",
+    "nome_curto": "CHÁCARA ITAGUAÍ"
+  },
+  {
+    "id": "9e737ea2-ccdf-4fb9-aa03-3955db761cd3",
+    "nome": "CNOOC PETROLEUM",
+    "nome_curto": "CNOOC PETROLEUM"
+  },
+  {
+    "id": "f6e7ff0e-70fa-404e-93d0-93d96cb9c566",
+    "nome": "CNOOC PETROLEUM BRASIL LTDA",
+    "nome_curto": "CNOOC PETROLEUM BRASIL LTDA"
+  },
+  {
+    "id": "59931ab9-2b59-479b-a581-c2ef0b721afc",
+    "nome": "COND VILA DE CASCAIS RESIDENCIAL",
+    "nome_curto": "CASCAIS"
+  },
+  {
+    "id": "e5c42c61-2ec1-45c6-8273-b2b085b80037",
+    "nome": "COND. DO EDIF. PALAZZO ITAÚBA",
+    "nome_curto": "PALAZZO"
+  },
+  {
+    "id": "704c28cc-880f-488a-b9fe-ad5d3642effb",
+    "nome": "COND. DO EDIF. PROFESSOR OITICICA",
+    "nome_curto": "OITICICA"
+  },
+  {
+    "id": "efff5837-c307-4b4b-8dc5-97415744ed14",
+    "nome": "COND. DO EDIF. SOLAR DO AMAPÁ",
+    "nome_curto": "AMAPÁ"
+  },
+  {
+    "id": "f38419cd-e12b-42e5-b109-637de4dc1d88",
+    "nome": "COND. DO EDIFÍCIO PARQUE DOS PRÍNCIPES",
+    "nome_curto": "PARQUE DOS PRÍNCIPES"
+  },
+  {
+    "id": "2e240e91-53b1-4b9c-9ceb-1f7186c4efb3",
+    "nome": "COND. EDIF. PRIDE STYLES RESIDENCES",
+    "nome_curto": "PRIDE"
+  },
+  {
+    "id": "e5fb9466-d64e-41c8-9edf-14053f613c4f",
+    "nome": "COND. GREAT PLACE RESIDENCE",
+    "nome_curto": "GREAT"
+  },
+  {
+    "id": "34ac279a-4436-4a68-9bbb-1c25e293e42a",
+    "nome": "CONDOMINIO CHACARA DO ABAETE",
+    "nome_curto": "ABAETÉ"
+  },
+  {
+    "id": "19702937-92cd-4e2a-a3c2-093cc0ac7564",
+    "nome": "CONDOMINIO DO CONJUNTO RESIDENCIAL MIRAFLORES",
+    "nome_curto": "MIRAFLORES"
+  },
+  {
+    "id": "f8399b65-86a8-4601-8fe9-aad4385db50a",
+    "nome": "CONDOMÍNIO DO D'ORLEANS",
+    "nome_curto": "D'ORLEANS"
+  },
+  {
+    "id": "f7953a73-7f4d-438a-aca6-c9d0f8c666d4",
+    "nome": "CONDOMINIO DO EDIF RESIDENCIAL EXCLUSIVE CHARITAS",
+    "nome_curto": "EXCLUSIVE"
+  },
+  {
+    "id": "d87e225e-43ed-4aa0-a4cf-ae4a2f593608",
+    "nome": "CONDOMÍNIO DO EDIF. LA RESERVE ICARAÍ",
+    "nome_curto": "LA RESERVE"
+  },
+  {
+    "id": "686c2015-f45b-4918-846c-ac68ff9f3559",
+    "nome": "CONDOMINIO DO EDIF. MONTREAL",
+    "nome_curto": "MONTREAL"
+  },
+  {
+    "id": "fa88aca0-0480-4bf5-802a-4a2c481a9a6c",
+    "nome": "CONDOMÍNIO DO EDIF. SOLAR DE ÉVORA",
+    "nome_curto": "EVORA"
+  },
+  {
+    "id": "fb2e1a83-502b-4211-b478-69bae80ce617",
+    "nome": "CONDOMINIO DO EDIFICIO ADRIANA",
+    "nome_curto": "ADRIANA"
+  },
+  {
+    "id": "eae67002-08e8-436a-8da9-8221d5dcdd93",
+    "nome": "CONDOMINIO DO EDIFICIO BACK ART RESIDENTE",
+    "nome_curto": "BACK ART"
+  },
+  {
+    "id": "4029abbe-863b-4601-834d-45d76e202a24",
+    "nome": "CONDOMINIO DO EDIFICIO BUSINESS CENTER",
+    "nome_curto": "BUSINESS"
+  },
+  {
+    "id": "dd7e3467-f5fe-4d0c-845c-1584cab3cc2f",
+    "nome": "CONDOMINIO DO EDIFICIO CALLE MAGGIORE",
+    "nome_curto": "CALLE MAGGIORE"
+  },
+  {
+    "id": "c85dbc74-8d5d-487b-95e9-7c06378d5d6a",
+    "nome": "CONDOMINIO DO EDIFICIO CARVALHO NETO",
+    "nome_curto": "CARVALHO NETO"
+  },
+  {
+    "id": "c2cdcf31-74b1-44f3-b8f3-9f07d02baee4",
+    "nome": "CONDOMINIO DO EDIFICIO CRISTIANA",
+    "nome_curto": "CRISTIANA"
+  },
+  {
+    "id": "fb29e8c2-b3a4-422a-9751-259127217b0a",
+    "nome": "CONDOMINIO DO EDIFICIO D ORLEANS",
+    "nome_curto": "D ORLEANS"
+  },
+  {
+    "id": "2907be62-3cfe-47f1-8b1e-0970a69c0789",
+    "nome": "CONDOMINIO DO EDIFICIO FLAMBOYANT",
+    "nome_curto": "FLAMBOYANT"
+  },
+  {
+    "id": "33884edf-28b5-46f7-a5e6-2385ae7cacd6",
+    "nome": "CONDOMINIO DO EDIFICIO FOREVER RESIDENCE",
+    "nome_curto": "FOREVER"
+  },
+  {
+    "id": "80e0328c-da2f-4f24-9376-0bcd916bb9d1",
+    "nome": "CONDOMINIO DO EDIFICIO GERANIUM",
+    "nome_curto": "GERANIUM"
+  },
+  {
+    "id": "575e44a5-175b-4f95-8056-96db17e35d87",
+    "nome": "CONDOMINIO DO EDIFICIO IDA SCARSELLI",
+    "nome_curto": "IDA SCARSELLI"
+  },
+  {
+    "id": "3a688d60-9359-416f-ae4e-6ccdbf8e91df",
+    "nome": "CONDOMINIO DO EDIFICIO JARDINS",
+    "nome_curto": "JARDINS"
+  },
+  {
+    "id": "ebcac14d-bab1-479e-a8c3-728568223c60",
+    "nome": "CONDOMINIO DO EDIFICIO MACEDO",
+    "nome_curto": "MACEDO"
+  },
+  {
+    "id": "d3297206-b4a1-4be6-9da3-597c5be5e200",
+    "nome": "CONDOMINIO DO EDIFICIO MARINO RESIDENCIAL",
+    "nome_curto": "MARINO"
+  },
+  {
+    "id": "a3df2498-eef0-4d65-80e1-5136e8428633",
+    "nome": "CONDOMÍNIO DO EDIFÍCIO NISE",
+    "nome_curto": "NISE"
+  },
+  {
+    "id": "00cd4021-8d4d-4b63-87c1-841f4b6db541",
+    "nome": "CONDOMINIO DO EDIFICIO NOVAS CORES",
+    "nome_curto": "NOVAS CORES"
+  },
+  {
+    "id": "50de4b3d-e898-42f1-817c-1915b582f857",
+    "nome": "CONDOMINIO DO EDIFICIO OCEAN PLACE",
+    "nome_curto": "OCEAN PLACE"
+  },
+  {
+    "id": "d6aebdb7-e442-4a91-b8e0-e5698c2320c4",
+    "nome": "CONDOMINIO DO EDIFICIO OSCAR PEREIRA",
+    "nome_curto": "OSCAR PEREIRA"
+  },
+  {
+    "id": "90b47808-202d-41c4-9466-010dbc5bafb7",
+    "nome": "CONDOMINIO DO EDIFICIO PRAIA D OFIR",
+    "nome_curto": "PRAIA D'OFIR"
+  },
+  {
+    "id": "da74eaad-a917-49ef-8248-843ca7e8ddd4",
+    "nome": "CONDOMINIO DO EDIFICIO QUINTAS DE ICARAI",
+    "nome_curto": "QUINTAS"
+  },
+  {
+    "id": "951bc047-54d5-4fd7-91a5-08571a683eee",
+    "nome": "CONDOMINIO DO EDIFICIO QUINTESSENZA RESIDENCIAL",
+    "nome_curto": "QUINTESSENZA"
+  },
+  {
+    "id": "7cd33582-6541-490e-8851-109adaa274f8",
+    "nome": "CONDOMINIO DO EDIFICIO RESIDENCIAL LAGOA MAR",
+    "nome_curto": "LAGOA MAR"
+  },
+  {
+    "id": "c8286c19-defd-48fb-9cf4-efba09e136f6",
+    "nome": "CONDOMINIO DO EDIFICIO RESIDENCIAL QUATRE",
+    "nome_curto": "QUATRE"
+  },
+  {
+    "id": "6c7cc0f4-94a0-41cc-9b77-ff5712c3f4c5",
+    "nome": "CONDOMINIO DO EDIFICIO RESIDENCIAL ROSAS",
+    "nome_curto": "CHÁCARA ITAGUAI"
+  },
+  {
+    "id": "d8472973-ef5a-44aa-9887-344446299217",
+    "nome": "CONDOMINIO DO EDIFICIO SUMMER BAY RESIDENCE",
+    "nome_curto": "SUMMER BAY"
+  },
+  {
+    "id": "59460e27-5ade-4a21-a92f-f305f6fdcc36",
+    "nome": "CONDOMINIO DO EDIFICIO THATIANA",
+    "nome_curto": "THATIANA"
+  },
+  {
+    "id": "d22dcec8-c5e1-413b-a543-aa075fa257a7",
+    "nome": "CONDOMINIO DO EDIFICIO WINBLEDON",
+    "nome_curto": "WINBLEDON"
+  },
+  {
+    "id": "687f0be7-2501-4291-8bc7-9db84731618b",
+    "nome": "CONDOMINIO EDIFICIO LA ROCHELLE",
+    "nome_curto": "LA ROCHELLE"
+  },
+  {
+    "id": "d9181346-0a7a-440c-82cc-25d9c3da3aa5",
+    "nome": "CONDOMINIO GRAND VALLEY RESIDENCIAL",
+    "nome_curto": "GRAND VALLEY"
+  },
+  {
+    "id": "4ed30e56-4699-49d0-bb78-82ae1db919fc",
+    "nome": "CONDOMINIO JARDIM RESIDENCIAL FONSECA",
+    "nome_curto": "FONSECA"
+  },
+  {
+    "id": "22939c5b-c4bf-4b66-942c-39746183cb25",
+    "nome": "CONDOMÍNIO MATIZES ICARAÍ",
+    "nome_curto": "MATIZES  DE ICARAÍ"
+  },
+  {
+    "id": "96ff62c3-d40f-4c60-9c71-20afce3cf4b9",
+    "nome": "CONDOMINIO MB LOFTS",
+    "nome_curto": "MB LOFTS"
+  },
+  {
+    "id": "a38b7261-0d37-4903-89d3-da0deb26f93f",
+    "nome": "CONDOMÍNIO RESIDENCIAL ENSEADA PARK",
+    "nome_curto": "ENSEADA"
+  },
+  {
+    "id": "df3ee7c0-242e-4203-8c1d-fc2a6d0934cc",
+    "nome": "CONDOMINIO RESIDENCIAL MERITO BARRETO",
+    "nome_curto": "MÉRITO BARRETO"
+  },
+  {
+    "id": "72d9fca1-9698-406f-827c-7d9db7e5c11e",
+    "nome": "CONDOMINIO RESIDENCIAL OLIMPIO BARGIELA",
+    "nome_curto": "OLÍMPIO BARGIELA"
+  },
+  {
+    "id": "e58d899d-c753-41cf-89bd-6ae1f4991ba4",
+    "nome": "CONDOMINIO SAN FRANCISCO HILLS",
+    "nome_curto": "SAN FRANCISCO HILLS"
+  },
+  {
+    "id": "7cb822e8-e838-4b35-8f83-602f78d0ff1f",
+    "nome": "CONDOMINIO SOLAR DAS OLIVEIRAS",
+    "nome_curto": "SOLAR DAS OLIVEIRAS"
+  },
+  {
+    "id": "15f14ae6-4f68-4a73-b8a2-2164d6223f3f",
+    "nome": "CONDOMINIO SPLENDIDO RESIDENCIAL",
+    "nome_curto": "SPLENDIDO"
+  },
+  {
+    "id": "a97cedd3-3c74-40ef-9074-61250406c74a",
+    "nome": "DUOCONNECT SOLUÇÕES",
+    "nome_curto": "DUOCONNECT SOLUÇÕES"
+  },
+  {
+    "id": "d3c06930-bc47-4e40-814b-6e658038b561",
+    "nome": "DUOCONNECT TELEX",
+    "nome_curto": "DUOCONNECT TELEX"
+  },
+  {
+    "id": "87d11a90-efa1-4ebe-929c-4f9cd7a71c97",
+    "nome": "ENSEADA PARK",
+    "nome_curto": "ENSEADA PARK"
+  },
+  {
+    "id": "0adb8de7-d29c-4561-991a-c713e8801345",
+    "nome": "EXCLUSIVE",
+    "nome_curto": "EXCLUSIVE"
+  },
+  {
+    "id": "573a0471-eab4-45d7-9f52-00a01b300b26",
+    "nome": "FLAMBOYANT",
+    "nome_curto": "FLAMBOYANT"
+  },
+  {
+    "id": "3ca30ca6-f3d6-4f7b-8e52-05c44ecf2c30",
+    "nome": "FLOR DE LOTUS CONSULTORIO MEDICO LTDA",
+    "nome_curto": "NUTRINDO IDEAIS"
+  },
+  {
+    "id": "1879dca5-64a8-4b61-9231-89ce910c4b7b",
+    "nome": "FONSECA",
+    "nome_curto": "FONSECA"
+  },
+  {
+    "id": "c3072d74-ee26-40a0-a69f-1d83fa5f50d6",
+    "nome": "FOREVER",
+    "nome_curto": "FOREVER"
+  },
+  {
+    "id": "692ca651-c381-4f89-92b4-d28c28bee66e",
+    "nome": "GERANIUM",
+    "nome_curto": "GERANIUM"
+  },
+  {
+    "id": "fc80dfb4-779f-41c6-a67a-39ebe6b0492d",
+    "nome": "GRAND VALLEY",
+    "nome_curto": "GRAND VALLEY"
+  },
+  {
+    "id": "d152a654-9869-4885-8e92-da2249fc1ac7",
+    "nome": "GREAT PLACE",
+    "nome_curto": "GREAT PLACE"
+  },
+  {
+    "id": "686747df-dbd3-4cb9-97dc-6187dd9afcb0",
+    "nome": "IDA SCARSELLI",
+    "nome_curto": "IDA SCARSELLI"
+  },
+  {
+    "id": "834788e1-e81f-422a-894b-65da0e424aea",
+    "nome": "IGREJA METODISTA",
+    "nome_curto": "IGREJA METODISTA"
+  },
+  {
+    "id": "4e26d13b-70bc-449d-bf73-b9c59084e328",
+    "nome": "JARDIM FONSECA",
+    "nome_curto": "JARDIM FONSECA"
+  },
+  {
+    "id": "afdb9e38-9613-4e9e-bb70-a4dd2f0f528d",
+    "nome": "JARDINS ICARAÍ",
+    "nome_curto": "JARDINS ICARAÍ"
+  },
+  {
+    "id": "9c8fb63b-1493-49f9-a968-a519594b8460",
+    "nome": "LA RESERVE",
+    "nome_curto": "LA RESERVE"
+  },
+  {
+    "id": "c5c1d89c-c23d-4357-99af-e7475a62f0f4",
+    "nome": "LA ROCHELLE",
+    "nome_curto": "LA ROCHELLE"
+  },
+  {
+    "id": "9702a8de-a82a-44d7-b7d5-9b37f267edeb",
+    "nome": "LAGOA MAR",
+    "nome_curto": "LAGOA MAR"
+  },
+  {
+    "id": "00fc1592-47a7-4295-8339-ac97232eda06",
+    "nome": "MARINO RESIDENCIAL",
+    "nome_curto": "MARINO RESIDENCIAL"
+  },
+  {
+    "id": "5999e1aa-d83c-433f-8421-5287101e7ada",
+    "nome": "MATIZES ICARAÍ",
+    "nome_curto": "MATIZES ICARAÍ"
+  },
+  {
+    "id": "d18c6fc4-2453-446e-a9f2-c07693f03bf5",
+    "nome": "MB LOFTS",
+    "nome_curto": "MB LOFTS"
+  },
+  {
+    "id": "3530287f-a7db-46f6-9dc7-626345b4d7bb",
+    "nome": "MÉRITO BARRETO",
+    "nome_curto": "MÉRITO BARRETO"
+  },
+  {
+    "id": "d9768513-f87b-43c6-87d8-bdab5921fea2",
+    "nome": "MIRAFLORES",
+    "nome_curto": "MIRAFLORES"
+  },
+  {
+    "id": "4a15e8c0-4dd2-4900-923e-39afc6038fb1",
+    "nome": "NISE",
+    "nome_curto": "NISE"
+  },
+  {
+    "id": "a3e66be8-2c9b-4fbb-9fdc-99d6725466d0",
+    "nome": "NOVAS CORES",
+    "nome_curto": "NOVAS CORES"
+  },
+  {
+    "id": "09230da7-b34f-48a7-9e44-8e5d023045f3",
+    "nome": "NUTRINDO IDEAIS",
+    "nome_curto": "NUTRINDO IDEAIS"
+  },
+  {
+    "id": "778ea760-a9b8-4881-9e72-af8e3cf7e7c8",
+    "nome": "OCEAN PLACE",
+    "nome_curto": "OCEAN PLACE"
+  },
+  {
+    "id": "418ac1c7-d822-4d76-9b87-c1f723fb689d",
+    "nome": "OITICICA",
+    "nome_curto": "OITICICA"
+  },
+  {
+    "id": "03a830bf-d35a-4f7e-8619-fee509b93822",
+    "nome": "OLIMPIO BARGIELA",
+    "nome_curto": "OLIMPIO BARGIELA"
+  },
+  {
+    "id": "848a2305-8aa9-4181-8867-99b4e1f5a9cc",
+    "nome": "OSCAR PEREIRA",
+    "nome_curto": "OSCAR PEREIRA"
+  },
+  {
+    "id": "2942aea7-81f9-4f16-928c-07d600987b53",
+    "nome": "PALAZZO",
+    "nome_curto": "PALAZZO"
+  },
+  {
+    "id": "55b70f51-a09d-4440-b750-3c07f9ccec28",
+    "nome": "PALAZZO ITAÚBA",
+    "nome_curto": "PALAZZO ITAÚBA"
+  },
+  {
+    "id": "738d02a5-7ada-43e4-a96f-d5e6ef4a6d83",
+    "nome": "PARQUE DOS PRÍNCIPES",
+    "nome_curto": "PARQUE DOS PRÍNCIPES"
+  },
+  {
+    "id": "6beae340-b843-4ae4-8bbc-dcf309add4f6",
+    "nome": "PLENA EA FACILITIES",
+    "nome_curto": "PLENA EA"
+  },
+  {
+    "id": "cd1d7ad1-af25-47bb-ad8a-bc617c715fe9",
+    "nome": "PLENA TECH ADMINISTRATIVO",
+    "nome_curto": "PLENA TECH ADMINISTRATIVO"
+  },
+  {
+    "id": "30d3fadd-d2e9-4619-ae33-d5c5812879fb",
+    "nome": "PRIDE",
+    "nome_curto": "PRIDE"
+  },
+  {
+    "id": "0dc5ce78-db92-40b2-ba99-2f1383c4cb56",
+    "nome": "PRIDE STYLE",
+    "nome_curto": "PRIDE STYLE"
+  },
+  {
+    "id": "acab1a93-f861-4156-8699-3930534c9cc1",
+    "nome": "PROFESSOR OITICICA",
+    "nome_curto": "PROFESSOR OITICICA"
+  },
+  {
+    "id": "6287ea1a-c412-4a3f-9cdc-9447f3ef2b2b",
+    "nome": "QUATRE",
+    "nome_curto": "QUATRE"
+  },
+  {
+    "id": "0eac74b5-38e9-4d14-93e0-b06471953f0e",
+    "nome": "QUINCAS",
+    "nome_curto": "QUINCAS"
+  },
+  {
+    "id": "72671db8-9bfe-49e7-ad83-969bceed76b6",
+    "nome": "QUINCAS PATRIMONIAL",
+    "nome_curto": "QUINCAS PATRIMONIAL"
+  },
+  {
+    "id": "50ad5d2c-aa02-4e5a-8c6b-ac0399bc56e0",
+    "nome": "QUINCAS PATRIMONIAL LTDA",
+    "nome_curto": "QUINCAS PATRIMONIAL"
+  },
+  {
+    "id": "9f22ce46-e7be-4521-bdcc-442bb444a959",
+    "nome": "QUINTAS DE ICARAÍ",
+    "nome_curto": "QUINTAS DE ICARAÍ"
+  },
+  {
+    "id": "5f2a26b9-fa96-437f-ad8d-39d8344ac51b",
+    "nome": "QUINTESSENZA",
+    "nome_curto": "QUINTESSENZA"
+  },
+  {
+    "id": "2644ca4a-4811-4ded-b470-2ec2c42a1558",
+    "nome": "ROSAS",
+    "nome_curto": "ROSAS"
+  },
+  {
+    "id": "fcc4950e-545a-43dc-ae67-6a4e5377ab01",
+    "nome": "SAN FRANCISCO HILLS",
+    "nome_curto": "SAN FRANCISCO HILLS"
+  },
+  {
+    "id": "c536d4cd-d35f-4ba9-95b9-d876065e5b68",
+    "nome": "SOLAR DAS OLIVEIRAS",
+    "nome_curto": "SOLAR DAS OLIVEIRAS"
+  },
+  {
+    "id": "c96bfb91-f0db-4e96-92ce-bf0cbb5a235e",
+    "nome": "SOLAR DO AMAPA",
+    "nome_curto": "SOLAR DO AMAPA"
+  },
+  {
+    "id": "3d582aaf-29f8-4249-9846-ba34ee12cd4a",
+    "nome": "SPLENDIDO",
+    "nome_curto": "SPLENDIDO"
+  },
+  {
+    "id": "78f50413-3fd4-4fda-bffd-82236554f707",
+    "nome": "SPLENDIDO RESIDENCIAL",
+    "nome_curto": "SPLENDIDO RESIDENCIAL"
+  },
+  {
+    "id": "26b9c13e-4b91-4789-a29d-d567f0f5db8e",
+    "nome": "SUMMER BAY",
+    "nome_curto": "SUMMER BAY"
+  },
+  {
+    "id": "541b54fa-e26a-4227-be41-420c6cf534d9",
+    "nome": "TATHIANA",
+    "nome_curto": "TATHIANA"
+  },
+  {
+    "id": "f227ae2d-843a-486b-a800-24bc69f7e811",
+    "nome": "TELEX NITERÓI E ICARAÍ",
+    "nome_curto": "TELEX NITERÓI E ICARAÍ"
+  },
+  {
+    "id": "a8771af0-e2c9-49cd-a2cb-0ee3abd2ea2e",
+    "nome": "VILA DE CASCAIS",
+    "nome_curto": "VILA DE CASCAIS"
+  },
+  {
+    "id": "1ce4fc50-e47a-4135-928e-c815058680fd",
+    "nome": "WINBLEDON",
+    "nome_curto": "WINBLEDON"
+  }
+]

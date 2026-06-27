@@ -1,0 +1,1091 @@
+Initialising login role...
+[
+  {
+    "ativo": true,
+    "id": "fa71594f-c695-4b7f-b1aa-2896ec9ab749",
+    "local_trabalho_id": "56afc27c-b6eb-407c-8c3a-8034d46f285c",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "ABAETÉ"
+  },
+  {
+    "ativo": true,
+    "id": "ef221f9d-3fa4-4510-9f3a-4aca486ec650",
+    "local_trabalho_id": "a42d9726-4923-4a32-95a9-50cc2de9f98f",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "BACK ART"
+  },
+  {
+    "ativo": true,
+    "id": "6eb8d6e3-b31a-4373-b491-29080c20c6c8",
+    "local_trabalho_id": "8035826b-0e66-486a-a98e-bbc987042e09",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CALLE MAGGIORE"
+  },
+  {
+    "ativo": true,
+    "id": "4f330ef5-9721-4402-92ee-0b00bcf3520b",
+    "local_trabalho_id": "62a34792-96fd-430a-9915-5019f1574841",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CARMO CAMPANELLA"
+  },
+  {
+    "ativo": true,
+    "id": "15f9ef45-c1da-4a72-9f58-b40fe423f496",
+    "local_trabalho_id": "6700c5a9-13ef-42b3-9519-286252f3250a",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CARVALHO NETO"
+  },
+  {
+    "ativo": true,
+    "id": "6dd62198-95ad-4dc9-a727-d3275fa93302",
+    "local_trabalho_id": "4aa5befa-908d-4303-9618-eaeb08c6e309",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CASCAIS"
+  },
+  {
+    "ativo": true,
+    "id": "99d3266f-7683-4d02-ab43-a8ab23f9f65d",
+    "local_trabalho_id": "b5f87b18-b540-47b2-992c-0bae4ee56bb0",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CBO MACAÉ"
+  },
+  {
+    "ativo": true,
+    "id": "e8c05740-eb27-4390-9530-e11c4afef027",
+    "local_trabalho_id": "b5f87b18-b540-47b2-992c-0bae4ee56bb0",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CBO NITERÓI"
+  },
+  {
+    "ativo": true,
+    "id": "611e93b6-3b09-42fa-8e6f-ad78d6fa4c3e",
+    "local_trabalho_id": "770c77dd-f2ba-4f26-b250-f3f28f2a73d3",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CENTRAL PORTARIA REMOTA"
+  },
+  {
+    "ativo": true,
+    "id": "cebf46c8-12ae-438a-bad3-3912bbd3865f",
+    "local_trabalho_id": "9e737ea2-ccdf-4fb9-aa03-3955db761cd3",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "CNOOC"
+  },
+  {
+    "ativo": true,
+    "id": "855e74ad-96f1-4902-ac7b-30ee259bedab",
+    "local_trabalho_id": "a38b7261-0d37-4903-89d3-da0deb26f93f",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "ENSEADA PARK MULT"
+  },
+  {
+    "ativo": true,
+    "id": "7b2c7c0a-7cce-4b2c-adde-8ab1fe7ced8e",
+    "local_trabalho_id": "f7953a73-7f4d-438a-aca6-c9d0f8c666d4",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "EXCLUSIVE"
+  },
+  {
+    "ativo": true,
+    "id": "1beabf72-d813-400c-b68e-163515520c8c",
+    "local_trabalho_id": "4ed30e56-4699-49d0-bb78-82ae1db919fc",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "FONSECA"
+  },
+  {
+    "ativo": true,
+    "id": "0864a6ec-2c7d-4202-9bd9-5a38db14196e",
+    "local_trabalho_id": "33884edf-28b5-46f7-a5e6-2385ae7cacd6",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "FOREVER"
+  },
+  {
+    "ativo": true,
+    "id": "f9b253c9-b2e4-4490-9072-40aac20642f4",
+    "local_trabalho_id": "80e0328c-da2f-4f24-9376-0bcd916bb9d1",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "GERANIUM"
+  },
+  {
+    "ativo": true,
+    "id": "826e9b92-16e7-47a8-aa20-ecf4b1f46345",
+    "local_trabalho_id": "d9181346-0a7a-440c-82cc-25d9c3da3aa5",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "GRAND VALLEY"
+  },
+  {
+    "ativo": true,
+    "id": "58fe7575-c993-4f9d-aed6-fdfd38cdebc3",
+    "local_trabalho_id": "e5fb9466-d64e-41c8-9edf-14053f613c4f",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "GREAT PLACE"
+  },
+  {
+    "ativo": true,
+    "id": "77d6e52c-b7bc-4169-ad10-8d046e6f7e47",
+    "local_trabalho_id": "bc1ef673-71f6-42e1-abbe-6c3f6f883352",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "IGREJA METODISTA"
+  },
+  {
+    "ativo": true,
+    "id": "bc2bcb92-9463-4e75-8c89-45d8b4adbcb3",
+    "local_trabalho_id": "3a688d60-9359-416f-ae4e-6ccdbf8e91df",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "JARDINS ICARAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "dd0b18c1-8e62-4cb7-9f8b-9df33b292ad5",
+    "local_trabalho_id": "687f0be7-2501-4291-8bc7-9db84731618b",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "LA ROCHELLE"
+  },
+  {
+    "ativo": true,
+    "id": "ecd11564-a092-4471-b2e8-b293a75aafc2",
+    "local_trabalho_id": "7cd33582-6541-490e-8851-109adaa274f8",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "LAGOA MAR"
+  },
+  {
+    "ativo": true,
+    "id": "03c1c2ba-8399-4f85-93f0-ff5e087c495e",
+    "local_trabalho_id": "d3297206-b4a1-4be6-9da3-597c5be5e200",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "MARINO"
+  },
+  {
+    "ativo": true,
+    "id": "6de5749c-9ab5-4aa9-b490-f18dfac5b8d9",
+    "local_trabalho_id": "22939c5b-c4bf-4b66-942c-39746183cb25",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "MATIZES MULT"
+  },
+  {
+    "ativo": true,
+    "id": "07612029-acf8-4b38-b65c-2b34655b8010",
+    "local_trabalho_id": "df3ee7c0-242e-4203-8c1d-fc2a6d0934cc",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "MÉRITO BARRTO"
+  },
+  {
+    "ativo": true,
+    "id": "6076a3ec-9507-4da7-8abe-9377877f4eaa",
+    "local_trabalho_id": "19702937-92cd-4e2a-a3c2-093cc0ac7564",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "MIRAFLORES"
+  },
+  {
+    "ativo": true,
+    "id": "ea32d938-36cc-42a4-b857-b6fa18a7249f",
+    "local_trabalho_id": "00cd4021-8d4d-4b63-87c1-841f4b6db541",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "NOVAS CORES"
+  },
+  {
+    "ativo": true,
+    "id": "d3e50042-0f29-49ec-8ce1-5e8faf5b2e4e",
+    "local_trabalho_id": "d6aebdb7-e442-4a91-b8e0-e5698c2320c4",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "OSCAR PEREIRA"
+  },
+  {
+    "ativo": true,
+    "id": "2fc49a93-1a98-4750-807c-be4a54ca143c",
+    "local_trabalho_id": "e5c42c61-2ec1-45c6-8273-b2b085b80037",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "PALAZZO"
+  },
+  {
+    "ativo": true,
+    "id": "edd851ba-1c2b-4581-9697-481620a4f044",
+    "local_trabalho_id": "f38419cd-e12b-42e5-b109-637de4dc1d88",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "PARQUE PRÍNCIPES MULT"
+  },
+  {
+    "ativo": true,
+    "id": "9ba96c79-8741-48b8-ab39-e2b4e5fd3697",
+    "local_trabalho_id": "c8286c19-defd-48fb-9cf4-efba09e136f6",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "QUATRE"
+  },
+  {
+    "ativo": true,
+    "id": "24cbb28a-8ded-4bdd-9521-aadb1bd763dd",
+    "local_trabalho_id": "0eac74b5-38e9-4d14-93e0-b06471953f0e",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "QUINCAS PATRIMONIAL"
+  },
+  {
+    "ativo": true,
+    "id": "d6cabd91-0f78-4b87-992a-3359a510565b",
+    "local_trabalho_id": "da74eaad-a917-49ef-8248-843ca7e8ddd4",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "QUINTAS"
+  },
+  {
+    "ativo": true,
+    "id": "b89cd247-b41f-4ea6-a870-aec6a9de87c9",
+    "local_trabalho_id": "951bc047-54d5-4fd7-91a5-08571a683eee",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "QUINTESSENZA"
+  },
+  {
+    "ativo": true,
+    "id": "aac9d7cf-999d-4489-a47c-f7cb59aaf58a",
+    "local_trabalho_id": "2644ca4a-4811-4ded-b470-2ec2c42a1558",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "ROSAS (ITAGUAÍ)"
+  },
+  {
+    "ativo": true,
+    "id": "80cd2af6-a83d-4206-a3cd-e4d16f44af94",
+    "local_trabalho_id": "e58d899d-c753-41cf-89bd-6ae1f4991ba4",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "SAN FRANCISCO HILLS"
+  },
+  {
+    "ativo": true,
+    "id": "e3f1a27c-c5a9-4744-b414-5c4660d4706e",
+    "local_trabalho_id": "15f14ae6-4f68-4a73-b8a2-2164d6223f3f",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "SPLENDIDO"
+  },
+  {
+    "ativo": true,
+    "id": "b24cd770-39de-451d-9db6-db3c40545de9",
+    "local_trabalho_id": "541b54fa-e26a-4227-be41-420c6cf534d9",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "TATHIANA"
+  },
+  {
+    "ativo": true,
+    "id": "d9b1b39d-bce9-438f-9fc7-6577a147557a",
+    "local_trabalho_id": "f227ae2d-843a-486b-a800-24bc69f7e811",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "TELEX NITERÓI E ICARAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "d07d66b4-23ce-4562-8615-3cec50dd679b",
+    "local_trabalho_id": "d22dcec8-c5e1-413b-a543-aa075fa257a7",
+    "prioridade": 100,
+    "tipo_match": "dispositivo",
+    "valor_flit": "WINBLEDON"
+  },
+  {
+    "ativo": true,
+    "id": "697029c0-25b3-42b2-a4af-28c163c9221d",
+    "local_trabalho_id": "434a7d15-8cf1-45a5-839d-3e739fa81c74",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "Administrativo Plena"
+  },
+  {
+    "ativo": true,
+    "id": "e1ff24f2-9bab-4315-8eeb-57d90c96a795",
+    "local_trabalho_id": "6e27efca-86df-49dd-87c1-168915890057",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "Central de Monitoramento"
+  },
+  {
+    "ativo": true,
+    "id": "32deadb6-0a7f-4d39-ae77-1dd23b8bb5ac",
+    "local_trabalho_id": "fc80dfb4-779f-41c6-a67a-39ebe6b0492d",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "GRAND VALLEY"
+  },
+  {
+    "ativo": true,
+    "id": "e788e3fb-ceb0-49c3-b357-aabc08a4a8db",
+    "local_trabalho_id": "834788e1-e81f-422a-894b-65da0e424aea",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "IGREJA METODISTA"
+  },
+  {
+    "ativo": true,
+    "id": "4345b065-ac04-47db-a50c-324789a836fc",
+    "local_trabalho_id": "9c8fb63b-1493-49f9-a968-a519594b8460",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "LA RESERVE"
+  },
+  {
+    "ativo": true,
+    "id": "d1ae89c3-cf47-436e-90d0-1fce8479e87c",
+    "local_trabalho_id": "d18c6fc4-2453-446e-a9f2-c07693f03bf5",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "MB LOFTS"
+  },
+  {
+    "ativo": true,
+    "id": "9125959f-8ed8-4604-90f4-77b799a5c444",
+    "local_trabalho_id": "4a15e8c0-4dd2-4900-923e-39afc6038fb1",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "NISE"
+  },
+  {
+    "ativo": true,
+    "id": "93f1bbe0-15a8-48f5-b92d-189822163cdf",
+    "local_trabalho_id": "30d3fadd-d2e9-4619-ae33-d5c5812879fb",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "PRIDE"
+  },
+  {
+    "ativo": true,
+    "id": "5fc3bf81-05e9-4b58-931f-5c804b988f3c",
+    "local_trabalho_id": "22885380-32b6-4af5-99c1-1effe4d13468",
+    "prioridade": 90,
+    "tipo_match": "perimetro",
+    "valor_flit": "ROSAS (ITAGUAÍ)"
+  },
+  {
+    "ativo": true,
+    "id": "58e82590-9af2-44a2-941f-201494d4d2f2",
+    "local_trabalho_id": "56afc27c-b6eb-407c-8c3a-8034d46f285c",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "Abaete"
+  },
+  {
+    "ativo": true,
+    "id": "edb55880-0960-46c6-af02-fd8d05baafde",
+    "local_trabalho_id": "56afc27c-b6eb-407c-8c3a-8034d46f285c",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "ABAETÉ"
+  },
+  {
+    "ativo": true,
+    "id": "f9a88502-80e6-4bea-8190-f78b84c415ac",
+    "local_trabalho_id": "3222402c-7358-4eba-acd4-e1ac05eb1dc1",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "ADMINISTRATIVO - PLENA"
+  },
+  {
+    "ativo": true,
+    "id": "9a841b8b-794a-4b52-953d-6d62cf590209",
+    "local_trabalho_id": "fb2e1a83-502b-4211-b478-69bae80ce617",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "ADRIANA -"
+  },
+  {
+    "ativo": true,
+    "id": "dba811eb-c345-451f-a9c2-c62537521a51",
+    "local_trabalho_id": "a42d9726-4923-4a32-95a9-50cc2de9f98f",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "BACK ART"
+  },
+  {
+    "ativo": true,
+    "id": "74e1ed0b-f9aa-4f28-8735-00e67f23f92b",
+    "local_trabalho_id": "856c6046-31da-4706-9a01-f1ef87a99d2b",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "BLUE TERMINAIS"
+  },
+  {
+    "ativo": true,
+    "id": "4112df3d-467d-414c-ae41-bd0b037c4a68",
+    "local_trabalho_id": "14d93bfd-a783-4218-a353-755aae7287f4",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "BLUE TERMINALS D"
+  },
+  {
+    "ativo": true,
+    "id": "e7041a5b-7d37-49cd-aac2-fabd7eb0a326",
+    "local_trabalho_id": "f60e2af5-6ef2-458c-b43b-87209a33f25e",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "BUSINESS CENTER"
+  },
+  {
+    "ativo": true,
+    "id": "12530687-8c78-45ab-8cf2-26eac4e717d0",
+    "local_trabalho_id": "8035826b-0e66-486a-a98e-bbc987042e09",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CALLE MAGGIORE"
+  },
+  {
+    "ativo": true,
+    "id": "3ca996a1-fd41-4d7d-81d0-b3dfb8150d70",
+    "local_trabalho_id": "62a34792-96fd-430a-9915-5019f1574841",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CARMO CAMPANELLA"
+  },
+  {
+    "ativo": true,
+    "id": "c202c9f9-0863-42a5-9aa1-6885d00a8b03",
+    "local_trabalho_id": "6700c5a9-13ef-42b3-9519-286252f3250a",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CARVALHO NETO"
+  },
+  {
+    "ativo": true,
+    "id": "13e4c38c-de4f-45a0-b63a-70739c1f5882",
+    "local_trabalho_id": "b5f87b18-b540-47b2-992c-0bae4ee56bb0",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CBO MACAÉ"
+  },
+  {
+    "ativo": true,
+    "id": "ea2a95e4-346f-410c-83ad-0be3a6b9dc0a",
+    "local_trabalho_id": "2ad4864d-0240-4770-9954-7d486d888466",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CBO NITERÓI"
+  },
+  {
+    "ativo": true,
+    "id": "ba5e5a07-bd9f-4bfb-97f5-dd8edce8aa92",
+    "local_trabalho_id": "6e27efca-86df-49dd-87c1-168915890057",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "Central de Monitoramento"
+  },
+  {
+    "ativo": true,
+    "id": "6dc50e6e-cb63-4f35-be85-dbd0b97e7703",
+    "local_trabalho_id": "770c77dd-f2ba-4f26-b250-f3f28f2a73d3",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CENTRAL PORTARIA REMOTA"
+  },
+  {
+    "ativo": true,
+    "id": "4f1815d2-e027-4342-b406-088201b18ef7",
+    "local_trabalho_id": "db04b6bf-78e9-4c0c-aa23-f7db0c656722",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CENTRO AUDITIVO TELEX"
+  },
+  {
+    "ativo": true,
+    "id": "f13a9e7b-65c6-42cb-b9a0-94ae7f96b2ef",
+    "local_trabalho_id": "56afc27c-b6eb-407c-8c3a-8034d46f285c",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CHÁCARA DO ABAETÉ"
+  },
+  {
+    "ativo": true,
+    "id": "d46d836e-1a56-46d3-9e18-143197bca393",
+    "local_trabalho_id": "22885380-32b6-4af5-99c1-1effe4d13468",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CHÁCARA ITAGUAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "21ed83f0-eed8-4624-a1a3-51982fa1e929",
+    "local_trabalho_id": "f6e7ff0e-70fa-404e-93d0-93d96cb9c566",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CNOCC PETROLEUM BRASIL LTDA"
+  },
+  {
+    "ativo": true,
+    "id": "06238dcf-c9a5-436f-b11c-b3d8c74a8edb",
+    "local_trabalho_id": "9e737ea2-ccdf-4fb9-aa03-3955db761cd3",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "CNOOC PETROLEUM"
+  },
+  {
+    "ativo": true,
+    "id": "57dccfe6-4ae3-43e3-b18a-66dc228ada09",
+    "local_trabalho_id": "a97cedd3-3c74-40ef-9074-61250406c74a",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "DUOCONNECT SOLUÇÕES"
+  },
+  {
+    "ativo": true,
+    "id": "e1e98005-93d6-406f-8aac-2672f4a75c5f",
+    "local_trabalho_id": "d3c06930-bc47-4e40-814b-6e658038b561",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "DUOCONNECT TELEX"
+  },
+  {
+    "ativo": true,
+    "id": "e6f8e0f8-f71a-46aa-8ebe-b333c0125a42",
+    "local_trabalho_id": "a38b7261-0d37-4903-89d3-da0deb26f93f",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "ENSEADA LIMP COM INSA"
+  },
+  {
+    "ativo": true,
+    "id": "a9783c70-b334-4994-a44f-a4314661c77a",
+    "local_trabalho_id": "87d11a90-efa1-4ebe-929c-4f9cd7a71c97",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "ENSEADA LIMPEZA"
+  },
+  {
+    "ativo": true,
+    "id": "b227ef61-7408-42d8-b579-5a8f0e129c1f",
+    "local_trabalho_id": "87d11a90-efa1-4ebe-929c-4f9cd7a71c97",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "ENSEADA PARK"
+  },
+  {
+    "ativo": true,
+    "id": "083852bb-b6b1-4564-b8cc-0aa447ca6f02",
+    "local_trabalho_id": "f7953a73-7f4d-438a-aca6-c9d0f8c666d4",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "EXCLUSIVE CHARITAS"
+  },
+  {
+    "ativo": true,
+    "id": "152ffe22-a861-4c53-ad03-66cd2c8c7b48",
+    "local_trabalho_id": "2907be62-3cfe-47f1-8b1e-0970a69c0789",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "FLAMBOYANT"
+  },
+  {
+    "ativo": true,
+    "id": "d947e62c-9da6-43da-b403-f544725d88cb",
+    "local_trabalho_id": "4ed30e56-4699-49d0-bb78-82ae1db919fc",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "FONSECA"
+  },
+  {
+    "ativo": true,
+    "id": "990f2190-bd16-45ff-8225-43099b7d458b",
+    "local_trabalho_id": "33884edf-28b5-46f7-a5e6-2385ae7cacd6",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "FOREVER"
+  },
+  {
+    "ativo": true,
+    "id": "8139de7b-c23d-4383-bdcf-3e28eaca9334",
+    "local_trabalho_id": "c3072d74-ee26-40a0-a69f-1d83fa5f50d6",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "FOREVER LIMPEZA COM INSALUBRIDADE"
+  },
+  {
+    "ativo": true,
+    "id": "c32d60d6-1d1d-4cb0-b6bc-1429a5b8317e",
+    "local_trabalho_id": "80e0328c-da2f-4f24-9376-0bcd916bb9d1",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "GERANIUM"
+  },
+  {
+    "ativo": true,
+    "id": "895afd81-37ea-4192-a1f9-20b20e57e12c",
+    "local_trabalho_id": "692ca651-c381-4f89-92b4-d28c28bee66e",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "GERANIUM ZELADOR"
+  },
+  {
+    "ativo": true,
+    "id": "770f6dc5-99cb-427b-ac18-3ecb5347b827",
+    "local_trabalho_id": "d9181346-0a7a-440c-82cc-25d9c3da3aa5",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "GRAND VALLEY"
+  },
+  {
+    "ativo": true,
+    "id": "376fdaad-5dfe-4af9-8604-370fc997d6b6",
+    "local_trabalho_id": "e5fb9466-d64e-41c8-9edf-14053f613c4f",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "GREAT PLACE"
+  },
+  {
+    "ativo": true,
+    "id": "95d2ff24-f2aa-4520-b096-a5ae363e0ec2",
+    "local_trabalho_id": "d152a654-9869-4885-8e92-da2249fc1ac7",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "GREAT PLACE LIMP C INSAL"
+  },
+  {
+    "ativo": true,
+    "id": "77a6dd08-81dd-4e24-b08a-433ec9a480fd",
+    "local_trabalho_id": "d152a654-9869-4885-8e92-da2249fc1ac7",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "GREAT PLACE PORTARIA"
+  },
+  {
+    "ativo": true,
+    "id": "5c0dac6c-3652-46c5-9cd2-c2261b032975",
+    "local_trabalho_id": "575e44a5-175b-4f95-8056-96db17e35d87",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "IDA SCARSELLI"
+  },
+  {
+    "ativo": true,
+    "id": "8fd48b06-ebc5-4a2b-b5f5-94c2a52d9f02",
+    "local_trabalho_id": "bc1ef673-71f6-42e1-abbe-6c3f6f883352",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "IGREJA METODISTA"
+  },
+  {
+    "ativo": true,
+    "id": "15589270-fc1c-4f4f-ba3b-3d4964f24a3a",
+    "local_trabalho_id": "834788e1-e81f-422a-894b-65da0e424aea",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "IGREJA METODISTA ICARAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "784145f4-4a4f-4d81-8af3-394a6463f50e",
+    "local_trabalho_id": "1879dca5-64a8-4b61-9231-89ce910c4b7b",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "JARDIM FONSECA"
+  },
+  {
+    "ativo": true,
+    "id": "1ceae784-338b-4788-9b93-a842efec2b01",
+    "local_trabalho_id": "3a688d60-9359-416f-ae4e-6ccdbf8e91df",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "JARDINS ICARAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "52f84fe0-e14b-42c4-ab1a-d7993bab81f5",
+    "local_trabalho_id": "d87e225e-43ed-4aa0-a4cf-ae4a2f593608",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "LA RESERVE"
+  },
+  {
+    "ativo": true,
+    "id": "db303323-4d28-4666-8182-0dc09ec12fda",
+    "local_trabalho_id": "687f0be7-2501-4291-8bc7-9db84731618b",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "LA ROCHELLE"
+  },
+  {
+    "ativo": true,
+    "id": "45d764d5-3d43-448c-a4bf-647ed5305ed8",
+    "local_trabalho_id": "7cd33582-6541-490e-8851-109adaa274f8",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "LAGOA MAR"
+  },
+  {
+    "ativo": true,
+    "id": "8e8904af-1221-4a01-a610-4d5df500557e",
+    "local_trabalho_id": "ebcac14d-bab1-479e-a8c3-728568223c60",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MACEDO -"
+  },
+  {
+    "ativo": true,
+    "id": "17fac1de-6aa0-4326-ad2b-f953753a1ef6",
+    "local_trabalho_id": "00fc1592-47a7-4295-8339-ac97232eda06",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MARINO LIMPEZA \u0026 ENCARREGADO"
+  },
+  {
+    "ativo": true,
+    "id": "23318d16-ac10-4594-bf38-1509ac556b91",
+    "local_trabalho_id": "d3297206-b4a1-4be6-9da3-597c5be5e200",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MARINO RESIDENCIAL"
+  },
+  {
+    "ativo": true,
+    "id": "7bfc18d2-f634-4a12-9294-b9d310d89272",
+    "local_trabalho_id": "22939c5b-c4bf-4b66-942c-39746183cb25",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MATIZES ICARAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "5d0c6098-8c48-45c0-b675-660c42464cc7",
+    "local_trabalho_id": "96ff62c3-d40f-4c60-9c71-20afce3cf4b9",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MB LOFTS"
+  },
+  {
+    "ativo": true,
+    "id": "a07178cf-75d7-4fef-abab-c47fcb52c450",
+    "local_trabalho_id": "3530287f-a7db-46f6-9dc7-626345b4d7bb",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MÉRITO BARRETO"
+  },
+  {
+    "ativo": true,
+    "id": "c805b3fd-c84f-42fb-8383-81d55982211d",
+    "local_trabalho_id": "df3ee7c0-242e-4203-8c1d-fc2a6d0934cc",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MERITO BARRETO -"
+  },
+  {
+    "ativo": true,
+    "id": "3ff3dc60-0508-4a80-99cc-888f0b2856c9",
+    "local_trabalho_id": "19702937-92cd-4e2a-a3c2-093cc0ac7564",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "MIRAFLORES"
+  },
+  {
+    "ativo": true,
+    "id": "dc0d288c-4572-409d-8ed6-11d0f3959313",
+    "local_trabalho_id": "a3df2498-eef0-4d65-80e1-5136e8428633",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "NISE"
+  },
+  {
+    "ativo": true,
+    "id": "cecd0ac5-82a6-4b38-ae64-cdca5e795a55",
+    "local_trabalho_id": "00cd4021-8d4d-4b63-87c1-841f4b6db541",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "NOVAS CORES"
+  },
+  {
+    "ativo": true,
+    "id": "1ebfb39c-a749-490d-b59f-20311a8b47e0",
+    "local_trabalho_id": "3ca30ca6-f3d6-4f7b-8e52-05c44ecf2c30",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "NUTRINDO IDEAIS"
+  },
+  {
+    "ativo": true,
+    "id": "9481c664-f642-42fd-ae96-11bbcd868aa4",
+    "local_trabalho_id": "50de4b3d-e898-42f1-817c-1915b582f857",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "OCEAN PLACE"
+  },
+  {
+    "ativo": true,
+    "id": "0bf22004-cec5-4398-bb1c-9a5239a7e882",
+    "local_trabalho_id": "704c28cc-880f-488a-b9fe-ad5d3642effb",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "OITICICA"
+  },
+  {
+    "ativo": true,
+    "id": "aa4c98fc-0032-4893-906e-05f2ccb03cd3",
+    "local_trabalho_id": "72d9fca1-9698-406f-827c-7d9db7e5c11e",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "OLIMPIO BARGIELA"
+  },
+  {
+    "ativo": true,
+    "id": "f4912ff9-a1a7-4917-a7a5-56f0b045ead8",
+    "local_trabalho_id": "d6aebdb7-e442-4a91-b8e0-e5698c2320c4",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "OSCAR PEREIRA"
+  },
+  {
+    "ativo": true,
+    "id": "b46c11fb-02d2-4d5e-8433-bd813bc1d2ab",
+    "local_trabalho_id": "e5c42c61-2ec1-45c6-8273-b2b085b80037",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PALAZZO"
+  },
+  {
+    "ativo": true,
+    "id": "b2966006-c453-4826-89b0-ebc5af4ed998",
+    "local_trabalho_id": "2942aea7-81f9-4f16-928c-07d600987b53",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PALAZZO ITAÚBA"
+  },
+  {
+    "ativo": true,
+    "id": "66070b7f-d604-495a-9183-fafce4676046",
+    "local_trabalho_id": "f38419cd-e12b-42e5-b109-637de4dc1d88",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PARQUE DOS PRÍNCIPES"
+  },
+  {
+    "ativo": true,
+    "id": "323900b9-efc5-48c3-9dad-5de1513471d4",
+    "local_trabalho_id": "738d02a5-7ada-43e4-a96f-d5e6ef4a6d83",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PARQUE PRINCIPES"
+  },
+  {
+    "ativo": true,
+    "id": "27444b64-9f01-4e35-83d5-911aef0d40a1",
+    "local_trabalho_id": "6beae340-b843-4ae4-8bbc-dcf309add4f6",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PLENA EA ADMINISTRATIVO"
+  },
+  {
+    "ativo": true,
+    "id": "1bc552f9-09ff-417b-afa9-3e445847eb59",
+    "local_trabalho_id": "cd1d7ad1-af25-47bb-ad8a-bc617c715fe9",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PLENA TECH ADMINISTRATIVO"
+  },
+  {
+    "ativo": true,
+    "id": "a412f79e-6264-49d6-b6c7-d18bcfa10475",
+    "local_trabalho_id": "90b47808-202d-41c4-9466-010dbc5bafb7",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PRAIA DOFIR"
+  },
+  {
+    "ativo": true,
+    "id": "efdfa5b4-51f5-458d-8cc7-2728dba0195c",
+    "local_trabalho_id": "2e240e91-53b1-4b9c-9ceb-1f7186c4efb3",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PRIDE"
+  },
+  {
+    "ativo": true,
+    "id": "6cf951fd-9f0d-48c6-adf9-a3a677ac33fb",
+    "local_trabalho_id": "30d3fadd-d2e9-4619-ae33-d5c5812879fb",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PRIDE STYLE"
+  },
+  {
+    "ativo": true,
+    "id": "9e977c1f-97f2-47ec-8fe6-3121146058d3",
+    "local_trabalho_id": "418ac1c7-d822-4d76-9b87-c1f723fb689d",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "PROFESSOR OITICICA"
+  },
+  {
+    "ativo": true,
+    "id": "f027e719-6752-4334-b7c0-eb657cc84c0f",
+    "local_trabalho_id": "c8286c19-defd-48fb-9cf4-efba09e136f6",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "QUATRE"
+  },
+  {
+    "ativo": true,
+    "id": "bfd356b0-2ec9-40af-87ff-a1483c8f1ac1",
+    "local_trabalho_id": "0eac74b5-38e9-4d14-93e0-b06471953f0e",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "QUINCAS"
+  },
+  {
+    "ativo": true,
+    "id": "6ccd42dd-aa3b-49ff-a5dc-602840b261d8",
+    "local_trabalho_id": "72671db8-9bfe-49e7-ad83-969bceed76b6",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "QUINCAS PATRIMONIAL LTDA"
+  },
+  {
+    "ativo": true,
+    "id": "9f4ce11a-5f98-459a-896a-499e28c69846",
+    "local_trabalho_id": "da74eaad-a917-49ef-8248-843ca7e8ddd4",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "QUINTAS DE ICARAÍ"
+  },
+  {
+    "ativo": true,
+    "id": "dcc6a3d1-ee5c-447d-a0ba-f8af3b1a1618",
+    "local_trabalho_id": "9f22ce46-e7be-4521-bdcc-442bb444a959",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "QUINTAS PORTARIA"
+  },
+  {
+    "ativo": true,
+    "id": "ed67f263-6019-4dc4-b1ad-e872bab8c4d6",
+    "local_trabalho_id": "951bc047-54d5-4fd7-91a5-08571a683eee",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "QUINTESSENZA"
+  },
+  {
+    "ativo": true,
+    "id": "8d54d3e3-1a1f-4e8b-8629-7e99335fd3ec",
+    "local_trabalho_id": "6287ea1a-c412-4a3f-9cdc-9447f3ef2b2b",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "RESIDENCIAL QUATRE"
+  },
+  {
+    "ativo": true,
+    "id": "aa07db5e-20ca-4d45-ad05-a9aec96129e2",
+    "local_trabalho_id": "e58d899d-c753-41cf-89bd-6ae1f4991ba4",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SAN FRANCISCO HILLS"
+  },
+  {
+    "ativo": true,
+    "id": "ad4df9bd-5eba-4500-9b12-644b771f672b",
+    "local_trabalho_id": "7cb822e8-e838-4b35-8f83-602f78d0ff1f",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SOLAR DAS OLIVEIRAS"
+  },
+  {
+    "ativo": true,
+    "id": "55558d2c-5a5e-485c-9a41-bc62e5a93d8a",
+    "local_trabalho_id": "c96bfb91-f0db-4e96-92ce-bf0cbb5a235e",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SOLAR DO AMAPA"
+  },
+  {
+    "ativo": true,
+    "id": "e50c6ed8-d578-4a00-af82-e4d46c52b07f",
+    "local_trabalho_id": "efff5837-c307-4b4b-8dc5-97415744ed14",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SOLAR DO AMAPA -"
+  },
+  {
+    "ativo": true,
+    "id": "a75507e0-f2cc-4569-abea-28252194d20d",
+    "local_trabalho_id": "15f14ae6-4f68-4a73-b8a2-2164d6223f3f",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SPLENDIDO"
+  },
+  {
+    "ativo": true,
+    "id": "1ecbc7cb-1832-43e0-bfb0-e3bf961ec470",
+    "local_trabalho_id": "3d582aaf-29f8-4249-9846-ba34ee12cd4a",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SPLENDIDO RESIDENCIAL"
+  },
+  {
+    "ativo": true,
+    "id": "e26fc223-90c9-461a-acd8-aa75c0685a12",
+    "local_trabalho_id": "d8472973-ef5a-44aa-9887-344446299217",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SUMMER BAY"
+  },
+  {
+    "ativo": true,
+    "id": "3cadeaa8-fbf5-47eb-8a69-51adb83cc6e1",
+    "local_trabalho_id": "26b9c13e-4b91-4789-a29d-d567f0f5db8e",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "SUMMER BAY RES."
+  },
+  {
+    "ativo": true,
+    "id": "1d6797ce-6695-4701-b111-8bfc95fb53b5",
+    "local_trabalho_id": "59460e27-5ade-4a21-a92f-f305f6fdcc36",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "THATIANA"
+  },
+  {
+    "ativo": true,
+    "id": "d9808e1d-acbb-4cc0-aecb-c7f192f408a5",
+    "local_trabalho_id": "4aa5befa-908d-4303-9618-eaeb08c6e309",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "VILA DE CASCAIS"
+  },
+  {
+    "ativo": true,
+    "id": "093be8dd-bf2b-47a6-b1aa-cc6eba4f052f",
+    "local_trabalho_id": "a8771af0-e2c9-49cd-a2cb-0ee3abd2ea2e",
+    "prioridade": 100,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "VILA DE CASCAIS RESIDENCIAL"
+  },
+  {
+    "ativo": true,
+    "id": "661b7a52-c91a-4868-8e11-beedcc2a15da",
+    "local_trabalho_id": "d22dcec8-c5e1-413b-a543-aa075fa257a7",
+    "prioridade": 50,
+    "tipo_match": "turno_departamento",
+    "valor_flit": "WINBLEDON"
+  }
+]

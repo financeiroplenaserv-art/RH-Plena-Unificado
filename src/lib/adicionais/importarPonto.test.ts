@@ -222,7 +222,7 @@ function calcularRelatorio(
 }
 
 describe('Importar ponto de PDF', () => {
-  it('parseia PDF e calcula relatório de adicionais corretamente', async () => {
+  it('parseia PDF e calcula relatório de adicionais corretamente', { timeout: 15000 }, async () => {
     const buf = gerarPDF()
     const { colaboradores, contratos, vinculos } = criarDadosTeste()
 

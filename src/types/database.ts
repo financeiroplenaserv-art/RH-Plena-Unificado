@@ -108,6 +108,63 @@ export interface PermissaoPerfil {
   updated_at?: string
 }
 
+export interface LocalTrabalho {
+  id: string
+  nome: string
+  nome_curto: string | null
+  status: 'Ativo' | 'Inativo'
+  observacao: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type TipoMatchFlit = 'dispositivo' | 'perimetro' | 'turno_departamento'
+
+export interface MapeamentoFlitLocalTrabalho {
+  id: string
+  local_trabalho_id: string
+  tipo_match: TipoMatchFlit
+  valor_flit: string
+  prioridade: number
+  ativo: boolean
+  created_at?: string
+  updated_at?: string
+  local_trabalho?: LocalTrabalho | null
+}
+
+export type FonteLocalTrabalho = 'dispositivo' | 'perimetro' | 'turno_departamento' | 'manual' | 'nao_identificado'
+
+export interface LocalTrabalhoDiario {
+  id: string
+  colaborador_id: string
+  data: string
+  local_trabalho_id: string | null
+  fonte: FonteLocalTrabalho
+  usuario_confirmacao_id: string | null
+  confirmado_em: string | null
+  observacao: string | null
+  importacao_ref: string | null
+  created_at?: string
+  updated_at?: string
+  colaborador?: Colaborador | null
+  local_trabalho?: LocalTrabalho | null
+}
+
+export type AcaoHistoricoLocalTrabalho = 'criacao' | 'edicao' | 'confirmacao'
+
+export interface HistoricoLocalTrabalhoDiario {
+  id: string
+  local_trabalho_diario_id: string
+  colaborador_id: string
+  local_trabalho_id: string | null
+  data: string
+  fonte: FonteLocalTrabalho | null
+  acao: AcaoHistoricoLocalTrabalho
+  usuario_id: string | null
+  observacao: string | null
+  created_at?: string
+}
+
 export interface TermoLGPD {
   id: string
   versao: string
@@ -514,6 +571,30 @@ export type Database = {
         Row: PermissaoPerfil & Record<string, unknown>
         Insert: Partial<PermissaoPerfil> & Record<string, unknown>
         Update: Partial<PermissaoPerfil> & Record<string, unknown>
+        Relationships: []
+      }
+      locais_trabalho: {
+        Row: LocalTrabalho & Record<string, unknown>
+        Insert: Partial<LocalTrabalho> & Record<string, unknown>
+        Update: Partial<LocalTrabalho> & Record<string, unknown>
+        Relationships: []
+      }
+      mapeamento_flit_local_trabalho: {
+        Row: MapeamentoFlitLocalTrabalho & Record<string, unknown>
+        Insert: Partial<MapeamentoFlitLocalTrabalho> & Record<string, unknown>
+        Update: Partial<MapeamentoFlitLocalTrabalho> & Record<string, unknown>
+        Relationships: []
+      }
+      locais_trabalho_diario: {
+        Row: LocalTrabalhoDiario & Record<string, unknown>
+        Insert: Partial<LocalTrabalhoDiario> & Record<string, unknown>
+        Update: Partial<LocalTrabalhoDiario> & Record<string, unknown>
+        Relationships: []
+      }
+      historico_local_trabalho_diario: {
+        Row: HistoricoLocalTrabalhoDiario & Record<string, unknown>
+        Insert: Partial<HistoricoLocalTrabalhoDiario> & Record<string, unknown>
+        Update: Partial<HistoricoLocalTrabalhoDiario> & Record<string, unknown>
         Relationships: []
       }
     }

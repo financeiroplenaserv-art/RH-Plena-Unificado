@@ -90,6 +90,14 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'configuracoes', acao: 'ver', label: 'Ver configurações', grupo: 'Alertas / Configurações' },
   { recurso: 'auditoria', acao: 'ver', label: 'Ver auditoria', grupo: 'Alertas / Configurações' },
 
+  // Escalas
+  { recurso: 'escala', acao: 'visualizar', label: 'Visualizar escalas', grupo: 'Escalas' },
+  { recurso: 'escala', acao: 'editar_local', label: 'Editar locais de trabalho', grupo: 'Escalas' },
+  { recurso: 'escala', acao: 'mapear_flit', label: 'Mapear Flit ↔ Local', grupo: 'Escalas' },
+  { recurso: 'escala', acao: 'importar', label: 'Importar Excel do Flit', grupo: 'Escalas' },
+  { recurso: 'escala', acao: 'confirmar_manual', label: 'Confirmar local manualmente', grupo: 'Escalas' },
+  { recurso: 'escala', acao: 'editar_dia', label: 'Editar local de um dia', grupo: 'Escalas' },
+
   // Menus
   { recurso: 'menu', acao: 'dashboard', label: 'Ver menu Dashboard', grupo: 'Menus' },
   { recurso: 'menu', acao: 'colaboradores', label: 'Ver menu Colaboradores', grupo: 'Menus' },

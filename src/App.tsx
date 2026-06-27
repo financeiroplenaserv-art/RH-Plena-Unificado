@@ -21,6 +21,10 @@ import {
   AuditoriaPage,
   EmpresasPage,
   PermissoesPage,
+  EscalasPage,
+  EscalasImportarPage,
+  EscalasLocaisPage,
+  EscalasMapeamentoPage,
   OcorrenciasPage,
   OcorrenciaFormPage,
   OcorrenciaDetailPage,
@@ -532,7 +536,38 @@ function App() {
                 }
               />
 
-              <Route path="/escalas" element={<PlaceholderPage titulo="Escalas" descricao="Gestão de escalas de trabalho" />} />
+              <Route
+                path="/escalas"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'escalas' }}>
+                    <EscalasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/escalas/importar"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'escalas' }}>
+                    <EscalasImportarPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/escalas/locais"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'escalas' }}>
+                    <EscalasLocaisPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/escalas/mapeamento"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'escalas' }}>
+                    <EscalasMapeamentoPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/ferias" element={<PlaceholderPage titulo="Férias" descricao="Controle de férias e períodos de descanso" />} />
               <Route path="/relatorios" element={<PlaceholderPage titulo="Relatórios" descricao="Relatórios gerenciais do sistema" />} />
 

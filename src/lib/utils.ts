@@ -86,6 +86,58 @@ export function nomeDepartamento(departamento: Departamento | null | undefined):
   return departamento.nome_curto?.trim() || departamento.nome
 }
 
+export function nomeCurtoColaborador(colaborador: { nome_completo: string } | null | undefined): string {
+  if (!colaborador?.nome_completo) return ''
+  const partes = colaborador.nome_completo.trim().split(/\s+/)
+  if (partes.length <= 2) return colaborador.nome_completo.trim()
+  return `${partes[0]} ${partes[partes.length - 1]}`
+}
+
+export function nomeCurtoLocal(local: { nome: string; nome_curto?: string | null } | null | undefined): string {
+  if (!local) return ''
+  return local.nome_curto?.trim() || local.nome
+}
+
+export function removerAcentos(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+export function distanciaLevenshtein(a: string, b: string): number {
+  const m = a.length
+  const n = b.length
+  if (m === 0) return n
+  if (n === 0) return m
+
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) dp[i][0] = i
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const custo = a[i - 1] === b[j - 1] ? 0 : 1
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + custo
+      )
+    }
+  }
+  return dp[m][n]
+}
+
+export function nomesSimilares(a: string, b: string, threshold = 2): boolean {
+  const normalizar = (s: string) => removerAcentos(s).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const na = normalizar(a)
+  const nb = normalizar(b)
+  if (!na || !nb) return false
+  if (na === nb) return true
+  if (na.includes(nb) || nb.includes(na)) return true
+
+  const dist = distanciaLevenshtein(na, nb)
+  const maxLen = Math.max(na.length, nb.length)
+  return dist <= threshold && dist / maxLen < 0.2
+}
+
 export function mascaraMoeda(valor: number | null | undefined): string {
   if (valor === null || valor === undefined || isNaN(valor)) return 'R$ 0,00'
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
