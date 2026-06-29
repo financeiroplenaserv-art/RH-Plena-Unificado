@@ -110,6 +110,7 @@ export function CeuDashboardPage() {
   return (
     <CeuPageWrapper>
       <PageHeader
+        backTo="/"
         title="CEU"
         description="Visão geral de itens, entregas e alertas"
       />

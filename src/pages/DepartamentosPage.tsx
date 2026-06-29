@@ -277,7 +277,7 @@ export function DepartamentosPage() {
   return (
     <div className="min-h-full p-4 md:p-6" style={{ backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
       <div className="max-w-7xl mx-auto space-y-6">
-        <PageHeader title="Departamentos" description="Gestão de condomínios, empresas e hospitais">
+        <PageHeader backTo="/" title="Departamentos" description="Gestão de condomínios, empresas e hospitais">
           {podeEditar && (
             <button
               onClick={handleNovo}

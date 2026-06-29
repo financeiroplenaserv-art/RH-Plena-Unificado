@@ -71,7 +71,7 @@ export function ExtrasRelatorioPage() {
 
   return (
     <ExtrasPageWrapper>
-      <PageHeader title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos" />
+      <PageHeader backTo="/extras/lancamentos" title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos" />
 
       <ExtrasCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

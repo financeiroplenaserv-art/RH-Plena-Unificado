@@ -40,7 +40,7 @@ export function EscalasLocaisPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <PageHeader title="Locais de Trabalho" description="Cadastro de postos e locais vinculados aos colaboradores">
+      <PageHeader backTo="/escalas" title="Locais de Trabalho" description="Cadastro de postos e locais vinculados aos colaboradores">
         <Button
           variant="outline"
           onClick={handleImportar}

@@ -211,7 +211,7 @@ export function ExtrasFormPage() {
 
   return (
     <ExtrasPageWrapper>
-      <PageHeader title={id ? 'Editar extra' : 'Novo extra'} description="Registre a ocorrência, substituição e valores" />
+      <PageHeader backTo="/extras/lancamentos" title={id ? 'Editar extra' : 'Novo extra'} description="Registre a ocorrência, substituição e valores" />
 
       <form onSubmit={handleSubmit}>
         <ExtrasCard>

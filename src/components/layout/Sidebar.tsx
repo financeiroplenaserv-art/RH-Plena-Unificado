@@ -103,8 +103,11 @@ const groups: MenuGroup[] = [
   },
 ]
 
-const standaloneItems: MenuItem[] = [
+const topItems: MenuItem[] = [
   { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'dashboard' } },
+]
+
+const bottomItems: MenuItem[] = [
   { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'relatorios' } },
 ]
 
@@ -151,8 +154,13 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
     [podeVer]
   )
 
-  const visibleStandalone = useMemo(
-    () => standaloneItems.filter((item) => podeVer(item.permissao)),
+  const visibleTop = useMemo(
+    () => topItems.filter((item) => podeVer(item.permissao)),
+    [podeVer]
+  )
+
+  const visibleBottom = useMemo(
+    () => bottomItems.filter((item) => podeVer(item.permissao)),
     [podeVer]
   )
 
@@ -192,8 +200,8 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
       </div>
 
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {/* Itens avulsos (Dashboard / Relatórios) */}
-        {visibleStandalone.map((item) => (
+        {/* Itens avulsos no topo (Dashboard) */}
+        {visibleTop.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -281,6 +289,31 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
             </div>
           )
         })}
+
+        {/* Itens avulsos no final (Relatórios) */}
+        {visibleBottom.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
+                isActive
+                  ? 'text-white font-bold bg-white/10'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-white/5'
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <span className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-[#94A3B8]')}>
+                  {item.icon}
+                </span>
+                {isOpen && <span>{item.label}</span>}
+              </>
+            )}
+          </NavLink>
+        ))}
       </nav>
 
       <div className="p-2 border-t border-white/10">

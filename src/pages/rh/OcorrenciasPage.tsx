@@ -139,6 +139,7 @@ export function OcorrenciasPage() {
   return (
     <div className="min-h-full bg-[#F8FAFC] space-y-6">
       <PageHeader
+        backTo="/"
         title="Ocorrências"
         description={`${paginacao?.total ?? ocorrencias.length} registros${pendentesCount > 0 ? ` (${pendentesCount} pendentes)` : ''}`}
       >

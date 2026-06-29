@@ -97,6 +97,7 @@ export function AuditoriaPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo="/"
         title="Auditoria"
         description="Histórico de ações realizadas no sistema"
       />

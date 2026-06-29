@@ -109,7 +109,7 @@ export function AlertasPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Alertas" description="Alertas automáticos de conformidade legal">
+      <PageHeader backTo="/" title="Alertas" description="Alertas automáticos de conformidade legal">
         {stats.criticos > 0 && (
           <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-medium">
             {stats.criticos} crítico{stats.criticos > 1 ? 's' : ''}

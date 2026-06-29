@@ -270,7 +270,7 @@ export function AdicionaisVinculosPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <PageHeader title="Vínculos" description="Relacione colaboradores aos contratos e períodos de atuação">
+      <PageHeader backTo="/adicionais/contratos" title="Vínculos" description="Relacione colaboradores aos contratos e períodos de atuação">
         {podeEditar && (
           <>
             <AdicionaisButton variant="outline" onClick={handleCorrigirVinculos}>

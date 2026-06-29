@@ -105,7 +105,7 @@ export function EmpresasPage() {
 
   return (
     <div className="min-h-full bg-[#F8FAFC] space-y-6">
-      <PageHeader title="Empresas" description="Cadastro global de empresas do sistema" />
+      <PageHeader backTo="/" title="Empresas" description="Cadastro global de empresas do sistema" />
 
       {podeEditar && (
       <Card className="border-none shadow-sm rounded-[12px]">

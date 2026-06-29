@@ -451,7 +451,7 @@ export function AdicionaisRelatorioPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <PageHeader title="Relatório de Adicionais" description="Visualize e exporte os adicionais contratuais por colaborador" />
+      <PageHeader backTo="/adicionais/contratos" title="Relatório de Adicionais" description="Visualize e exporte os adicionais contratuais por colaborador" />
 
       <AdicionaisCard>
         <div className="flex flex-col lg:flex-row gap-4 items-end">

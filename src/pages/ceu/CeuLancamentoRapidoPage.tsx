@@ -227,7 +227,7 @@ export function CeuLancamentoRapidoPage() {
   return (
     <CeuPageWrapper>
       <div className="space-y-6">
-        <PageHeader title="Lançamento Rápido" description="Lance entregas de EPI, Uniforme e Crachá em massa">
+        <PageHeader backTo="/ceu/movimentacoes" title="Lançamento Rápido" description="Lance entregas de EPI, Uniforme e Crachá em massa">
           <Button variant="outline" size="sm" onClick={() => adicionarLinhas(5)}>
             <Plus className="w-4 h-4 mr-1.5" />
             +5 Linhas

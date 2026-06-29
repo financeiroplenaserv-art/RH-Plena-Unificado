@@ -9,10 +9,24 @@ interface PageHeaderProps {
   children?: React.ReactNode
   className?: string
   showBackButton?: boolean
+  backTo?: string
+  onBack?: () => boolean | void
 }
 
-export function PageHeader({ title, description, children, className, showBackButton = true }: PageHeaderProps) {
+export function PageHeader({ title, description, children, className, showBackButton = true, backTo, onBack }: PageHeaderProps) {
   const navigate = useNavigate()
+
+  const handleBack = () => {
+    if (onBack) {
+      const result = onBack()
+      if (result === true) return
+    }
+    if (backTo) {
+      navigate(backTo)
+      return
+    }
+    navigate(-1)
+  }
 
   return (
     <div className={cn('mb-6', className)}>
@@ -23,7 +37,7 @@ export function PageHeader({ title, description, children, className, showBackBu
               type="button"
               variant="outline"
               size="icon"
-              onClick={() => navigate(-1)}
+              onClick={handleBack}
               title="Voltar"
               className="flex-shrink-0"
             >

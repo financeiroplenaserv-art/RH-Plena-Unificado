@@ -229,7 +229,7 @@ export function ExtrasBalancoPage() {
 
   return (
     <ExtrasPageWrapper>
-      <PageHeader title="Balanço Operacional" description="Gere a mensagem diária para envio no WhatsApp">
+      <PageHeader backTo="/extras/lancamentos" title="Balanço Operacional" description="Gere a mensagem diária para envio no WhatsApp">
         <ExtrasButton onClick={() => navigate('/extras/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Novo extra

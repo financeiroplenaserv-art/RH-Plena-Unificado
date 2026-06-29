@@ -106,6 +106,7 @@ export function ExtrasLancamentosPage() {
   return (
     <ExtrasPageWrapper>
       <PageHeader
+        backTo="/"
         title="Extras"
         description="Controle de faltas, coberturas e pagamentos em cash"
       >

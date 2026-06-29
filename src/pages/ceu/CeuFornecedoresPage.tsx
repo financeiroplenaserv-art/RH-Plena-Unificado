@@ -69,7 +69,7 @@ export function CeuFornecedoresPage() {
 
   return (
     <CeuPageWrapper>
-      <PageHeader title="Fornecedores" description="Cadastro de fornecedores de itens" />
+      <PageHeader backTo="/ceu/dashboard" title="Fornecedores" description="Cadastro de fornecedores de itens" />
 
       <CeuCard
         title={editando.id ? 'Editar fornecedor' : 'Novo fornecedor'}

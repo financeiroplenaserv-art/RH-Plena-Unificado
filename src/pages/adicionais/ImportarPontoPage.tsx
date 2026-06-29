@@ -258,7 +258,7 @@ export function ImportarPontoPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <PageHeader title="Importar Ponto" description="Importe o PDF do ponto para preencher o calendário automaticamente" />
+      <PageHeader backTo="/adicionais/contratos" title="Importar Ponto" description="Importe o PDF do ponto para preencher o calendário automaticamente" />
 
       <AdicionaisCard title="Upload do PDF">
         <div className="space-y-4">

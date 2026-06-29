@@ -844,12 +844,26 @@ function AbaEscalasImportar() {
 // PÁGINA PRINCIPAL COM TABS
 // ============================================================
 
+const ABAS_ESCALAS = ['escalas', 'locais', 'mapeamento', 'importar'] as const
+type AbaEscalas = (typeof ABAS_ESCALAS)[number]
+
 export function EscalasPage() {
+  const [abaAtiva, setAbaAtiva] = useState<AbaEscalas>('escalas')
+
+  const handleBack = () => {
+    const indiceAtual = ABAS_ESCALAS.indexOf(abaAtiva)
+    if (indiceAtual > 0) {
+      setAbaAtiva(ABAS_ESCALAS[indiceAtual - 1])
+      return true
+    }
+    return false
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <PageHeader title="Escalas" />
+      <PageHeader title="Escalas" backTo="/" onBack={handleBack} />
 
-      <Tabs defaultValue="escalas" className="w-full">
+      <Tabs value={abaAtiva} onValueChange={(v) => setAbaAtiva(v as AbaEscalas)} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="escalas">Escalas</TabsTrigger>
           <TabsTrigger value="locais">Locais</TabsTrigger>

@@ -629,7 +629,7 @@ export function OcorrenciaFormPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1 h-8">
+        <Button variant="outline" size="sm" onClick={() => navigate('/rh/ocorrencias')} className="gap-1 h-8">
           <ArrowLeft className="h-3.5 w-3.5" />
         </Button>
         <h2 className="text-lg font-semibold text-slate-900">Nova Ocorrência</h2>
@@ -942,7 +942,7 @@ export function OcorrenciaFormPage() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/rh/ocorrencias')}
             className="text-xs h-8"
           >
             Cancelar

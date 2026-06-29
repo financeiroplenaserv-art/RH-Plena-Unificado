@@ -88,7 +88,7 @@ export function ImportarPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <PageHeader title="Importar RH" description="Importe dados de colaboradores via arquivo Excel" />
+      <PageHeader backTo="/rh" title="Importar RH" description="Importe dados de colaboradores via arquivo Excel" />
 
       <Card>
         <CardContent className="pt-6">

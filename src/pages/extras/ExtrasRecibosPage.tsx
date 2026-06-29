@@ -368,7 +368,7 @@ export function ExtrasRecibosPage() {
 
   return (
     <ExtrasPageWrapper>
-      <PageHeader title="Recibos de Extras" description="Gere recibos de pagamento com assinatura digital" />
+      <PageHeader backTo="/extras/lancamentos" title="Recibos de Extras" description="Gere recibos de pagamento com assinatura digital" />
 
       <ExtrasCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">

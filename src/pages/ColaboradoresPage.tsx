@@ -130,7 +130,7 @@ export function ColaboradoresPage() {
 
   return (
     <div className="min-h-full bg-[#F8FAFC] space-y-6">
-      <PageHeader title="Colaboradores" description="Dados mestres importados do e-Contador">
+      <PageHeader backTo="/" title="Colaboradores" description="Dados mestres importados do e-Contador">
         <Button variant="outline" onClick={() => listarPaginado({
           busca,
           status: filtroStatus !== 'todos' ? filtroStatus : undefined,

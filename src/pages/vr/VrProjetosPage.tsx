@@ -110,6 +110,7 @@ export function VrProjetosPage() {
   return (
     <VrPage>
       <PageHeader
+        backTo="/"
         title="Benefícios"
         description="Cálculo e emissão de arquivos VR PAT e Alterdata"
       >

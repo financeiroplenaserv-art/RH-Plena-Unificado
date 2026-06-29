@@ -169,6 +169,7 @@ export function AdicionaisContratosPage() {
   return (
     <AdicionaisPageWrapper>
       <PageHeader
+        backTo="/"
         title="Adicionais Contratuais"
         description="Cadastre contratos com os adicionais contratuais por departamento"
       />

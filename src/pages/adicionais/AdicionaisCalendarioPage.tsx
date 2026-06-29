@@ -412,7 +412,7 @@ export function AdicionaisCalendarioPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <PageHeader title="Calendário de Escalas" description="Preencha dia a dia o status dos colaboradores vinculados" />
+      <PageHeader backTo="/adicionais/contratos" title="Calendário de Escalas" description="Preencha dia a dia o status dos colaboradores vinculados" />
 
       <AdicionaisCard>
         <div className="flex flex-col lg:flex-row gap-4 items-end">

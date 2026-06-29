@@ -276,6 +276,7 @@ export function ImportarEContadorPage() {
     <div className="min-h-full p-4 md:p-6" style={{ backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
       <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
+          backTo="/"
           title="e-Contador"
           description="Importe colaboradores diretamente da API Alterdata"
         />

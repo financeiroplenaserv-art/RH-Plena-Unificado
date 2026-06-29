@@ -98,7 +98,7 @@ export function ExtrasCategoriasPage() {
 
   return (
     <ExtrasPageWrapper>
-      <PageHeader title="Categorias de valor" description="Gerencie os valores padrão para pagamento de extras" />
+      <PageHeader backTo="/extras/lancamentos" title="Categorias de valor" description="Gerencie os valores padrão para pagamento de extras" />
 
       <ExtrasCard>
         {podeEditar && (

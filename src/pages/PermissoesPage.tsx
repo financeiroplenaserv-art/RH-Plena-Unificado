@@ -203,7 +203,7 @@ export function PermissoesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <PageHeader title="Permissões" className="mb-6" />
+      <PageHeader backTo="/" title="Permissões" className="mb-6" />
 
       <Card className="mb-6">
         <CardHeader>

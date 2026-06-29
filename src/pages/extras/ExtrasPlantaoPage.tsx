@@ -173,7 +173,7 @@ export function ExtrasPlantaoPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-3 pb-8">
       <div className="max-w-md mx-auto space-y-4">
-        <PageHeader title="Registro de Plantão" description="Faltas e substituições" />
+        <PageHeader backTo="/extras/lancamentos" title="Registro de Plantão" description="Faltas e substituições" />
 
         <form onSubmit={handleSubmit}>
           <ExtrasCard className="!p-4">

@@ -631,7 +631,7 @@ export function CeuRelatoriosPage() {
   return (
     <CeuPageWrapper>
       <div className="space-y-6">
-        <PageHeader title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
+        <PageHeader backTo="/ceu/dashboard" title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
 
         <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

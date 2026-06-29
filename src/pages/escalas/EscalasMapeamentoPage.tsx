@@ -43,7 +43,7 @@ export function EscalasMapeamentoPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <PageHeader title="Mapeamento Flit ↔ Local" description="Relacione dispositivos, perímetros e departamentos aos locais de trabalho" />
+      <PageHeader backTo="/escalas" title="Mapeamento Flit ↔ Local" description="Relacione dispositivos, perímetros e departamentos aos locais de trabalho" />
 
       <Card>
         <CardHeader>

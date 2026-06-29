@@ -156,7 +156,7 @@ export function ModelosPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <PageHeader title="Modelos de Ocorrência" description={`${modelos.length} modelos cadastrados`}>
+      <PageHeader backTo="/rh" title="Modelos de Ocorrência" description={`${modelos.length} modelos cadastrados`}>
         {podeGerenciar && (
           <Button
             onClick={cadastrarPadroes}

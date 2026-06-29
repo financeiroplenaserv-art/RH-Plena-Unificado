@@ -5,7 +5,7 @@ import { Settings } from 'lucide-react'
 export function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Configurações" description="Gerencie integrações e parâmetros da plataforma" />
+      <PageHeader backTo="/" title="Configurações" description="Gerencie integrações e parâmetros da plataforma" />
 
       <Card>
         <CardContent className="py-12 text-center text-sm text-slate-500">
