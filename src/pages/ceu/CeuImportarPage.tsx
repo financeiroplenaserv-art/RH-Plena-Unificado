@@ -9,6 +9,7 @@ import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
+import { parseMoedaParaCentavos } from '@/lib/utils'
 import type { Fornecedor, ItemCEU } from '@/types/database'
 
 type TipoImportacao = 'itens' | 'fornecedores'
@@ -118,18 +119,12 @@ export function CeuImportarPage() {
       try {
         if (tipo === 'itens') {
           const rawValor = row.valor || row.Valor || row.preco || row.Preco || row['Valor Unitario'] || row['Valor Unitário']
-          const parseValor = (raw: string | undefined): number | null => {
-            if (!raw) return null
-            const limpo = String(raw).replace(/[R$\s.]/g, '').replace(',', '.')
-            const num = parseFloat(limpo)
-            return isNaN(num) ? null : Math.round(num * 100)
-          }
 
           const payload: Partial<ItemCEU> = {
             codigo: row.codigo || row.Codigo || row.codigo_produto || row['Codigo Produto'] || row['Código Produto'] || null,
             nome: row.nome || row.Nome || '',
             tipo: row.tipo || row.Tipo || '',
-            valor: parseValor(rawValor),
+            valor: parseMoedaParaCentavos(rawValor),
             ca: row.ca || row.CA || null,
             validade: row.validade || row.Validade || null,
             subgrupo: row.subgrupo || row.Subgrupo || null,

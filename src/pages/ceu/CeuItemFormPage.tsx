@@ -16,6 +16,7 @@ import { CeuInput } from '@/components/ceu/CeuInput'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { parseMoedaParaCentavos } from '@/lib/utils'
 
 const TIPOS = ['Crachá', 'Uniforme', 'EPI']
 
@@ -97,7 +98,7 @@ export function CeuItemFormPage() {
       validade: form.tipo === 'EPI' ? form.validade || null : null,
       ca: form.tipo === 'EPI' ? form.ca || null : null,
       subgrupo: form.subgrupo || null,
-      valor: form.valor ? Math.round(parseFloat(form.valor.replace(',', '.')) * 100) : null,
+      valor: parseMoedaParaCentavos(form.valor),
       estoque: parseInt(form.estoque || '0', 10),
       estoque_minimo: parseInt(form.estoque_minimo || '0', 10),
       prazo_uso_dias: form.prazo_uso_dias ? parseInt(form.prazo_uso_dias, 10) : null,

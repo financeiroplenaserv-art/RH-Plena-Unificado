@@ -157,6 +157,45 @@ export function parseMoeda(valor: string | null | undefined): number {
 }
 
 /**
+ * Converte um valor monetário (string ou número) para centavos.
+ * Aceita formatos pt-BR (R$ 1.234,56 ou 2,60) e números (2.6 -> 260 centavos).
+ */
+export function parseMoedaParaCentavos(valor: string | number | null | undefined): number | null {
+  if (valor === null || valor === undefined || valor === '') return null
+
+  if (typeof valor === 'number') {
+    return isNaN(valor) ? null : Math.round(valor * 100)
+  }
+
+  let str = String(valor).trim()
+  if (!str) return null
+
+  // Remove prefixo de moeda e espaços
+  str = str.replace(/R\$/gi, '').replace(/\s+/g, '')
+
+  const temVirgula = str.includes(',')
+  const temPonto = str.includes('.')
+
+  if (temVirgula && temPonto) {
+    // Formato pt-BR com separador de milhar: 1.234,56
+    str = str.replace(/\./g, '').replace(',', '.')
+  } else if (temVirgula) {
+    // Decimal pt-BR: 2,60
+    str = str.replace(',', '.')
+  } else if (temPonto) {
+    // Decimal en-US: 2.60
+    // Se tiver múltiplos pontos, trata o último como decimal
+    const partes = str.split('.')
+    if (partes.length > 2) {
+      str = partes.slice(0, -1).join('') + '.' + partes[partes.length - 1]
+    }
+  }
+
+  const numero = parseFloat(str)
+  return isNaN(numero) ? null : Math.round(numero * 100)
+}
+
+/**
  * Aplica máscara de telefone/celular brasileiro:
  * - Fixo: (00) 0000-0000
  * - Celular: (00) 00000-0000
