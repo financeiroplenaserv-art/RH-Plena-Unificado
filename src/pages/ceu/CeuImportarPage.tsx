@@ -37,7 +37,7 @@ const TIPOS: { id: TipoImportacao; label: string; colunas: string[] }[] = [
   {
     id: 'itens',
     label: 'Itens',
-    colunas: ['nome', 'tipo', 'ca', 'validade', 'subgrupo', 'estoque', 'estoque_minimo', 'prazo_uso_dias'],
+    colunas: ['codigo', 'nome', 'tipo', 'valor', 'ca', 'validade', 'subgrupo', 'estoque', 'estoque_minimo', 'prazo_uso_dias'],
   },
   {
     id: 'fornecedores',
@@ -113,9 +113,19 @@ export function CeuImportarPage() {
       const row = linha.dados
       try {
         if (tipo === 'itens') {
+          const rawValor = row.valor || row.Valor || row.preco || row.Preco || row['Valor Unitario'] || row['Valor Unitário']
+          const parseValor = (raw: string | undefined): number | null => {
+            if (!raw) return null
+            const limpo = String(raw).replace(/[R$\s.]/g, '').replace(',', '.')
+            const num = parseFloat(limpo)
+            return isNaN(num) ? null : Math.round(num * 100)
+          }
+
           const payload: Partial<ItemCEU> = {
+            codigo: row.codigo || row.Codigo || row.codigo_produto || row['Codigo Produto'] || row['Código Produto'] || null,
             nome: row.nome || row.Nome || '',
             tipo: row.tipo || row.Tipo || '',
+            valor: parseValor(rawValor),
             ca: row.ca || row.CA || null,
             validade: row.validade || row.Validade || null,
             subgrupo: row.subgrupo || row.Subgrupo || null,

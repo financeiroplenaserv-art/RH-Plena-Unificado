@@ -34,6 +34,7 @@ export function CeuItemFormPage() {
   const [loading, setLoading] = useState(!!id)
   const [salvando, setSalvando] = useState(false)
   const [form, setForm] = useState<{
+    codigo: string
     tipo: string
     subgrupo: string
     nome: string
@@ -45,6 +46,7 @@ export function CeuItemFormPage() {
     estoque_minimo: string
     prazo_uso_dias: string
   }>({
+    codigo: '',
     tipo: '',
     subgrupo: '',
     nome: '',
@@ -66,6 +68,7 @@ export function CeuItemFormPage() {
     buscarPorId(id).then((item) => {
       if (item) {
         setForm({
+          codigo: item.codigo || '',
           tipo: item.tipo || '',
           subgrupo: item.subgrupo || '',
           nome: item.nome || '',
@@ -89,6 +92,7 @@ export function CeuItemFormPage() {
     setSalvando(true)
     const payload = {
       ...form,
+      codigo: form.codigo?.trim() || null,
       fornecedor_id: form.fornecedor_id || null,
       validade: form.tipo === 'EPI' ? form.validade || null : null,
       ca: form.tipo === 'EPI' ? form.ca || null : null,
@@ -183,8 +187,17 @@ export function CeuItemFormPage() {
                 />
               </div>
 
-              {/* Linha 4: Valor + Fornecedor */}
+              {/* Linha 4: Código + Valor */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="codigo">Código</Label>
+                  <CeuInput
+                    id="codigo"
+                    value={form.codigo}
+                    onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
+                    placeholder="Ex: 00123"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="valor">Valor unitário (R$)</Label>
                   <CeuInput
@@ -197,25 +210,27 @@ export function CeuItemFormPage() {
                     placeholder="0,00"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fornecedor">Fornecedor</Label>
-                  <Select
-                    value={form.fornecedor_id || '__none__'}
-                    onValueChange={(v) => setForm((f) => ({ ...f, fornecedor_id: v === '__none__' ? '' : v }))}
-                  >
-                    <SelectTrigger id="fornecedor" className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Nenhum</SelectItem>
-                      {fornecedores.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              </div>
+
+              {/* Linha 5: Fornecedor */}
+              <div className="space-y-2">
+                <Label htmlFor="fornecedor">Fornecedor</Label>
+                <Select
+                  value={form.fornecedor_id || '__none__'}
+                  onValueChange={(v) => setForm((f) => ({ ...f, fornecedor_id: v === '__none__' ? '' : v }))}
+                >
+                  <SelectTrigger id="fornecedor" className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {fornecedores.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Linha 5: Estoque atual + Estoque mínimo + Prazo de uso */}

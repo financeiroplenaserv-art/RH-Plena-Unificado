@@ -15,7 +15,7 @@ export function useCEUItens() {
       .order('nome')
 
     if (filtros?.busca) {
-      query = query.or(`nome.ilike.%${filtros.busca}%,ca.ilike.%${filtros.busca}%`)
+      query = query.or(`nome.ilike.%${filtros.busca}%,codigo.ilike.%${filtros.busca}%,ca.ilike.%${filtros.busca}%`)
     }
     if (filtros?.tipo && filtros.tipo !== 'todos') {
       query = query.eq('tipo', filtros.tipo)

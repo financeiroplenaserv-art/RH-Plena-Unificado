@@ -368,6 +368,7 @@ export interface Fornecedor {
 
 export interface ItemCEU {
   id: string
+  codigo?: string | null
   nome: string
   tipo: string
   ca: string | null

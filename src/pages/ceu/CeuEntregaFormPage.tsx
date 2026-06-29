@@ -56,6 +56,7 @@ export function CeuEntregaFormPage() {
   const [concluido, setConcluido] = useState(false)
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroSubgrupo, setFiltroSubgrupo] = useState('')
+  const [buscaItem, setBuscaItem] = useState('')
   const [modalRecibo, setModalRecibo] = useState(false)
   const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | null>(null)
   const [historicoEntregas, setHistoricoEntregas] = useState<EntregaCEU[]>([])
@@ -126,12 +127,19 @@ export function CeuEntregaFormPage() {
   }, [itensDisponiveis, filtroTipo])
 
   const itensFiltrados = useMemo(() => {
+    const termo = buscaItem.trim().toLowerCase()
     return itensDisponiveis.filter((i) => {
       if (filtroTipo && i.tipo !== filtroTipo) return false
       if (filtroSubgrupo && i.subgrupo !== filtroSubgrupo) return false
+      if (termo) {
+        const matchNome = i.nome.toLowerCase().includes(termo)
+        const matchCodigo = i.codigo?.toLowerCase().includes(termo)
+        const matchCa = i.ca?.toLowerCase().includes(termo)
+        if (!matchNome && !matchCodigo && !matchCa) return false
+      }
       return true
     })
-  }, [itensDisponiveis, filtroTipo, filtroSubgrupo])
+  }, [itensDisponiveis, filtroTipo, filtroSubgrupo, buscaItem])
 
   const toggleItem = (item: ItemCEU) => {
     setItensSelecionados((prev) => {
@@ -184,8 +192,10 @@ export function CeuEntregaFormPage() {
           observacao: observacao || null,
           snapshot_item: {
             nome: item.nome,
+            codigo: item.codigo || '',
             tipo: item.tipo,
             ca: item.ca || '',
+            valor: item.valor || null,
             prazo_uso_dias: item.prazo_uso_dias || null,
           },
         })
@@ -387,6 +397,18 @@ export function CeuEntregaFormPage() {
                 <div className="space-y-3">
                   {/* Filtros hierárquicos */}
                   <div className="flex flex-col md:flex-row gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex-1 md:flex-[2]">
+                      <Label className="text-xs text-slate-500 mb-1 block">Buscar item</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <Input
+                          placeholder="Nome, código ou CA..."
+                          value={buscaItem}
+                          onChange={(e) => setBuscaItem(e.target.value)}
+                          className="pl-9 bg-white border-slate-300"
+                        />
+                      </div>
+                    </div>
                     <div className="flex-1">
                       <Label className="text-xs text-slate-500 mb-1 block">Tipo (Grupo)</Label>
                       <Select
@@ -428,7 +450,7 @@ export function CeuEntregaFormPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {(filtroTipo || filtroSubgrupo) && (
+                    {(filtroTipo || filtroSubgrupo || buscaItem) && (
                       <div className="flex items-end">
                         <CeuButton
                           variant="outline"
@@ -436,6 +458,7 @@ export function CeuEntregaFormPage() {
                           onClick={() => {
                             setFiltroTipo('')
                             setFiltroSubgrupo('')
+                            setBuscaItem('')
                           }}
                         >
                           Limpar filtros

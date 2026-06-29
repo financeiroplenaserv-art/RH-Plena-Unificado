@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Trash2, Edit, Package } from 'lucide-react'
+import { Plus, Search, Trash2, Edit, Package, Hash } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -43,6 +43,11 @@ function badgeType(tipo: string) {
     default:
       return 'outros'
   }
+}
+
+function formatarValorCentavos(valor?: number | null): string {
+  if (valor == null) return '—'
+  return (valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export function CeuItensPage() {
@@ -90,7 +95,7 @@ export function CeuItensPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <CeuInput
-              placeholder="Nome ou CA..."
+              placeholder="Nome, código ou CA..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="pl-10"
@@ -134,9 +139,11 @@ export function CeuItensPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50 hover:bg-slate-50">
                   <TableHead>Nome</TableHead>
+                  <TableHead>Código</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>CA</TableHead>
                   <TableHead>Validade</TableHead>
+                  <TableHead>Valor</TableHead>
                   <TableHead>Fornecedor</TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
@@ -144,7 +151,7 @@ export function CeuItensPage() {
               <TableBody>
                 {itens.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                       <Package className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       Nenhum item encontrado.
                     </TableCell>
@@ -154,12 +161,23 @@ export function CeuItensPage() {
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.nome}</TableCell>
                       <TableCell>
+                        {item.codigo ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">
+                            <Hash className="w-3 h-3" />
+                            {item.codigo}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <CeuBadge type={badgeType(item.tipo)}>{item.tipo}</CeuBadge>
                       </TableCell>
                       <TableCell>{item.ca || '—'}</TableCell>
                       <TableCell>
                         {item.validade ? new Date(item.validade).toLocaleDateString('pt-BR') : '—'}
                       </TableCell>
+                      <TableCell>{formatarValorCentavos(item.valor)}</TableCell>
                       <TableCell>{item.fornecedor?.nome || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">

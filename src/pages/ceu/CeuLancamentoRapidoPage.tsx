@@ -81,9 +81,16 @@ export function CeuLancamentoRapidoPage() {
   const mapaItensPorCodigo = useMemo(() => {
     const map = new Map<string, ItemCEU>()
     itens.forEach((item) => {
+      if (item.codigo) map.set(normalizarCodigo(item.codigo), item)
       if (item.ca) map.set(normalizarCodigo(item.ca), item)
       map.set(normalizarCodigo(item.id), item)
     })
+    return map
+  }, [itens])
+
+  const mapaItensPorId = useMemo(() => {
+    const map = new Map<string, ItemCEU>()
+    itens.forEach((item) => map.set(item.id, item))
     return map
   }, [itens])
 
@@ -153,7 +160,7 @@ export function CeuLancamentoRapidoPage() {
       if (itensEncontrados && itensEncontrados.length > 0) {
         const item = itensEncontrados[0]
         produtoAtualizado = item.nome
-        codigoAtualizado = item.ca || item.id
+        codigoAtualizado = item.codigo || item.ca || item.id
         itemIdAtualizado = item.id
       }
     }
@@ -201,13 +208,23 @@ export function CeuLancamentoRapidoPage() {
 
     for (const linha of linhasParaSalvar) {
       try {
+        const item = mapaItensPorId.get(linha.itemId)
         const result = await criar({
           colaborador_id: linha.colaboradorId,
           item_id: linha.itemId,
           data_entrega: linha.data,
           quantidade: linha.quantidade,
           observacao: linha.status,
-          snapshot_item: undefined,
+          snapshot_item: item
+            ? {
+                nome: item.nome,
+                codigo: item.codigo || '',
+                tipo: item.tipo,
+                ca: item.ca || '',
+                valor: item.valor || null,
+                prazo_uso_dias: item.prazo_uso_dias || null,
+              }
+            : undefined,
         })
         if (result) sucesso++
       } catch (err) {
