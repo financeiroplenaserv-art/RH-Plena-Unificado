@@ -21,8 +21,8 @@ import {
 } from '@/components/ui/dialog'
 import { formatarData } from '@/lib/utils'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { PageHeader } from '@/components/PageHeader'
 import { VrPage } from '@/components/vr/VrPage'
-import { VrHeader } from '@/components/vr/VrHeader'
 import { VrCard } from '@/components/vr/VrCard'
 import { VrButton } from '@/components/vr/VrButton'
 import { toast } from 'sonner'
@@ -109,16 +109,17 @@ export function VrProjetosPage() {
 
   return (
     <VrPage>
-      <VrHeader
-        title="Vale Refeição"
-        subtitle="Cálculo e emissão de arquivos VR PAT e Alterdata"
-      />
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <PageHeader
+        title="Benefícios"
+        description="Cálculo e emissão de arquivos VR PAT e Alterdata"
+      >
         <VrButton onClick={() => navigate('/vr/projetos/novo')} size="lg">
           <Plus className="w-5 h-5 mr-2" />
           Novo projeto
         </VrButton>
+      </PageHeader>
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4">
         <div className="flex flex-wrap gap-2">
           <VrButton variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="w-4 h-4 mr-2" />

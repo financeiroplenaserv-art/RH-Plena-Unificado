@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   Clock,
 } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { CeuPageWrapper } from './CeuPageWrapper'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuKpiCard } from '@/components/ceu/CeuKpiCard'
@@ -108,12 +109,10 @@ export function CeuDashboardPage() {
 
   return (
     <CeuPageWrapper>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">CEU — Crachá, Equipamento e Uniforme</h2>
-          <p className="text-sm text-slate-500">Visão geral de itens, entregas e alertas</p>
-        </div>
-      </div>
+      <PageHeader
+        title="CEU"
+        description="Visão geral de itens, entregas e alertas"
+      />
 
       {loading ? (
         <LoadingScreen className="h-96" />

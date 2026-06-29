@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
 import { formatarCPF, mascararCPF } from '@/lib/utils'
+import { PageHeader } from '@/components/PageHeader'
 import { TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
 import { toast } from 'sonner'
 import * as XLSX from '@e965/xlsx'
@@ -274,12 +275,10 @@ export function ImportarEContadorPage() {
   return (
     <div className="min-h-full p-4 md:p-6" style={{ backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Importar do e-Contador</h2>
-            <p className="text-sm" style={{ color: '#94A3B8' }}>Importe colaboradores diretamente da API Alterdata</p>
-          </div>
-        </div>
+        <PageHeader
+          title="e-Contador"
+          description="Importe colaboradores diretamente da API Alterdata"
+        />
 
         {/* Resumo */}
         {totalFuncionarios > 0 && (

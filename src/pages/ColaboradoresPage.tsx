@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Search, RefreshCw, User, X, Pencil, Save } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -129,11 +130,7 @@ export function ColaboradoresPage() {
 
   return (
     <div className="min-h-full bg-[#F8FAFC] space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[#1F2937]">Colaboradores</h2>
-          <p className="text-sm text-[#94A3B8]">Dados mestres importados do e-Contador</p>
-        </div>
+      <PageHeader title="Colaboradores" description="Dados mestres importados do e-Contador">
         <Button variant="outline" onClick={() => listarPaginado({
           busca,
           status: filtroStatus !== 'todos' ? filtroStatus : undefined,
@@ -144,7 +141,7 @@ export function ColaboradoresPage() {
           <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />
           Atualizar
         </Button>
-      </div>
+      </PageHeader>
 
       <Card className="bg-white rounded-[12px] shadow-sm border-none">
         <CardHeader className="pb-3">

@@ -30,6 +30,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { nomeDepartamento } from '@/lib/utils'
 import { podeEditarVinculoAdicional } from '@/lib/permissoes'
 import type { VinculoAdicional, AdicionalTipo } from '@/types/adicionais'
@@ -269,13 +270,9 @@ export function AdicionaisVinculosPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Vínculos de colaboradores</h2>
-          <p className="text-sm" style={{ color: '#94A3B8' }}>Relacione colaboradores aos contratos e períodos de atuação</p>
-        </div>
+      <PageHeader title="Vínculos" description="Relacione colaboradores aos contratos e períodos de atuação">
         {podeEditar && (
-          <div className="flex gap-2">
+          <>
             <AdicionaisButton variant="outline" onClick={handleCorrigirVinculos}>
               Corrigir vínculos
             </AdicionaisButton>
@@ -283,9 +280,9 @@ export function AdicionaisVinculosPage() {
               <Copy className="w-4 h-4 mr-2" />
               Copiar do período anterior
             </AdicionaisButton>
-          </div>
+          </>
         )}
-      </div>
+      </PageHeader>
 
       {podeEditar && (
       <AdicionaisCard title="Novo vínculo">

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { useAuditoria } from '@/hooks/useAuditoria'
 import { formatarData } from '@/lib/utils'
+import { PageHeader } from '@/components/PageHeader'
 
 const TABELAS = [
   { value: 'todas', label: 'Todas as tabelas' },
@@ -95,12 +96,10 @@ export function AuditoriaPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Auditoria</h2>
-          <p className="text-sm text-slate-500">Histórico de ações realizadas no sistema</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Auditoria"
+        description="Histórico de ações realizadas no sistema"
+      />
 
       <Card>
         <CardHeader>

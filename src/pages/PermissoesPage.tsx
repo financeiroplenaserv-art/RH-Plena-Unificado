@@ -13,8 +13,9 @@ import { usePermissoes } from '@/hooks/usePermissoes'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import type { NivelAcesso, PermissaoPerfil } from '@/types/database'
-import { Loader2, Shield } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
+import { PageHeader } from '@/components/PageHeader'
 
 const PERFIS: { valor: NivelAcesso; label: string }[] = [
   { valor: 'adm', label: 'Administrador (adm)' },
@@ -202,10 +203,7 @@ export function PermissoesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Shield className="h-6 w-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-slate-800">Permissões por Perfil</h1>
-      </div>
+      <PageHeader title="Permissões" className="mb-6" />
 
       <Card className="mb-6">
         <CardHeader>

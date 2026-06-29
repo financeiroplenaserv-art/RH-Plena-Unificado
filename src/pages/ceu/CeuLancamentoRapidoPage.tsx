@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CeuPageWrapper } from './CeuPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { AdicionaisCard } from '../adicionais/AdicionaisPageWrapper'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useCEUItens } from '@/hooks/useCEUItens'
@@ -226,31 +227,25 @@ export function CeuLancamentoRapidoPage() {
   return (
     <CeuPageWrapper>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Lançamento Rápido CEU</h2>
-            <p className="text-sm text-slate-500">Lance entregas de EPI, Uniforme e Crachá em massa</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => adicionarLinhas(5)}>
-              <Plus className="w-4 h-4 mr-1.5" />
-              +5 Linhas
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => adicionarLinhas(10)}>
-              <Plus className="w-4 h-4 mr-1.5" />
-              +10 Linhas
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSalvar}
-              disabled={salvando || linhas.filter(linhaValida).length === 0}
-              className="bg-[#1E3A5F] hover:bg-[#152D4D]"
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              {salvando ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </div>
-        </div>
+        <PageHeader title="Lançamento Rápido" description="Lance entregas de EPI, Uniforme e Crachá em massa">
+          <Button variant="outline" size="sm" onClick={() => adicionarLinhas(5)}>
+            <Plus className="w-4 h-4 mr-1.5" />
+            +5 Linhas
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => adicionarLinhas(10)}>
+            <Plus className="w-4 h-4 mr-1.5" />
+            +10 Linhas
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSalvar}
+            disabled={salvando || linhas.filter(linhaValida).length === 0}
+            className="bg-[#1E3A5F] hover:bg-[#152D4D]"
+          >
+            <Save className="w-4 h-4 mr-1.5" />
+            {salvando ? 'Salvando...' : 'Salvar'}
+          </Button>
+        </PageHeader>
 
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-1.5">

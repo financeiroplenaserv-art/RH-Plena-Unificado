@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { useExtras } from '@/hooks/useExtras'
 import { useAuth } from '@/hooks/useAuth'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { mascaraMoeda, parseMoeda, mascaraMoedaInput } from '@/lib/utils'
 import { podeEditarCategoriaExtra, podeExcluirCategoriaExtra } from '@/lib/permissoes'
 import type { CategoriaExtra } from '@/types/extras'
@@ -97,10 +98,7 @@ export function ExtrasCategoriasPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Categorias de valor</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Gerencie os valores padrão para pagamento de extras</p>
-      </div>
+      <PageHeader title="Categorias de valor" description="Gerencie os valores padrão para pagamento de extras" />
 
       <ExtrasCard>
         {podeEditar && (

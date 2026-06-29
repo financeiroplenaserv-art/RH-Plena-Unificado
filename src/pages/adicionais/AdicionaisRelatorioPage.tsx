@@ -21,6 +21,7 @@ import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
 import { diaIntrajornada } from '@/lib/adicionais/calculoAdicionais'
@@ -450,10 +451,7 @@ export function AdicionaisRelatorioPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Relatório de adicionais</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Visualize e exporte os adicionais contratuais por colaborador</p>
-      </div>
+      <PageHeader title="Relatório de Adicionais" description="Visualize e exporte os adicionais contratuais por colaborador" />
 
       <AdicionaisCard>
         <div className="flex flex-col lg:flex-row gap-4 items-end">

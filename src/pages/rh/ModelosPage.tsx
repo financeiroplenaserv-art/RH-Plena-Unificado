@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { PageHeader } from '@/components/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { podeGerenciarModelosOcorrencia } from '@/lib/permissoes'
@@ -155,11 +156,7 @@ export function ModelosPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Modelos de Ocorrência</h2>
-          <p className="text-sm text-slate-500">{modelos.length} modelos cadastrados</p>
-        </div>
+      <PageHeader title="Modelos de Ocorrência" description={`${modelos.length} modelos cadastrados`}>
         {podeGerenciar && (
           <Button
             onClick={cadastrarPadroes}
@@ -169,7 +166,7 @@ export function ModelosPage() {
             Cadastrar 46 Padrões
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       {podeGerenciar && (
       <Card className="border-slate-100">

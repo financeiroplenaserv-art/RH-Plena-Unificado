@@ -16,6 +16,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo } from '@/types/extras'
@@ -172,20 +173,7 @@ export function ExtrasPlantaoPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-3 pb-8">
       <div className="max-w-md mx-auto space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: '#1F2937' }}>Registro de Plantão</h1>
-            <p className="text-xs" style={{ color: '#94A3B8' }}>Faltas e substituições</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/extras/lancamentos')}
-            className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600"
-            aria-label="Voltar"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <PageHeader title="Registro de Plantão" description="Faltas e substituições" />
 
         <form onSubmit={handleSubmit}>
           <ExtrasCard className="!p-4">

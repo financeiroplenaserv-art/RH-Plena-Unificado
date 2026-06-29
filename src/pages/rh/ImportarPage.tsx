@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { PageHeader } from '@/components/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { toast } from 'sonner'
 import type { Colaborador } from '@/types/database'
@@ -87,12 +88,7 @@ export function ImportarPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Importar Colaboradores</h2>
-          <p className="text-sm text-slate-500">Importe dados de colaboradores via arquivo Excel</p>
-        </div>
-      </div>
+      <PageHeader title="Importar RH" description="Importe dados de colaboradores via arquivo Excel" />
 
       <Card>
         <CardContent className="pt-6">

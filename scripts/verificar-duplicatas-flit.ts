@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import XLSX from '@e965/xlsx'
 import { parseWorkbookBinary, agruparBatidasPorDia } from '../src/lib/escalas/importarFlit'
 
 async function verificar() {

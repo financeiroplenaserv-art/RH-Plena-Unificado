@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
@@ -137,16 +138,10 @@ export function OcorrenciasPage() {
 
   return (
     <div className="min-h-full bg-[#F8FAFC] space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-[#1F2937]">CORH Ocorrências</h2>
-          <p className="text-sm text-[#94A3B8]">
-            {paginacao?.total ?? ocorrencias.length} registros
-            {pendentesCount > 0 && (
-              <span className="text-[#1F2937] font-medium ml-2">({pendentesCount} pendentes)</span>
-            )}
-          </p>
-        </div>
+      <PageHeader
+        title="Ocorrências"
+        description={`${paginacao?.total ?? ocorrencias.length} registros${pendentesCount > 0 ? ` (${pendentesCount} pendentes)` : ''}`}
+      >
         {podeCriar && (
           <Button
             onClick={() => navigate('/rh/ocorrencias/novo')}
@@ -155,7 +150,7 @@ export function OcorrenciasPage() {
             <Plus className="h-4 w-4" /> Nova Ocorrência
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       <Card className="bg-white rounded-[12px] shadow-sm border-none">
         <CardHeader className="pb-3">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Trash2, Pencil } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -104,18 +105,17 @@ export function ExtrasLancamentosPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Lançamentos de extras</h2>
-          <p className="text-sm" style={{ color: '#94A3B8' }}>Controle de faltas, coberturas e pagamentos em cash</p>
-        </div>
+      <PageHeader
+        title="Extras"
+        description="Controle de faltas, coberturas e pagamentos em cash"
+      >
         {podeEditar && (
           <ExtrasButton onClick={() => navigate('/extras/novo')}>
             <Plus className="w-4 h-4 mr-2" />
             Novo extra
           </ExtrasButton>
         )}
-      </div>
+      </PageHeader>
 
       <ExtrasCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

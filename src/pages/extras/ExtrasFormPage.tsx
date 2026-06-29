@@ -16,6 +16,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
@@ -210,10 +211,7 @@ export function ExtrasFormPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>{id ? 'Editar extra' : 'Novo extra'}</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Registre a ocorrência, substituição e valores</p>
-      </div>
+      <PageHeader title={id ? 'Editar extra' : 'Novo extra'} description="Registre a ocorrência, substituição e valores" />
 
       <form onSubmit={handleSubmit}>
         <ExtrasCard>

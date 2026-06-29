@@ -7,6 +7,7 @@ import { useAlertas } from '@/hooks/useAlertas'
 import { useAuth } from '@/hooks/useAuth'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { PageHeader } from '@/components/PageHeader'
 import { podeGerenciarAlertas } from '@/lib/permissoes'
 import type { Alerta } from '@/types/database'
 import {
@@ -108,18 +109,12 @@ export function AlertasPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-slate-900">Central de Alertas</h2>
-            {stats.criticos > 0 && (
-              <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                {stats.criticos} crítico{stats.criticos > 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-slate-500">Alertas automáticos de conformidade legal</p>
-        </div>
+      <PageHeader title="Alertas" description="Alertas automáticos de conformidade legal">
+        {stats.criticos > 0 && (
+          <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-medium">
+            {stats.criticos} crítico{stats.criticos > 1 ? 's' : ''}
+          </span>
+        )}
         {podeGerenciar && (
           <Button
             size="sm"
@@ -131,7 +126,7 @@ export function AlertasPage() {
             {gerando ? 'Analisando...' : 'Verificar Alertas'}
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[

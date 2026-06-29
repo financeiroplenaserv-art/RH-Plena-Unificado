@@ -103,4 +103,12 @@ Isso evita descobrir migrations pendentes apenas no momento do deploy.
 - Comando: `npx supabase db push`
 - Verificação: `npx supabase migration list` confirmou 046 e 047 aplicadas no remote.
 
+---
+
+### 2026-06-29
+- Ação: verificação e aplicação das migrations 048–051 do módulo Escalas.
+- Comando: `npx supabase migration list` confirmou que 001–047 já estavam aplicadas.
+- Comando: `npx supabase db push` aplicou 048, 049, 050 e 051.
+- Verificação: `npx supabase migration list` confirmou 001–051 aplicadas no remote.
+
 *Criado em: 2026-06-26*

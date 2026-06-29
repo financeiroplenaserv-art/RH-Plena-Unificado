@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { PageHeader } from '@/components/PageHeader'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
 import * as XLSX from '@e965/xlsx'
@@ -276,11 +277,7 @@ export function DepartamentosPage() {
   return (
     <div className="min-h-full p-4 md:p-6" style={{ backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Departamentos</h2>
-            <p className="text-sm" style={{ color: '#94A3B8' }}>Gestão de condomínios, empresas e hospitais</p>
-          </div>
+        <PageHeader title="Departamentos" description="Gestão de condomínios, empresas e hospitais">
           {podeEditar && (
             <button
               onClick={handleNovo}
@@ -291,7 +288,7 @@ export function DepartamentosPage() {
               Novo departamento
             </button>
           )}
-        </div>
+        </PageHeader>
 
         {/* Filtros */}
         <div className="rounded-xl shadow-sm border-0 overflow-hidden" style={{ backgroundColor: '#FFFFFF' }}>

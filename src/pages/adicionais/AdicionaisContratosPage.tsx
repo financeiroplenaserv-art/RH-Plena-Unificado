@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { PageHeader } from '@/components/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
 import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/types/adicionais'
@@ -167,10 +168,10 @@ export function AdicionaisContratosPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Contratos de adicionais</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Cadastre contratos com os adicionais contratuais por departamento</p>
-      </div>
+      <PageHeader
+        title="Adicionais Contratuais"
+        description="Cadastre contratos com os adicionais contratuais por departamento"
+      />
 
       {podeEditar && (
       <AdicionaisCard title={editandoId ? 'Editar contrato' : 'Novo contrato'}>

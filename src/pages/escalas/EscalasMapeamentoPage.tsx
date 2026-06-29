@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { MapeamentoFlitLocalTrabalho } from '@/types/database'
-import { Plus, Trash2, Link2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 
 const TIPOS_MATCH: { value: MapeamentoFlitLocalTrabalho['tipo_match']; label: string }[] = [
   { value: 'dispositivo', label: 'Dispositivo (Flit Multi)' },
@@ -42,10 +43,7 @@ export function EscalasMapeamentoPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Link2 className="h-6 w-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-slate-800">Mapeamento Flit ↔ Local</h1>
-      </div>
+      <PageHeader title="Mapeamento Flit ↔ Local" description="Relacione dispositivos, perímetros e departamentos aos locais de trabalho" />
 
       <Card>
         <CardHeader>

@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn, nomeDepartamento } from '@/lib/utils'
+import { PageHeader } from '@/components/PageHeader'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
@@ -411,10 +412,7 @@ export function AdicionaisCalendarioPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Calendário mensal</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Preencha dia a dia o status dos colaboradores vinculados</p>
-      </div>
+      <PageHeader title="Calendário de Escalas" description="Preencha dia a dia o status dos colaboradores vinculados" />
 
       <AdicionaisCard>
         <div className="flex flex-col lg:flex-row gap-4 items-end">

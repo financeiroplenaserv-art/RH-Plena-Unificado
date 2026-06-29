@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CeuPage } from '@/components/ceu/CeuPage'
+import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
@@ -77,16 +78,12 @@ export function CeuItensPage() {
 
   return (
     <CeuPage>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Itens CEU</h2>
-          <p className="text-sm text-slate-500">Crachás, uniformes, equipamentos e EPIs</p>
-        </div>
+      <PageHeader title="Itens CEU" description="Crachás, uniformes, equipamentos e EPIs">
         <CeuButton onClick={() => navigate('/ceu/itens/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Novo item
         </CeuButton>
-      </div>
+      </PageHeader>
 
       <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

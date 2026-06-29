@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { LocalTrabalho } from '@/types/database'
-import { MapPin, Plus, Trash2, Building2 } from 'lucide-react'
+import { Plus, Trash2, Building2 } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 
 export function EscalasLocaisPage() {
   const { locais, loading, listar, criar, atualizar, remover, importarDeDepartamentos } = useEscalasLocais()
@@ -39,11 +40,7 @@ export function EscalasLocaisPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <MapPin className="h-6 w-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-slate-800">Locais de Trabalho</h1>
-        </div>
+      <PageHeader title="Locais de Trabalho" description="Cadastro de postos e locais vinculados aos colaboradores">
         <Button
           variant="outline"
           onClick={handleImportar}
@@ -53,7 +50,7 @@ export function EscalasLocaisPage() {
           <Building2 className="h-4 w-4" />
           {importando ? 'Importando...' : 'Importar de Departamentos'}
         </Button>
-      </div>
+      </PageHeader>
 
       <Card>
         <CardHeader>

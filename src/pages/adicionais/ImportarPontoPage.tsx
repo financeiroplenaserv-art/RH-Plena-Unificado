@@ -18,6 +18,7 @@ import {
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { parsePontoPDF, calcularPeriodoPDF, resumoPonto, normalizarMatricula, type PontoColaborador } from '@/lib/adicionais/importarPonto'
 import { toast } from 'sonner'
 import type { StatusDiaAdicional } from '@/types/adicionais'
@@ -257,10 +258,7 @@ export function ImportarPontoPage() {
 
   return (
     <AdicionaisPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Importar ponto (Flit)</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Importe o PDF do ponto para preencher o calendário automaticamente</p>
-      </div>
+      <PageHeader title="Importar Ponto" description="Importe o PDF do ponto para preencher o calendário automaticamente" />
 
       <AdicionaisCard title="Upload do PDF">
         <div className="space-y-4">

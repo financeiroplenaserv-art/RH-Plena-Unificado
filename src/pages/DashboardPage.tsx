@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 import { cn, formatarData } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { PageHeader } from '@/components/PageHeader'
 import type { Ocorrencia, Colaborador } from '@/types/database'
 
 interface AlertaModulo {
@@ -220,11 +221,11 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Dashboard</h2>
-          <p className="text-sm text-slate-500">Visão geral dos módulos da plataforma</p>
-        </div>
+      <PageHeader
+        title="Dashboard"
+        description="Visão geral dos módulos da plataforma"
+        showBackButton={false}
+      >
         <Button
           size="sm"
           onClick={() => navigate('/rh/alertas')}
@@ -233,7 +234,7 @@ export function DashboardPage() {
           <Bell className="h-3.5 w-3.5" />
           {alertasCriticos > 0 ? `${alertasCriticos} alerta(s) crítico(s)` : 'Central de Alertas'}
         </Button>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-slate-900 text-white border-none rounded-[12px] shadow-sm">

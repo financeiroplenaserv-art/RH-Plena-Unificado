@@ -3,6 +3,7 @@ import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X } from 'lucide-
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { CeuPageWrapper } from './CeuPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
@@ -153,10 +154,7 @@ export function CeuImportarPage() {
   return (
     <CeuPageWrapper>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Importação em massa CEU</h2>
-          <p className="text-sm text-slate-500">Importe itens ou fornecedores via CSV/Excel</p>
-        </div>
+        <PageHeader title="Importar CEU" description="Importe itens ou fornecedores via CSV/Excel" />
 
         <CeuCard title="Tipo de importação" icon={<Upload className="w-4 h-4" />} gradient="blue">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -22,6 +22,7 @@ import { useCEUItens } from '@/hooks/useCEUItens'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { CeuPage } from '@/components/ceu/CeuPage'
+import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
@@ -356,30 +357,24 @@ export function CeuMovimentacoesPage() {
 
   return (
     <CeuPage>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Movimentações</h2>
-          <p className="text-sm text-slate-500">Registro de entregas e devoluções</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <CeuButton variant="outline" onClick={() => setModalLote(true)}>
-            <FileText className="w-4 h-4 mr-2" />
-            Emitir recibos em lote
-          </CeuButton>
-          <CeuButton variant="outline" onClick={() => navigate('/ceu/importar')}>
-            <Upload className="w-4 h-4 mr-2" />
-            Importar Planilha
-          </CeuButton>
-          <CeuButton variant="outline" onClick={() => setMostrarFiltros((v) => !v)}>
-            <Filter className="w-4 h-4 mr-2" />
-            Filtros
-          </CeuButton>
-          <CeuButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Entrega
-          </CeuButton>
-        </div>
-      </div>
+      <PageHeader title="Movimentações" description="Registro de entregas e devoluções">
+        <CeuButton variant="outline" onClick={() => setModalLote(true)}>
+          <FileText className="w-4 h-4 mr-2" />
+          Emitir recibos em lote
+        </CeuButton>
+        <CeuButton variant="outline" onClick={() => navigate('/ceu/importar')}>
+          <Upload className="w-4 h-4 mr-2" />
+          Importar Planilha
+        </CeuButton>
+        <CeuButton variant="outline" onClick={() => setMostrarFiltros((v) => !v)}>
+          <Filter className="w-4 h-4 mr-2" />
+          Filtros
+        </CeuButton>
+        <CeuButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Entrega
+        </CeuButton>
+      </PageHeader>
 
       {mostrarFiltros && (
         <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">

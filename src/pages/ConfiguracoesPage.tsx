@@ -1,15 +1,11 @@
 import { Card, CardContent } from '@/components/ui/card'
+import { PageHeader } from '@/components/PageHeader'
 import { Settings } from 'lucide-react'
 
 export function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Configurações</h2>
-          <p className="text-sm text-slate-500">Gerencie integrações e parâmetros da plataforma</p>
-        </div>
-      </div>
+      <PageHeader title="Configurações" description="Gerencie integrações e parâmetros da plataforma" />
 
       <Card>
         <CardContent className="py-12 text-center text-sm text-slate-500">

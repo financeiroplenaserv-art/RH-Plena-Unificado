@@ -23,6 +23,7 @@ import {
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { CeuPageWrapper } from './CeuPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
@@ -630,13 +631,7 @@ export function CeuRelatoriosPage() {
   return (
     <CeuPageWrapper>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Relatórios CEU</h2>
-            <p className="text-sm text-slate-500">Análise de entregas, itens e alertas</p>
-          </div>
-
-        </div>
+        <PageHeader title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
 
         <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

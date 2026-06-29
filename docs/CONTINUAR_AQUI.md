@@ -1,6 +1,6 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 2026-06-26
+> **Último trabalho:** 2026-06-28
 > **Relatório completo:** `docs/RELATORIO_TRABALHO_2026_06_26.md`
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`
 > **Perfis/Permissões:** `docs/PERFIL_ACOES_MODELO.md`
@@ -30,19 +30,30 @@
 - Edge Function `econtador` re-deployada com permissão adm/dp1/dp2 ✅
 - Regras de negócio documentadas em `docs/REGRAS_NEGOCIO.md` ✅
 
-### Qualidade / Preparação para produção (sessão anterior)
+### Qualidade / Preparação para produção
 - **Permissões de configurações e e-Contador** corrigidas em `src/lib/permissoes.ts` para refletir `PERFIL_ACOES_MODELO.md` ✅
 - **Tela administrativa de permissões** criada em `src/pages/PermissoesPage.tsx`, rota `/permissoes` e menu no sidebar para `adm`/`admin` ✅
 - **Rotas e menus controlados pela tela de permissões** via `ProtectedRoute` e `Sidebar` ✅
-- **Testes passando:** `npm test -- --run` → 40/40 ✅
-- **Erros silenciados tratados:** `catch` vazios agora logam `console.error`; hooks e páginas principais unificam `console.error` + `toast.error` ✅
 - **Mocks removidos do bundle de produção:** `mockData.ts` excluído, modo demonstração removido das páginas CEU, `VITE_MODO_MOCK` desativado em `useAdicionaisContratuais.ts` ✅
+- **Tratamento de erros silenciados:** `catch` vazios agora logam `console.error`; hooks e páginas principais unificam `console.error` + `toast.error` ✅
 
-### Correções de usabilidade (sessão atual)
+### Correções de usabilidade
 - **Filtro por departamento na tela de colaboradores** corrigido em `src/hooks/useColaboradores.ts` — agora busca por `departamento_id` **e** por `departamento` (nome), cobrindo registros importados do e-Contador ✅
 - **Menu e-Contador unificado:** removido do sidebar a entrada duplicada "Configurações"; token do e-Contador fica apenas na tela `/importar/econtador`, com validação antes de salvar ✅
 - **Página de auditoria global** criada em `src/pages/AuditoriaPage.tsx`, rota `/auditoria` adicionada e menu no sidebar visível para `adm`/`admin`/`gestor` ✅
 - **Build de produção estabilizado:** `cross-env` adicionado ao script `build` com `--max-old-space-size=4096` para evitar falhas de memória ✅
+
+### Sidebar reorganizado em grupos expansíveis
+- **Novo agrupamento por área:** Cadastros, Operacional, RH, DP, Gestão e Relatórios ✅
+- **Grupos colapsáveis/expandíveis** com estado persistido no `localStorage` ✅
+- **Rótulos atualizados:** "Uniformes" renomeado para "CEU", VR renomeado para "Benefícios" ✅
+- **Links verificados** e apontando para as rotas corretas (`/ceu/dashboard`, `/vr/projetos`, `/importar/econtador`, etc.) ✅
+- **Permissões preservadas:** cada item só aparece para quem tem a permissão de menu correspondente ✅
+
+### Botão Voltar em todas as páginas
+- **Componente `PageHeader`** criado em `src/components/PageHeader.tsx` com título, descrição e botão voltar ✅
+- **Aplicado em todas as páginas principais, listagens, formulários e detalhes** ✅
+- **Dashboard mantido sem botão voltar** (página inicial) ✅
 
 ### Permissões dinâmicas finalizadas
 - **Tabela `permissoes_perfil`** criada via migration `046_tabela_permissoes_perfil.sql` ✅
@@ -60,9 +71,21 @@
 - **Botão "Redefinir token"** permite remover o token sem expor o valor ✅
 - **Edge Function `econtador` re-deployada** no Supabase ✅
 
+### Módulo Escalas / Local de Trabalho Diário
+- **Tabelas criadas:** `locais_trabalho`, `mapeamento_flit_local_trabalho`, `locais_trabalho_diario` (migrations 048–051) ✅
+- **Migrations 048–051 aplicadas no banco de produção** via `npx supabase db push` ✅
+- **Importação Flit:** parser Excel com agrupamento por matrícula + data e prevenção de duplicatas ✅
+- **Inferência de local:** dispositivo fixo → perímetro → departamento mapeado ✅
+- **Aba Escalas:** filtros por competência (20 a 19) ou período livre, ordenação, exportação Excel/PDF ✅
+- **Modal de confirmação:** fundo branco, nome curto do local e sugestão por histórico do colaborador ✅
+- **Exibição do colaborador:** nome completo + matrícula para evitar confusão ✅
+- **Preservação de confirmações manuais** na reimportação de arquivos Flit ✅
+- **Importação de departamentos** com deduplicação por similaridade de nome ✅
+- **Scripts de análise dos dados Flit** em `scripts/` ✅
+
 ### Validação final
 - `npm run lint` ✅
-- `npm test -- --run` → 40/40 ✅
+- `npm test -- --run` → 54/54 ✅
 - `npm run build` ✅
 
 ---
@@ -70,18 +93,20 @@
 ## 🎯 Próximos passos pendentes (priorizados)
 
 ### 🟠 Alto
-1. **Testes manuais de login/perfis** — verificar menus e rotas para cada perfil de teste.
-2. **Testes manuais de storage** — upload/Visualização de anexos de ocorrências e arquivos VR.
-3. **Testes manuais do fluxo de extras** — cálculo, pagamento e auditoria.
-4. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
-5. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
-6. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
+1. **Aplicar migrations 048–051 no banco de produção** (se ainda não aplicadas).
+2. **Testes manuais de login/perfis** — verificar menus e rotas para cada perfil de teste.
+3. **Testes manuais de storage** — upload/visualização de anexos de ocorrências e arquivos VR.
+4. **Testes manuais do fluxo de extras** — cálculo, pagamento e auditoria.
+5. **Testes manuais do módulo Escalas** — importação Flit, confirmação de local e exportações.
+6. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
+7. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
+8. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
 
 ### 🟡 Médio / após auditoria
-7. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
-8. **Testar validação de duplicidade de extras** em cenário real.
-9. **Definir design system** antes de implementar módulos novos.
-10. **Módulos placeholders:** `/ferias`, `/escalas`, `/relatorios`.
+9. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
+10. **Testar validação de duplicidade de extras** em cenário real.
+11. **Definir design system** antes de implementar módulos novos.
+12. **Módulos placeholders:** `/ferias`, `/escalas` (estrutura já criada), `/relatorios`.
 
 ---
 
@@ -95,4 +120,4 @@
 
 ---
 
-*Se este arquivo estiver desatualizado, verifique `docs/RELATORIO_TRABALHO_2026_06_26.md`.*
+*Se este arquivo estiver desatualizado, verifique o log de commits recentes e `docs/RELATORIO_TRABALHO_2026_06_26.md`.*

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { PageHeader } from '@/components/PageHeader'
 import { CeuPageWrapper } from './CeuPageWrapper'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -68,12 +69,7 @@ export function CeuFornecedoresPage() {
 
   return (
     <CeuPageWrapper>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Fornecedores CEU</h2>
-          <p className="text-sm text-slate-500">Cadastro de fornecedores de itens</p>
-        </div>
-      </div>
+      <PageHeader title="Fornecedores" description="Cadastro de fornecedores de itens" />
 
       <CeuCard
         title={editando.id ? 'Editar fornecedor' : 'Novo fornecedor'}

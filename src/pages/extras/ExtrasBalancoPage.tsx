@@ -8,6 +8,7 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { formatarData, nomeDepartamento } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Extra } from '@/types/extras'
@@ -228,16 +229,12 @@ export function ExtrasBalancoPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Balanço Operacional</h2>
-          <p className="text-sm" style={{ color: '#94A3B8' }}>Gere a mensagem diária para envio no WhatsApp</p>
-        </div>
+      <PageHeader title="Balanço Operacional" description="Gere a mensagem diária para envio no WhatsApp">
         <ExtrasButton onClick={() => navigate('/extras/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Novo extra
         </ExtrasButton>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <ExtrasCard title="Data do balanço">

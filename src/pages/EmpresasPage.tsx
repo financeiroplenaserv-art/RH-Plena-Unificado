@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Building2, Edit, Plus, Search, Trash2 } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -104,12 +105,7 @@ export function EmpresasPage() {
 
   return (
     <div className="min-h-full bg-[#F8FAFC] space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[#1F2937]">Empresas</h2>
-          <p className="text-sm text-[#94A3B8]">Cadastro global de empresas do sistema</p>
-        </div>
-      </div>
+      <PageHeader title="Empresas" description="Cadastro global de empresas do sistema" />
 
       {podeEditar && (
       <Card className="border-none shadow-sm rounded-[12px]">

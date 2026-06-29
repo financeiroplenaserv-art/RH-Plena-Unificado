@@ -26,6 +26,7 @@ import { useExtrasRecibos } from '@/hooks/useExtrasRecibos'
 import { useAuth } from '@/hooks/useAuth'
 import { AssinaturaCanvas, type AssinaturaCanvasRef } from '@/components/extras/AssinaturaCanvas'
 import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
 import {
   podeGerenciarReciboExtra,
@@ -367,10 +368,7 @@ export function ExtrasRecibosPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Recibos de Extras</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Gere recibos de pagamento com assinatura digital</p>
-      </div>
+      <PageHeader title="Recibos de Extras" description="Gere recibos de pagamento com assinatura digital" />
 
       <ExtrasCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">

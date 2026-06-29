@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import XLSX from '@e965/xlsx'
 import { parseWorkbookBinary, agruparBatidasPorDia } from '../src/lib/escalas/importarFlit'
 import { inferirLocalTrabalho } from '../src/lib/escalas/inferirLocalTrabalho'
 
@@ -15,18 +14,12 @@ interface Mapeamento {
 
 async function analisar() {
   const arquivoPath = path.resolve('public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
-  const locaisPath = path.resolve('scripts/locais_trabalho.json')
   const mapeamentosPath = path.resolve('scripts/mapeamentos_atuais.json')
 
   const buffer = fs.readFileSync(arquivoPath)
   const dias = agruparBatidasPorDia(await parseWorkbookBinary(buffer))
 
-  let locais: Array<{ id: string; nome: string; nome_curto: string }> = []
   let mapeamentos: Mapeamento[] = []
-
-  if (fs.existsSync(locaisPath)) {
-    locais = JSON.parse(fs.readFileSync(locaisPath, 'utf-8'))
-  }
 
   if (fs.existsSync(mapeamentosPath)) {
     mapeamentos = JSON.parse(fs.readFileSync(mapeamentosPath, 'utf-8'))

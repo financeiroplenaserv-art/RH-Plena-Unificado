@@ -6,7 +6,8 @@ import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { parseExcelFlit, type BatidaFlit } from '@/lib/escalas/importarFlit'
-import { Upload, FileSpreadsheet, AlertCircle } from 'lucide-react'
+import { Upload, AlertCircle } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 
 export function EscalasImportarPage() {
   const { importando, importarExcelFlit } = useEscalasDiario()
@@ -54,10 +55,7 @@ export function EscalasImportarPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <FileSpreadsheet className="h-6 w-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-slate-800">Importar Excel do Flit</h1>
-      </div>
+      <PageHeader title="Importar Excel do Flit" description="Importe marcações do Flit para local de trabalho diário" />
 
       <Card>
         <CardHeader>

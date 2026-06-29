@@ -13,7 +13,8 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { nomeCurtoLocal, removerAcentos } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { LocalTrabalhoDiario, MapeamentoFlitLocalTrabalho } from '@/types/database'
-import { CalendarDays, MapPin, CheckSquare, AlertCircle, Search, Plus, Trash2, Upload, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from 'lucide-react'
+import { MapPin, CheckSquare, AlertCircle, Search, Plus, Trash2, Upload, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 
 const FONTES_INFO: Record<LocalTrabalhoDiario['fonte'], { label: string; cor: string }> = {
   dispositivo: { label: 'Dispositivo fixo', cor: 'bg-green-100 text-green-800 border-green-200' },
@@ -846,10 +847,7 @@ function AbaEscalasImportar() {
 export function EscalasPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <CalendarDays className="h-6 w-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-slate-800">Escalas / Local de Trabalho</h1>
-      </div>
+      <PageHeader title="Escalas" />
 
       <Tabs defaultValue="escalas" className="w-full">
         <TabsList className="grid w-full grid-cols-4">

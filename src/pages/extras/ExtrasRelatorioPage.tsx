@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { useExtras } from '@/hooks/useExtras'
 import { ExtrasPageWrapper, ExtrasCard } from './ExtrasPageWrapper'
+import { PageHeader } from '@/components/PageHeader'
 
 function formatarDataBR(data: string | null) {
   if (!data) return '—'
@@ -70,10 +71,7 @@ export function ExtrasRelatorioPage() {
 
   return (
     <ExtrasPageWrapper>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#1F2937' }}>Relatório Semanal</h2>
-        <p className="text-sm" style={{ color: '#94A3B8' }}>Consolidação de extras para pagamento e emissão de recibos</p>
-      </div>
+      <PageHeader title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos" />
 
       <ExtrasCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
