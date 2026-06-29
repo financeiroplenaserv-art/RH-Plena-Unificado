@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, Download } from 'lucide-react'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { CeuPageWrapper } from './CeuPageWrapper'
@@ -37,7 +37,7 @@ const TIPOS: { id: TipoImportacao; label: string; colunas: string[] }[] = [
   {
     id: 'itens',
     label: 'Itens',
-    colunas: ['codigo', 'nome', 'tipo', 'valor', 'ca', 'validade', 'subgrupo', 'estoque', 'estoque_minimo', 'prazo_uso_dias'],
+    colunas: ['id', 'codigo', 'nome', 'tipo', 'valor', 'ca', 'validade', 'subgrupo', 'estoque', 'estoque_minimo', 'prazo_uso_dias'],
   },
   {
     id: 'fornecedores',
@@ -62,8 +62,12 @@ function validarLinha(tipo: TipoImportacao, row: Record<string, string>): LinhaI
 }
 
 export function CeuImportarPage() {
-  const { criar: criarItem } = useCEUItens()
+  const { criar: criarItem, atualizar: atualizarItem, itens, listar: listarItens } = useCEUItens()
   const { criar: criarFornecedor } = useCEUFornecedores()
+
+  useEffect(() => {
+    listarItens()
+  }, [listarItens])
 
   const [tipo, setTipo] = useState<TipoImportacao>('itens')
   const [linhas, setLinhas] = useState<LinhaImportacao[] | null>(null)
@@ -135,7 +139,22 @@ export function CeuImportarPage() {
               ? parseInt(row.prazo_uso_dias || row['Prazo Uso Dias'] || '0', 10)
               : null,
           }
-          const result = await criarItem(payload)
+
+          const rowId = row.id || row.Id || row.ID
+          const rowCodigo = row.codigo || row.Codigo || row.codigo_produto || row['Codigo Produto'] || row['Código Produto']
+          const itemPorId = rowId ? itens.find((i) => i.id === rowId) : undefined
+          const itemPorCodigo = rowCodigo ? itens.find((i) => i.codigo && i.codigo.toLowerCase() === rowCodigo.toLowerCase()) : undefined
+
+          let result: ItemCEU | null = null
+          if (itemPorId) {
+            const ok = await atualizarItem(itemPorId.id, payload)
+            if (ok) result = { ...itemPorId, ...payload } as ItemCEU
+          } else if (itemPorCodigo) {
+            const ok = await atualizarItem(itemPorCodigo.id, payload)
+            if (ok) result = { ...itemPorCodigo, ...payload } as ItemCEU
+          } else {
+            result = await criarItem(payload)
+          }
           if (result) sucesso++
         }
         if (tipo === 'fornecedores') {
@@ -160,6 +179,33 @@ export function CeuImportarPage() {
   }
 
   const tipoAtual = TIPOS.find((t) => t.id === tipo)!
+
+  const exportarModelo = () => {
+    const rows = itens.map((item) => ({
+      id: item.id,
+      codigo: item.codigo || '',
+      nome: item.nome,
+      tipo: item.tipo,
+      valor: item.valor ? item.valor / 100 : '',
+      ca: item.ca || '',
+      validade: item.validade || '',
+      subgrupo: item.subgrupo || '',
+      estoque: item.estoque ?? 0,
+      estoque_minimo: item.estoque_minimo ?? 0,
+      prazo_uso_dias: item.prazo_uso_dias ?? '',
+    }))
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Itens CEU')
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'modelo-itens-ceu.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <CeuPageWrapper>
@@ -190,6 +236,14 @@ export function CeuImportarPage() {
 
         <CeuCard title="Upload do arquivo" icon={<FileSpreadsheet className="w-4 h-4" />} gradient="blue">
           <div className="space-y-4">
+            {tipo === 'itens' && (
+              <div className="flex justify-end">
+                <CeuButton variant="outline" size="sm" onClick={exportarModelo} disabled={itens.length === 0}>
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  Baixar modelo com itens atuais
+                </CeuButton>
+              </div>
+            )}
             <div className="flex items-center justify-center w-full">
               <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-[#3B82F6]/30 border-dashed rounded-lg cursor-pointer bg-blue-50/30 hover:bg-blue-50/50">
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
