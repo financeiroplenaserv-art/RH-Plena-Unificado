@@ -601,7 +601,13 @@ export type Database = {
     }
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Views: {}
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-    Functions: {}
+    Functions: {
+      reset_permissoes_perfil: {
+        Args: {
+          p_perfil: string
+        }
+        Returns: void
+      }
+    }
   }
 }

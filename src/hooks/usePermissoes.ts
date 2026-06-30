@@ -4,6 +4,11 @@ import { toast } from 'sonner'
 import { setPermissoesCache } from '@/lib/permissoes'
 import type { PermissaoPerfil, NivelAcesso } from '@/types/database'
 
+export interface ResetPerfilResult {
+  sucesso: boolean
+  mensagem: string
+}
+
 export function usePermissoes() {
   const [permissoes, setPermissoes] = useState<PermissaoPerfil[]>([])
   const [loading, setLoading] = useState(false)
@@ -94,6 +99,35 @@ export function usePermissoes() {
     [permissoes]
   )
 
+  const resetarPerfil = useCallback(
+    async (perfil: NivelAcesso): Promise<ResetPerfilResult> => {
+      try {
+        const { error } = await supabase.rpc('reset_permissoes_perfil', {
+          p_perfil: perfil,
+        })
+
+        if (error) {
+          console.error('Erro ao resetar permissões:', error)
+          return {
+            sucesso: false,
+            mensagem: error.message || 'Erro ao resetar permissões',
+          }
+        }
+
+        await carregarPermissoes()
+        return {
+          sucesso: true,
+          mensagem: `Permissões do perfil "${perfil}" restauradas para o padrão.`,
+        }
+      } catch (err: unknown) {
+        const mensagem = err instanceof Error ? err.message : 'Erro inesperado'
+        console.error('Erro ao resetar permissões:', err)
+        return { sucesso: false, mensagem }
+      }
+    },
+    [carregarPermissoes]
+  )
+
   return {
     permissoes,
     loading,
@@ -101,5 +135,6 @@ export function usePermissoes() {
     carregarPermissoes,
     salvarPermissoes,
     temPermissao,
+    resetarPerfil,
   }
 }

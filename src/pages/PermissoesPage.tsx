@@ -9,11 +9,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { useAuth } from '@/hooks/useAuth'
+import { useAuditoria } from '@/hooks/useAuditoria'
 import { toast } from 'sonner'
 import type { NivelAcesso, PermissaoPerfil } from '@/types/database'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RotateCcw } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
 
@@ -137,8 +147,12 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
 
 export function PermissoesPage() {
   const { user, loading: authLoading } = useAuth()
-  const { permissoes, loading, salvando, carregarPermissoes, salvarPermissoes } = usePermissoes()
+  const { permissoes, loading, salvando, carregarPermissoes, salvarPermissoes, resetarPerfil } =
+    usePermissoes()
+  const { registrar } = useAuditoria()
   const [perfilSelecionado, setPerfilSelecionado] = useState<NivelAcesso>('rh')
+  const [dialogResetAberto, setDialogResetAberto] = useState(false)
+  const [resetando, setResetando] = useState(false)
 
   useEffect(() => {
     carregarPermissoes()
@@ -186,6 +200,29 @@ export function PermissoesPage() {
     return Array.from(map.entries())
   }, [permissoesAtuais])
 
+  const handleReset = async () => {
+    setResetando(true)
+    const resultado = await resetarPerfil(perfilSelecionado)
+    setResetando(false)
+    setDialogResetAberto(false)
+
+    if (resultado.sucesso) {
+      toast.success(resultado.mensagem)
+      await registrar({
+        tabela: 'permissoes_perfil',
+        registro_id: perfilSelecionado,
+        operacao: 'CANCEL',
+        dados_novos: {
+          acao: 'reset_perfil_padrao',
+          perfil: perfilSelecionado,
+          executado_por: user?.id,
+        },
+      })
+    } else {
+      toast.error(resultado.mensagem)
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center text-slate-500">
@@ -230,9 +267,21 @@ export function PermissoesPage() {
               </SelectContent>
             </Select>
           </div>
-          <p className="text-sm text-slate-500 mt-4">
-            As alterações são salvas imediatamente ao marcar/desmarcar. O perfil <strong>Administrador</strong> sempre tem acesso total.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+            <p className="text-sm text-slate-500">
+              As alterações são salvas imediatamente ao marcar/desmarcar. O perfil <strong>Administrador</strong> sempre tem acesso total.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDialogResetAberto(true)}
+              disabled={resetando || salvando}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Restaurar padrão deste perfil
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -284,6 +333,44 @@ export function PermissoesPage() {
           Salvando...
         </div>
       )}
+
+      <Dialog open={dialogResetAberto} onOpenChange={setDialogResetAberto}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restaurar padrão do perfil</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja restaurar as permissões do perfil{' '}
+              <strong>{PERFIS.find((p) => p.valor === perfilSelecionado)?.label}</strong> para o
+              padrão seguro? Todas as customizações manuais deste perfil serão perdidas.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogResetAberto(false)}
+              disabled={resetando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleReset}
+              disabled={resetando}
+            >
+              {resetando ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Restaurando...
+                </>
+              ) : (
+                'Restaurar padrão'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
