@@ -25,7 +25,8 @@ import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
-import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { AdicionaisShell } from './AdicionaisShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional } from '@/types/adicionais'
 
 const EMOJI_STATUS: Record<StatusDiaAdicional, string> = {
@@ -412,29 +413,29 @@ export function AdicionaisCalendarioPage() {
   })
 
   return (
-    <AdicionaisPageWrapper>
+    <AdicionaisShell>
       <PageHeader backTo="/adicionais/contratos" title="Calendário de Escalas" description="Preencha dia a dia o status dos colaboradores vinculados" />
 
-      <AdicionaisCard>
+      <ModuleCard>
         <div className="flex flex-col lg:flex-row gap-4 items-end">
           <div className="flex items-center gap-2">
-            <AdicionaisButton variant="outline" size="sm" onClick={() => {
+            <ModuleButton variant="outline" size="sm" onClick={() => {
               if (periodoMes === 1) { setPeriodoMes(12); setPeriodoAno(a => a - 1) }
               else setPeriodoMes(m => m - 1)
             }}>
               <ChevronLeft className="w-4 h-4" />
               Período anterior
-            </AdicionaisButton>
+            </ModuleButton>
             <div className="text-base font-semibold min-w-[220px] text-center" style={{ color: '#1F2937' }}>
               {periodoLabel}
             </div>
-            <AdicionaisButton variant="outline" size="sm" onClick={() => {
+            <ModuleButton variant="outline" size="sm" onClick={() => {
               if (periodoMes === 12) { setPeriodoMes(1); setPeriodoAno(a => a + 1) }
               else setPeriodoMes(m => m + 1)
             }}>
               Próximo período
               <ChevronRight className="w-4 h-4 ml-2" />
-            </AdicionaisButton>
+            </ModuleButton>
           </div>
 
           <div className="w-full lg:w-64">
@@ -472,14 +473,14 @@ export function AdicionaisCalendarioPage() {
             />
           </div>
 
-          <AdicionaisButton onClick={salvarTodos} disabled={!temAlteracoes || loading} className={temAlteracoes ? 'ring-2 ring-amber-400' : ''}>
+          <ModuleButton onClick={salvarTodos} disabled={!temAlteracoes || loading} className={temAlteracoes ? 'ring-2 ring-amber-400' : ''}>
             <Save className="w-4 h-4 mr-2" />
             Salvar {temAlteracoes ? `(${Object.keys(alteracoes).length})` : ''}
-          </AdicionaisButton>
+          </ModuleButton>
         </div>
-      </AdicionaisCard>
+      </ModuleCard>
 
-      <AdicionaisCard title="Legenda (clique para filtrar)">
+      <ModuleCard title="Legenda (clique para filtrar)">
         <div className="flex flex-wrap gap-2">
           {STATUS_OPCOES.map(s => {
             const estilo = STATUS_STYLE[s.value]
@@ -522,10 +523,10 @@ export function AdicionaisCalendarioPage() {
             Limpar filtros
           </button>
         </div>
-      </AdicionaisCard>
+      </ModuleCard>
 
       {alertasSubstituicao.length > 0 && (
-        <AdicionaisCard title="Substituições pendentes">
+        <ModuleCard title="Substituições pendentes">
           <div className="space-y-2">
             {alertasSubstituicao.map((a, idx) => (
               <div key={idx} className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
@@ -534,13 +535,13 @@ export function AdicionaisCalendarioPage() {
               </div>
             ))}
           </div>
-        </AdicionaisCard>
+        </ModuleCard>
       )}
 
       {vinculosFiltrados.length === 0 ? (
-        <AdicionaisCard>
+        <ModuleCard>
           <p className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhum vínculo ativo neste mês.</p>
-        </AdicionaisCard>
+        </ModuleCard>
       ) : (
         <div className="space-y-4">
           {vinculosFiltrados.map(v => {
@@ -549,7 +550,7 @@ export function AdicionaisCalendarioPage() {
             const nomeColaborador = col?.nome || v.colaborador_nome || '—'
             const nomeContrato = contrato?.nome || v.contrato_nome || '—'
             return (
-              <AdicionaisCard key={v.id} title={`${nomeColaborador} • ${nomeContrato}`}>
+              <ModuleCard key={v.id} title={`${nomeColaborador} • ${nomeContrato}`}>
                 <div className="flex flex-wrap gap-2">
                   {diasDoPeriodo.map(data => {
                     const dia = getDia(v, data)
@@ -627,7 +628,7 @@ export function AdicionaisCalendarioPage() {
                     )
                   })}
                 </div>
-              </AdicionaisCard>
+              </ModuleCard>
             )
           })}
         </div>
@@ -668,7 +669,7 @@ export function AdicionaisCalendarioPage() {
           </div>
           <DialogFooter className="gap-2 flex-col sm:flex-row">
             {modalStatus && (
-              <AdicionaisButton
+              <ModuleButton
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
@@ -676,12 +677,12 @@ export function AdicionaisCalendarioPage() {
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Remover lançamento
-              </AdicionaisButton>
+              </ModuleButton>
             )}
-            <AdicionaisButton variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setModalStatus(null)}>
+            <ModuleButton variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setModalStatus(null)}>
               <X className="w-4 h-4 mr-2" />
               Cancelar
-            </AdicionaisButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -736,7 +737,7 @@ export function AdicionaisCalendarioPage() {
           </div>
           <DialogFooter className="gap-2">
             {modalSubstituto && (
-              <AdicionaisButton
+              <ModuleButton
                 variant="outline"
                 size="sm"
                 onClick={() => {
@@ -745,18 +746,18 @@ export function AdicionaisCalendarioPage() {
                 }}
               >
                 Ignorar
-              </AdicionaisButton>
+              </ModuleButton>
             )}
-            <AdicionaisButton variant="outline" size="sm" onClick={() => setModalSubstituto(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setModalSubstituto(null)}>
               <X className="w-4 h-4 mr-2" />
               Cancelar
-            </AdicionaisButton>
-            <AdicionaisButton size="sm" onClick={handleConfirmarSubstituto} disabled={!substitutoSelecionado}>
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleConfirmarSubstituto} disabled={!substitutoSelecionado}>
               Confirmar substituição
-            </AdicionaisButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdicionaisPageWrapper>
+    </AdicionaisShell>
   )
 }

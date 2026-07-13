@@ -21,7 +21,8 @@ import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
-import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { AdicionaisShell } from './AdicionaisShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
@@ -451,27 +452,27 @@ export function AdicionaisRelatorioPage() {
   }, [linhasAgregadas, departamentoFiltro, adicionalFiltro, busca, mapDepartamento, mapContrato])
 
   return (
-    <AdicionaisPageWrapper>
+    <AdicionaisShell>
       <PageHeader backTo="/adicionais/contratos" title="Relatório de Adicionais" description="Visualize e exporte os adicionais contratuais por colaborador" />
 
-      <AdicionaisCard>
+      <ModuleCard>
         <div className="flex flex-col lg:flex-row gap-4 items-end">
           <div className="flex items-center gap-2">
-            <AdicionaisButton variant="outline" size="sm" onClick={() => {
+            <ModuleButton variant="outline" size="sm" onClick={() => {
               if (mes === 1) { setMes(12); setAno(a => a - 1) }
               else setMes(m => m - 1)
             }}>
               <ChevronLeft className="w-4 h-4" />
-            </AdicionaisButton>
+            </ModuleButton>
             <div className="text-lg font-semibold min-w-[220px] text-center" style={{ color: '#1F2937' }}>
               {inicioMes ? `${inicioMes.split('-').reverse().join('/')} a ${fimMes.split('-').reverse().join('/')}` : ''}
             </div>
-            <AdicionaisButton variant="outline" size="sm" onClick={() => {
+            <ModuleButton variant="outline" size="sm" onClick={() => {
               if (mes === 12) { setMes(1); setAno(a => a + 1) }
               else setMes(m => m + 1)
             }}>
               <ChevronRight className="w-4 h-4" />
-            </AdicionaisButton>
+            </ModuleButton>
           </div>
 
           <div className="w-full lg:w-56">
@@ -510,32 +511,32 @@ export function AdicionaisRelatorioPage() {
             />
           </div>
 
-          <AdicionaisButton variant="outline" onClick={() => exportarExcel(linhasFiltradas)}>
+          <ModuleButton variant="outline" onClick={() => exportarExcel(linhasFiltradas)}>
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             Excel
-          </AdicionaisButton>
-          <AdicionaisButton variant="outline" onClick={() => exportarCSV(linhasFiltradas)}>
+          </ModuleButton>
+          <ModuleButton variant="outline" onClick={() => exportarCSV(linhasFiltradas)}>
             <FileText className="w-4 h-4 mr-2" />
             CSV
-          </AdicionaisButton>
+          </ModuleButton>
         </div>
-      </AdicionaisCard>
+      </ModuleCard>
 
       {(loadingAdicionais || loadingColaboradores || loadingDepartamentos) && (
-        <AdicionaisCard>
+        <ModuleCard>
           <p className="text-center py-4" style={{ color: '#94A3B8' }}>Carregando dados...</p>
-        </AdicionaisCard>
+        </ModuleCard>
       )}
 
       {!loadingColaboradores && colaboradores.length === 0 && (
-        <AdicionaisCard>
+        <ModuleCard>
           <p className="text-center py-4 text-amber-600">
             Nenhum colaborador carregado. Verifique a conexão com o Supabase e as permissões (RLS).
           </p>
-        </AdicionaisCard>
+        </ModuleCard>
       )}
 
-      <AdicionaisCard title={`Resultados (${linhasFiltradas.length})`}>
+      <ModuleCard title={`Resultados (${linhasFiltradas.length})`}>
         {linhasFiltradas.length === 0 ? (
           <p className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhum registro encontrado para o período.</p>
         ) : (
@@ -578,7 +579,7 @@ export function AdicionaisRelatorioPage() {
             </Table>
           </div>
         )}
-      </AdicionaisCard>
-    </AdicionaisPageWrapper>
+      </ModuleCard>
+    </AdicionaisShell>
   )
 }

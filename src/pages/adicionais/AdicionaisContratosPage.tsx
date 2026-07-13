@@ -30,7 +30,8 @@ import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { PageHeader } from '@/components/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
-import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { AdicionaisShell } from './AdicionaisShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
 import { nomeDepartamento } from '@/lib/utils'
@@ -168,7 +169,7 @@ export function AdicionaisContratosPage() {
     ADICIONAIS_OPCOES.filter(a => c.adicionais[a.key]).map(a => a.label).join(', ') || '—'
 
   return (
-    <AdicionaisPageWrapper>
+    <AdicionaisShell>
       <PageHeader
         backTo="/"
         title="Adicionais Contratuais"
@@ -176,7 +177,7 @@ export function AdicionaisContratosPage() {
       />
 
       {podeEditar && (
-      <AdicionaisCard title={editandoId ? 'Editar contrato' : 'Novo contrato'}>
+      <ModuleCard title={editandoId ? 'Editar contrato' : 'Novo contrato'}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Nome do contrato</Label>
@@ -270,21 +271,21 @@ export function AdicionaisContratosPage() {
         )}
 
         <div className="flex gap-2">
-          <AdicionaisButton onClick={handleSalvar} disabled={!form.nome.trim() || loading}>
+          <ModuleButton onClick={handleSalvar} disabled={!form.nome.trim() || loading}>
             <Save className="w-4 h-4 mr-2" />
             {editandoId ? 'Atualizar' : 'Salvar'}
-          </AdicionaisButton>
+          </ModuleButton>
           {editandoId && (
-            <AdicionaisButton variant="outline" onClick={handleCancelar}>
+            <ModuleButton variant="outline" onClick={handleCancelar}>
               <X className="w-4 h-4 mr-2" />
               Cancelar
-            </AdicionaisButton>
+            </ModuleButton>
           )}
         </div>
-      </AdicionaisCard>
+      </ModuleCard>
       )}
 
-      <AdicionaisCard title="Contratos cadastrados">
+      <ModuleCard title="Contratos cadastrados">
         <div className="mb-4 w-full md:w-72">
           <Label style={{ color: '#1F2937' }}>Departamento</Label>
           <DepartamentoAutocomplete
@@ -372,7 +373,7 @@ export function AdicionaisContratosPage() {
             </Table>
           </div>
         )}
-      </AdicionaisCard>
+      </ModuleCard>
 
       <Dialog open={!!modalVinculados} onOpenChange={() => setModalVinculados(null)}>
         <DialogContent className="sm:max-w-md rounded-xl">
@@ -399,9 +400,9 @@ export function AdicionaisContratosPage() {
             )}
           </div>
           <DialogFooter>
-            <AdicionaisButton variant="outline" size="sm" onClick={() => setModalVinculados(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setModalVinculados(null)}>
               Fechar
-            </AdicionaisButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -415,15 +416,15 @@ export function AdicionaisContratosPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <AdicionaisButton variant="outline" size="sm" onClick={() => setConfirmarExclusao(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setConfirmarExclusao(null)}>
               Cancelar
-            </AdicionaisButton>
-            <AdicionaisButton variant="danger" size="sm" onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}>
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}>
               Excluir
-            </AdicionaisButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdicionaisPageWrapper>
+    </AdicionaisShell>
   )
 }

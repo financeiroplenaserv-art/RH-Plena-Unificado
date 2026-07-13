@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/select'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { AdicionaisShell } from './AdicionaisShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { parsePontoPDF, calcularPeriodoPDF, resumoPonto, normalizarMatricula, type PontoColaborador } from '@/lib/adicionais/importarPonto'
 import { toast } from 'sonner'
@@ -257,10 +258,10 @@ export function ImportarPontoPage() {
   const temRevisao = dados.some(c => c.dias.some(d => d.revisao))
 
   return (
-    <AdicionaisPageWrapper>
+    <AdicionaisShell>
       <PageHeader backTo="/adicionais/contratos" title="Importar Ponto" description="Importe o PDF do ponto para preencher o calendário automaticamente" />
 
-      <AdicionaisCard title="Upload do PDF">
+      <ModuleCard title="Upload do PDF">
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <input
@@ -270,10 +271,10 @@ export function ImportarPontoPage() {
               className="hidden"
               onChange={handleSelecionarArquivo}
             />
-            <AdicionaisButton variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <ModuleButton variant="outline" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-4 h-4 mr-2" />
               Selecionar arquivo
-            </AdicionaisButton>
+            </ModuleButton>
             {arquivo && (
               <div className="flex items-center gap-2 text-sm" style={{ color: '#1F2937' }}>
                 <FileText className="w-4 h-4" />
@@ -285,14 +286,14 @@ export function ImportarPontoPage() {
             )}
           </div>
 
-          <AdicionaisButton onClick={handleProcessar} disabled={!arquivo || processando}>
+          <ModuleButton onClick={handleProcessar} disabled={!arquivo || processando}>
             {processando ? 'Processando...' : 'Processar PDF'}
-          </AdicionaisButton>
+          </ModuleButton>
         </div>
-      </AdicionaisCard>
+      </ModuleCard>
 
       {resumoImportacao && resumoImportacao.length > 0 && (
-        <AdicionaisCard title="Resumo dos colaboradores do PDF">
+        <ModuleCard title="Resumo dos colaboradores do PDF">
           <div className="space-y-2">
             {resumoImportacao.map((r, idx) => (
               <div
@@ -307,12 +308,12 @@ export function ImportarPontoPage() {
               </div>
             ))}
           </div>
-        </AdicionaisCard>
+        </ModuleCard>
       )}
 
       {dados.length > 0 && (
         <>
-          <AdicionaisCard title="Pré-visualização">
+          <ModuleCard title="Pré-visualização">
             {temRevisao && (
               <div className="mb-4 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
                 <AlertTriangle className="w-4 h-4" />
@@ -389,9 +390,9 @@ export function ImportarPontoPage() {
                 )
               })}
             </div>
-          </AdicionaisCard>
+          </ModuleCard>
 
-          <AdicionaisCard title="Opções">
+          <ModuleCard title="Opções">
             <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1F2937' }}>
               <input
                 type="checkbox"
@@ -401,20 +402,20 @@ export function ImportarPontoPage() {
               />
               Lançar ocorrências automaticamente para Faltas e Atestados (opcional, futuro)
             </label>
-          </AdicionaisCard>
+          </ModuleCard>
 
           <div className="flex gap-2">
-            <AdicionaisButton onClick={handleConfirmar} disabled={importando}>
+            <ModuleButton onClick={handleConfirmar} disabled={importando}>
               <Save className="w-4 h-4 mr-2" />
               {importando ? 'Importando...' : 'Confirmar importação'}
-            </AdicionaisButton>
-            <AdicionaisButton variant="outline" onClick={handleCancelar} disabled={importando}>
+            </ModuleButton>
+            <ModuleButton variant="outline" onClick={handleCancelar} disabled={importando}>
               <X className="w-4 h-4 mr-2" />
               Cancelar
-            </AdicionaisButton>
+            </ModuleButton>
           </div>
         </>
       )}
-    </AdicionaisPageWrapper>
+    </AdicionaisShell>
   )
 }

@@ -29,7 +29,8 @@ import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { useAuth } from '@/hooks/useAuth'
-import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
+import { AdicionaisShell } from './AdicionaisShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { podeEditarVinculoAdicional } from '@/lib/permissoes'
 import type { VinculoAdicional, AdicionalTipo } from '@/types/adicionais'
@@ -266,23 +267,23 @@ export function AdicionaisVinculosPage() {
   }, [colaboradores])
 
   return (
-    <AdicionaisPageWrapper>
+    <AdicionaisShell>
       <PageHeader backTo="/adicionais/contratos" title="Vínculos" description="Relacione colaboradores aos contratos e períodos de atuação">
         {podeEditar && (
           <>
-            <AdicionaisButton variant="outline" onClick={handleCorrigirVinculos}>
+            <ModuleButton variant="outline" onClick={handleCorrigirVinculos}>
               Corrigir vínculos
-            </AdicionaisButton>
-            <AdicionaisButton variant="outline" onClick={() => setModalCopiar(true)}>
+            </ModuleButton>
+            <ModuleButton variant="outline" onClick={() => setModalCopiar(true)}>
               <Copy className="w-4 h-4 mr-2" />
               Copiar do período anterior
-            </AdicionaisButton>
+            </ModuleButton>
           </>
         )}
       </PageHeader>
 
       {podeEditar && (
-      <AdicionaisCard title="Novo vínculo">
+      <ModuleCard title="Novo vínculo">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Colaborador</Label>
@@ -321,17 +322,17 @@ export function AdicionaisVinculosPage() {
             <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} className="rounded-lg" />
           </div>
         </div>
-        <AdicionaisButton
+        <ModuleButton
           onClick={handleSalvar}
           disabled={!colaboradorId || !contratoId || !dataInicio || !dataFim || loading || colaboradores.length === 0 || contratos.length === 0}
         >
           <Plus className="w-4 h-4 mr-2" />
           Adicionar vínculo
-        </AdicionaisButton>
-      </AdicionaisCard>
+        </ModuleButton>
+      </ModuleCard>
       )}
 
-      <AdicionaisCard title="Vínculos cadastrados">
+      <ModuleCard title="Vínculos cadastrados">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <Label style={{ color: '#1F2937' }}>Departamento</Label>
@@ -407,7 +408,7 @@ export function AdicionaisVinculosPage() {
             </Table>
           </div>
         )}
-      </AdicionaisCard>
+      </ModuleCard>
 
       <Dialog open={!!editandoVinculo} onOpenChange={() => handleFecharEdicao()}>
         <DialogContent className="sm:max-w-md rounded-xl bg-white text-slate-900 border-slate-200">
@@ -469,15 +470,15 @@ export function AdicionaisVinculosPage() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <AdicionaisButton variant="outline" size="sm" onClick={handleFecharEdicao}>
+            <ModuleButton variant="outline" size="sm" onClick={handleFecharEdicao}>
               <X className="w-4 h-4 mr-2" />
               Cancelar
-            </AdicionaisButton>
+            </ModuleButton>
             {podeEditar && (
-              <AdicionaisButton size="sm" onClick={handleSalvarEdicao} disabled={!editContratoId || !editDataInicio || !editDataFim}>
+              <ModuleButton size="sm" onClick={handleSalvarEdicao} disabled={!editContratoId || !editDataInicio || !editDataFim}>
                 <Check className="w-4 h-4 mr-2" />
                 Salvar
-              </AdicionaisButton>
+              </ModuleButton>
             )}
           </DialogFooter>
         </DialogContent>
@@ -492,12 +493,12 @@ export function AdicionaisVinculosPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <AdicionaisButton variant="outline" size="sm" onClick={() => setConfirmarExclusao(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setConfirmarExclusao(null)}>
               Cancelar
-            </AdicionaisButton>
-            <AdicionaisButton variant="danger" size="sm" onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}>
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}>
               Excluir
-            </AdicionaisButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -515,15 +516,15 @@ export function AdicionaisVinculosPage() {
             <p>A cópia desloca as datas em um mês, ajustando o último dia quando necessário.</p>
           </div>
           <DialogFooter className="gap-2">
-            <AdicionaisButton variant="outline" size="sm" onClick={() => setModalCopiar(false)} disabled={copiando}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setModalCopiar(false)} disabled={copiando}>
               Cancelar
-            </AdicionaisButton>
-            <AdicionaisButton size="sm" onClick={handleCopiarPeriodoAnterior} disabled={copiando || vinculos.length === 0}>
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleCopiarPeriodoAnterior} disabled={copiando || vinculos.length === 0}>
               {copiando ? 'Copiando...' : 'Confirmar cópia'}
-            </AdicionaisButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdicionaisPageWrapper>
+    </AdicionaisShell>
   )
 }

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { CeuPageWrapper } from './CeuPageWrapper'
 import { PageHeader } from '@/components/PageHeader'
-import { AdicionaisCard } from '../adicionais/AdicionaisPageWrapper'
+import { ModuleCard } from '@/components/layout/ModuleShell'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
@@ -279,7 +279,7 @@ export function CeuLancamentoRapidoPage() {
           </div>
         </div>
 
-        <AdicionaisCard title="Planilha de lançamento" description="Preencha as linhas abaixo. Os campos Data, Colaborador, Tipo, Código, Produto, Qtd e Status são obrigatórios.">
+        <ModuleCard title="Planilha de lançamento" description="Preencha as linhas abaixo. Os campos Data, Colaborador, Tipo, Código, Produto, Qtd e Status são obrigatórios.">
           <div className="overflow-x-auto -mx-6 -mb-6">
             <table className="w-full text-sm border-collapse min-w-[1100px]">
               <thead>
@@ -463,7 +463,7 @@ export function CeuLancamentoRapidoPage() {
               Nenhuma linha para lançar.
             </div>
           )}
-        </AdicionaisCard>
+        </ModuleCard>
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => adicionarLinhas(5)}>
