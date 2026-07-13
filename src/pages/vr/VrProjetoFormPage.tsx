@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { useProjetosVR } from '@/hooks/useProjetosVR'
 import { useConfiguracaoVR } from '@/hooks/useConfiguracaoVR'
 import { Input } from '@/components/ui/input'
@@ -143,10 +144,7 @@ export function VrProjetoFormPage() {
 
   return (
     <VrShell>
-      <VrHeader
-        title={id ? 'Editar projeto VR' : 'Novo projeto VR'}
-        subtitle="Configure os dados para cálculo e geração de arquivos"
-      />
+      <PageHeader backTo="/vr/projetos" title={id ? 'Editar projeto VR' : 'Novo projeto VR'} description="Configure os dados para cálculo e geração de arquivos" />
 
       <div className="flex items-center gap-4">
         <ModuleButton variant="outline" size="sm" onClick={() => navigate('/vr/projetos')}>

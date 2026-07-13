@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useParams } from 'react-router-dom'
+import { PageHeader } from '@/components/PageHeader'
 import {
   ArrowLeft, Calculator, Download, FileSpreadsheet, FileText, Trash2, Upload, Save,
   ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, FileDown, Search, Receipt,
@@ -314,7 +315,7 @@ export function VrProjetoDetailPage() {
   if (!projeto || !config) {
     return (
       <VrShell>
-        <VrHeader title="Projeto não encontrado" />
+        <PageHeader backTo="/vr/projetos" title="Projeto não encontrado" />
         <ModuleCard>
           <p className="text-center text-slate-700">O projeto solicitado não existe ou foi removido.</p>
         </ModuleCard>
@@ -324,9 +325,10 @@ export function VrProjetoDetailPage() {
 
   return (
     <VrShell>
-      <VrHeader
+      <PageHeader
+        backTo="/vr/projetos"
         title={projeto.nome}
-        subtitle={`Corte ${formatarData(projeto.data_corte)} • Efetivação ${formatarData(projeto.data_efetivacao)} • VR R$ ${Number(config.valorVR).toFixed(2)}`}
+        description={`Corte ${formatarData(projeto.data_corte)} • Efetivação ${formatarData(projeto.data_efetivacao)} • VR R$ ${Number(config.valorVR).toFixed(2)}`}
       />
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
