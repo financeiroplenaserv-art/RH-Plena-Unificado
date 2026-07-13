@@ -1,48 +1,55 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 export interface ModuleTab {
   path: string
   label: string
+  icon?: React.ComponentType<{ className?: string }>
 }
 
 export interface ModuleShellProps {
   children: React.ReactNode
-  tabs: ModuleTab[]
-  activeColor?: string
+  tabs?: ModuleTab[]
   className?: string
 }
 
-export function ModuleShell({ children, tabs, activeColor = '#1F2937', className }: ModuleShellProps) {
+export function ModuleShell({ children, tabs, className }: ModuleShellProps) {
   const location = useLocation()
 
   return (
     <div
-      className={cn('min-h-full p-4 md:p-6', className)}
-      style={{ backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}
+      className={cn('min-h-full p-4 md:p-5', className)}
+      style={{ backgroundColor: 'var(--bg-page)' }}
     >
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-wrap gap-2 border-b pb-2" style={{ borderColor: '#E2E8F0' }}>
-          {tabs.map((tab) => {
-            const ativa = location.pathname === tab.path
-            return (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                className={cn(
-                  'px-4 py-2 rounded-t-lg text-sm font-medium transition-colors',
-                  ativa
-                    ? 'text-white'
-                    : 'text-[#64748B] hover:text-[#1F2937] hover:bg-slate-100'
-                )}
-                style={{ backgroundColor: ativa ? activeColor : undefined }}
-              >
-                {tab.label}
-              </NavLink>
-            )
-          })}
-        </div>
+      <div className="max-w-7xl mx-auto space-y-5">
+        {tabs && tabs.length > 0 && (
+          <div className="flex flex-wrap gap-1 border-b pb-2" style={{ borderColor: 'var(--border-color)' }}>
+            {tabs.map((tab) => {
+              const ativa = location.pathname === tab.path
+              const Icon = tab.icon
+              return (
+                <NavLink
+                  key={tab.path}
+                  to={tab.path}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-sm font-medium transition-colors',
+                    ativa
+                      ? 'text-white'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-page-soft)]'
+                  )}
+                  style={{
+                    backgroundColor: ativa ? 'var(--primary-600)' : undefined,
+                  }}
+                >
+                  {Icon && <Icon className="w-4 h-4" />}
+                  {tab.label}
+                </NavLink>
+              )
+            })}
+          </div>
+        )}
         {children}
       </div>
     </div>
@@ -54,27 +61,31 @@ export interface ModuleCardProps {
   title?: string
   description?: string
   className?: string
+  contentClassName?: string
 }
 
-export function ModuleCard({ children, title, description, className }: ModuleCardProps) {
+export function ModuleCard({ children, title, description, className, contentClassName }: ModuleCardProps) {
   return (
-    <div
-      className={cn('rounded-xl shadow-sm border-0 overflow-hidden', className)}
-      style={{ backgroundColor: '#FFFFFF' }}
+    <Card
+      className={cn('border-0 shadow-sm', className)}
+      style={{
+        backgroundColor: 'var(--surface)',
+        boxShadow: '0 1px 3px rgba(15, 94, 221, 0.06)',
+      }}
     >
       {(title || description) && (
-        <div className="px-6 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-          {title && <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>{title}</h3>}
-          {description && <p className="text-sm mt-0.5" style={{ color: '#94A3B8' }}>{description}</p>}
-        </div>
+        <CardHeader className="px-5 py-3 border-b" style={{ borderColor: 'var(--bg-page-soft)' }}>
+          {title && <CardTitle className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</CardTitle>}
+          {description && <CardDescription className="text-sm mt-0.5">{description}</CardDescription>}
+        </CardHeader>
       )}
-      <div className="p-6">{children}</div>
-    </div>
+      <CardContent className={cn('p-5', contentClassName)}>{children}</CardContent>
+    </Card>
   )
 }
 
 export interface ModuleButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'outline' | 'danger'
+  variant?: 'primary' | 'outline' | 'danger' | 'ghost'
   size?: 'sm' | 'default' | 'lg'
 }
 
@@ -89,17 +100,18 @@ export function ModuleButton({
     <Button
       className={cn(
         variant === 'primary' && 'text-white hover:opacity-90',
-        variant === 'outline' && 'bg-white hover:bg-slate-50',
-        variant === 'danger' && 'bg-red-600 text-white hover:bg-red-700',
-        size === 'sm' && 'h-9 px-3 text-sm',
-        size === 'default' && 'h-10 px-4 text-sm',
-        size === 'lg' && 'h-11 px-6 text-base',
+        variant === 'outline' && 'bg-white hover:bg-[var(--bg-page)]',
+        variant === 'danger' && 'bg-[var(--danger)] text-white hover:opacity-90',
+        variant === 'ghost' && 'hover:bg-[var(--bg-page-soft)]',
+        size === 'sm' && 'h-8 px-3 text-xs',
+        size === 'default' && 'h-9 px-4 text-sm',
+        size === 'lg' && 'h-10 px-5 text-sm',
         className
       )}
       style={{
-        backgroundColor: variant === 'primary' ? '#1F2937' : variant === 'outline' ? '#FFFFFF' : undefined,
-        borderColor: variant === 'outline' ? '#1F2937' : undefined,
-        color: variant === 'outline' ? '#1F2937' : undefined,
+        backgroundColor: variant === 'primary' ? 'var(--primary-600)' : variant === 'outline' ? 'var(--surface)' : undefined,
+        borderColor: variant === 'outline' ? 'var(--primary-600)' : undefined,
+        color: variant === 'outline' ? 'var(--primary-600)' : variant === 'ghost' ? 'var(--text-secondary)' : undefined,
         borderWidth: variant === 'outline' ? '1px' : undefined,
       }}
       {...props}
@@ -108,3 +120,5 @@ export function ModuleButton({
     </Button>
   )
 }
+
+export { Card, CardContent, CardHeader, CardTitle, CardDescription }
