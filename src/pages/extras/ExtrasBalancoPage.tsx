@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
-import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { ExtrasShell } from './ExtrasShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { formatarData, nomeDepartamento } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -228,16 +230,16 @@ export function ExtrasBalancoPage() {
   ).length
 
   return (
-    <ExtrasPageWrapper>
+    <ExtrasShell>
       <PageHeader backTo="/extras/lancamentos" title="Balanço Operacional" description="Gere a mensagem diária para envio no WhatsApp">
-        <ExtrasButton onClick={() => navigate('/extras/novo')}>
+        <ModuleButton onClick={() => navigate('/extras/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Novo extra
-        </ExtrasButton>
+        </ModuleButton>
       </PageHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ExtrasCard title="Data do balanço">
+        <ModuleCard title="Data do balanço">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Selecione a data</Label>
             <Input
@@ -247,9 +249,9 @@ export function ExtrasBalancoPage() {
               className="rounded-lg"
             />
           </div>
-        </ExtrasCard>
+        </ModuleCard>
 
-        <ExtrasCard title="Resumo">
+        <ModuleCard title="Resumo">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{totalOcorrencias}</div>
@@ -264,27 +266,27 @@ export function ExtrasBalancoPage() {
               <div className="text-xs" style={{ color: '#94A3B8' }}>Sem comunicação</div>
             </div>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
 
-        <ExtrasCard title="Ações">
+        <ModuleCard title="Ações">
           <div className="flex flex-wrap gap-2">
-            <ExtrasButton variant="outline" size="sm" onClick={handleRegenerar}>
+            <ModuleButton variant="outline" size="sm" onClick={handleRegenerar}>
               <RefreshCcw className="w-4 h-4 mr-2" />
               Gerar novamente
-            </ExtrasButton>
-            <ExtrasButton size="sm" onClick={handleCopiar}>
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleCopiar}>
               <Copy className="w-4 h-4 mr-2" />
               Copiar mensagem
-            </ExtrasButton>
-            <ExtrasButton size="sm" variant="outline" onClick={handleWhatsApp}>
+            </ModuleButton>
+            <ModuleButton size="sm" variant="outline" onClick={handleWhatsApp}>
               <MessageCircle className="w-4 h-4 mr-2" />
               WhatsApp
-            </ExtrasButton>
+            </ModuleButton>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
       </div>
 
-      <ExtrasCard title="Mensagem para o WhatsApp">
+      <ModuleCard title="Mensagem para o WhatsApp">
         {loading ? (
           <p className="text-center py-8" style={{ color: '#94A3B8' }}>Carregando ocorrências...</p>
         ) : (
@@ -301,7 +303,7 @@ export function ExtrasBalancoPage() {
             </div>
           </div>
         )}
-      </ExtrasCard>
-    </ExtrasPageWrapper>
+      </ModuleCard>
+    </ExtrasShell>
   )
 }

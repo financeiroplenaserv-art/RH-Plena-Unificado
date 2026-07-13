@@ -15,7 +15,9 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
-import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { ExtrasShell } from './ExtrasShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
@@ -210,11 +212,11 @@ export function ExtrasFormPage() {
   }
 
   return (
-    <ExtrasPageWrapper>
+    <ExtrasShell>
       <PageHeader backTo="/extras/lancamentos" title={id ? 'Editar extra' : 'Novo extra'} description="Registre a ocorrência, substituição e valores" />
 
       <form onSubmit={handleSubmit}>
-        <ExtrasCard>
+        <ModuleCard>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Data da ocorrência</Label>
@@ -378,9 +380,9 @@ export function ExtrasFormPage() {
               <Label htmlFor="extra_faturado" style={{ color: '#1F2937' }}>Extra faturado</Label>
             </div>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
 
-        <ExtrasCard className="mt-4">
+        <ModuleCard className="mt-4">
           <h3 className="text-base font-semibold mb-4" style={{ color: '#1F2937' }}>Comunicação com o cliente</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="space-y-2">
@@ -425,9 +427,9 @@ export function ExtrasFormPage() {
               />
             </div>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
 
-        <ExtrasCard className="mt-4">
+        <ModuleCard className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Status</Label>
@@ -453,17 +455,17 @@ export function ExtrasFormPage() {
           </div>
 
           <div className="flex gap-2 mt-6">
-            <ExtrasButton type="submit" disabled={salvando || loading}>
+            <ModuleButton type="submit" disabled={salvando || loading}>
               <Save className="w-4 h-4 mr-2" />
               {id ? 'Atualizar' : 'Salvar'}
-            </ExtrasButton>
-            <ExtrasButton type="button" variant="outline" onClick={() => navigate('/extras/lancamentos')}>
+            </ModuleButton>
+            <ModuleButton type="button" variant="outline" onClick={() => navigate('/extras/lancamentos')}>
               <X className="w-4 h-4 mr-2" />
               Cancelar
-            </ExtrasButton>
+            </ModuleButton>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
       </form>
-    </ExtrasPageWrapper>
+    </ExtrasShell>
   )
 }

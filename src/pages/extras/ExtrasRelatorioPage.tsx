@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useExtras } from '@/hooks/useExtras'
-import { ExtrasPageWrapper, ExtrasCard } from './ExtrasPageWrapper'
+
 import { PageHeader } from '@/components/PageHeader'
 
 function formatarDataBR(data: string | null) {
@@ -70,10 +70,10 @@ export function ExtrasRelatorioPage() {
   const totalNaoFaturado = useMemo(() => extrasFiltrados.filter(e => !e.extra_faturado).reduce((acc, e) => acc + (e.valor || 0), 0), [extrasFiltrados])
 
   return (
-    <ExtrasPageWrapper>
+    <ExtrasShell>
       <PageHeader backTo="/extras/lancamentos" title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos" />
 
-      <ExtrasCard title="Filtros">
+      <ModuleCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Data início</Label>
@@ -96,21 +96,21 @@ export function ExtrasRelatorioPage() {
             </div>
           </div>
         </div>
-      </ExtrasCard>
+      </ModuleCard>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ExtrasCard title="Total geral">
+        <ModuleCard title="Total geral">
           <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{formatarMoeda(totalGeral)}</div>
-        </ExtrasCard>
-        <ExtrasCard title="Extra faturado">
+        </ModuleCard>
+        <ModuleCard title="Extra faturado">
           <div className="text-2xl font-bold" style={{ color: '#22C55E' }}>{formatarMoeda(totalFaturado)}</div>
-        </ExtrasCard>
-        <ExtrasCard title="Não faturado">
+        </ModuleCard>
+        <ModuleCard title="Não faturado">
           <div className="text-2xl font-bold" style={{ color: '#64748B' }}>{formatarMoeda(totalNaoFaturado)}</div>
-        </ExtrasCard>
+        </ModuleCard>
       </div>
 
-      <ExtrasCard title={`Resultados (${extrasFiltrados.length})`}>
+      <ModuleCard title={`Resultados (${extrasFiltrados.length})`}>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -165,7 +165,7 @@ export function ExtrasRelatorioPage() {
             </TableBody>
           </Table>
         </div>
-      </ExtrasCard>
-    </ExtrasPageWrapper>
+      </ModuleCard>
+    </ExtrasShell>
   )
 }

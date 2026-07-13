@@ -13,7 +13,9 @@ import {
 import { toast } from 'sonner'
 import { useExtras } from '@/hooks/useExtras'
 import { useAuth } from '@/hooks/useAuth'
-import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { ExtrasShell } from './ExtrasShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { mascaraMoeda, parseMoeda, mascaraMoedaInput } from '@/lib/utils'
 import { podeEditarCategoriaExtra, podeExcluirCategoriaExtra } from '@/lib/permissoes'
@@ -97,17 +99,17 @@ export function ExtrasCategoriasPage() {
   }
 
   return (
-    <ExtrasPageWrapper>
+    <ExtrasShell>
       <PageHeader backTo="/extras/lancamentos" title="Categorias de valor" description="Gerencie os valores padrão para pagamento de extras" />
 
-      <ExtrasCard>
+      <ModuleCard>
         {podeEditar && (
           <div className="flex justify-end mb-4">
             {editando !== 'novo' && (
-              <ExtrasButton onClick={handleNovo}>
+              <ModuleButton onClick={handleNovo}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova categoria
-              </ExtrasButton>
+              </ModuleButton>
             )}
           </div>
         )}
@@ -151,14 +153,14 @@ export function ExtrasCategoriasPage() {
               </label>
             </div>
             <div className="flex items-end gap-2 md:col-span-4">
-              <ExtrasButton onClick={handleSalvar}>
+              <ModuleButton onClick={handleSalvar}>
                 <Save className="w-4 h-4 mr-2" />
                 Salvar
-              </ExtrasButton>
-              <ExtrasButton variant="outline" onClick={handleCancelar}>
+              </ModuleButton>
+              <ModuleButton variant="outline" onClick={handleCancelar}>
                 <X className="w-4 h-4 mr-2" />
                 Cancelar
-              </ExtrasButton>
+              </ModuleButton>
             </div>
           </div>
         )}
@@ -197,14 +199,14 @@ export function ExtrasCategoriasPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         {podeEditar && (
-                          <ExtrasButton variant="outline" size="sm" onClick={() => handleEditar(categoria)}>
+                          <ModuleButton variant="outline" size="sm" onClick={() => handleEditar(categoria)}>
                             <Pencil className="w-3 h-3" />
-                          </ExtrasButton>
+                          </ModuleButton>
                         )}
                         {podeExcluir && (
-                          <ExtrasButton variant="danger" size="sm" onClick={() => handleExcluir(categoria.id)}>
+                          <ModuleButton variant="danger" size="sm" onClick={() => handleExcluir(categoria.id)}>
                             <Trash2 className="w-3 h-3" />
-                          </ExtrasButton>
+                          </ModuleButton>
                         )}
                       </div>
                     </TableCell>
@@ -214,7 +216,7 @@ export function ExtrasCategoriasPage() {
             </TableBody>
           </Table>
         </div>
-      </ExtrasCard>
-    </ExtrasPageWrapper>
+      </ModuleCard>
+    </ExtrasShell>
   )
 }

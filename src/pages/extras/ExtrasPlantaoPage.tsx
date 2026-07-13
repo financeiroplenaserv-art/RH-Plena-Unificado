@@ -15,7 +15,7 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
-import { ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+
 import { PageHeader } from '@/components/PageHeader'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
@@ -176,7 +176,7 @@ export function ExtrasPlantaoPage() {
         <PageHeader backTo="/extras/lancamentos" title="Registro de Plantão" description="Faltas e substituições" />
 
         <form onSubmit={handleSubmit}>
-          <ExtrasCard className="!p-4">
+          <ModuleCard className="!p-4">
           <div className="space-y-5">
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Data da ocorrência</Label>
@@ -340,9 +340,9 @@ export function ExtrasPlantaoPage() {
               <Label htmlFor="extra_faturado" className="text-base" style={{ color: '#1F2937' }}>Extra faturado</Label>
             </div>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
 
-        <ExtrasCard className="mt-4 !p-4">
+        <ModuleCard className="mt-4 !p-4">
           <h3 className="text-base font-semibold mb-4" style={{ color: '#1F2937' }}>Comunicação com o cliente</h3>
           <div className="space-y-5">
             <div className="space-y-2">
@@ -389,9 +389,9 @@ export function ExtrasPlantaoPage() {
               />
             </div>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
 
-        <ExtrasCard className="mt-4 !p-4">
+        <ModuleCard className="mt-4 !p-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Observações</Label>
             <Input
@@ -403,20 +403,20 @@ export function ExtrasPlantaoPage() {
           </div>
 
           <div className="flex flex-col gap-3 mt-6">
-            <ExtrasButton type="submit" disabled={salvando} className="h-12 text-base">
+            <ModuleButton type="submit" disabled={salvando} className="h-12 text-base">
               <Save className="w-5 h-5 mr-2" />
               {salvando ? 'Salvando...' : 'Salvar registro'}
-            </ExtrasButton>
-            <ExtrasButton type="button" variant="outline" onClick={limparFormulario} className="h-12 text-base">
+            </ModuleButton>
+            <ModuleButton type="button" variant="outline" onClick={limparFormulario} className="h-12 text-base">
               <RotateCcw className="w-5 h-5 mr-2" />
               Novo registro
-            </ExtrasButton>
-            <ExtrasButton type="button" variant="outline" onClick={() => navigate('/extras/lancamentos')} className="h-12 text-base">
+            </ModuleButton>
+            <ModuleButton type="button" variant="outline" onClick={() => navigate('/extras/lancamentos')} className="h-12 text-base">
               <X className="w-5 h-5 mr-2" />
               Voltar
-            </ExtrasButton>
+            </ModuleButton>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
       </form>
     </div>
   </div>

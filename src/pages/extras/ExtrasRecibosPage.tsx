@@ -25,7 +25,9 @@ import { useEmpresas } from '@/hooks/useEmpresas'
 import { useExtrasRecibos } from '@/hooks/useExtrasRecibos'
 import { useAuth } from '@/hooks/useAuth'
 import { AssinaturaCanvas, type AssinaturaCanvasRef } from '@/components/extras/AssinaturaCanvas'
-import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { ExtrasShell } from './ExtrasShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
 import {
@@ -367,10 +369,10 @@ export function ExtrasRecibosPage() {
   const totalGeral = useMemo(() => grupos.reduce((acc, g) => acc + g.valorTotal, 0), [grupos])
 
   return (
-    <ExtrasPageWrapper>
+    <ExtrasShell>
       <PageHeader backTo="/extras/lancamentos" title="Recibos de Extras" description="Gere recibos de pagamento com assinatura digital" />
 
-      <ExtrasCard title="Filtros">
+      <ModuleCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Data início</Label>
@@ -416,29 +418,29 @@ export function ExtrasRecibosPage() {
             </label>
           </div>
           <div className="flex items-end gap-2 md:col-span-2 xl:col-span-1">
-            <ExtrasButton variant="outline" size="sm" onClick={() => { listar({ dataInicio, dataFim }); listarRecibos({ dataInicio, dataFim }) }}>
+            <ModuleButton variant="outline" size="sm" onClick={() => { listar({ dataInicio, dataFim }); listarRecibos({ dataInicio, dataFim }) }}>
               <RefreshCcw className="w-4 h-4 mr-2" />
               Atualizar
-            </ExtrasButton>
+            </ModuleButton>
           </div>
         </div>
-      </ExtrasCard>
+      </ModuleCard>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ExtrasCard title="Colaboradores com extras">
+        <ModuleCard title="Colaboradores com extras">
           <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{grupos.length}</div>
-        </ExtrasCard>
-        <ExtrasCard title="Total de extras">
+        </ModuleCard>
+        <ModuleCard title="Total de extras">
           <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>
             {grupos.reduce((acc, g) => acc + g.extras.length, 0)}
           </div>
-        </ExtrasCard>
-        <ExtrasCard title="Valor total do período">
+        </ModuleCard>
+        <ModuleCard title="Valor total do período">
           <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{formatarMoeda(totalGeral)}</div>
-        </ExtrasCard>
+        </ModuleCard>
       </div>
 
-      <ExtrasCard title={`Colaboradores com extras (${grupos.length})`}>
+      <ModuleCard title={`Colaboradores com extras (${grupos.length})`}>
 
         <div className="overflow-x-auto">
           <Table>
@@ -495,9 +497,9 @@ export function ExtrasRecibosPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {podeMarcarPago && !todosPagos && (
-                            <ExtrasButton variant="outline" size="sm" onClick={() => marcarExtrasComoPago(grupo)} title="Marcar extras como pagos">
+                            <ModuleButton variant="outline" size="sm" onClick={() => marcarExtrasComoPago(grupo)} title="Marcar extras como pagos">
                               <DollarSign className="w-4 h-4" />
-                            </ExtrasButton>
+                            </ModuleButton>
                           )}
                           {reciboJaEmitido && !modoPapel ? (
                             <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
@@ -505,10 +507,10 @@ export function ExtrasRecibosPage() {
                             </span>
                           ) : (
                             podeGerenciarRecibo && (
-                              <ExtrasButton size="sm" onClick={() => handleGerarRecibo(grupo)}>
+                              <ModuleButton size="sm" onClick={() => handleGerarRecibo(grupo)}>
                                 <FileText className="w-4 h-4 mr-2" />
                                 {modoPapel ? 'Gerar para impressão' : 'Gerar e assinar'}
-                              </ExtrasButton>
+                              </ModuleButton>
                             )
                           )}
                         </div>
@@ -520,10 +522,10 @@ export function ExtrasRecibosPage() {
             </TableBody>
           </Table>
         </div>
-      </ExtrasCard>
+      </ModuleCard>
 
       {recibosAssinados.length > 0 && (
-        <ExtrasCard title={`Recibos assinados (${recibosAssinados.length})`}>
+        <ModuleCard title={`Recibos assinados (${recibosAssinados.length})`}>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -546,14 +548,14 @@ export function ExtrasRecibosPage() {
                     <TableCell>{recibo.data_assinatura ? formatarDataBR(recibo.data_assinatura.split('T')[0]) : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <ExtrasButton variant="outline" size="sm" onClick={() => handleReemitirPDF(recibo)}>
+                        <ModuleButton variant="outline" size="sm" onClick={() => handleReemitirPDF(recibo)}>
                           <FileText className="w-4 h-4 mr-2" />
                           PDF
-                        </ExtrasButton>
+                        </ModuleButton>
                         {podeCancelarRecibo && (
-                          <ExtrasButton variant="outline" size="sm" onClick={() => handleRemoverRecibo(recibo.id)} title="Remover">
+                          <ModuleButton variant="outline" size="sm" onClick={() => handleRemoverRecibo(recibo.id)} title="Remover">
                             <Trash2 className="w-4 h-4" />
-                          </ExtrasButton>
+                          </ModuleButton>
                         )}
                       </div>
                     </TableCell>
@@ -562,7 +564,7 @@ export function ExtrasRecibosPage() {
               </TableBody>
             </Table>
           </div>
-        </ExtrasCard>
+        </ModuleCard>
       )}
 
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
@@ -588,7 +590,7 @@ export function ExtrasRecibosPage() {
 
           {grupoSelecionado && reciboParaAssinar && (
             <div className="space-y-6">
-              <ExtrasCard title="Resumo" className="!p-4">
+              <ModuleCard title="Resumo" className="!p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-xs" style={{ color: '#94A3B8' }}>Quantidade de extras</div>
@@ -599,9 +601,9 @@ export function ExtrasRecibosPage() {
                     <div className="text-lg font-semibold">{formatarMoeda(grupoSelecionado.valorTotal)}</div>
                   </div>
                 </div>
-              </ExtrasCard>
+              </ModuleCard>
 
-              <ExtrasCard title="Extras do período" className="!p-4">
+              <ModuleCard title="Extras do período" className="!p-4">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -624,7 +626,7 @@ export function ExtrasRecibosPage() {
                     </TableBody>
                   </Table>
                 </div>
-              </ExtrasCard>
+              </ModuleCard>
 
               <div className="space-y-2">
                 <Label style={{ color: '#1F2937' }}>Assinatura do colaborador</Label>
@@ -649,15 +651,15 @@ export function ExtrasRecibosPage() {
           )}
 
           <DialogFooter className="gap-2">
-            <ExtrasButton variant="outline" size="sm" onClick={() => assinaturaRef.current?.limpar()}>
+            <ModuleButton variant="outline" size="sm" onClick={() => assinaturaRef.current?.limpar()}>
               Limpar assinatura
-            </ExtrasButton>
-            <ExtrasButton size="sm" onClick={handleAssinar} disabled={emitindo}>
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleAssinar} disabled={emitindo}>
               {emitindo ? 'Assinando...' : 'Confirmar e gerar PDF'}
-            </ExtrasButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </ExtrasPageWrapper>
+    </ExtrasShell>
   )
 }

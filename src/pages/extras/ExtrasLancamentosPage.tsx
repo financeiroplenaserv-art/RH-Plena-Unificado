@@ -22,7 +22,9 @@ import {
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
-import { ExtrasPageWrapper, ExtrasCard, ExtrasButton } from './ExtrasPageWrapper'
+import { ExtrasShell } from './ExtrasShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { podeEditarExtra } from '@/lib/permissoes'
 import type { StatusExtra, CategoriaOcorrencia } from '@/types/extras'
 
@@ -104,21 +106,21 @@ export function ExtrasLancamentosPage() {
   )
 
   return (
-    <ExtrasPageWrapper>
+    <ExtrasShell>
       <PageHeader
         backTo="/"
         title="Extras"
         description="Controle de faltas, coberturas e pagamentos em cash"
       >
         {podeEditar && (
-          <ExtrasButton onClick={() => navigate('/extras/novo')}>
+          <ModuleButton onClick={() => navigate('/extras/novo')}>
             <Plus className="w-4 h-4 mr-2" />
             Novo extra
-          </ExtrasButton>
+          </ModuleButton>
         )}
       </PageHeader>
 
-      <ExtrasCard title="Filtros">
+      <ModuleCard title="Filtros">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Data início</Label>
@@ -177,9 +179,9 @@ export function ExtrasLancamentosPage() {
             </div>
           </div>
         </div>
-      </ExtrasCard>
+      </ModuleCard>
 
-      <ExtrasCard title={`Resultados (${extrasFiltrados.length})`}>
+      <ModuleCard title={`Resultados (${extrasFiltrados.length})`}>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -205,10 +207,10 @@ export function ExtrasLancamentosPage() {
                     <div className="flex flex-col items-center gap-3">
                       <span>Nenhum registro encontrado</span>
                       {podeEditar && (
-                        <ExtrasButton size="sm" onClick={() => navigate('/extras/novo')}>
+                        <ModuleButton size="sm" onClick={() => navigate('/extras/novo')}>
                           <Plus className="w-4 h-4 mr-2" />
                           Novo extra
-                        </ExtrasButton>
+                        </ModuleButton>
                       )}
                     </div>
                   </TableCell>
@@ -235,12 +237,12 @@ export function ExtrasLancamentosPage() {
                       <div className="flex justify-end gap-2">
                         {podeEditar && (
                           <>
-                            <ExtrasButton variant="outline" size="sm" onClick={() => navigate(`/extras/${extra.id}/editar`)}>
+                            <ModuleButton variant="outline" size="sm" onClick={() => navigate(`/extras/${extra.id}/editar`)}>
                               <Pencil className="w-3 h-3" />
-                            </ExtrasButton>
-                            <ExtrasButton variant="danger" size="sm" onClick={() => handleExcluir(extra.id)}>
+                            </ModuleButton>
+                            <ModuleButton variant="danger" size="sm" onClick={() => handleExcluir(extra.id)}>
                               <Trash2 className="w-3 h-3" />
-                            </ExtrasButton>
+                            </ModuleButton>
                           </>
                         )}
                       </div>
@@ -256,7 +258,7 @@ export function ExtrasLancamentosPage() {
           <span className="text-sm" style={{ color: '#64748B' }}>Total pendente no período:</span>
           <span className="text-lg font-bold" style={{ color: '#1F2937' }}>{formatarMoeda(totalPendente)}</span>
         </div>
-      </ExtrasCard>
-    </ExtrasPageWrapper>
+      </ModuleCard>
+    </ExtrasShell>
   )
 }
