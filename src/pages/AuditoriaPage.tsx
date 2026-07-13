@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, Fragment } from 'react'
 import { Search, History, ChevronDown, ChevronUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ModuleShell, ModuleCard } from '@/components/layout/ModuleShell'
 import {
   Select,
   SelectContent,
@@ -95,22 +95,15 @@ export function AuditoriaPage() {
   }, [logs, busca])
 
   return (
-    <div className="space-y-6">
+    <ModuleShell>
       <PageHeader
         backTo="/"
         title="Auditoria"
         description="Histórico de ações realizadas no sistema"
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <History className="w-4 h-4" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <ModuleCard title="Filtros" icon={<History className="w-4 h-4" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input
@@ -136,11 +129,9 @@ export function AuditoriaPage() {
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </ModuleCard>
 
-      <Card>
-        <CardContent className="p-0">
+      <ModuleCard contentClassName="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -203,8 +194,7 @@ export function AuditoriaPage() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+      </ModuleCard>
+    </ModuleShell>
   )
 }

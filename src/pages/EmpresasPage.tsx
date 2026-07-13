@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Building2, Edit, Plus, Search, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ModuleShell, ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import {
   Table,
   TableBody,
@@ -104,17 +103,12 @@ export function EmpresasPage() {
   }
 
   return (
-    <div className="min-h-full bg-[#F8FAFC] space-y-6">
+    <ModuleShell>
       <PageHeader backTo="/" title="Empresas" description="Cadastro global de empresas do sistema" />
 
       {podeEditar && (
-      <Card className="border-none shadow-sm rounded-[12px]">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold text-[#1F2937]">
-            {editandoId ? 'Editar empresa' : 'Nova empresa'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title={editandoId ? 'Editar empresa' : 'Nova empresa'} icon={<Building2 className="w-4 h-4" />}>
+        <div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -149,11 +143,10 @@ export function EmpresasPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button
+              <ModuleButton
                 type="submit"
                 disabled={!form.nome.trim()}
                 onClick={handleSubmit}
-                className="bg-[#1F2937] hover:bg-[#111827]"
               >
                 {editandoId ? (
                   <>
@@ -166,36 +159,31 @@ export function EmpresasPage() {
                     Cadastrar
                   </>
                 )}
-              </Button>
+              </ModuleButton>
               {editandoId && (
-                <Button type="button" variant="outline" onClick={handleCancelar}>
+                <ModuleButton type="button" variant="outline" onClick={handleCancelar}>
                   Cancelar
-                </Button>
+                </ModuleButton>
               )}
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </ModuleCard>
       )}
 
-      <Card className="border-none shadow-sm rounded-[12px]">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-base font-semibold text-[#1F2937]">
-              Lista de empresas ({empresasFiltradas.length})
-            </CardTitle>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar por nome, CNPJ ou código..."
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                className="pl-9 rounded-lg border-slate-300"
-              />
-            </div>
+      <ModuleCard title={`Lista de empresas (${empresasFiltradas.length})`} icon={<Building2 className="w-4 h-4" />}>
+        <div className="mb-4">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Input
+              placeholder="Buscar por nome, CNPJ ou código..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="pl-9 rounded-lg border-slate-300"
+            />
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div>
           {loading ? (
             <LoadingScreen className="h-64" />
           ) : (
@@ -226,24 +214,24 @@ export function EmpresasPage() {
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
                             {podeEditar && (
-                              <Button
+                              <ModuleButton
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleEditar(empresa)}
                                 className="h-8 w-8 text-slate-500 hover:text-[#1F2937]"
                               >
                                 <Edit className="w-4 h-4" />
-                              </Button>
+                              </ModuleButton>
                             )}
                             {podeExcluir && (
-                              <Button
+                              <ModuleButton
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setRemoverId(empresa.id)}
                                 className="h-8 w-8 text-slate-400 hover:text-red-600"
                               >
                                 <Trash2 className="w-4 h-4" />
-                              </Button>
+                              </ModuleButton>
                             )}
                           </div>
                         </TableCell>
@@ -254,8 +242,8 @@ export function EmpresasPage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </ModuleCard>
 
       <Dialog open={!!removerId} onOpenChange={(open) => !open && setRemoverId(null)}>
         <DialogContent className="sm:max-w-md">
@@ -266,18 +254,18 @@ export function EmpresasPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoverId(null)}>
+            <ModuleButton variant="outline" onClick={() => setRemoverId(null)}>
               Cancelar
-            </Button>
-            <Button
-              variant="destructive"
+            </ModuleButton>
+            <ModuleButton
+              variant="danger"
               onClick={() => removerId && handleRemover(removerId)}
             >
               Excluir
-            </Button>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ModuleShell>
   )
 }
