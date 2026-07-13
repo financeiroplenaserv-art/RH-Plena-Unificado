@@ -34,14 +34,11 @@ export function ModuleShell({ children, tabs, className }: ModuleShellProps) {
                   key={tab.path}
                   to={tab.path}
                   className={cn(
-                    'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-sm font-medium transition-colors',
+                    'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-sm font-medium transition-colors border-b-2',
                     ativa
-                      ? 'text-white'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-page-soft)]'
+                      ? 'text-[var(--primary-600)] bg-[var(--surface)] border-[var(--primary-600)]'
+                      : 'text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-page-soft)]'
                   )}
-                  style={{
-                    backgroundColor: ativa ? 'var(--accent-teal)' : undefined,
-                  }}
                 >
                   {Icon && <Icon className="w-4 h-4" />}
                   {tab.label}
