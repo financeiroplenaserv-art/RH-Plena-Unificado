@@ -492,7 +492,7 @@ export function VrProjetoDetailPage() {
       {resultados.length > 0 && (
         <>
           {mostrarValidacao && (totalErros > 0 || totalAvisos > 0) && (
-            <ModuleCard title="Validação dos dados" icon={<AlertTriangle className="w-4 h-4" />} color={totalErros > 0 ? 'red' : 'yellow'}>
+            <ModuleCard title="Validação dos dados" icon={<AlertTriangle className="w-4 h-4" />}>
               <div className="space-y-3">
                 {totalErros > 0 && (
                   <div className="flex items-center gap-2 text-red-700 font-medium">

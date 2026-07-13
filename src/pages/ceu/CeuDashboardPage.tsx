@@ -144,26 +144,31 @@ export function CeuDashboardPage() {
               label="Total de itens cadastrados"
               value={stats.totalItens}
               icon={<Boxes className="w-5 h-5" />}
+              gradient="blue"
             />
             <CeuKpiCard
               label="Total de entregas do mês"
               value={stats.entregasDoMes}
               icon={<CalendarClock className="w-5 h-5" />}
+              gradient="dark-blue"
             />
             <CeuKpiCard
               label="Itens em aberto"
               value={stats.itensEmAberto}
               icon={<ClipboardList className="w-5 h-5" />}
+              gradient="orange"
             />
             <CeuKpiCard
               label="Itens devolvidos"
               value={stats.itensDevolvidos}
               icon={<PackageCheck className="w-5 h-5" />}
+              gradient="green"
             />
             <CeuKpiCard
               label="Alertas de estoque baixo"
               value={stats.alertasEstoqueBaixo.length}
               icon={<AlertTriangle className="w-5 h-5" />}
+              gradient="orange"
             />
           </div>
 

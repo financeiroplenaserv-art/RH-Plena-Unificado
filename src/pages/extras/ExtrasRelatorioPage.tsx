@@ -14,6 +14,7 @@ import { useExtras } from '@/hooks/useExtras'
 
 import { PageHeader } from '@/components/PageHeader'
 import { ModuleCard } from '@/components/layout/ModuleShell'
+import { ExtrasShell } from './ExtrasShell'
 
 function formatarDataBR(data: string | null) {
   if (!data) return '—'

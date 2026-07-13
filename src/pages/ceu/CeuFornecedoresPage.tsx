@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { Search, Trash2, Edit, Building2, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
   Table,
@@ -190,14 +189,14 @@ export function CeuFornecedoresPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </ModuleButton>
-                          <Button
+                          <ModuleButton
                             variant="ghost"
                             size="icon"
                             onClick={() => setRemoverId(f.id)}
                             className="h-8 w-8 text-slate-400 hover:text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </ModuleButton>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -219,13 +218,13 @@ export function CeuFornecedoresPage() {
             <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
               Cancelar
             </ModuleButton>
-            <Button
-              variant="destructive"
+            <ModuleButton
+              variant="danger"
               size="sm"
               onClick={() => removerId && handleRemover(removerId)}
             >
               Excluir
-            </Button>
+            </ModuleButton>
           </>
         }
       />

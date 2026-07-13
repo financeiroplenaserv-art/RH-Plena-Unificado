@@ -272,7 +272,6 @@ export function CeuImportarPage() {
           <ModuleCard
             title={`Preview: ${linhas.filter((l) => l.valido).length} válido(s) / ${linhas.filter((l) => !l.valido).length} inválido(s)`}
             icon={<AlertTriangle className="w-4 h-4" />}
-            gradient={linhas.some((l) => !l.valido) ? 'orange' : 'green'}
           >
             <div className="max-h-96 overflow-auto border rounded-lg border-slate-200">
               <table className="w-full text-xs">

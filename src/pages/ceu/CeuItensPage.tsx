@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Trash2, Edit, Package, Hash, X, Filter } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -224,14 +223,14 @@ export function CeuItensPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </ModuleButton>
-                          <Button
+                          <ModuleButton
                             variant="ghost"
                             size="icon"
                             onClick={() => setRemoverId(item.id)}
                             className="h-8 w-8 text-slate-400 hover:text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </ModuleButton>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -253,13 +252,13 @@ export function CeuItensPage() {
             <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
               Cancelar
             </ModuleButton>
-            <Button
-              variant="destructive"
+            <ModuleButton
+              variant="danger"
               size="sm"
               onClick={() => removerId && handleRemover(removerId)}
             >
               Excluir
-            </Button>
+            </ModuleButton>
           </>
         }
       />

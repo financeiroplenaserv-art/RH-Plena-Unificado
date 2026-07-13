@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Save, Search, User, Package, Hash, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 import {
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { ModuleCard } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
@@ -249,23 +248,22 @@ export function CeuLancamentoRapidoPage() {
     <CeuShell>
       <div className="space-y-6">
         <PageHeader backTo="/ceu/movimentacoes" title="Lançamento Rápido" description="Lance entregas de EPI, Uniforme e Crachá em massa">
-          <Button variant="outline" size="sm" onClick={() => adicionarLinhas(5)}>
+          <ModuleButton variant="outline" size="sm" onClick={() => adicionarLinhas(5)}>
             <Plus className="w-4 h-4 mr-1.5" />
             +5 Linhas
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => adicionarLinhas(10)}>
+          </ModuleButton>
+          <ModuleButton variant="outline" size="sm" onClick={() => adicionarLinhas(10)}>
             <Plus className="w-4 h-4 mr-1.5" />
             +10 Linhas
-          </Button>
-          <Button
+          </ModuleButton>
+          <ModuleButton
             size="sm"
             onClick={handleSalvar}
             disabled={salvando || linhas.filter(linhaValida).length === 0}
-            className="bg-[#1E3A5F] hover:bg-[#152D4D]"
           >
             <Save className="w-4 h-4 mr-1.5" />
             {salvando ? 'Salvando...' : 'Salvar'}
-          </Button>
+          </ModuleButton>
         </PageHeader>
 
         <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -440,7 +438,7 @@ export function CeuLancamentoRapidoPage() {
                         </Select>
                       </td>
                       <td className="px-2 py-1.5">
-                        <Button
+                        <ModuleButton
                           variant="ghost"
                           size="icon"
                           onClick={() => removerLinha(linha.id)}
@@ -448,7 +446,7 @@ export function CeuLancamentoRapidoPage() {
                           title="Remover linha"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </Button>
+                        </ModuleButton>
                       </td>
                     </tr>
                   )
@@ -466,22 +464,21 @@ export function CeuLancamentoRapidoPage() {
         </ModuleCard>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => adicionarLinhas(5)}>
+          <ModuleButton variant="outline" onClick={() => adicionarLinhas(5)}>
             <Plus className="w-4 h-4 mr-1.5" />
             +5 Linhas
-          </Button>
-          <Button variant="outline" onClick={() => adicionarLinhas(10)}>
+          </ModuleButton>
+          <ModuleButton variant="outline" onClick={() => adicionarLinhas(10)}>
             <Plus className="w-4 h-4 mr-1.5" />
             +10 Linhas
-          </Button>
-          <Button
+          </ModuleButton>
+          <ModuleButton
             onClick={handleSalvar}
             disabled={salvando || linhas.filter(linhaValida).length === 0}
-            className="bg-[#1E3A5F] hover:bg-[#152D4D]"
           >
             <Save className="w-4 h-4 mr-1.5" />
             {salvando ? 'Salvando...' : 'Salvar'}
-          </Button>
+          </ModuleButton>
         </div>
       </div>
     </CeuShell>

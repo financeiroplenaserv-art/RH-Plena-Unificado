@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Trash2, RotateCcw, Package, Receipt, FileText, Upload, Filter } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -501,15 +500,15 @@ export function CeuMovimentacoesPage() {
                         <TableCell className="text-right font-medium">{mov.qtdTotal}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => handleEmitirRecibo(mov.entregas)}>
+                            <ModuleButton variant="ghost" size="sm" onClick={() => handleEmitirRecibo(mov.entregas)}>
                               <Receipt className="w-4 h-4 mr-1" /> Recibo
-                            </Button>
+                            </ModuleButton>
                             {emAberto && (
                               <ModuleButton variant="ghost" size="icon" onClick={() => setDevolverId(mov.entregas.find((e) => !e.data_devolucao)!.id)} className="h-8 w-8" title="Registrar devolução">
                                 <RotateCcw className="w-4 h-4" />
                               </ModuleButton>
                             )}
-                            <Button
+                            <ModuleButton
                               variant="ghost"
                               size="icon"
                               onClick={() => setRemoverId(mov.entregas[0].id)}
@@ -518,7 +517,7 @@ export function CeuMovimentacoesPage() {
                               className="h-8 w-8 text-slate-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </Button>
+                            </ModuleButton>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -563,7 +562,7 @@ export function CeuMovimentacoesPage() {
       <CeuDialog open={!!removerId} onOpenChange={(open) => !open && setRemoverId(null)} title="Remover entrega?" description="Esta ação não pode ser desfeita." className="bg-white" footer={
         <>
           <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>Cancelar</ModuleButton>
-          <Button variant="destructive" size="sm" onClick={() => removerId && handleRemover(removerId)}>Excluir</Button>
+          <ModuleButton variant="danger" size="sm" onClick={() => removerId && handleRemover(removerId)}>Excluir</ModuleButton>
         </>
       } />
 
