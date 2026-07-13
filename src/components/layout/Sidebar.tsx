@@ -88,7 +88,7 @@ const groups: MenuGroup[] = [
     items: [
       { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'adicionais' } },
       { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'vr' } },
-      { path: '/ceu/dashboard', label: 'CEU', icon: <Package className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'ceu' } },
+      { path: '/ceu/movimentacoes', label: 'CEU', icon: <Package className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'ceu' } },
     ],
   },
   {

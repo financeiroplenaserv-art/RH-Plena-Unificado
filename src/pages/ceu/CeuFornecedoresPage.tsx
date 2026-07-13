@@ -67,7 +67,7 @@ export function CeuFornecedoresPage() {
 
   return (
     <CeuShell>
-      <PageHeader backTo="/ceu/dashboard" title="Fornecedores" description="Cadastro de fornecedores de itens" />
+      <PageHeader backTo="/ceu/movimentacoes" title="Fornecedores" description="Cadastro de fornecedores de itens" />
 
       <ModuleCard
         title={editando.id ? 'Editar fornecedor' : 'Novo fornecedor'}

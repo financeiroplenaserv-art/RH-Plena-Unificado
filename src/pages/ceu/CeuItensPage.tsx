@@ -99,7 +99,7 @@ export function CeuItensPage() {
 
   return (
     <CeuShell>
-      <PageHeader backTo="/ceu/dashboard" title="Itens CEU" description="Crachás, uniformes, equipamentos e EPIs">
+      <PageHeader backTo="/ceu/movimentacoes" title="Itens CEU" description="Crachás, uniformes, equipamentos e EPIs">
         <ModuleButton onClick={() => navigate('/ceu/itens/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Novo item

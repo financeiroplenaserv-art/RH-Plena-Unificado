@@ -348,7 +348,7 @@ export function CeuMovimentacoesPage() {
 
   return (
     <CeuShell>
-      <PageHeader backTo="/ceu/dashboard" title="Movimentações" description="Registro de entregas e devoluções">
+      <PageHeader backTo="/ceu/movimentacoes" title="Movimentações" description="Registro de entregas e devoluções">
         <ModuleButton variant="outline" onClick={() => setModalLote(true)}>
           <FileText className="w-4 h-4 mr-2" />
           Emitir recibos em lote

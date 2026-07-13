@@ -204,7 +204,7 @@ export function CeuImportarPage() {
   return (
     <CeuShell>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <PageHeader backTo="/ceu/dashboard" title="Importar CEU" description="Importe itens ou fornecedores via CSV/Excel" />
+        <PageHeader backTo="/ceu/movimentacoes" title="Importar CEU" description="Importe itens ou fornecedores via CSV/Excel" />
 
         <ModuleCard title="Tipo de importação" icon={<Upload className="w-4 h-4" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

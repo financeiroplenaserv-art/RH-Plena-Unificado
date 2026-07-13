@@ -1,7 +1,6 @@
 import {
-  LayoutDashboard,
-  Package,
   ArrowLeftRight,
+  Package,
   Zap,
   FileBarChart,
   Truck,
@@ -11,9 +10,8 @@ import { ModuleShell } from '@/components/layout/ModuleShell'
 import type { ModuleTab } from '@/components/layout/ModuleShell'
 
 const TABS: ModuleTab[] = [
-  { path: '/ceu/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/ceu/itens', label: 'Itens', icon: Package },
   { path: '/ceu/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight },
+  { path: '/ceu/itens', label: 'Itens', icon: Package },
   { path: '/ceu/lancamento-rapido', label: 'Lançamento Rápido', icon: Zap },
   { path: '/ceu/relatorios', label: 'Relatórios', icon: FileBarChart },
   { path: '/ceu/fornecedores', label: 'Fornecedores', icon: Truck },

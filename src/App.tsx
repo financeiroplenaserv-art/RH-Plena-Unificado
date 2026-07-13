@@ -36,7 +36,6 @@ import {
   VrProjetosPage,
   VrProjetoFormPage,
   VrProjetoDetailPage,
-  CeuDashboardPage,
   CeuItensPage,
   CeuItemFormPage,
   CeuFornecedoresPage,
@@ -285,15 +284,7 @@ function App() {
                 }
               />
 
-              <Route path="/ceu" element={<Navigate to="/ceu/dashboard" replace />} />
-              <Route
-                path="/ceu/dashboard"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
-                    <CeuDashboardPage />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/ceu" element={<Navigate to="/ceu/movimentacoes" replace />} />
               <Route
                 path="/ceu/itens"
                 element={

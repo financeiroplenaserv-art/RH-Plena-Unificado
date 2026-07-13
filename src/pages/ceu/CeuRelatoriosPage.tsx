@@ -685,7 +685,7 @@ export function CeuRelatoriosPage() {
   return (
     <CeuShell>
       <div className="space-y-6">
-        <PageHeader backTo="/ceu/dashboard" title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
+        <PageHeader backTo="/ceu/movimentacoes" title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
 
         <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
