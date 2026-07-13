@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Calculator, Download, FileSpreadsheet, FileText, Trash2, Upload, Save,
@@ -36,10 +37,7 @@ import {
 import { formatarData, formatarCPF } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { VrPage } from '@/components/vr/VrPage'
-import { VrHeader } from '@/components/vr/VrHeader'
-import { VrCard } from '@/components/vr/VrCard'
-import { VrButton } from '@/components/vr/VrButton'
+import { VrShell } from './VrShell'
 import {
   gerarComprovanteIndividualHTML,
   gerarComprovanteGeralHTML,
@@ -266,7 +264,6 @@ export function VrProjetoDetailPage() {
     toast.success('Recibos em lote gerados')
   }
 
-
   const handleComprovanteIndividual = (r: VRResultadoCalculo) => {
     if (!config) return
     const html = gerarComprovanteIndividualHTML(r, config)
@@ -316,17 +313,17 @@ export function VrProjetoDetailPage() {
 
   if (!projeto || !config) {
     return (
-      <VrPage>
+      <VrShell>
         <VrHeader title="Projeto não encontrado" />
-        <VrCard color="red">
+        <ModuleCard>
           <p className="text-center text-slate-700">O projeto solicitado não existe ou foi removido.</p>
-        </VrCard>
-      </VrPage>
+        </ModuleCard>
+      </VrShell>
     )
   }
 
   return (
-    <VrPage>
+    <VrShell>
       <VrHeader
         title={projeto.nome}
         subtitle={`Corte ${formatarData(projeto.data_corte)} • Efetivação ${formatarData(projeto.data_efetivacao)} • VR R$ ${Number(config.valorVR).toFixed(2)}`}
@@ -334,23 +331,23 @@ export function VrProjetoDetailPage() {
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <VrButton variant="outline" size="sm" onClick={() => navigate('/vr/projetos')}>
+          <ModuleButton variant="outline" size="sm" onClick={() => navigate('/vr/projetos')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
-          </VrButton>
+          </ModuleButton>
         </div>
         <div className="flex flex-wrap gap-2">
           {podeEditar && (
-            <VrButton variant="outline" size="sm" onClick={() => navigate(`/vr/projetos/${id}/editar`)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => navigate(`/vr/projetos/${id}/editar`)}>
               Editar configuração
-            </VrButton>
+            </ModuleButton>
           )}
         </div>
       </div>
 
       {/* Cards de upload coloridos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <VrCard title="PDF anterior (abatimentos)" icon={<FileClock className="w-4 h-4" />} color="blue">
+        <ModuleCard title="PDF anterior (abatimentos)" icon={<FileClock className="w-4 h-4" />}>
           <input
             ref={refPdfAnterior}
             type="file"
@@ -358,10 +355,10 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarPdfAnterior, 'pdf_anterior')}
           />
-          <VrButton variant="outline" className="w-full" onClick={() => refPdfAnterior.current?.click()} disabled={!podeEditar}>
+          <ModuleButton variant="outline" className="w-full" onClick={() => refPdfAnterior.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar PDF
-          </VrButton>
+          </ModuleButton>
           {pdfAnteriorArq && (
             <div className="mt-3 text-sm text-slate-700 bg-blue-50 p-2 rounded-md">
               <p className="font-medium truncate">{pdfAnteriorArq.nome}</p>
@@ -371,9 +368,9 @@ export function VrProjetoDetailPage() {
           {!pdfAnteriorArq && (
             <p className="mt-3 text-xs text-slate-500">PDF de ponto do mês anterior para abatimento.</p>
           )}
-        </VrCard>
+        </ModuleCard>
 
-        <VrCard title="PDF atual (dias trabalhados)" icon={<FileText className="w-4 h-4" />} color="blue">
+        <ModuleCard title="PDF atual (dias trabalhados)" icon={<FileText className="w-4 h-4" />}>
           <input
             ref={refPdfAtual}
             type="file"
@@ -381,10 +378,10 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarPdfAtual, 'pdf_atual')}
           />
-          <VrButton variant="outline" className="w-full" onClick={() => refPdfAtual.current?.click()} disabled={!podeEditar}>
+          <ModuleButton variant="outline" className="w-full" onClick={() => refPdfAtual.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar PDF
-          </VrButton>
+          </ModuleButton>
           {pdfAtualArq && (
             <div className="mt-3 text-sm text-slate-700 bg-blue-50 p-2 rounded-md">
               <p className="font-medium truncate">{pdfAtualArq.nome}</p>
@@ -394,9 +391,9 @@ export function VrProjetoDetailPage() {
           {!pdfAtualArq && (
             <p className="mt-3 text-xs text-slate-500">PDF de ponto do mês de corte.</p>
           )}
-        </VrCard>
+        </ModuleCard>
 
-        <VrCard title="Escala futura" icon={<CalendarDays className="w-4 h-4" />} color="yellow">
+        <ModuleCard title="Escala futura" icon={<CalendarDays className="w-4 h-4" />}>
           <input
             ref={refEscala}
             type="file"
@@ -404,10 +401,10 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarEscala, 'escala')}
           />
-          <VrButton variant="outline" className="w-full border-amber-500 text-amber-700 hover:bg-amber-50" onClick={() => refEscala.current?.click()} disabled={!podeEditar}>
+          <ModuleButton variant="outline" className="w-full border-amber-500 text-amber-700 hover:bg-amber-50" onClick={() => refEscala.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar escala
-          </VrButton>
+          </ModuleButton>
           {escalaArq && (
             <div className="mt-3 text-sm text-slate-700 bg-amber-50 p-2 rounded-md">
               <p className="font-medium truncate">{escalaArq.nome}</p>
@@ -417,9 +414,9 @@ export function VrProjetoDetailPage() {
           {!escalaArq && (
             <p className="mt-3 text-xs text-slate-500">Planilha de escala futura (.xlsx/.xls).</p>
           )}
-        </VrCard>
+        </ModuleCard>
 
-        <VrCard title="Base matrícula/nascimento" icon={<Users className="w-4 h-4" />} color="green">
+        <ModuleCard title="Base matrícula/nascimento" icon={<Users className="w-4 h-4" />}>
           <input
             ref={refBase}
             type="file"
@@ -427,10 +424,10 @@ export function VrProjetoDetailPage() {
             className="hidden"
             onChange={e => handleArquivo(e, processarBase, 'base')}
           />
-          <VrButton variant="outline" className="w-full border-green-600 text-green-700 hover:bg-green-50" onClick={() => refBase.current?.click()} disabled={!podeEditar}>
+          <ModuleButton variant="outline" className="w-full border-green-600 text-green-700 hover:bg-green-50" onClick={() => refBase.current?.click()} disabled={!podeEditar}>
             <Upload className="w-4 h-4 mr-2" />
             Importar base
-          </VrButton>
+          </ModuleButton>
           {baseArq && (
             <div className="mt-3 text-sm text-slate-700 bg-green-50 p-2 rounded-md">
               <p className="font-medium truncate">{baseArq.nome}</p>
@@ -440,60 +437,60 @@ export function VrProjetoDetailPage() {
           {!baseArq && (
             <p className="mt-3 text-xs text-slate-500">Base com matrícula e data de nascimento.</p>
           )}
-        </VrCard>
+        </ModuleCard>
       </div>
 
       {/* Botões grandes de ação */}
-      <VrCard title="Ações principais" icon={<Calculator className="w-4 h-4" />} color="white">
+      <ModuleCard title="Ações principais" icon={<Calculator className="w-4 h-4" />}>
         <div className="flex flex-wrap gap-3">
           {podeEditar && (
-            <VrButton onClick={handleCalcular} disabled={loading} size="lg">
+            <ModuleButton onClick={handleCalcular} disabled={loading} size="lg">
               <Calculator className="w-5 h-5 mr-2" />
               {loading ? 'Calculando...' : 'Calcular VR'}
-            </VrButton>
+            </ModuleButton>
           )}
 
           {resultados.length > 0 && (
             <>
               {podeEditar && (
-                <VrButton variant="outline" size="lg" onClick={handleSalvarResultados}>
+                <ModuleButton variant="outline" size="lg" onClick={handleSalvarResultados}>
                   <Save className="w-5 h-5 mr-2" />
                   Salvar resultados
-                </VrButton>
+                </ModuleButton>
               )}
-              <VrButton variant="secondary" size="lg" onClick={handleTodosOsRecibos}>
+              <ModuleButton variant="primary" size="lg" onClick={handleTodosOsRecibos}>
                 <Receipt className="w-5 h-5 mr-2" />
                 Todos os recibos
-              </VrButton>
+              </ModuleButton>
               {podeEditar && (
                 <>
-                  <VrButton variant="outline" size="lg" onClick={handleExportarPAT}>
+                  <ModuleButton variant="outline" size="lg" onClick={handleExportarPAT}>
                     <FileText className="w-5 h-5 mr-2" />
                     TXT PAT
-                  </VrButton>
-                  <VrButton variant="outline" size="lg" onClick={handleExportarAlterdata}>
+                  </ModuleButton>
+                  <ModuleButton variant="outline" size="lg" onClick={handleExportarAlterdata}>
                     <FileText className="w-5 h-5 mr-2" />
                     TXT Alterdata
-                  </VrButton>
-                  <VrButton variant="outline" size="lg" onClick={handleExportarConferencia}>
+                  </ModuleButton>
+                  <ModuleButton variant="outline" size="lg" onClick={handleExportarConferencia}>
                     <FileSpreadsheet className="w-5 h-5 mr-2" />
                     Conferência
-                  </VrButton>
+                  </ModuleButton>
                 </>
               )}
-              <VrButton variant="outline" size="lg" onClick={handleExportarComprovantes}>
+              <ModuleButton variant="outline" size="lg" onClick={handleExportarComprovantes}>
                 <Download className="w-5 h-5 mr-2" />
                 Comprovantes
-              </VrButton>
+              </ModuleButton>
             </>
           )}
         </div>
-      </VrCard>
+      </ModuleCard>
 
       {resultados.length > 0 && (
         <>
           {mostrarValidacao && (totalErros > 0 || totalAvisos > 0) && (
-            <VrCard title="Validação dos dados" icon={<AlertTriangle className="w-4 h-4" />} color={totalErros > 0 ? 'red' : 'yellow'}>
+            <ModuleCard title="Validação dos dados" icon={<AlertTriangle className="w-4 h-4" />} color={totalErros > 0 ? 'red' : 'yellow'}>
               <div className="space-y-3">
                 {totalErros > 0 && (
                   <div className="flex items-center gap-2 text-red-700 font-medium">
@@ -517,22 +514,22 @@ export function VrProjetoDetailPage() {
                   )}
                 </ul>
               </div>
-            </VrCard>
+            </ModuleCard>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <VrCard title="Total de colaboradores" icon={<Users className="w-4 h-4" />} color="blue">
+            <ModuleCard title="Total de colaboradores" icon={<Users className="w-4 h-4" />}>
               <div className="text-3xl font-bold text-blue-700">{resultados.length}</div>
-            </VrCard>
-            <VrCard title="Dias elegíveis" icon={<CheckCircle2 className="w-4 h-4" />} color="green">
+            </ModuleCard>
+            <ModuleCard title="Dias elegíveis" icon={<CheckCircle2 className="w-4 h-4" />}>
               <div className="text-3xl font-bold text-green-700">{totalElegiveis}</div>
-            </VrCard>
-            <VrCard title="Valor total" icon={<FileText className="w-4 h-4" />} color="purple">
+            </ModuleCard>
+            <ModuleCard title="Valor total" icon={<FileText className="w-4 h-4" />}>
               <div className="text-3xl font-bold text-purple-700">R$ {totalValor.toFixed(2)}</div>
-            </VrCard>
+            </ModuleCard>
           </div>
 
-          <VrCard title="Resultados" icon={<Search className="w-4 h-4" />} color="blue">
+          <ModuleCard title="Resultados" icon={<Search className="w-4 h-4" />}>
             <div className="flex flex-col lg:flex-row gap-3 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -557,10 +554,10 @@ export function VrProjetoDetailPage() {
                 </Select>
               </div>
               {podeEditar && (
-                <VrButton variant="danger" size="sm" onClick={() => setConfirmarRemoverZero(true)}>
+                <ModuleButton variant="danger" size="sm" onClick={() => setConfirmarRemoverZero(true)}>
                   <FilterX className="w-4 h-4 mr-2" />
                   Remover 0 dias
-                </VrButton>
+                </ModuleButton>
               )}
             </div>
 
@@ -701,16 +698,16 @@ export function VrProjetoDetailPage() {
             <p className="mt-2 text-xs text-slate-500">
               Exibindo {resultadosFiltrados.length} de {resultados.length} colaboradores
             </p>
-          </VrCard>
+          </ModuleCard>
         </>
       )}
 
       {resultados.length === 0 && !loading && (
-        <VrCard title="Comece o cálculo" icon={<Calculator className="w-4 h-4" />} color="blue">
+        <ModuleCard title="Comece o cálculo" icon={<Calculator className="w-4 h-4" />}>
           <div className="py-12 text-center text-slate-600">
             Importe os arquivos e clique em <strong>Calcular VR</strong> para visualizar os resultados.
           </div>
-        </VrCard>
+        </ModuleCard>
       )}
 
       <Dialog open={confirmarRemoverZero} onOpenChange={setConfirmarRemoverZero}>
@@ -729,15 +726,15 @@ export function VrProjetoDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <VrButton variant="outline" size="sm" onClick={() => setConfirmarRemoverZero(false)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setConfirmarRemoverZero(false)}>
               Cancelar
-            </VrButton>
-            <VrButton variant="danger" size="sm" onClick={handleRemoverZeroDias}>
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={handleRemoverZeroDias}>
               Remover
-            </VrButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </VrPage>
+    </VrShell>
   )
 }

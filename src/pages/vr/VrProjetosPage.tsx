@@ -22,9 +22,9 @@ import {
 import { formatarData } from '@/lib/utils'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/PageHeader'
-import { VrPage } from '@/components/vr/VrPage'
-import { VrCard } from '@/components/vr/VrCard'
-import { VrButton } from '@/components/vr/VrButton'
+import { VrShell } from './VrShell'
+
+
 import { toast } from 'sonner'
 import type { ProjetoVR } from '@/types'
 
@@ -108,24 +108,24 @@ export function VrProjetosPage() {
   }
 
   return (
-    <VrPage>
+    <VrShell>
       <PageHeader
         backTo="/"
         title="Benefícios"
         description="Cálculo e emissão de arquivos VR PAT e Alterdata"
       >
-        <VrButton onClick={() => navigate('/vr/projetos/novo')} size="lg">
+        <ModuleButton onClick={() => navigate('/vr/projetos/novo')} size="lg">
           <Plus className="w-5 h-5 mr-2" />
           Novo projeto
-        </VrButton>
+        </ModuleButton>
       </PageHeader>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4">
         <div className="flex flex-wrap gap-2">
-          <VrButton variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+          <ModuleButton variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="w-4 h-4 mr-2" />
             Importar backup JSON
-          </VrButton>
+          </ModuleButton>
           <input
             ref={fileInputRef}
             type="file"
@@ -133,14 +133,14 @@ export function VrProjetosPage() {
             className="hidden"
             onChange={importarBackupJSON}
           />
-          <VrButton variant="outline" size="sm" onClick={exportarBackupJSON}>
+          <ModuleButton variant="outline" size="sm" onClick={exportarBackupJSON}>
             <Download className="w-4 h-4 mr-2" />
             Exportar backup JSON
-          </VrButton>
+          </ModuleButton>
         </div>
       </div>
 
-      <VrCard title="Filtros" icon={<Search className="w-4 h-4" />} color="blue">
+      <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -161,9 +161,9 @@ export function VrProjetosPage() {
             />
           </div>
         </div>
-      </VrCard>
+      </ModuleCard>
 
-      <VrCard title={`Projetos (${projetosFiltrados.length})`} icon={<History className="w-4 h-4" />} color="blue">
+      <ModuleCard title={`Projetos (${projetosFiltrados.length})`} icon={<History className="w-4 h-4" />}>
         {loading ? (
           <LoadingScreen className="h-64" />
         ) : projetosFiltrados.length === 0 ? (
@@ -204,7 +204,7 @@ export function VrProjetosPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <VrButton
+                          <ModuleButton
                             variant="outline"
                             size="sm"
                             onClick={(e) => {
@@ -214,8 +214,8 @@ export function VrProjetosPage() {
                             className="h-8 w-8 p-0"
                           >
                             <Edit className="w-4 h-4" />
-                          </VrButton>
-                          <VrButton
+                          </ModuleButton>
+                          <ModuleButton
                             variant="danger"
                             size="sm"
                             onClick={(e) => {
@@ -225,7 +225,7 @@ export function VrProjetosPage() {
                             className="h-8 w-8 p-0"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </VrButton>
+                          </ModuleButton>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -235,7 +235,7 @@ export function VrProjetosPage() {
             </Table>
           </div>
         )}
-      </VrCard>
+      </ModuleCard>
 
       <Dialog open={!!excluirId} onOpenChange={(open) => !open && setExcluirId(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -246,15 +246,15 @@ export function VrProjetosPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <VrButton variant="outline" size="sm" onClick={() => setExcluirId(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setExcluirId(null)}>
               Cancelar
-            </VrButton>
-            <VrButton variant="danger" size="sm" onClick={() => excluirId && handleExcluir(excluirId)}>
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={() => excluirId && handleExcluir(excluirId)}>
               Excluir
-            </VrButton>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </VrPage>
+    </VrShell>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
 import { useProjetosVR } from '@/hooks/useProjetosVR'
@@ -13,10 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { VrPage } from '@/components/vr/VrPage'
-import { VrHeader } from '@/components/vr/VrHeader'
-import { VrCard } from '@/components/vr/VrCard'
-import { VrButton } from '@/components/vr/VrButton'
+import { VrShell } from './VrShell'
 import type { ProjetoVR, VRConfiguracao, VRDadosEmpresa } from '@/types'
 
 const PRODUTOS_VR = ['FLX', 'VBR', 'AXR', 'VBA', 'AXA', 'VCA', 'VBV', 'MBF', 'RAD', 'MNT']
@@ -144,21 +142,21 @@ export function VrProjetoFormPage() {
   }
 
   return (
-    <VrPage>
+    <VrShell>
       <VrHeader
         title={id ? 'Editar projeto VR' : 'Novo projeto VR'}
         subtitle="Configure os dados para cálculo e geração de arquivos"
       />
 
       <div className="flex items-center gap-4">
-        <VrButton variant="outline" size="sm" onClick={() => navigate('/vr/projetos')}>
+        <ModuleButton variant="outline" size="sm" onClick={() => navigate('/vr/projetos')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar
-        </VrButton>
+        </ModuleButton>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
-        <VrCard title="Informações básicas" color="blue">
+        <ModuleCard title="Informações básicas">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nome">Nome do projeto</Label>
@@ -191,9 +189,9 @@ export function VrProjetoFormPage() {
               />
             </div>
           </div>
-        </VrCard>
+        </ModuleCard>
 
-        <VrCard title="Configuração do cálculo" color="green">
+        <ModuleCard title="Configuração do cálculo">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valorVR">Valor do VR (R$)</Label>
@@ -260,9 +258,9 @@ export function VrProjetoFormPage() {
               </Select>
             </div>
           </div>
-        </VrCard>
+        </ModuleCard>
 
-        <VrCard title="Dados da empresa / local de entrega" color="purple">
+        <ModuleCard title="Dados da empresa / local de entrega">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="razaoSocial">Razão social</Label>
@@ -370,15 +368,15 @@ export function VrProjetoFormPage() {
               />
             </div>
           </div>
-        </VrCard>
+        </ModuleCard>
 
         <div className="flex justify-end">
-          <VrButton type="submit" disabled={loading} size="lg">
+          <ModuleButton type="submit" disabled={loading} size="lg">
             <Save className="w-5 h-5 mr-2" />
             {loading ? 'Salvando...' : 'Salvar e continuar'}
-          </VrButton>
+          </ModuleButton>
         </div>
       </form>
-    </VrPage>
+    </VrShell>
   )
 }
