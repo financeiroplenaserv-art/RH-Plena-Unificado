@@ -1,7 +1,7 @@
 # Handoff para o Próximo Agente — 13/07/2026
 
 > Último trabalho: importação de itens de EPI e uniforme para o módulo CEU
-> Estado: ✅ migration aplicada, itens CEU limpos e reimportados (132 itens). Movimentações ainda pendentes.
+> Estado: ✅ migration aplicada, itens CEU limpos/reimportados (135 itens) e movimentações importadas (5.500 entregas)
 > Ambiente: notebook com pouca memória — evitar testes/build pesados
 
 ---
@@ -69,31 +69,36 @@ A importação do Excel foi executada com sucesso nesta sessão.
 
 ---
 
-## 🎯 Próximos passos sugeridos
-
-### Alta prioridade — importar movimentações
+## ✅ Resumo da importação de movimentações
 
 Arquivo: `public/relatorio_por_colaborador que estava no CEU - colabs ativos.xls`
 
-- **Total de movimentações:** 5.526
-- **Colaboradores únicos:** 342
-- **Itens únicos:** 98
-- **Desafio:** o notebook do usuário não tem memória suficiente para processar toda a planilha de uma vez com Node/TypeScript/Python.
-- **Atenção:** as matrículas na planilha estão sem zeros à esquerda (ex: `772`), mas no banco estão com zeros (ex: `000772`). É preciso normalizar na hora de importar.
-- **Itens:** os nomes dos itens na planilha de movimentações podem não bater exatamente com os nomes na tabela `itens` (que incluem `- Tam. X`). É preciso fazer matching aproximado por nome.
+- **Total de movimentações na planilha:** 5.526
+- **Movimentações importadas com sucesso:** 5.500
+- **Não importadas:**
+  - 1 data inválida (01/07/22026)
+  - 1 colaborador não encontrado no banco (RAFAEL DE CARVALHO LEMOS, matrícula 1107)
+  - 25 movimentações vinculadas a esse colaborador/data inválida
 
-Opções para importar as movimentações:
+### Itens criados além da planilha
 
-1. **Computador com mais memória:** copiar o projeto e rodar um script de importação robusto.
-2. **Edge Function no Supabase:** criar uma função no Supabase que lê o arquivo e faz a importação no servidor (não usa memória do notebook).
-3. **Dividir a planilha:** quebrar o arquivo em partes menores (ex: 500 linhas) e importar uma por vez.
+Foram criados 3 itens de crachá que não estavam na planilha original:
+- `1001` CRACHÁ COMPLETO
+- `1002` CRACHÁ COM CORDINHA
+- `1003` CRACHÁ SEM CORDINHA
 
-### Outros passos
+### Scripts criados
 
-1. **Verificar no sistema** se os itens aparecem na tela `/ceu/itens`
-2. **ModuleShell** (`src/components/layout/ModuleShell.tsx`) — deixado como trabalho futuro
-3. **Rodar `npm run lint`** quando o notebook tiver memória disponível
-4. **Não rodar `npm run build` nem `npm test`** no notebook com pouca memória
+- `scripts/criar-itens-cracha.mjs` — cria os itens de crachá
+- `scripts/importar-movimentacoes-ceu.mjs` — importa as movimentações com snapshot_item e validação de datas
+
+## 🎯 Próximos passos sugeridos
+
+1. **Verificar no sistema** se os itens e movimentações aparecem corretamente (`/ceu/itens`, `/ceu/movimentacoes`, `/ceu/entregas`)
+2. **Decidir sobre o colaborador não encontrado:** cadastrar RAFAEL DE CARVALHO LEMOS (matrícula 1107) e reimportar, ou deixar sem essas 25 movimentações
+3. **ModuleShell** (`src/components/layout/ModuleShell.tsx`) — deixado como trabalho futuro
+4. **Rodar `npm run lint`** quando o notebook tiver memória disponível
+5. **Não rodar `npm run build` nem `npm test`** no notebook com pouca memória
 
 ---
 
