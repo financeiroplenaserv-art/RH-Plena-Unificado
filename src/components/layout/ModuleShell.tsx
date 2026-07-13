@@ -40,7 +40,7 @@ export function ModuleShell({ children, tabs, className }: ModuleShellProps) {
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-page-soft)]'
                   )}
                   style={{
-                    backgroundColor: ativa ? 'var(--primary-600)' : undefined,
+                    backgroundColor: ativa ? 'var(--accent-teal)' : undefined,
                   }}
                 >
                   {Icon && <Icon className="w-4 h-4" />}
