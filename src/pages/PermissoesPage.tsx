@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -9,7 +8,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -26,6 +24,7 @@ import type { NivelAcesso, PermissaoPerfil } from '@/types/database'
 import { Loader2, RotateCcw } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleShell, ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 
 const PERFIS: { valor: NivelAcesso; label: string }[] = [
   { valor: 'adm', label: 'Administrador (adm)' },
@@ -239,14 +238,10 @@ export function PermissoesPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <PageHeader backTo="/" title="Permissões" className="mb-6" />
+    <ModuleShell>
+      <PageHeader backTo="/" title="Permissões" />
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Selecionar perfil</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title="Selecionar perfil">
           <div className="w-full max-w-sm">
             <Label htmlFor="perfil" className="mb-2 block">
               Perfil
@@ -271,7 +266,7 @@ export function PermissoesPage() {
             <p className="text-sm text-slate-500">
               As alterações são salvas imediatamente ao marcar/desmarcar. O perfil <strong>Administrador</strong> sempre tem acesso total.
             </p>
-            <Button
+            <ModuleButton
               type="button"
               variant="outline"
               size="sm"
@@ -280,10 +275,9 @@ export function PermissoesPage() {
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               Restaurar padrão deste perfil
-            </Button>
+            </ModuleButton>
           </div>
-        </CardContent>
-      </Card>
+      </ModuleCard>
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-slate-500">
@@ -293,11 +287,7 @@ export function PermissoesPage() {
       ) : (
         <div className="space-y-6">
           {grupos.map(([grupo, itens]) => (
-            <Card key={grupo}>
-              <CardHeader>
-                <CardTitle className="text-base">{grupo}</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <ModuleCard key={grupo} title={grupo}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {itens.map((item) => (
                     <div
@@ -321,8 +311,7 @@ export function PermissoesPage() {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+          </ModuleCard>
           ))}
         </div>
       )}
@@ -345,17 +334,17 @@ export function PermissoesPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
+            <ModuleButton
               type="button"
               variant="outline"
               onClick={() => setDialogResetAberto(false)}
               disabled={resetando}
             >
               Cancelar
-            </Button>
-            <Button
+            </ModuleButton>
+            <ModuleButton
               type="button"
-              variant="destructive"
+              variant="danger"
               onClick={handleReset}
               disabled={resetando}
             >
@@ -367,10 +356,10 @@ export function PermissoesPage() {
               ) : (
                 'Restaurar padrão'
               )}
-            </Button>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ModuleShell>
   )
 }
