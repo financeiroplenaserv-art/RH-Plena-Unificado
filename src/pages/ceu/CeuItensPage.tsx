@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuInput } from '@/components/ceu/CeuInput'
+import { Input } from '@/components/ui/input'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { useCEUItens } from '@/hooks/useCEUItens'
@@ -111,7 +111,7 @@ export function CeuItensPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <CeuInput
+            <Input
               placeholder="Nome, código ou CA..."
               value={buscaInput}
               onChange={(e) => setBuscaInput(e.target.value)}

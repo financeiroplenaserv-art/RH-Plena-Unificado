@@ -15,7 +15,7 @@ import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuShell } from './CeuShell'
-import { CeuInput } from '@/components/ceu/CeuInput'
+import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
 import { mascaraTelefone } from '@/lib/utils'
@@ -78,7 +78,7 @@ export function CeuFornecedoresPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nome">Nome *</Label>
-              <CeuInput
+              <Input
                 id="nome"
                 value={editando.nome}
                 onChange={(e) => setEditando((f) => ({ ...f, nome: e.target.value }))}
@@ -87,7 +87,7 @@ export function CeuFornecedoresPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ</Label>
-              <CeuInput
+              <Input
                 id="cnpj"
                 value={editando.cnpj}
                 onChange={(e) => setEditando((f) => ({ ...f, cnpj: e.target.value }))}
@@ -98,7 +98,7 @@ export function CeuFornecedoresPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="telefone">Telefone</Label>
-              <CeuInput
+              <Input
                 id="telefone"
                 value={mascaraTelefone(editando.telefone)}
                 onChange={(e) => setEditando((f) => ({ ...f, telefone: mascaraTelefone(e.target.value) }))}
@@ -107,7 +107,7 @@ export function CeuFornecedoresPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
-              <CeuInput
+              <Input
                 id="email"
                 type="email"
                 value={editando.email}
@@ -135,7 +135,7 @@ export function CeuFornecedoresPage() {
       <ModuleCard title={`Lista de fornecedores (${fornecedores.length})`} icon={<Search className="w-4 h-4" />}>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-          <CeuInput
+          <Input
             placeholder="Buscar por nome ou CNPJ..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}

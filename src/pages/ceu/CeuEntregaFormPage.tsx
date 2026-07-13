@@ -16,7 +16,7 @@ import { useCEUItens } from '@/hooks/useCEUItens'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { Input } from '@/components/ui/input'
 import { CeuShell } from './CeuShell'
-import { CeuInput } from '@/components/ceu/CeuInput'
+import { Input } from '@/components/ui/input'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import type { Colaborador, ItemCEU, EntregaCEU } from '@/types/database'
@@ -541,7 +541,7 @@ export function CeuEntregaFormPage() {
                           </div>
                           <div>
                             <p className="text-xs text-slate-500">Quantidade</p>
-                            <CeuInput
+                            <Input
                               type="number"
                               min={1}
                               disabled={!selecionado}
@@ -626,7 +626,7 @@ export function CeuEntregaFormPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="data_entrega">Data da entrega *</Label>
-                  <CeuInput
+                  <Input
                     id="data_entrega"
                     type="date"
                     value={dataEntrega}
@@ -638,7 +638,7 @@ export function CeuEntregaFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="observacao">Observação</Label>
-                  <CeuInput
+                  <Input
                     id="observacao"
                     value={observacao}
                     onChange={(e) => setObservacao(e.target.value)}

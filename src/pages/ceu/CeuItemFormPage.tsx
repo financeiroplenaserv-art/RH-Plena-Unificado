@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
-import { CeuInput } from '@/components/ceu/CeuInput'
+import { Input } from '@/components/ui/input'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
@@ -191,7 +191,7 @@ export function CeuItemFormPage() {
               {/* Linha 3: Nome */}
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome *</Label>
-                <CeuInput
+                <Input
                   id="nome"
                   value={form.nome}
                   onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
@@ -203,7 +203,7 @@ export function CeuItemFormPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="codigo">Código</Label>
-                  <CeuInput
+                  <Input
                     id="codigo"
                     value={form.codigo}
                     onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
@@ -212,7 +212,7 @@ export function CeuItemFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="valor">Valor unitário (R$)</Label>
-                  <CeuInput
+                  <Input
                     id="valor"
                     type="number"
                     min={0}
@@ -249,7 +249,7 @@ export function CeuItemFormPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="unidade">Unidade</Label>
-                  <CeuInput
+                  <Input
                     id="unidade"
                     value={form.unidade}
                     onChange={(e) => setForm((f) => ({ ...f, unidade: e.target.value }))}
@@ -258,7 +258,7 @@ export function CeuItemFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ultima_compra">Última compra</Label>
-                  <CeuInput
+                  <Input
                     id="ultima_compra"
                     type="date"
                     value={form.ultima_compra}
@@ -286,7 +286,7 @@ export function CeuItemFormPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="estoque">Estoque atual</Label>
-                  <CeuInput
+                  <Input
                     id="estoque"
                     type="number"
                     min={0}
@@ -296,7 +296,7 @@ export function CeuItemFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="estoque_minimo">Estoque mínimo</Label>
-                  <CeuInput
+                  <Input
                     id="estoque_minimo"
                     type="number"
                     min={0}
@@ -306,7 +306,7 @@ export function CeuItemFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="prazo_uso_dias">Prazo de uso (dias)</Label>
-                  <CeuInput
+                  <Input
                     id="prazo_uso_dias"
                     type="number"
                     min={0}
@@ -322,7 +322,7 @@ export function CeuItemFormPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="ca">Certificado de Aprovação (CA)</Label>
-                    <CeuInput
+                    <Input
                       id="ca"
                       value={form.ca}
                       onChange={(e) => setForm((f) => ({ ...f, ca: e.target.value }))}
@@ -331,7 +331,7 @@ export function CeuItemFormPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="validade">Validade do CA</Label>
-                    <CeuInput
+                    <Input
                       id="validade"
                       type="date"
                       value={form.validade}

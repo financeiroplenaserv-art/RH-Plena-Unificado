@@ -28,7 +28,7 @@ import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { supabase } from '@/lib/supabase'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuInput } from '@/components/ceu/CeuInput'
+import { Input } from '@/components/ui/input'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import type { Colaborador } from '@/types/database'
 import * as XLSX from '@e965/xlsx'
@@ -691,7 +691,7 @@ export function CeuRelatoriosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data_inicio">Data inicial</Label>
-              <CeuInput
+              <Input
                 id="data_inicio"
                 type="date"
                 value={inputDataInicio}
@@ -700,7 +700,7 @@ export function CeuRelatoriosPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="data_fim">Data final</Label>
-              <CeuInput
+              <Input
                 id="data_fim"
                 type="date"
                 value={inputDataFim}

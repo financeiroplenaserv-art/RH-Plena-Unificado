@@ -25,7 +25,7 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuInput } from '@/components/ceu/CeuInput'
+import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
 import { formatarData } from '@/lib/utils'
@@ -373,7 +373,7 @@ export function CeuMovimentacoesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <CeuInput
+              <Input
                 placeholder="Colaborador ou matrícula..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
@@ -381,13 +381,13 @@ export function CeuMovimentacoesPage() {
                 className="pl-10"
               />
             </div>
-            <CeuInput
+            <Input
               type="date"
               value={filtroDataInicio}
               onChange={(e) => setFiltroDataInicio(e.target.value)}
               placeholder="Data inicial"
             />
-            <CeuInput
+            <Input
               type="date"
               value={filtroDataFim}
               onChange={(e) => setFiltroDataFim(e.target.value)}
@@ -552,7 +552,7 @@ export function CeuMovimentacoesPage() {
 
       <CeuDialog open={!!devolverId} onOpenChange={(open) => !open && setDevolverId(null)} title="Registrar devolução" description="Informe a data de devolução do item.">
         <div className="bg-white rounded-lg">
-          <CeuInput type="date" value={dataDevolucao} onChange={(e) => setDataDevolucao(e.target.value)} />
+          <Input type="date" value={dataDevolucao} onChange={(e) => setDataDevolucao(e.target.value)} />
           <div className="flex justify-end gap-2 mt-4">
             <ModuleButton variant="outline" size="sm" onClick={() => setDevolverId(null)}>Cancelar</ModuleButton>
             <ModuleButton size="sm" onClick={() => devolverId && handleDevolver(devolverId)}>Confirmar</ModuleButton>
@@ -578,11 +578,11 @@ export function CeuMovimentacoesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Data início</label>
-                <CeuInput type="date" value={dataInicioLote} onChange={(e) => setDataInicioLote(e.target.value)} />
+                <Input type="date" value={dataInicioLote} onChange={(e) => setDataInicioLote(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Data fim</label>
-                <CeuInput type="date" value={dataFimLote} onChange={(e) => setDataFimLote(e.target.value)} />
+                <Input type="date" value={dataFimLote} onChange={(e) => setDataFimLote(e.target.value)} />
               </div>
             </div>
             <div className="flex justify-end gap-2">
