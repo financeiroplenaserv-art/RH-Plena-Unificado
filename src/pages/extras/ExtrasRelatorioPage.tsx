@@ -13,6 +13,7 @@ import {
 import { useExtras } from '@/hooks/useExtras'
 
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleCard } from '@/components/layout/ModuleShell'
 
 function formatarDataBR(data: string | null) {
   if (!data) return '—'

@@ -17,6 +17,7 @@ import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo } from '@/types/extras'

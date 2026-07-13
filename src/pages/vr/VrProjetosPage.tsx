@@ -23,7 +23,7 @@ import { formatarData } from '@/lib/utils'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/PageHeader'
 import { VrShell } from './VrShell'
-
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 
 import { toast } from 'sonner'
 import type { ProjetoVR } from '@/types'
