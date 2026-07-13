@@ -7,7 +7,8 @@ import {
   Tags,
   Smartphone,
 } from 'lucide-react'
-import { ModuleShell, ModuleTab } from '@/components/layout/ModuleShell'
+import { ModuleShell } from '@/components/layout/ModuleShell'
+import type { ModuleTab } from '@/components/layout/ModuleShell'
 
 const TABS: ModuleTab[] = [
   { path: '/extras/lancamentos', label: 'Lançamentos', icon: List },

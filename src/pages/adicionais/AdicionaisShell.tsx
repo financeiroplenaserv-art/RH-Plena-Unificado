@@ -1,5 +1,6 @@
 import { FileText, CalendarDays, Link2, Upload, ClipboardList } from 'lucide-react'
-import { ModuleShell, ModuleTab } from '@/components/layout/ModuleShell'
+import { ModuleShell } from '@/components/layout/ModuleShell'
+import type { ModuleTab } from '@/components/layout/ModuleShell'
 
 const TABS: ModuleTab[] = [
   { path: '/adicionais/contratos', label: 'Contratos', icon: FileText },
