@@ -55,7 +55,10 @@ O componente `ModuleShell` foi separado como WIP porque o usuário pediu para de
 
 ### Rodar a importação do Excel
 
-Assim que for possível, execute no terminal:
+**Tentativa feita nesta sessão:** o script foi executado, mas o notebook travou por falta de memória (`out of memory`) ao iniciar o processamento do Excel. Portanto, **a importação ainda não foi feita no banco**.
+
+#### Opção 1 — Rodar em outro computador
+Copie a pasta do projeto (ou pelo menos o arquivo `public/EPIS e Uniformes para CORH.xlsx` e o script `scripts/importar-itens-ceu.ts`) para uma máquina com mais memória e rode:
 
 ```bash
 npx tsx --tsconfig tsconfig.scripts.json scripts/importar-itens-ceu.ts
@@ -72,6 +75,14 @@ npx tsx --tsconfig tsconfig.scripts.json scripts/importar-itens-ceu.ts
 - Buscar itens existentes no banco pelo `codigo`
 - Atualizar quem já existe, inserir quem não existe
 - Mostrar no final: quantos foram criados, atualizados e quantos deram erro
+
+#### Opção 2 — Importar pelo Supabase diretamente
+1. Converter o Excel para CSV
+2. No SQL Editor do Supabase, usar `COPY` ou importar via interface de Storage/Tables
+3. Fazer o merge dos dados na tabela `itens` usando o campo `codigo`
+
+#### Opção 3 — Esperar e tentar depois
+Se o notebook estiver com poucos programas abertos, pode ser que consiga rodar. Mas na sessão atual não foi possível.
 
 ---
 
