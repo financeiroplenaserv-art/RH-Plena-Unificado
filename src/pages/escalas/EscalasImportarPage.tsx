@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks/useEscalasDiario'
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
@@ -8,6 +6,8 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { parseExcelFlit, type BatidaFlit } from '@/lib/escalas/importarFlit'
 import { Upload, AlertCircle } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { EscalasShell } from './EscalasShell'
 
 export function EscalasImportarPage() {
   const { importando, importarExcelFlit } = useEscalasDiario()
@@ -54,14 +54,11 @@ export function EscalasImportarPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <PageHeader backTo="/escalas" title="Importar Excel do Flit" description="Importe marcações do Flit para local de trabalho diário" />
+    <EscalasShell>
+      <PageHeader backTo="/" title="Importar Excel do Flit" description="Importe marcações do Flit para local de trabalho diário" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Selecione a competência e o arquivo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <ModuleCard>
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Ano</Label>
@@ -113,23 +110,18 @@ export function EscalasImportarPage() {
             </div>
           )}
 
-          <Button
+          <ModuleButton
             onClick={handleImportar}
             disabled={!arquivo || importando || !!erroPreview}
-            className="flex items-center gap-2"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-4 w-4 mr-2" />
             {importando ? 'Importando...' : 'Importar para o CORH'}
-          </Button>
-        </CardContent>
-      </Card>
+          </ModuleButton>
+        </div>
+      </ModuleCard>
 
       {preview && preview.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pré-visualização (primeiras linhas)</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ModuleCard title="Pré-visualização (primeiras linhas)">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -156,16 +148,11 @@ export function EscalasImportarPage() {
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
+        </ModuleCard>
       )}
 
       {resumo && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Resumo da importação</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <ModuleCard title="Resumo da importação">
             <p><strong>{resumo.sucesso}</strong> dia(s) importado(s)</p>
             <p><strong>{resumo.identificados}</strong> identificado(s) automaticamente</p>
             <p><strong>{resumo.pendentes}</strong> dia(s) não identificado(s)</p>
@@ -182,9 +169,8 @@ export function EscalasImportarPage() {
                 </ul>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </ModuleCard>
       )}
-    </div>
+    </EscalasShell>
   )
 }

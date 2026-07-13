@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { MapeamentoFlitLocalTrabalho } from '@/types/database'
 import { Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { EscalasShell } from './EscalasShell'
 
 const TIPOS_MATCH: { value: MapeamentoFlitLocalTrabalho['tipo_match']; label: string }[] = [
   { value: 'dispositivo', label: 'Dispositivo (Flit Multi)' },
@@ -42,14 +42,10 @@ export function EscalasMapeamentoPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <PageHeader backTo="/escalas" title="Mapeamento Flit ↔ Local" description="Relacione dispositivos, perímetros e departamentos aos locais de trabalho" />
+    <EscalasShell>
+      <PageHeader backTo="/" title="Mapeamento Flit ↔ Local" description="Relacione dispositivos, perímetros e departamentos aos locais de trabalho" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Novo mapeamento</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title="Novo mapeamento">
           <form onSubmit={handleCriar} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
               <Label>Local de Trabalho</Label>
@@ -89,19 +85,14 @@ export function EscalasMapeamentoPage() {
                 placeholder="Ex: MATIZES"
               />
             </div>
-            <Button type="submit" disabled={!localId || !valor.trim()} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
+            <ModuleButton type="submit" disabled={!localId || !valor.trim()}>
+              <Plus className="h-4 w-4 mr-2" />
               Adicionar
-            </Button>
+            </ModuleButton>
           </form>
-        </CardContent>
-      </Card>
+      </ModuleCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Mapeamentos cadastrados</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title="Mapeamentos cadastrados">
           {loading ? (
             <p className="text-slate-500">Carregando...</p>
           ) : mapeamentos.length === 0 ? (
@@ -118,15 +109,14 @@ export function EscalasMapeamentoPage() {
                       {TIPOS_MATCH.find((t) => t.value === m.tipo_match)?.label} → "{m.valor_flit}"
                     </p>
                   </div>
-                  <Button size="sm" variant="destructive" onClick={() => remover(m.id)}>
+                  <ModuleButton size="sm" variant="danger" onClick={() => remover(m.id)}>
                     <Trash2 className="h-4 w-4" />
-                  </Button>
+                  </ModuleButton>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+      </ModuleCard>
+    </EscalasShell>
   )
 }

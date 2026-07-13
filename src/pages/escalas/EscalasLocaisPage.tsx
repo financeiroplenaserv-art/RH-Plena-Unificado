@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { LocalTrabalho } from '@/types/database'
 import { Plus, Trash2, Building2 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { EscalasShell } from './EscalasShell'
 
 export function EscalasLocaisPage() {
   const { locais, loading, listar, criar, atualizar, remover, importarDeDepartamentos } = useEscalasLocais()
@@ -39,24 +39,19 @@ export function EscalasLocaisPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <PageHeader backTo="/escalas" title="Locais de Trabalho" description="Cadastro de postos e locais vinculados aos colaboradores">
-        <Button
+    <EscalasShell>
+      <PageHeader backTo="/" title="Locais de Trabalho" description="Cadastro de postos e locais vinculados aos colaboradores">
+        <ModuleButton
           variant="outline"
           onClick={handleImportar}
           disabled={importando || loading}
-          className="flex items-center gap-2"
         >
-          <Building2 className="h-4 w-4" />
+          <Building2 className="h-4 w-4 mr-2" />
           {importando ? 'Importando...' : 'Importar de Departamentos'}
-        </Button>
+        </ModuleButton>
       </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Novo Local de Trabalho</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title="Novo Local de Trabalho">
           <form onSubmit={handleCriar} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
               <Label htmlFor="nome">Nome</Label>
@@ -76,19 +71,14 @@ export function EscalasLocaisPage() {
                 placeholder="Ex: Matizes"
               />
             </div>
-            <Button type="submit" disabled={!novoNome.trim()} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
+            <ModuleButton type="submit" disabled={!novoNome.trim()}>
+              <Plus className="h-4 w-4 mr-2" />
               Adicionar
-            </Button>
+            </ModuleButton>
           </form>
-        </CardContent>
-      </Card>
+      </ModuleCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Locais cadastrados</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title="Locais cadastrados">
           {loading ? (
             <p className="text-slate-500">Carregando...</p>
           ) : locais.length === 0 ? (
@@ -117,7 +107,7 @@ export function EscalasLocaisPage() {
                   <div className="flex items-center gap-2">
                     {editando?.id === local.id ? (
                       <>
-                        <Button
+                        <ModuleButton
                           size="sm"
                           onClick={() => {
                             atualizar(local.id, {
@@ -128,19 +118,19 @@ export function EscalasLocaisPage() {
                           }}
                         >
                           Salvar
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => setEditando(null)}>
+                        </ModuleButton>
+                        <ModuleButton size="sm" variant="outline" onClick={() => setEditando(null)}>
                           Cancelar
-                        </Button>
+                        </ModuleButton>
                       </>
                     ) : (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => setEditando(local)}>
+                        <ModuleButton size="sm" variant="outline" onClick={() => setEditando(local)}>
                           Editar
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => remover(local.id)}>
+                        </ModuleButton>
+                        <ModuleButton size="sm" variant="danger" onClick={() => remover(local.id)}>
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </ModuleButton>
                       </>
                     )}
                   </div>
@@ -148,8 +138,7 @@ export function EscalasLocaisPage() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+      </ModuleCard>
+    </EscalasShell>
   )
 }

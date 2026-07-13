@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import type { LocalTrabalhoDiario, MapeamentoFlitLocalTrabalho } from '@/types/database'
 import { MapPin, CheckSquare, AlertCircle, Search, Plus, Trash2, Upload, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
+import { EscalasShell } from './EscalasShell'
 
 const FONTES_INFO: Record<LocalTrabalhoDiario['fonte'], { label: string; cor: string }> = {
   dispositivo: { label: 'Dispositivo fixo', cor: 'bg-green-100 text-green-800 border-green-200' },
@@ -860,7 +861,7 @@ export function EscalasPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <EscalasShell>
       <PageHeader title="Escalas" backTo="/" onBack={handleBack} />
 
       <Tabs value={abaAtiva} onValueChange={(v) => setAbaAtiva(v as AbaEscalas)} className="w-full">
@@ -875,6 +876,6 @@ export function EscalasPage() {
         <TabsContent value="mapeamento" className="mt-6"><AbaEscalasMapeamento /></TabsContent>
         <TabsContent value="importar" className="mt-6"><AbaEscalasImportar /></TabsContent>
       </Tabs>
-    </div>
+    </EscalasShell>
   )
 }

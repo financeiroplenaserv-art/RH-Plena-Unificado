@@ -28,6 +28,7 @@ import {
   Building2,
 } from 'lucide-react'
 import type { Colaborador } from '@/types/database'
+import { RhShell } from './RhShell'
 
 interface TipoOcorrencia {
   tipo: string
@@ -627,7 +628,7 @@ export function OcorrenciaFormPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
+    <RhShell>
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => navigate('/rh/ocorrencias')} className="gap-1 h-8">
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -957,6 +958,6 @@ export function OcorrenciaFormPage() {
           </Button>
         </div>
       </form>
-    </div>
+    </RhShell>
   )
 }

@@ -33,6 +33,8 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { Paginacao } from '@/components/Paginacao'
+import { ModuleButton } from '@/components/layout/ModuleShell'
+import { RhShell } from './RhShell'
 import { useOcorrencias } from '@/hooks/useOcorrencias'
 import { useAuth } from '@/hooks/useAuth'
 import { formatarData } from '@/lib/utils'
@@ -137,19 +139,16 @@ export function OcorrenciasPage() {
   const pendentesCount = ocorrencias.filter((o) => o.status === 'Pendente').length
 
   return (
-    <div className="min-h-full bg-[#F8FAFC] space-y-6">
+    <RhShell>
       <PageHeader
         backTo="/"
         title="Ocorrências"
         description={`${paginacao?.total ?? ocorrencias.length} registros${pendentesCount > 0 ? ` (${pendentesCount} pendentes)` : ''}`}
       >
         {podeCriar && (
-          <Button
-            onClick={() => navigate('/rh/ocorrencias/novo')}
-            className="gap-2 bg-[#1F2937] hover:bg-slate-800"
-          >
-            <Plus className="h-4 w-4" /> Nova Ocorrência
-          </Button>
+          <ModuleButton onClick={() => navigate('/rh/ocorrencias/novo')}>
+            <Plus className="h-4 w-4 mr-2" /> Nova Ocorrência
+          </ModuleButton>
         )}
       </PageHeader>
 
@@ -400,15 +399,15 @@ export function OcorrenciasPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white" onClick={() => setOcorrenciaParaExcluir(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setOcorrenciaParaExcluir(null)}>
               Cancelar
-            </Button>
-            <Button size="sm" className="bg-[#1F2937] hover:bg-slate-800 text-white" onClick={() => ocorrenciaParaExcluir && handleDelete(ocorrenciaParaExcluir)}>
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={() => ocorrenciaParaExcluir && handleDelete(ocorrenciaParaExcluir)}>
               Excluir
-            </Button>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </RhShell>
   )
 }

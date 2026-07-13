@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAlertas } from '@/hooks/useAlertas'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,6 +9,8 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/PageHeader'
 import { podeGerenciarAlertas } from '@/lib/permissoes'
 import type { Alerta } from '@/types/database'
+import { ModuleButton } from '@/components/layout/ModuleShell'
+import { RhShell } from './RhShell'
 import {
   Bell,
   AlertTriangle,
@@ -108,7 +109,7 @@ export function AlertasPage() {
   const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('pt-BR') : '')
 
   return (
-    <div className="space-y-4">
+    <RhShell>
       <PageHeader backTo="/" title="Alertas" description="Alertas automáticos de conformidade legal">
         {stats.criticos > 0 && (
           <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-medium">
@@ -116,15 +117,14 @@ export function AlertasPage() {
           </span>
         )}
         {podeGerenciar && (
-          <Button
+          <ModuleButton
             size="sm"
             onClick={handleGerarAlertas}
             disabled={gerando}
-            className="gap-1.5 text-xs bg-amber-600 hover:bg-amber-700"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${gerando ? 'animate-spin' : ''}`} />{' '}
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${gerando ? 'animate-spin' : ''}`} />
             {gerando ? 'Analisando...' : 'Verificar Alertas'}
-          </Button>
+          </ModuleButton>
         )}
       </PageHeader>
 
@@ -144,30 +144,27 @@ export function AlertasPage() {
 
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex gap-1.5">
-          <Button
-            variant={filtroStatus === 'ativo' ? 'default' : 'outline'}
+          <ModuleButton
+            variant={filtroStatus === 'ativo' ? 'primary' : 'outline'}
             onClick={() => setFiltroStatus('ativo')}
             size="sm"
-            className="text-xs h-8"
           >
             Ativos
-          </Button>
-          <Button
-            variant={filtroStatus === 'lido' ? 'default' : 'outline'}
+          </ModuleButton>
+          <ModuleButton
+            variant={filtroStatus === 'lido' ? 'primary' : 'outline'}
             onClick={() => setFiltroStatus('lido')}
             size="sm"
-            className="text-xs h-8"
           >
             Lidos
-          </Button>
-          <Button
-            variant={filtroStatus === '' ? 'default' : 'outline'}
+          </ModuleButton>
+          <ModuleButton
+            variant={filtroStatus === '' ? 'primary' : 'outline'}
             onClick={() => setFiltroStatus('')}
             size="sm"
-            className="text-xs h-8"
           >
             Todos
-          </Button>
+          </ModuleButton>
         </div>
         <Select value={filtroSeveridade} onValueChange={setFiltroSeveridade}>
           <SelectTrigger className="h-8 text-xs w-full sm:w-44">
@@ -224,40 +221,38 @@ export function AlertasPage() {
                       <h4 className={`text-sm font-medium ${cor.text}`}>{a.titulo}</h4>
                       <p className="text-xs text-slate-600 mt-1">{a.descricao}</p>
                       {a.colaborador && (
-                        <Button
-                          variant="link"
-                          size="sm"
+                        <button
                           onClick={() =>
                             a.colaborador_id && navigate(`/rh/colaboradores/${a.colaborador_id}`)
                           }
-                          className="text-xs text-blue-600 h-auto p-0 mt-1"
+                          className="text-xs text-blue-600 hover:underline h-auto p-0 mt-1 text-left"
                         >
                           Ver colaborador: {a.colaborador.nome_completo} ({a.colaborador.matricula})
-                        </Button>
+                        </button>
                       )}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       {a.status === 'ativo' && podeGerenciar && (
-                        <Button
+                        <ModuleButton
                           variant="ghost"
-                          size="sm"
+                          size="icon"
                           onClick={() => marcarComoLido(a.id)}
-                          className="text-slate-400 hover:text-emerald-600 h-7 w-7 p-0"
+                          className="text-slate-400 hover:text-emerald-600 h-7 w-7"
                           title="Marcar como lido"
                         >
                           <CheckCircle className="h-4 w-4" />
-                        </Button>
+                        </ModuleButton>
                       )}
                       {podeGerenciar && (
-                      <Button
+                      <ModuleButton
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => arquivar(a.id)}
-                        className="text-slate-400 hover:text-slate-600 h-7 w-7 p-0"
+                        className="text-slate-400 hover:text-slate-600 h-7 w-7"
                         title="Arquivar"
                       >
                         <Archive className="h-4 w-4" />
-                      </Button>
+                      </ModuleButton>
                       )}
                     </div>
                   </div>
@@ -293,6 +288,6 @@ export function AlertasPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </RhShell>
   )
 }

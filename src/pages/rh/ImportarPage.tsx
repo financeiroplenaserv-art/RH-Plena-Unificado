@@ -2,8 +2,6 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { parseExcelColaboradores } from '@/lib/importar'
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -17,6 +15,8 @@ import { PageHeader } from '@/components/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { toast } from 'sonner'
 import type { Colaborador } from '@/types/database'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { RhShell } from './RhShell'
 
 export function ImportarPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -87,11 +87,11 @@ export function ImportarPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <PageHeader backTo="/rh" title="Importar RH" description="Importe dados de colaboradores via arquivo Excel" />
+    <RhShell>
+      <PageHeader backTo="/" title="Importar RH" description="Importe dados de colaboradores via arquivo Excel" />
 
-      <Card>
-        <CardContent className="pt-6">
+      <ModuleCard>
+        <div className="pt-2">
           {!file ? (
             <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition-all">
               <Upload className="h-10 w-10 text-slate-400 mb-3" />
@@ -109,32 +109,25 @@ export function ImportarPage() {
                     <p className="text-sm text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={clearFile} className="text-red-600">
+                <ModuleButton variant="ghost" size="icon" onClick={clearFile} className="text-red-600">
                   <X className="h-4 w-4" />
-                </Button>
+                </ModuleButton>
               </div>
 
               {importing ? (
                 <LoadingScreen mensagem={`Importando... ${imported} registros`} className="py-4" />
               ) : (
-                <Button onClick={handleImport} className="w-full gap-2 bg-green-600 hover:bg-green-700">
-                  <CheckCircle className="h-4 w-4" /> Iniciar Importação
-                </Button>
+                <ModuleButton onClick={handleImport} className="w-full">
+                  <CheckCircle className="h-4 w-4 mr-2" /> Iniciar Importação
+                </ModuleButton>
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </ModuleCard>
 
       {preview.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              Pré-visualização (primeiros {preview.length} registros)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ModuleCard title={`Pré-visualização (primeiros ${preview.length} registros)`} icon={<AlertTriangle className="h-4 w-4 text-orange-500" />}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -159,15 +152,10 @@ export function ImportarPage() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+      </ModuleCard>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Colunas Suportadas</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <ModuleCard title="Colunas Suportadas">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
             {[
               'matricula',
@@ -197,8 +185,7 @@ export function ImportarPage() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+      </ModuleCard>
+    </RhShell>
   )
 }

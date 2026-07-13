@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,6 +19,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { podeGerenciarModelosOcorrencia } from '@/lib/permissoes'
 import type { ModeloOcorrencia } from '@/types/database'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
+import { RhShell } from './RhShell'
 
 const MODELOS_PADRAO = [
   { nome: 'Atraso - 1ª Ocorrência', tipo: 'Advertência Verbal' },
@@ -155,25 +156,20 @@ export function ModelosPage() {
   })
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <PageHeader backTo="/rh" title="Modelos de Ocorrência" description={`${modelos.length} modelos cadastrados`}>
+    <RhShell>
+      <PageHeader backTo="/" title="Modelos de Ocorrência" description={`${modelos.length} modelos cadastrados`}>
         {podeGerenciar && (
-          <Button
+          <ModuleButton
             onClick={cadastrarPadroes}
             size="sm"
-            className="text-xs bg-slate-900 hover:bg-slate-800"
           >
             Cadastrar 46 Padrões
-          </Button>
+          </ModuleButton>
         )}
       </PageHeader>
 
       {podeGerenciar && (
-      <Card className="border-slate-100">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Adicionar Novo Modelo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <ModuleCard title="Adicionar Novo Modelo">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Nome</Label>
@@ -203,11 +199,10 @@ export function ModelosPage() {
               placeholder="Texto que aparece ao selecionar este modelo..."
             />
           </div>
-          <Button onClick={adicionar} size="sm" className="text-xs h-8">
+          <ModuleButton onClick={adicionar} size="sm">
             <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
-          </Button>
-        </CardContent>
-      </Card>
+          </ModuleButton>
+      </ModuleCard>
       )}
 
       {loading ? (
@@ -229,14 +224,14 @@ export function ModelosPage() {
                   >
                     <span className="text-sm text-slate-700">{m.nome}</span>
                     {podeGerenciar && (
-                      <Button
+                      <ModuleButton
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => setRemoverId(m.id)}
-                        className="text-slate-300 hover:text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="text-slate-300 hover:text-red-500 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Trash2 className="h-3 w-3" />
-                      </Button>
+                      </ModuleButton>
                     )}
                   </div>
                 ))}
@@ -255,15 +250,15 @@ export function ModelosPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setRemoverId(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
               Cancelar
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => removerId && deletar(removerId)}>
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={() => removerId && deletar(removerId)}>
               Excluir
-            </Button>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </RhShell>
   )
 }
