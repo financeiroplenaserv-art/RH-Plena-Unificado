@@ -77,6 +77,16 @@ export function ColaboradoresPage() {
     }, { pagina: 0, tamanho: 50 })
   }
 
+  const limparFiltros = () => {
+    setBusca('')
+    setFiltroStatus('Ativo')
+    setFiltroDepartamento('todos')
+    setFiltroCargo('todos')
+    setFiltroEmpresa('todos')
+    setPagina(0)
+    listarPaginado({ status: 'Ativo' }, { pagina: 0, tamanho: 50 })
+  }
+
   const colaboradoresFiltrados = colaboradores
 
   const iniciais = (nome: string) => {
@@ -210,13 +220,23 @@ export function ColaboradoresPage() {
             </Select>
           </div>
 
-          <div className="flex justify-end pt-3 border-t border-[#E2E8F0]">
+          <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
+            <Button
+              onClick={limparFiltros}
+              disabled={loading}
+              variant="outline"
+              className="border-[#E2E8F0] text-[#1F2937] hover:bg-slate-50 rounded-[8px]"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Limpar
+            </Button>
             <Button
               onClick={aplicarFiltros}
               disabled={loading}
               className="bg-[#1F2937] hover:bg-slate-800 text-white rounded-[8px]"
             >
-              Aplicar
+              <Search className="w-4 h-4 mr-2" />
+              Filtrar
             </Button>
           </div>
         </CardContent>
