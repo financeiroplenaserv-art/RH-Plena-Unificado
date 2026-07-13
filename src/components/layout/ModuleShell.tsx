@@ -23,7 +23,7 @@ export function ModuleShell({ children, tabs, className }: ModuleShellProps) {
       className={cn('min-h-full p-4 md:p-5', className)}
       style={{ backgroundColor: 'var(--bg-page)' }}
     >
-      <div className="max-w-7xl mx-auto space-y-5">
+      <div className="max-w-7xl mx-auto space-y-4">
         {tabs && tabs.length > 0 && (
           <div className="flex flex-wrap gap-1 border-b pb-2" style={{ borderColor: 'var(--border-color)' }}>
             {tabs.map((tab) => {
