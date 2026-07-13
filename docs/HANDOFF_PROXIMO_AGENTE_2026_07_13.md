@@ -1,7 +1,7 @@
 # Handoff para o Próximo Agente — 13/07/2026
 
 > Último trabalho: importação de itens de EPI e uniforme para o módulo CEU
-> Estado: migration aplicada; importação do Excel ainda não foi executada
+> Estado: ✅ migration aplicada e importação do Excel concluída com sucesso
 > Ambiente: notebook com pouca memória — evitar testes/build pesados
 
 ---
@@ -51,38 +51,31 @@ O componente `ModuleShell` foi separado como WIP porque o usuário pediu para de
 
 ---
 
-## 🎯 Próximo passo pendente
+## ✅ Importação concluída
 
-### Rodar a importação do Excel
+A importação do Excel foi executada com sucesso nesta sessão.
 
-**Tentativa feita nesta sessão:** o script foi executado, mas o notebook travou por falta de memória (`out of memory`) ao iniciar o processamento do Excel. Portanto, **a importação ainda não foi feita no banco**.
+- **Script usado:** `scripts/importar-itens-ceu.mjs` (versão leve em JavaScript puro)
+- **Comando:**
+  ```bash
+  NODE_OPTIONS=--max-old-space-size=1024 node scripts/importar-itens-ceu.mjs
+  ```
+- **Resultado:**
+  - Criados: **132**
+  - Atualizados: **0**
+  - Erros: **0**
 
-#### Opção 1 — Rodar em outro computador
-Copie a pasta do projeto (ou pelo menos o arquivo `public/EPIS e Uniformes para CORH.xlsx` e o script `scripts/importar-itens-ceu.ts`) para uma máquina com mais memória e rode:
+> Nota: o script `.ts` (`scripts/importar-itens-ceu.ts`) continua no projeto, mas a versão `.mjs` foi criada porque o notebook não tinha memória suficiente para rodar o `tsx`.
 
-```bash
-npx tsx --tsconfig tsconfig.scripts.json scripts/importar-itens-ceu.ts
-```
+---
 
-**Requisitos:**
-- Variáveis no `.env`:
-  - `VITE_SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY` (preferencial) ou `VITE_SUPABASE_ANON_KEY`
-- Arquivo `public/EPIS e Uniformes para CORH.xlsx` presente (já está no projeto)
+## 🎯 Próximos passos sugeridos
 
-**O que o script vai fazer:**
-- Ler cada linha da planilha
-- Buscar itens existentes no banco pelo `codigo`
-- Atualizar quem já existe, inserir quem não existe
-- Mostrar no final: quantos foram criados, atualizados e quantos deram erro
-
-#### Opção 2 — Importar pelo Supabase diretamente
-1. Converter o Excel para CSV
-2. No SQL Editor do Supabase, usar `COPY` ou importar via interface de Storage/Tables
-3. Fazer o merge dos dados na tabela `itens` usando o campo `codigo`
-
-#### Opção 3 — Esperar e tentar depois
-Se o notebook estiver com poucos programas abertos, pode ser que consiga rodar. Mas na sessão atual não foi possível.
+1. **Verificar no sistema** se os itens aparecem na tela `/ceu/itens`
+2. **Adicionar os novos campos na listagem** (`CeuItensPage.tsx`) para mostrar unidade, última compra e situação
+3. **ModuleShell** (`src/components/layout/ModuleShell.tsx`) — deixado como trabalho futuro
+4. **Rodar `npm run lint`** quando o notebook tiver memória disponível
+5. **Não rodar `npm run build` nem `npm test`** no notebook com pouca memória
 
 ---
 
