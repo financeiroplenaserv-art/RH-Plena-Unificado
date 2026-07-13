@@ -24,7 +24,6 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { podeEditarExtra } from '@/lib/permissoes'
 import type { StatusExtra, CategoriaOcorrencia } from '@/types/extras'
 

@@ -27,7 +27,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { AssinaturaCanvas, type AssinaturaCanvasRef } from '@/components/extras/AssinaturaCanvas'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/PageHeader'
 import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
 import {
