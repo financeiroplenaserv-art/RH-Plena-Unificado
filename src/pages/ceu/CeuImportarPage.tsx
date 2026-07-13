@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, Download } from 'lucide-react'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
-import { CeuPageWrapper } from './CeuPageWrapper'
+import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -203,7 +203,7 @@ export function CeuImportarPage() {
   }
 
   return (
-    <CeuPageWrapper>
+    <CeuShell>
       <div className="space-y-6 max-w-5xl mx-auto">
         <PageHeader backTo="/ceu/dashboard" title="Importar CEU" description="Importe itens ou fornecedores via CSV/Excel" />
 
@@ -323,6 +323,6 @@ export function CeuImportarPage() {
           </CeuCard>
         )}
       </div>
-    </CeuPageWrapper>
+    </CeuShell>
   )
 }

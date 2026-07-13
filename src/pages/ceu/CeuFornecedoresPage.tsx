@@ -13,7 +13,7 @@ import {
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuPageWrapper } from './CeuPageWrapper'
+import { CeuShell } from './CeuShell'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
@@ -68,7 +68,7 @@ export function CeuFornecedoresPage() {
   }
 
   return (
-    <CeuPageWrapper>
+    <CeuShell>
       <PageHeader backTo="/ceu/dashboard" title="Fornecedores" description="Cadastro de fornecedores de itens" />
 
       <CeuCard
@@ -231,6 +231,6 @@ export function CeuFornecedoresPage() {
           </>
         }
       />
-    </CeuPageWrapper>
+    </CeuShell>
   )
 }

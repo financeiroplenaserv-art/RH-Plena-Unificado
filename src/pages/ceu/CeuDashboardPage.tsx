@@ -14,7 +14,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuPageWrapper } from './CeuPageWrapper'
+import { CeuShell } from './CeuShell'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuKpiCard } from '@/components/ceu/CeuKpiCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -108,7 +108,7 @@ export function CeuDashboardPage() {
   const loading = loadingItens || loadingEntregas
 
   return (
-    <CeuPageWrapper>
+    <CeuShell>
       <PageHeader
         backTo="/"
         title="CEU"
@@ -294,6 +294,6 @@ export function CeuDashboardPage() {
           </div>
         </>
       )}
-    </CeuPageWrapper>
+    </CeuShell>
   )
 }

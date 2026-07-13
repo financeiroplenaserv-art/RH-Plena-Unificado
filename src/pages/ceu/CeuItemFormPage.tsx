@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CeuPage } from '@/components/ceu/CeuPage'
+import { CeuShell } from './CeuShell'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
@@ -128,7 +128,7 @@ export function CeuItemFormPage() {
   if (loading) return <LoadingScreen mensagem="Carregando item..." />
 
   return (
-    <CeuPage>
+    <CeuShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <CeuButton variant="ghost" onClick={() => navigate('/ceu/itens')}>
@@ -352,6 +352,6 @@ export function CeuItemFormPage() {
           </CeuCard>
         </form>
       </div>
-    </CeuPage>
+    </CeuShell>
   )
 }

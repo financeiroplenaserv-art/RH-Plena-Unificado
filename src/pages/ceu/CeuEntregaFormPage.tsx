@@ -14,7 +14,7 @@ import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { Input } from '@/components/ui/input'
-import { CeuPage } from '@/components/ceu/CeuPage'
+import { CeuShell } from './CeuShell'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
@@ -235,7 +235,7 @@ export function CeuEntregaFormPage() {
   }
 
   return (
-    <CeuPage>
+    <CeuShell>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <CeuButton variant="ghost" onClick={() => navigate('/ceu/movimentacoes')}>
@@ -690,6 +690,6 @@ export function CeuEntregaFormPage() {
           </CeuCard>
         )}
       </div>
-    </CeuPage>
+    </CeuShell>
   )
 }

@@ -22,7 +22,7 @@ import { useCEUItens } from '@/hooks/useCEUItens'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
-import { CeuPage } from '@/components/ceu/CeuPage'
+import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -351,7 +351,7 @@ export function CeuMovimentacoesPage() {
   }
 
   return (
-    <CeuPage>
+    <CeuShell>
       <PageHeader backTo="/ceu/dashboard" title="Movimentações" description="Registro de entregas e devoluções">
         <CeuButton variant="outline" onClick={() => setModalLote(true)}>
           <FileText className="w-4 h-4 mr-2" />
@@ -599,6 +599,6 @@ export function CeuMovimentacoesPage() {
       </CeuDialog>
 
       <CeuReciboModal isOpen={modalRecibo} onClose={() => setModalRecibo(false)} dadosEntrega={dadosRecibo} />
-    </CeuPage>
+    </CeuShell>
   )
 }

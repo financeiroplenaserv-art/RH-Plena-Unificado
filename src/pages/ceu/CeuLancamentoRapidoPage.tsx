@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CeuPageWrapper } from './CeuPageWrapper'
+import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
 import { ModuleCard } from '@/components/layout/ModuleShell'
 import { useColaboradores } from '@/hooks/useColaboradores'
@@ -246,7 +246,7 @@ export function CeuLancamentoRapidoPage() {
   }
 
   return (
-    <CeuPageWrapper>
+    <CeuShell>
       <div className="space-y-6">
         <PageHeader backTo="/ceu/movimentacoes" title="Lançamento Rápido" description="Lance entregas de EPI, Uniforme e Crachá em massa">
           <Button variant="outline" size="sm" onClick={() => adicionarLinhas(5)}>
@@ -484,7 +484,7 @@ export function CeuLancamentoRapidoPage() {
           </Button>
         </div>
       </div>
-    </CeuPageWrapper>
+    </CeuShell>
   )
 }
 

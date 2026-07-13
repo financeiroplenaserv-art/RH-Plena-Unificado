@@ -25,7 +25,7 @@ import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { supabase } from '@/lib/supabase'
-import { CeuPageWrapper } from './CeuPageWrapper'
+import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -685,7 +685,7 @@ export function CeuRelatoriosPage() {
   }
 
   return (
-    <CeuPageWrapper>
+    <CeuShell>
       <div className="space-y-6">
         <PageHeader backTo="/ceu/dashboard" title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
 
@@ -834,6 +834,6 @@ export function CeuRelatoriosPage() {
           )}
         </CeuCard>
       </div>
-    </CeuPageWrapper>
+    </CeuShell>
   )
 }

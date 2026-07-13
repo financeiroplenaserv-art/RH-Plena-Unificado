@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CeuPage } from '@/components/ceu/CeuPage'
+import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuButton } from '@/components/ceu/CeuButton'
@@ -100,7 +100,7 @@ export function CeuItensPage() {
   }
 
   return (
-    <CeuPage>
+    <CeuShell>
       <PageHeader backTo="/ceu/dashboard" title="Itens CEU" description="Crachás, uniformes, equipamentos e EPIs">
         <CeuButton onClick={() => navigate('/ceu/itens/novo')}>
           <Plus className="w-4 h-4 mr-2" />
@@ -264,6 +264,6 @@ export function CeuItensPage() {
           </>
         }
       />
-    </CeuPage>
+    </CeuShell>
   )
 }
