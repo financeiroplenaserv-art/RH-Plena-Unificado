@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
+import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { CeuPage } from '@/components/ceu/CeuPage'
@@ -103,13 +104,7 @@ export function CeuMovimentacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveFiltro, filtroItem, filtroStatus, filtroDataInicio, filtroDataFim, listarPaginado])
 
-  const departamentosUnicos = useMemo(() => {
-    const deps = new Set<string>()
-    entregas.forEach((e) => {
-      if (e.colaborador?.departamento) deps.add(e.colaborador.departamento)
-    })
-    return Array.from(deps).sort()
-  }, [entregas])
+
 
   const entregasFiltradas = entregas
 
@@ -412,17 +407,12 @@ export function CeuMovimentacoesPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filtroDepartamento} onValueChange={setFiltroDepartamento}>
-              <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
-                <SelectValue placeholder="Departamento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os departamentos</SelectItem>
-                {departamentosUnicos.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DepartamentoAutocomplete
+              value={filtroDepartamento}
+              onChange={setFiltroDepartamento}
+              mode="nome_curto"
+              placeholder="Departamento..."
+            />
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}>
               <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                 <SelectValue placeholder="Status" />

@@ -20,13 +20,14 @@ import {
 } from '@/components/ui/dialog'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
+import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { cn, formatarCPF, formatarData, mascaraTelefone } from '@/lib/utils'
 import { podeEditarColaboradorBasico } from '@/lib/permissoes'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { supabase } from '@/lib/supabase'
-import type { Colaborador, StatusColaborador, Departamento } from '@/types/database'
+import type { Colaborador, StatusColaborador } from '@/types/database'
 
 export function ColaboradoresPage() {
   const { user } = useAuth()
@@ -39,7 +40,6 @@ export function ColaboradoresPage() {
   const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
   const [filtroCargo, setFiltroCargo] = useState('todos')
   const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
-  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [cargos, setCargos] = useState<{ nome: string }[]>([])
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [colaboradorSelecionado, setColaboradorSelecionado] = useState<Colaborador | null>(null)
@@ -51,13 +51,10 @@ export function ColaboradoresPage() {
   useEffect(() => {
     listarPaginado({ status: 'Ativo' }, { pagina: 0, tamanho: 50 })
     async function carregarOpcoes() {
-      const [{ data: deptData }, { data: cargosData }, { data: empresasData }] = await Promise.all([
-        supabase.from('departamentos').select('*').order('nome_curto'),
+      const [{ data: cargosData }, { data: empresasData }] = await Promise.all([
         supabase.from('colaboradores').select('cargo').not('cargo', 'is', null),
         supabase.from('empresas').select('id, nome').order('nome'),
       ])
-
-      setDepartamentos((deptData || []) as Departamento[])
 
       const cargosUnicos = Array.from(
         new Set((cargosData || []).map((c: { cargo: string }) => c.cargo).filter(Boolean))
@@ -163,23 +160,14 @@ export function ColaboradoresPage() {
               />
             </div>
 
-            <Select value={filtroDepartamento} onValueChange={setFiltroDepartamento}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Departamento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os departamentos</SelectItem>
-                {departamentos.map((d) => {
-                  const label = d.nome_curto || d.nome
-                  return (
-                    <SelectItem key={d.id} value={d.id}>
-                      {label}
-                      {d.nome_curto ? <span className="ml-1 text-slate-400 text-xs">({d.nome})</span> : null}
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+            <DepartamentoAutocomplete
+              value={filtroDepartamento}
+              onChange={setFiltroDepartamento}
+              mode="id"
+              placeholder="Departamento"
+              className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]"
+              formatLabel={(d) => `${d.nome_curto || d.nome}${d.nome_curto && d.nome ? ` (${d.nome})` : ''}`}
+            />
 
             <Select value={filtroCargo} onValueChange={setFiltroCargo}>
               <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">

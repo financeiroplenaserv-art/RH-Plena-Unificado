@@ -81,14 +81,14 @@ export function CeuEntregaFormPage() {
 
   const colaboradoresSugeridos = useMemo(() => {
     const termo = colabInput.trim().toLowerCase()
-    if (!termo) return colaboradores.slice(0, 10)
+    if (!termo) return colaboradores.slice(0, 20)
     return colaboradores
       .filter(
         (c) =>
           c.nome_completo.toLowerCase().includes(termo) ||
           c.matricula.toLowerCase().includes(termo)
       )
-      .slice(0, 10)
+      .slice(0, 20)
   }, [colabInput, colaboradores])
 
   const handleColabInput = (value: string) => {
@@ -286,7 +286,7 @@ export function CeuEntregaFormPage() {
                     autoComplete="off"
                   />
                   {dropdownAberto && colaboradoresSugeridos.length > 0 && (
-                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-[28rem] overflow-y-auto">
                       {colaboradoresSugeridos.map((colab) => (
                         <button
                           key={colab.id}
@@ -412,9 +412,9 @@ export function CeuEntregaFormPage() {
                     <div className="flex-1">
                       <Label className="text-xs text-slate-500 mb-1 block">Tipo (Grupo)</Label>
                       <Select
-                        value={filtroTipo}
+                        value={filtroTipo || '__all__'}
                         onValueChange={(v) => {
-                          setFiltroTipo(v)
+                          setFiltroTipo(v === '__all__' ? '' : v)
                           setFiltroSubgrupo('')
                         }}
                       >
@@ -434,8 +434,8 @@ export function CeuEntregaFormPage() {
                     <div className="flex-1">
                       <Label className="text-xs text-slate-500 mb-1 block">Subgrupo</Label>
                       <Select
-                        value={filtroSubgrupo}
-                        onValueChange={setFiltroSubgrupo}
+                        value={filtroSubgrupo || '__all__'}
+                        onValueChange={(v) => setFiltroSubgrupo(v === '__all__' ? '' : v)}
                       >
                         <SelectTrigger className="bg-white border-slate-300">
                           <SelectValue placeholder="Todos os subgrupos" />

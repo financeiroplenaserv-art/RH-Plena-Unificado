@@ -164,6 +164,37 @@ function encontrarItem(nomeItem, itens) {
   return melhor
 }
 
+function lerArquivoMovimentacoes(caminho) {
+  const buffer = fs.readFileSync(caminho)
+  // Verifica se o arquivo é texto (TSV exportado pelo Excel com extensão .xls)
+  const amostra = buffer.slice(0, 200).toString('utf-8')
+  const pareceTexto = /^[\s\S]*Colaborador[\t\s]/.test(amostra)
+
+  if (pareceTexto) {
+    const conteudo = buffer.toString('utf-8')
+    const linhas = conteudo.split(/\r?\n/).filter((l) => l.trim())
+    if (linhas.length === 0) return []
+    const cabecalho = linhas[0].split('\t')
+    return linhas.slice(1).map((linha) => {
+      const colunas = linha.split('\t')
+      const row = {}
+      cabecalho.forEach((h, i) => {
+        row[h] = colunas[i] !== undefined ? colunas[i] : ''
+      })
+      return row
+    })
+  }
+
+  // Fallback para arquivos binários reais (.xls/.xlsx)
+  const workbook = XLSX.read(buffer, {
+    type: 'buffer',
+    cellFormula: false,
+    cellNF: false,
+    cellStyles: false,
+  })
+  return XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
+}
+
 async function buscarUsuarioAdmin() {
   const { data, error } = await supabase.from('perfis').select('id').eq('nivel_acesso', 'adm').limit(1)
   if (error || !data || data.length === 0) {
@@ -192,18 +223,12 @@ async function importar() {
   }
 
   console.log('Lendo planilha de movimentações...')
-  const workbook = XLSX.read(fs.readFileSync(arquivo), {
-    type: 'buffer',
-    cellFormula: false,
-    cellNF: false,
-    cellStyles: false,
-  })
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
+  const rows = lerArquivoMovimentacoes(arquivo)
   console.log(`Total de movimentações: ${rows.length}`)
 
   const matriculasUnicas = new Set()
   for (const row of rows) {
-    const matricula = limparMatricula(row['MatrÃ­cula'])
+    const matricula = limparMatricula(row['Matrícula'] || row['MatrÃ­cula'])
     if (matricula) matriculasUnicas.add(matricula)
   }
   console.log(`Colaboradores únicos: ${matriculasUnicas.size}`)
@@ -223,7 +248,7 @@ async function importar() {
   let datasInvalidas = 0
 
   for (const row of rows) {
-    const matricula = limparMatricula(row['MatrÃ­cula'])
+    const matricula = limparMatricula(row['Matrícula'] || row['MatrÃ­cula'])
     const nomeColaborador = corrigirEncoding(row['Colaborador'] || '').trim()
     const nomeItem = corrigirEncoding(row['Item'] || '').trim()
     const quantidade = parseInt(String(row['Quantidade'] || '0').trim(), 10)

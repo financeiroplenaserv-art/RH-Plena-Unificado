@@ -175,14 +175,13 @@ export function CeuItensPage() {
                   <TableHead>Última compra</TableHead>
                   <TableHead>Situação</TableHead>
                   <TableHead>Valor</TableHead>
-                  <TableHead>Fornecedor</TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {itens.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={10} className="text-center py-8 text-slate-500">
                       <Package className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       Nenhum item encontrado.
                     </TableCell>
@@ -216,7 +215,6 @@ export function CeuItensPage() {
                         </CeuBadge>
                       </TableCell>
                       <TableCell>{formatarValorCentavos(item.valor)}</TableCell>
-                      <TableCell>{item.fornecedor?.nome || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           <CeuButton

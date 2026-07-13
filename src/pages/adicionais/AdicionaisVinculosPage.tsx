@@ -27,11 +27,10 @@ import {
 } from '@/components/ui/dialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
 import { PageHeader } from '@/components/PageHeader'
-import { nomeDepartamento } from '@/lib/utils'
 import { podeEditarVinculoAdicional } from '@/lib/permissoes'
 import type { VinculoAdicional, AdicionalTipo } from '@/types/adicionais'
 
@@ -52,7 +51,6 @@ export function AdicionaisVinculosPage() {
     removerVinculo,
   } = useAdicionaisContratuais()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
-  const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const [colaboradorId, setColaboradorId] = useState('')
   const [contratoId, setContratoId] = useState('')
@@ -73,8 +71,7 @@ export function AdicionaisVinculosPage() {
     listarContratos()
     listarVinculos()
     listarColaboradores()
-    listarDepartamentos()
-  }, [listarContratos, listarVinculos, listarColaboradores, listarDepartamentos])
+  }, [listarContratos, listarVinculos, listarColaboradores])
 
   // Corrige automaticamente vínculos criados sem nome/matricula/contrato_nome/adicionais
   useEffect(() => {
@@ -338,17 +335,12 @@ export function AdicionaisVinculosPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <Label style={{ color: '#1F2937' }}>Departamento</Label>
-            <Select value={departamentoFiltro} onValueChange={setDepartamentoFiltro}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {departamentos.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{nomeDepartamento(d)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DepartamentoAutocomplete
+              value={departamentoFiltro}
+              onChange={setDepartamentoFiltro}
+              mode="id"
+              placeholder="Buscar departamento..."
+            />
           </div>
           <div className="relative">
             <Label style={{ color: '#1F2937' }}>Buscar</Label>

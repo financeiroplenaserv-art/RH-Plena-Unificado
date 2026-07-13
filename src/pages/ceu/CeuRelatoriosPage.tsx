@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/select'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
+import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
+import { supabase } from '@/lib/supabase'
 import { CeuPageWrapper } from './CeuPageWrapper'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuCard } from '@/components/ceu/CeuCard'
@@ -111,13 +113,50 @@ export function CeuRelatoriosPage() {
   const [inputColaborador, setInputColaborador] = useState('todos')
   const [inputItem, setInputItem] = useState('todos')
   const [inputTipo, setInputTipo] = useState('todos')
-  const [inputDepartamento, setInputDepartamento] = useState('todos')
+  const [inputDepartamento, setInputDepartamento] = useState('')
   const [inputStatus, setInputStatus] = useState<'todos' | 'em_aberto' | 'devolvido'>('todos')
+
+  const [colabIdsDepartamento, setColabIdsDepartamento] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     listarItens()
     listarEntregas()
   }, [listarItens, listarEntregas])
+
+  useEffect(() => {
+    async function resolverColaboradores() {
+      if (!filtroDepartamento || filtroDepartamento === 'todos') {
+        setColabIdsDepartamento(new Set())
+        return
+      }
+      const nomeCurto = filtroDepartamento.trim()
+      const { data: deptData } = await supabase
+        .from('departamentos')
+        .select('id, nome, nome_curto')
+        .or(`nome_curto.ilike.%${nomeCurto}%,nome.ilike.%${nomeCurto}%`)
+
+      let queryColab = supabase.from('colaboradores').select('id')
+      if (deptData && deptData.length > 0) {
+        const ids = new Set<string>()
+        const filtrosDepto: string[] = []
+        deptData.forEach((dept) => {
+          ids.add(dept.id)
+          if (dept.nome) filtrosDepto.push(`departamento.ilike.%${dept.nome}%`)
+          if (dept.nome_curto && dept.nome_curto !== dept.nome) {
+            filtrosDepto.push(`departamento.ilike.%${dept.nome_curto}%`)
+          }
+        })
+        filtrosDepto.unshift(`departamento_id.in.(${Array.from(ids).join(',')})`)
+        queryColab = queryColab.or(filtrosDepto.join(','))
+      } else {
+        queryColab = queryColab.ilike('departamento', `%${nomeCurto}%`)
+      }
+      const { data } = await queryColab
+      const ids = new Set((data || []).map((c) => c.id))
+      setColabIdsDepartamento(ids)
+    }
+    resolverColaboradores()
+  }, [filtroDepartamento])
 
   const dadosItens = itens
   const dadosEntregas = entregas
@@ -143,14 +182,6 @@ export function CeuRelatoriosPage() {
     return Array.from(tipos).sort()
   }, [dadosItens, dadosEntregas])
 
-  const departamentosUnicos = useMemo(() => {
-    const deps = new Set<string>()
-    dadosEntregas.forEach((e) => {
-      if (e.colaborador?.departamento) deps.add(e.colaborador.departamento)
-    })
-    return Array.from(deps).sort()
-  }, [dadosEntregas])
-
   const entregasFiltradas = useMemo(() => {
     return dadosEntregas.filter((e) => {
       if (filtroColaborador && filtroColaborador !== 'todos' && e.colaborador_id !== filtroColaborador) return false
@@ -165,8 +196,7 @@ export function CeuRelatoriosPage() {
       }
 
       if (filtroDepartamento && filtroDepartamento !== 'todos') {
-        const dep = e.colaborador?.departamento
-        if (dep !== filtroDepartamento) return false
+        if (!colabIdsDepartamento.has(e.colaborador_id)) return false
       }
 
       if (filtroStatus === 'em_aberto' && e.data_devolucao) return false
@@ -177,7 +207,7 @@ export function CeuRelatoriosPage() {
 
       return true
     })
-  }, [dadosEntregas, filtroColaborador, filtroTipo, filtroItem, filtroDepartamento, filtroStatus, filtroDataInicio, filtroDataFim])
+  }, [dadosEntregas, filtroColaborador, filtroTipo, filtroItem, filtroDepartamento, filtroStatus, filtroDataInicio, filtroDataFim, colabIdsDepartamento])
 
   const aplicarFiltros = () => {
     setFiltroDataInicio(inputDataInicio)
@@ -185,7 +215,7 @@ export function CeuRelatoriosPage() {
     setFiltroColaborador(inputColaborador)
     setFiltroItem(inputItem)
     setFiltroTipo(inputTipo)
-    setFiltroDepartamento(inputDepartamento)
+    setFiltroDepartamento(inputDepartamento.trim() || 'todos')
     setFiltroStatus(inputStatus)
   }
 
@@ -729,19 +759,12 @@ export function CeuRelatoriosPage() {
             </div>
             <div className="space-y-2">
               <Label>Departamento</Label>
-              <Select value={inputDepartamento} onValueChange={setInputDepartamento}>
-                <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {departamentosUnicos.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <DepartamentoAutocomplete
+                value={inputDepartamento}
+                onChange={setInputDepartamento}
+                mode="nome_curto"
+                placeholder="Buscar departamento..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Status</Label>

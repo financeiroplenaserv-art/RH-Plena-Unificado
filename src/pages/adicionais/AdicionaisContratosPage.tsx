@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { PageHeader } from '@/components/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
@@ -286,17 +287,12 @@ export function AdicionaisContratosPage() {
       <AdicionaisCard title="Contratos cadastrados">
         <div className="mb-4 w-full md:w-72">
           <Label style={{ color: '#1F2937' }}>Departamento</Label>
-          <Select value={departamentoFiltro} onValueChange={setDepartamentoFiltro}>
-            <SelectTrigger className="rounded-lg">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {departamentos.map(d => (
-                <SelectItem key={d.id} value={d.id}>{nomeDepartamento(d)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DepartamentoAutocomplete
+            value={departamentoFiltro}
+            onChange={setDepartamentoFiltro}
+            mode="id"
+            placeholder="Buscar departamento..."
+          />
         </div>
 
         {contratos.filter(c => departamentoFiltro === 'todos' || c.departamento_id === departamentoFiltro).length === 0 ? (

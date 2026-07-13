@@ -111,7 +111,27 @@ export function useCEUEntregas() {
         queryColab = queryColab.or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
       }
       if (filtros.departamento && filtros.departamento !== 'todos') {
-        queryColab = queryColab.or(`departamento.ilike.%${filtros.departamento}%,departamento_id.eq.${filtros.departamento}`)
+        const nomeCurto = filtros.departamento.trim()
+        const { data: deptData } = await supabase
+          .from('departamentos')
+          .select('id, nome, nome_curto')
+          .or(`nome_curto.ilike.%${nomeCurto}%,nome.ilike.%${nomeCurto}%`)
+
+        if (deptData && deptData.length > 0) {
+          const ids = new Set<string>()
+          const filtrosDepto: string[] = []
+          deptData.forEach((dept) => {
+            ids.add(dept.id)
+            if (dept.nome) filtrosDepto.push(`departamento.ilike.%${dept.nome}%`)
+            if (dept.nome_curto && dept.nome_curto !== dept.nome) {
+              filtrosDepto.push(`departamento.ilike.%${dept.nome_curto}%`)
+            }
+          })
+          filtrosDepto.unshift(`departamento_id.in.(${Array.from(ids).join(',')})`)
+          queryColab = queryColab.or(filtrosDepto.join(','))
+        } else {
+          queryColab = queryColab.ilike('departamento', `%${nomeCurto}%`)
+        }
       }
       const { data } = await queryColab
       colaboradorIds = (data || []).map((c) => c.id)

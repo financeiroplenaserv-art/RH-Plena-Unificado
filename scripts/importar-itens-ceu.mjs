@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import XLSX from '@e965/xlsx'
 import fs from 'fs'
 import path from 'path'
+import { inferirSubgrupo } from './lib/subgrupos-itens.mjs'
 
 function carregarEnv(caminho) {
   if (!fs.existsSync(caminho)) return
@@ -112,6 +113,7 @@ function processarLinha(row, tipo) {
   const valor_centavos = formatarValorCentavos(row['Custo da Última'] || row['Custo da Ultima'])
   const prazo_uso_dias = formatarPrazoDias(row['Vida Útil'] || row['Vida Util'], row['Período'] || row['Periodo'])
   const situacao = limparString(row['Sit.']) || 'A'
+  const subgrupo = inferirSubgrupo(tipo, nome)
 
   return {
     codigo,
@@ -123,6 +125,7 @@ function processarLinha(row, tipo) {
     valor_centavos,
     prazo_uso_dias,
     situacao,
+    subgrupo,
   }
 }
 
@@ -213,7 +216,7 @@ async function importar() {
       estoque_minimo: 0,
       fornecedor_id: null,
       validade: null,
-      subgrupo: null,
+      subgrupo: linha.subgrupo,
     }
 
     const idExistente = mapaCodigoId.get(linha.codigo)

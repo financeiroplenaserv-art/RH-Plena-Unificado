@@ -20,6 +20,7 @@ import {
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { AdicionaisPageWrapper, AdicionaisCard, AdicionaisButton } from './AdicionaisPageWrapper'
 import { PageHeader } from '@/components/PageHeader'
 import * as XLSX from '@e965/xlsx'
@@ -475,17 +476,12 @@ export function AdicionaisRelatorioPage() {
 
           <div className="w-full lg:w-56">
             <Label style={{ color: '#1F2937' }}>Departamento</Label>
-            <Select value={departamentoFiltro} onValueChange={setDepartamentoFiltro}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {departamentos.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{nomeDepartamento(d)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DepartamentoAutocomplete
+              value={departamentoFiltro}
+              onChange={setDepartamentoFiltro}
+              mode="id"
+              placeholder="Buscar departamento..."
+            />
           </div>
 
           <div className="w-full lg:w-48">
