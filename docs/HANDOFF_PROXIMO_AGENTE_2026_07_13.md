@@ -99,12 +99,69 @@ Foram criados 3 itens de crachá que não estavam na planilha original:
 - **Relatórios:** reorganizados os filtros em grid de 3 colunas, adicionado filtro **Status** (Em aberto / Devolvido) e botões **Filtrar** / **Limpar**.
 - **Importação:** a página `/ceu/importar` **não é lixo** — serve para importar novos itens e fornecedores via planilha CSV/Excel.
 
+---
+
+## 🚀 Progresso da sessão seguinte (design system CORH)
+
+Após o fechamento inesperado do VS Code, o próximo agente retomou o trabalho de aplicação do design system unificado.
+
+### Commits realizados nesta continuação
+
+```
+80af6bd feat(design): aplica ModuleShell na página de Permissões
+4a87310 feat(design): aplica ModuleShell em páginas administrativas
+e20d562 feat(design): aplica ModuleShell nos módulos RH e Escalas
+7ab75b7 fix(design): corrige erros de build e unifica botões no módulo CEU
+```
+
+### O que foi feito
+
+1. **Corrigidos erros de build pendentes** do design system:
+   - Imports `type-only` de `LucideIcon`
+   - Propriedades faltantes (`gradient`) em `CeuKpiCard`
+   - Imports duplicados e props inexistentes (`gradient`, `color`) em `ModuleCard`
+   - Import faltante de `ExtrasShell`
+
+2. **Removidos componentes antigos não utilizados:**
+   - `src/components/ceu/CeuCard.tsx`
+   - `src/components/ceu/CeuButton.tsx`
+   - `src/components/ceu/CeuInput.tsx`
+
+3. **Unificação de botões no módulo CEU:**
+   - `CeuItensPage`, `CeuFornecedoresPage`, `CeuMovimentacoesPage`, `CeuLancamentoRapidoPage`
+   - Substituição de `Button` do shadcn por `ModuleButton`
+
+4. **Criados shells para módulos sem design system:**
+   - `src/pages/rh/RhShell.tsx` — tabs: Ocorrências, Importar, Modelos, Alertas
+   - `src/pages/escalas/EscalasShell.tsx` — tabs: Escalas, Importar, Locais, Mapeamento
+
+5. **Aplicado ModuleShell em:**
+   - Módulo RH: `OcorrenciasPage`, `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `ImportarPage`, `ModelosPage`, `AlertasPage`
+   - Módulo Escalas: `EscalasPage`, `EscalasImportarPage`, `EscalasLocaisPage`, `EscalasMapeamentoPage`
+   - Páginas administrativas: `ConfiguracoesPage`, `EmpresasPage`, `AuditoriaPage`, `PermissoesPage`
+
+6. **Substituição de Cards/Buttons do shadcn por ModuleCard/ModuleButton** nas páginas acima, onde a estrutura permitiu mudanças seguras.
+
+### Validação
+
+- `npm run lint` ✅
+- `npx tsc --noEmit` ✅
+- `npm run build` ✅
+- `npm test` → 60/60 ✅
+
+---
+
 ## 🎯 Próximos passos sugeridos
 
 1. **Verificar no sistema** se os itens e movimentações aparecem corretamente (`/ceu/itens`, `/ceu/movimentacoes`, `/ceu/entregas`)
 2. **Decidir sobre o colaborador não encontrado:** cadastrar RAFAEL DE CARVALHO LEMOS (matrícula 1107) e reimportar, ou deixar sem essas 25 movimentações
-3. **ModuleShell** (`src/components/layout/ModuleShell.tsx`) — deixado como trabalho futuro
-4. **Não rodar `npm run build` nem `npm test`** no notebook com pouca memória
+3. **Continuar aplicação do design system nas páginas restantes:**
+   - `src/pages/ColaboradoresPage.tsx`
+   - `src/pages/DepartamentosPage.tsx`
+   - `src/pages/ImportarEContadorPage.tsx`
+   - `src/pages/DashboardPage.tsx` (opcional)
+4. **Reduzir cores hex hardcoded** restantes (ainda ~581 ocorrências em 26 arquivos)
+5. **ModuleShell** (`src/components/layout/ModuleShell.tsx`) — agora usado em todos os módulos principais
 
 ---
 
@@ -112,7 +169,6 @@ Foram criados 3 itens de crachá que não estavam na planilha original:
 
 - **Não rodar testes nem build por enquanto** — o notebook do usuário tem pouca memória e os comandos falham com `out of memory`.
 - **Não alterar regras de cálculo de VR/adicionais** sem consultar a usuária.
-- **ModuleShell** (`src/components/layout/ModuleShell.tsx`) está criado mas **não está sendo usado** em lugar nenhum. Foi deixado como trabalho futuro.
 - Regras de negócio validadas estão em `docs/REGRAS_NEGOCIO.md`.
 
 ---
@@ -124,4 +180,7 @@ Foram criados 3 itens de crachá que não estavam na planilha original:
 - `src/pages/ceu/CeuItemFormPage.tsx`
 - `src/types/database.ts`
 - `public/EPIS e Uniformes para CORH.xlsx`
+- `src/components/layout/ModuleShell.tsx`
+- `src/pages/rh/RhShell.tsx`
+- `src/pages/escalas/EscalasShell.tsx`
 - `docs/HANDOFF_PROXIMO_AGENTE_2026_07_13.md` (este arquivo)
