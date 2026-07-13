@@ -143,6 +143,9 @@ export function CeuItensPage() {
                   <TableHead>Tipo</TableHead>
                   <TableHead>CA</TableHead>
                   <TableHead>Validade</TableHead>
+                  <TableHead>Unidade</TableHead>
+                  <TableHead>Última compra</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Fornecedor</TableHead>
                   <TableHead className="w-24"></TableHead>
@@ -151,7 +154,7 @@ export function CeuItensPage() {
               <TableBody>
                 {itens.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={11} className="text-center py-8 text-slate-500">
                       <Package className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                       Nenhum item encontrado.
                     </TableCell>
@@ -176,6 +179,13 @@ export function CeuItensPage() {
                       <TableCell>{item.ca || '—'}</TableCell>
                       <TableCell>
                         {item.validade ? new Date(item.validade).toLocaleDateString('pt-BR') : '—'}
+                      </TableCell>
+                      <TableCell>{item.unidade || '—'}</TableCell>
+                      <TableCell>{item.ultima_compra ? new Date(item.ultima_compra).toLocaleDateString('pt-BR') : '—'}</TableCell>
+                      <TableCell>
+                        <CeuBadge type={item.situacao === 'A' ? 'default' : item.situacao === 'I' ? 'inativo' : 'default'}>
+                          {item.situacao === 'A' ? 'Ativo' : item.situacao === 'I' ? 'Inativo' : item.situacao || '—'}
+                        </CeuBadge>
                       </TableCell>
                       <TableCell>{formatarValorCentavos(item.valor)}</TableCell>
                       <TableCell>{item.fornecedor?.nome || '—'}</TableCell>

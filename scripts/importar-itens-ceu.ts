@@ -81,7 +81,6 @@ function formatarValorCentavos(valor: unknown): number | null {
   // Detecta se o ponto é separador decimal ou de milhar
   const temVirgula = str.includes(',')
   const partesPorPonto = str.split('.')
-  const partesPorVirgula = str.split(',')
   let normalizado: string
   if (temVirgula) {
     // Vírgula é decimal; remove pontos de milhar
