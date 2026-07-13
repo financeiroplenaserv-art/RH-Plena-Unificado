@@ -17,6 +17,11 @@
   --brand-800: #05255C;
   --brand-900: #031636;
 
+  /* Primárias do design system (alias para brand) */
+  --primary-500: var(--brand-400);
+  --primary-600: var(--brand-500);
+  --primary-700: var(--brand-600);
+
   /* Acento verde-água */
   --accent-teal: #00BFA6;
   --accent-teal-soft: #E0F7F4;
