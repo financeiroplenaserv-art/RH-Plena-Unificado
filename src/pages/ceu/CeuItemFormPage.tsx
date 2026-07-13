@@ -46,6 +46,9 @@ export function CeuItemFormPage() {
     estoque: string
     estoque_minimo: string
     prazo_uso_dias: string
+    unidade: string
+    ultima_compra: string
+    situacao: string
   }>({
     codigo: '',
     tipo: '',
@@ -58,6 +61,9 @@ export function CeuItemFormPage() {
     estoque: '0',
     estoque_minimo: '0',
     prazo_uso_dias: '',
+    unidade: '',
+    ultima_compra: '',
+    situacao: 'A',
   })
 
   useEffect(() => {
@@ -80,6 +86,9 @@ export function CeuItemFormPage() {
           estoque: String(item.estoque ?? 0),
           estoque_minimo: String(item.estoque_minimo ?? 0),
           prazo_uso_dias: item.prazo_uso_dias ? String(item.prazo_uso_dias) : '',
+          unidade: item.unidade || '',
+          ultima_compra: item.ultima_compra || '',
+          situacao: item.situacao || 'A',
         })
       }
       setLoading(false)
@@ -102,6 +111,9 @@ export function CeuItemFormPage() {
       estoque: parseInt(form.estoque || '0', 10),
       estoque_minimo: parseInt(form.estoque_minimo || '0', 10),
       prazo_uso_dias: form.prazo_uso_dias ? parseInt(form.prazo_uso_dias, 10) : null,
+      unidade: form.unidade?.trim() || null,
+      ultima_compra: form.ultima_compra || null,
+      situacao: form.situacao?.trim() || 'A',
     }
 
     if (id) {
@@ -234,7 +246,44 @@ export function CeuItemFormPage() {
                 </Select>
               </div>
 
-              {/* Linha 5: Estoque atual + Estoque mínimo + Prazo de uso */}
+              {/* Linha 5: Unidade + Última compra + Situação */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unidade">Unidade</Label>
+                  <CeuInput
+                    id="unidade"
+                    value={form.unidade}
+                    onChange={(e) => setForm((f) => ({ ...f, unidade: e.target.value }))}
+                    placeholder="Ex: UN, PA, KG"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ultima_compra">Última compra</Label>
+                  <CeuInput
+                    id="ultima_compra"
+                    type="date"
+                    value={form.ultima_compra}
+                    onChange={(e) => setForm((f) => ({ ...f, ultima_compra: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="situacao">Situação</Label>
+                  <Select
+                    value={form.situacao || 'A'}
+                    onValueChange={(v) => setForm((f) => ({ ...f, situacao: v }))}
+                  >
+                    <SelectTrigger id="situacao" className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">Ativo</SelectItem>
+                      <SelectItem value="I">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Linha 6: Estoque atual + Estoque mínimo + Prazo de uso */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="estoque">Estoque atual</Label>

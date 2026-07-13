@@ -1,0 +1,269 @@
+import { createClient } from '@supabase/supabase-js'
+import * as XLSX from '@e965/xlsx'
+import * as fs from 'fs'
+import * as path from 'path'
+
+function carregarEnv(caminho: string) {
+  if (!fs.existsSync(caminho)) return
+  const conteudo = fs.readFileSync(caminho, 'utf-8')
+  for (const linha of conteudo.split('\n')) {
+    const trimmed = linha.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const idx = trimmed.indexOf('=')
+    if (idx === -1) continue
+    const chave = trimmed.slice(0, idx).trim()
+    const valor = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '')
+    process.env[chave] = valor
+  }
+}
+
+carregarEnv(path.resolve(process.cwd(), '.env'))
+
+const url = process.env.VITE_SUPABASE_URL
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+
+if (!url || !key) {
+  console.error('Variáveis VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou VITE_SUPABASE_ANON_KEY) são obrigatórias')
+  process.exit(1)
+}
+
+const supabase = createClient(url, key)
+
+interface LinhaExcel {
+  codigo: string
+  nome: string
+  tipo: 'EPI' | 'Uniforme'
+  ca: string | null
+  unidade: string | null
+  ultima_compra: string | null
+  valor_centavos: number | null
+  prazo_uso_dias: number | null
+  situacao: string | null
+}
+
+function formatarCA(valor: unknown): string | null {
+  if (valor === null || valor === undefined) return null
+  // Remove pontos de milhar e converte para string inteira
+  const str = String(valor).replace(/\./g, '').replace(/,/g, '.')
+  const num = parseFloat(str)
+  if (Number.isNaN(num)) return null
+  return String(Math.round(num))
+}
+
+function formatarData(valor: unknown): string | null {
+  if (valor === null || valor === undefined) return null
+  if (valor instanceof Date) {
+    if (Number.isNaN(valor.getTime())) return null
+    return valor.toISOString().split('T')[0]
+  }
+  // Número serial do Excel (ex: 45988 = 14/11/2025)
+  if (typeof valor === 'number' && !Number.isNaN(valor) && valor > 60) {
+    const epoch = new Date(Date.UTC(1899, 11, 30))
+    const data = new Date(epoch.getTime() + valor * 24 * 60 * 60 * 1000)
+    return data.toISOString().split('T')[0]
+  }
+  const str = String(valor).trim()
+  if (!str) return null
+  const d = new Date(str)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().split('T')[0]
+}
+
+function formatarValorCentavos(valor: unknown): number | null {
+  if (valor === null || valor === undefined) return null
+  // Se já for número, converte diretamente para centavos
+  if (typeof valor === 'number') {
+    if (Number.isNaN(valor)) return null
+    return Math.round(valor * 100)
+  }
+  const str = String(valor).trim()
+  if (!str) return null
+  // Detecta se o ponto é separador decimal ou de milhar
+  const temVirgula = str.includes(',')
+  const partesPorPonto = str.split('.')
+  const partesPorVirgula = str.split(',')
+  let normalizado: string
+  if (temVirgula) {
+    // Vírgula é decimal; remove pontos de milhar
+    normalizado = str.replace(/\./g, '').replace(',', '.')
+  } else if (partesPorPonto.length === 2 && partesPorPonto[1].length <= 2) {
+    // Ponto provavelmente é decimal (ex: 36.9)
+    normalizado = str
+  } else {
+    // Ponto é separador de milhar ou número inteiro
+    normalizado = str.replace(/\./g, '')
+  }
+  const num = parseFloat(normalizado)
+  if (Number.isNaN(num)) return null
+  return Math.round(num * 100)
+}
+
+function formatarPrazoDias(vidaUtil: unknown, periodo: unknown): number | null {
+  if (vidaUtil === null || vidaUtil === undefined) return null
+  const str = String(vidaUtil).replace(/,/g, '.')
+  const num = parseFloat(str)
+  if (Number.isNaN(num)) return null
+  const unidade = String(periodo || 'meses').toLowerCase()
+  if (unidade.includes('mes') || unidade.includes('mês')) {
+    return Math.round(num * 30)
+  }
+  if (unidade.includes('ano')) {
+    return Math.round(num * 365)
+  }
+  if (unidade.includes('dia')) {
+    return Math.round(num)
+  }
+  // Padrão: meses
+  return Math.round(num * 30)
+}
+
+function limparString(valor: unknown): string | null {
+  if (valor === null || valor === undefined) return null
+  const str = String(valor).trim()
+  return str || null
+}
+
+function montarNome(descricao: unknown, tamanho: unknown): string {
+  const nome = String(descricao || '').trim()
+  const tam = String(tamanho || '').trim()
+  if (!tam || tam.toUpperCase() === 'U') return nome
+  return `${nome} - Tam. ${tam}`
+}
+
+function processarLinha(row: Record<string, unknown>, tipo: 'EPI' | 'Uniforme'): LinhaExcel {
+  const codigo = String(row['Código'] || row['Codigo'] || row['C�digo'] || '').trim()
+  const nome = montarNome(row['Descrição'] || row['Descricao'] || row['Descri��o'], row['Tam.'])
+  const ca = tipo === 'EPI' ? formatarCA(row['C.A.']) : null
+  const unidade = limparString(row['Un.'])
+  const ultima_compra = formatarData(row['Última Compra'] || row['Ultima Compra'] || row['�ltima Compra'])
+  const valor_centavos = formatarValorCentavos(row['Custo da Última'] || row['Custo da Ultima'])
+  const prazo_uso_dias = formatarPrazoDias(row['Vida Útil'] || row['Vida Util'], row['Período'] || row['Periodo'])
+  const situacao = limparString(row['Sit.']) || 'A'
+
+  return {
+    codigo,
+    nome,
+    tipo,
+    ca,
+    unidade,
+    ultima_compra,
+    valor_centavos,
+    prazo_uso_dias,
+    situacao,
+  }
+}
+
+async function importar() {
+  const arquivo = path.resolve(process.cwd(), 'public/EPIS e Uniformes para CORH.xlsx')
+  if (!fs.existsSync(arquivo)) {
+    console.error('Arquivo não encontrado:', arquivo)
+    process.exit(1)
+  }
+
+  const workbook = XLSX.read(fs.readFileSync(arquivo), { type: 'buffer' })
+  const abas: { nome: 'EPI' | 'Uniforme'; sheet: XLSX.WorkSheet }[] = []
+
+  for (const nome of ['EPI', 'Uniforme'] as const) {
+    const sheet = workbook.Sheets[nome]
+    if (sheet) abas.push({ nome, sheet })
+  }
+
+  if (abas.length === 0) {
+    console.error('Nenhuma aba EPI ou Uniforme encontrada no arquivo')
+    process.exit(1)
+  }
+
+  const todasLinhas: LinhaExcel[] = []
+  for (const { nome, sheet } of abas) {
+    const rows = XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[]
+    for (const row of rows) {
+      try {
+        const linha = processarLinha(row, nome)
+        if (!linha.codigo) {
+          console.warn(`Linha ignorada em ${nome}: código vazio`, row)
+          continue
+        }
+        if (!linha.nome) {
+          console.warn(`Linha ignorada em ${nome}: nome vazio`, row)
+          continue
+        }
+        todasLinhas.push(linha)
+      } catch (err) {
+        console.error('Erro ao processar linha:', row, err)
+      }
+    }
+  }
+
+  console.log(`Total de linhas processadas: ${todasLinhas.length}`)
+
+  // Buscar itens existentes no banco
+  const { data: itensExistentes, error: erroBusca } = await supabase
+    .from('itens')
+    .select('id, codigo')
+    .not('codigo', 'is', null)
+
+  if (erroBusca) {
+    console.error('Erro ao buscar itens existentes:', erroBusca.message)
+    process.exit(1)
+  }
+
+  const mapaCodigoId = new Map<string, string>()
+  for (const item of itensExistentes || []) {
+    if (item.codigo) {
+      mapaCodigoId.set(String(item.codigo).trim(), item.id)
+    }
+  }
+
+  let criados = 0
+  let atualizados = 0
+  let erros = 0
+
+  for (const linha of todasLinhas) {
+    const payload = {
+      codigo: linha.codigo,
+      nome: linha.nome,
+      tipo: linha.tipo,
+      ca: linha.ca,
+      unidade: linha.unidade,
+      ultima_compra: linha.ultima_compra,
+      valor: linha.valor_centavos,
+      prazo_uso_dias: linha.prazo_uso_dias,
+      situacao: linha.situacao,
+      estoque: 0,
+      estoque_minimo: 0,
+      fornecedor_id: null,
+      validade: null,
+      subgrupo: null,
+    }
+
+    const idExistente = mapaCodigoId.get(linha.codigo)
+
+    try {
+      if (idExistente) {
+        const { error } = await supabase.from('itens').update(payload).eq('id', idExistente)
+        if (error) throw error
+        atualizados++
+        console.log(`Atualizado [${linha.codigo}] ${linha.nome}`)
+      } else {
+        const { error } = await supabase.from('itens').insert(payload)
+        if (error) throw error
+        criados++
+        console.log(`Criado [${linha.codigo}] ${linha.nome}`)
+      }
+    } catch (err) {
+      erros++
+      console.error(`Erro ao salvar [${linha.codigo}] ${linha.nome}:`, err)
+    }
+  }
+
+  console.log('\n=== Resumo da importação ===')
+  console.log(`Criados: ${criados}`)
+  console.log(`Atualizados: ${atualizados}`)
+  console.log(`Erros: ${erros}`)
+  console.log(`Total processado: ${todasLinhas.length}`)
+}
+
+importar().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

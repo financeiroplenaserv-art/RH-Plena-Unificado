@@ -379,6 +379,9 @@ export interface ItemCEU {
   estoque?: number | null
   estoque_minimo?: number | null
   prazo_uso_dias?: number | null
+  unidade?: string | null
+  ultima_compra?: string | null
+  situacao?: string | null
   created_at?: string
 
   // Relações
