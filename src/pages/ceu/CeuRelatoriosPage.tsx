@@ -10,7 +10,8 @@ import {
   FileJson,
   FileText,
   Search,
-  RotateCcw,
+  Filter,
+  X,
 } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import {
@@ -105,6 +106,14 @@ export function CeuRelatoriosPage() {
   const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em_aberto' | 'devolvido'>('todos')
 
+  const [inputDataInicio, setInputDataInicio] = useState('')
+  const [inputDataFim, setInputDataFim] = useState('')
+  const [inputColaborador, setInputColaborador] = useState('todos')
+  const [inputItem, setInputItem] = useState('todos')
+  const [inputTipo, setInputTipo] = useState('todos')
+  const [inputDepartamento, setInputDepartamento] = useState('todos')
+  const [inputStatus, setInputStatus] = useState<'todos' | 'em_aberto' | 'devolvido'>('todos')
+
   useEffect(() => {
     listarItens()
     listarEntregas()
@@ -170,7 +179,24 @@ export function CeuRelatoriosPage() {
     })
   }, [dadosEntregas, filtroColaborador, filtroTipo, filtroItem, filtroDepartamento, filtroStatus, filtroDataInicio, filtroDataFim])
 
+  const aplicarFiltros = () => {
+    setFiltroDataInicio(inputDataInicio)
+    setFiltroDataFim(inputDataFim)
+    setFiltroColaborador(inputColaborador)
+    setFiltroItem(inputItem)
+    setFiltroTipo(inputTipo)
+    setFiltroDepartamento(inputDepartamento)
+    setFiltroStatus(inputStatus)
+  }
+
   const limparFiltros = () => {
+    setInputDataInicio('')
+    setInputDataFim('')
+    setInputColaborador('todos')
+    setInputItem('todos')
+    setInputTipo('todos')
+    setInputDepartamento('todos')
+    setInputStatus('todos')
     setFiltroDataInicio('')
     setFiltroDataFim('')
     setFiltroColaborador('todos')
@@ -634,14 +660,14 @@ export function CeuRelatoriosPage() {
         <PageHeader backTo="/ceu/dashboard" title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
 
         <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data_inicio">Data inicial</Label>
               <CeuInput
                 id="data_inicio"
                 type="date"
-                value={filtroDataInicio}
-                onChange={(e) => setFiltroDataInicio(e.target.value)}
+                value={inputDataInicio}
+                onChange={(e) => setInputDataInicio(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -649,13 +675,13 @@ export function CeuRelatoriosPage() {
               <CeuInput
                 id="data_fim"
                 type="date"
-                value={filtroDataFim}
-                onChange={(e) => setFiltroDataFim(e.target.value)}
+                value={inputDataFim}
+                onChange={(e) => setInputDataFim(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label>Colaborador</Label>
-              <Select value={filtroColaborador} onValueChange={setFiltroColaborador}>
+              <Select value={inputColaborador} onValueChange={setInputColaborador}>
                 <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
@@ -671,7 +697,7 @@ export function CeuRelatoriosPage() {
             </div>
             <div className="space-y-2">
               <Label>Item</Label>
-              <Select value={filtroItem} onValueChange={setFiltroItem}>
+              <Select value={inputItem} onValueChange={setInputItem}>
                 <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
@@ -687,7 +713,7 @@ export function CeuRelatoriosPage() {
             </div>
             <div className="space-y-2">
               <Label>Grupo</Label>
-              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <Select value={inputTipo} onValueChange={setInputTipo}>
                 <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
@@ -703,7 +729,7 @@ export function CeuRelatoriosPage() {
             </div>
             <div className="space-y-2">
               <Label>Departamento</Label>
-              <Select value={filtroDepartamento} onValueChange={setFiltroDepartamento}>
+              <Select value={inputDepartamento} onValueChange={setInputDepartamento}>
                 <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
@@ -717,10 +743,27 @@ export function CeuRelatoriosPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={inputStatus} onValueChange={(v) => setInputStatus(v as 'todos' | 'em_aberto' | 'devolvido')}>
+                <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="em_aberto">Em aberto</SelectItem>
+                  <SelectItem value="devolvido">Devolvido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
+            <CeuButton size="sm" onClick={aplicarFiltros}>
+              <Filter className="w-3.5 h-3.5 mr-1.5" />
+              Filtrar
+            </CeuButton>
             <CeuButton variant="outline" size="sm" onClick={limparFiltros}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              <X className="w-3.5 h-3.5 mr-1.5" />
               Limpar
             </CeuButton>
             <CeuButton variant="outline" size="sm" onClick={exportarExcel}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Trash2, Edit, Package, Hash } from 'lucide-react'
+import { Plus, Search, Trash2, Edit, Package, Hash, X, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -57,6 +57,9 @@ export function CeuItensPage() {
   const [busca, setBusca] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroFornecedor, setFiltroFornecedor] = useState('todos')
+  const [buscaInput, setBuscaInput] = useState('')
+  const [filtroTipoInput, setFiltroTipoInput] = useState('todos')
+  const [filtroFornecedorInput, setFiltroFornecedorInput] = useState('todos')
   const [removerId, setRemoverId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -70,6 +73,21 @@ export function CeuItensPage() {
       fornecedorId: filtroFornecedor !== 'todos' ? filtroFornecedor : undefined,
     })
   }, [busca, filtroTipo, filtroFornecedor, listar])
+
+  const handleFiltrar = () => {
+    setBusca(buscaInput)
+    setFiltroTipo(filtroTipoInput)
+    setFiltroFornecedor(filtroFornecedorInput)
+  }
+
+  const handleLimpar = () => {
+    setBuscaInput('')
+    setFiltroTipoInput('todos')
+    setFiltroFornecedorInput('todos')
+    setBusca('')
+    setFiltroTipo('todos')
+    setFiltroFornecedor('todos')
+  }
 
   const handleRemover = async (id: string) => {
     const item = itens.find((i) => i.id === id)
@@ -96,12 +114,12 @@ export function CeuItensPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <CeuInput
               placeholder="Nome, código ou CA..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
+              value={buscaInput}
+              onChange={(e) => setBuscaInput(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+          <Select value={filtroTipoInput} onValueChange={setFiltroTipoInput}>
             <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
@@ -114,7 +132,7 @@ export function CeuItensPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filtroFornecedor} onValueChange={setFiltroFornecedor}>
+          <Select value={filtroFornecedorInput} onValueChange={setFiltroFornecedorInput}>
             <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
               <SelectValue placeholder="Fornecedor" />
             </SelectTrigger>
@@ -127,6 +145,16 @@ export function CeuItensPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-4">
+          <CeuButton onClick={handleFiltrar}>
+            <Filter className="w-4 h-4 mr-2" />
+            Filtrar
+          </CeuButton>
+          <CeuButton variant="outline" onClick={handleLimpar}>
+            <X className="w-4 h-4 mr-2" />
+            Limpar
+          </CeuButton>
         </div>
       </CeuCard>
 

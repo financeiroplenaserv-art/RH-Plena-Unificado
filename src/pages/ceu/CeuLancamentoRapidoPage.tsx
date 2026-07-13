@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Save, Search, User, Package, Hash } from 'lucide-react'
+import { Plus, Save, Search, User, Package, Hash, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -185,6 +185,10 @@ export function CeuLancamentoRapidoPage() {
     setLinhas((prev) => [...prev, ...Array.from({ length: quantidade }, criarLinhaVazia)])
   }
 
+  function removerLinha(id: string) {
+    setLinhas((prev) => prev.filter((linha) => linha.id !== id))
+  }
+
   function linhaValida(linha: LinhaLancamento) {
     return (
       linha.data &&
@@ -287,6 +291,7 @@ export function CeuLancamentoRapidoPage() {
                   <th className="px-3 py-2 min-w-[220px]">Produto</th>
                   <th className="px-3 py-2 w-20">Qtd</th>
                   <th className="px-3 py-2 w-36">Status</th>
+                  <th className="px-3 py-2 w-16"></th>
                 </tr>
               </thead>
               <tbody>
@@ -433,6 +438,17 @@ export function CeuLancamentoRapidoPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removerLinha(linha.id)}
+                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          title="Remover linha"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </td>
                     </tr>
                   )
