@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate } from 'react-router-dom'
 import {
   Boxes,
@@ -15,9 +16,7 @@ import {
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuShell } from './CeuShell'
-import { CeuCard } from '@/components/ceu/CeuCard'
 import { CeuKpiCard } from '@/components/ceu/CeuKpiCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { LoadingScreen } from '@/components/LoadingScreen'
@@ -119,62 +118,57 @@ export function CeuDashboardPage() {
         <LoadingScreen className="h-96" />
       ) : (
         <>
-          <CeuCard title="Ações rápidas" gradient="blue">
+          <ModuleCard title="Ações rápidas">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <CeuButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
+              <ModuleButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova entrega
-              </CeuButton>
-              <CeuButton variant="outline" onClick={() => navigate('/ceu/itens/novo')}>
+              </ModuleButton>
+              <ModuleButton variant="outline" onClick={() => navigate('/ceu/itens/novo')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Novo item
-              </CeuButton>
-              <CeuButton variant="outline" onClick={() => navigate('/ceu/fornecedores')}>
+              </ModuleButton>
+              <ModuleButton variant="outline" onClick={() => navigate('/ceu/fornecedores')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Novo fornecedor
-              </CeuButton>
-              <CeuButton variant="outline" onClick={() => navigate('/ceu/relatorios')}>
+              </ModuleButton>
+              <ModuleButton variant="outline" onClick={() => navigate('/ceu/relatorios')}>
                 <FileText className="w-4 h-4 mr-2" />
                 Relatórios
-              </CeuButton>
+              </ModuleButton>
             </div>
-          </CeuCard>
+          </ModuleCard>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <CeuKpiCard
               label="Total de itens cadastrados"
               value={stats.totalItens}
               icon={<Boxes className="w-5 h-5" />}
-              gradient="blue"
             />
             <CeuKpiCard
               label="Total de entregas do mês"
               value={stats.entregasDoMes}
               icon={<CalendarClock className="w-5 h-5" />}
-              gradient="dark-blue"
             />
             <CeuKpiCard
               label="Itens em aberto"
               value={stats.itensEmAberto}
               icon={<ClipboardList className="w-5 h-5" />}
-              gradient="orange"
             />
             <CeuKpiCard
               label="Itens devolvidos"
               value={stats.itensDevolvidos}
               icon={<PackageCheck className="w-5 h-5" />}
-              gradient="green"
             />
             <CeuKpiCard
               label="Alertas de estoque baixo"
               value={stats.alertasEstoqueBaixo.length}
               icon={<AlertTriangle className="w-5 h-5" />}
-              gradient="orange"
             />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <CeuCard title="Movimentações do mês" icon={<BarChart3 className="w-4 h-4" />} gradient="blue">
+            <ModuleCard title="Movimentações do mês" icon={<BarChart3 className="w-4 h-4" />}>
               <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm text-slate-500">Entregas e devoluções registradas no mês atual</p>
@@ -184,9 +178,9 @@ export function CeuDashboardPage() {
                   <BarChart3 className="w-8 h-8 text-[#3B82F6]" />
                 </div>
               </div>
-            </CeuCard>
+            </ModuleCard>
 
-            <CeuCard title="Total de EPIs / Uniformes / Colaboradores" icon={<Boxes className="w-4 h-4" />} gradient="blue">
+            <ModuleCard title="Total de EPIs / Uniformes / Colaboradores" icon={<Boxes className="w-4 h-4" />}>
               <div className="grid grid-cols-3 gap-4 py-2">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-slate-900">{stats.totalEPIs}</p>
@@ -201,11 +195,11 @@ export function CeuDashboardPage() {
                   <p className="text-xs text-slate-500 mt-1">Colaboradores</p>
                 </div>
               </div>
-            </CeuCard>
+            </ModuleCard>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <CeuCard title="Estoque baixo" icon={<AlertTriangle className="w-4 h-4" />} gradient="orange">
+            <ModuleCard title="Estoque baixo" icon={<AlertTriangle className="w-4 h-4" />}>
               {stats.alertasEstoqueBaixo.length === 0 ? (
                 <p className="text-sm text-slate-500 py-2">Nenhum item com estoque baixo.</p>
               ) : (
@@ -220,17 +214,17 @@ export function CeuDashboardPage() {
                   ))}
                 </ul>
               )}
-              <CeuButton
+              <ModuleButton
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/ceu/itens')}
                 className="mt-3 gap-1"
               >
                 Gerenciar itens <ArrowRight className="w-3.5 h-3.5" />
-              </CeuButton>
-            </CeuCard>
+              </ModuleButton>
+            </ModuleCard>
 
-            <CeuCard title="Vencimento de CA próximo" icon={<ShieldAlert className="w-4 h-4" />} gradient="blue">
+            <ModuleCard title="Vencimento de CA próximo" icon={<ShieldAlert className="w-4 h-4" />}>
               {stats.caVencendo.length === 0 ? (
                 <p className="text-sm text-slate-500 py-2">Nenhum CA próximo do vencimento.</p>
               ) : (
@@ -248,17 +242,17 @@ export function CeuDashboardPage() {
                   ))}
                 </ul>
               )}
-              <CeuButton
+              <ModuleButton
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/ceu/itens')}
                 className="mt-3 gap-1"
               >
                 Ver itens <ArrowRight className="w-3.5 h-3.5" />
-              </CeuButton>
-            </CeuCard>
+              </ModuleButton>
+            </ModuleCard>
 
-            <CeuCard title="Prazo de uso dos itens" icon={<Clock className="w-4 h-4" />} gradient="green">
+            <ModuleCard title="Prazo de uso dos itens" icon={<Clock className="w-4 h-4" />}>
               {stats.prazoUsoVencendo.length === 0 ? (
                 <p className="text-sm text-slate-500 py-2">Nenhum item próximo do prazo de uso.</p>
               ) : (
@@ -282,15 +276,15 @@ export function CeuDashboardPage() {
                   })}
                 </ul>
               )}
-              <CeuButton
+              <ModuleButton
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/ceu/movimentacoes')}
                 className="mt-3 gap-1"
               >
                 Ver entregas <ArrowRight className="w-3.5 h-3.5" />
-              </CeuButton>
-            </CeuCard>
+              </ModuleButton>
+            </ModuleCard>
           </div>
         </>
       )}

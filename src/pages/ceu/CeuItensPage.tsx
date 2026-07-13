@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Trash2, Edit, Package, Hash, X, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,8 +20,6 @@ import {
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
@@ -102,13 +101,13 @@ export function CeuItensPage() {
   return (
     <CeuShell>
       <PageHeader backTo="/ceu/dashboard" title="Itens CEU" description="Crachás, uniformes, equipamentos e EPIs">
-        <CeuButton onClick={() => navigate('/ceu/itens/novo')}>
+        <ModuleButton onClick={() => navigate('/ceu/itens/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Novo item
-        </CeuButton>
+        </ModuleButton>
       </PageHeader>
 
-      <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
+      <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -147,18 +146,18 @@ export function CeuItensPage() {
           </Select>
         </div>
         <div className="flex flex-wrap gap-2 mt-4">
-          <CeuButton onClick={handleFiltrar}>
+          <ModuleButton onClick={handleFiltrar}>
             <Filter className="w-4 h-4 mr-2" />
             Filtrar
-          </CeuButton>
-          <CeuButton variant="outline" onClick={handleLimpar}>
+          </ModuleButton>
+          <ModuleButton variant="outline" onClick={handleLimpar}>
             <X className="w-4 h-4 mr-2" />
             Limpar
-          </CeuButton>
+          </ModuleButton>
         </div>
-      </CeuCard>
+      </ModuleCard>
 
-      <CeuCard title={`Lista de itens (${itens.length})`} gradient="blue">
+      <ModuleCard title={`Lista de itens (${itens.length})`}>
         {loading ? (
           <LoadingScreen className="h-64" />
         ) : (
@@ -217,14 +216,14 @@ export function CeuItensPage() {
                       <TableCell>{formatarValorCentavos(item.valor)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <CeuButton
+                          <ModuleButton
                             variant="ghost"
                             size="icon"
                             onClick={() => navigate(`/ceu/itens/${item.id}/editar`)}
                             className="h-8 w-8"
                           >
                             <Edit className="w-4 h-4" />
-                          </CeuButton>
+                          </ModuleButton>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -242,7 +241,7 @@ export function CeuItensPage() {
             </Table>
           </div>
         )}
-      </CeuCard>
+      </ModuleCard>
 
       <CeuDialog
         open={!!removerId}
@@ -251,9 +250,9 @@ export function CeuItensPage() {
         description="Esta ação não pode ser desfeita."
         footer={
           <>
-            <CeuButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
               Cancelar
-            </CeuButton>
+            </ModuleButton>
             <Button
               variant="destructive"
               size="sm"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Trash2, RotateCcw, Package, Receipt, FileText, Upload, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,8 +25,6 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
@@ -103,8 +102,6 @@ export function CeuMovimentacoesPage() {
     listarPaginado(buildFiltrosPaginacao(), { pagina: 0, tamanho: 50 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveFiltro, filtroItem, filtroStatus, filtroDataInicio, filtroDataFim, listarPaginado])
-
-
 
   const entregasFiltradas = entregas
 
@@ -353,26 +350,26 @@ export function CeuMovimentacoesPage() {
   return (
     <CeuShell>
       <PageHeader backTo="/ceu/dashboard" title="Movimentações" description="Registro de entregas e devoluções">
-        <CeuButton variant="outline" onClick={() => setModalLote(true)}>
+        <ModuleButton variant="outline" onClick={() => setModalLote(true)}>
           <FileText className="w-4 h-4 mr-2" />
           Emitir recibos em lote
-        </CeuButton>
-        <CeuButton variant="outline" onClick={() => navigate('/ceu/importar')}>
+        </ModuleButton>
+        <ModuleButton variant="outline" onClick={() => navigate('/ceu/importar')}>
           <Upload className="w-4 h-4 mr-2" />
           Importar Planilha
-        </CeuButton>
-        <CeuButton variant="outline" onClick={() => setMostrarFiltros((v) => !v)}>
+        </ModuleButton>
+        <ModuleButton variant="outline" onClick={() => setMostrarFiltros((v) => !v)}>
           <Filter className="w-4 h-4 mr-2" />
           Filtros
-        </CeuButton>
-        <CeuButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
+        </ModuleButton>
+        <ModuleButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
           <Plus className="w-4 h-4 mr-2" />
           Nova Entrega
-        </CeuButton>
+        </ModuleButton>
       </PageHeader>
 
       {mostrarFiltros && (
-        <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
+        <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -425,18 +422,18 @@ export function CeuMovimentacoesPage() {
             </Select>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
-            <CeuButton variant="outline" size="sm" onClick={limparFiltros}>
+            <ModuleButton variant="outline" size="sm" onClick={limparFiltros}>
               Limpar
-            </CeuButton>
-            <CeuButton size="sm" onClick={aplicarFiltros}>
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={aplicarFiltros}>
               <Search className="w-3.5 h-3.5 mr-1.5" />
               Filtrar
-            </CeuButton>
+            </ModuleButton>
           </div>
-        </CeuCard>
+        </ModuleCard>
       )}
 
-      <CeuCard title={`Lista de movimentações (${paginacao?.total ?? movimentacoesAgrupadas.length})`} gradient="blue">
+      <ModuleCard title={`Lista de movimentações (${paginacao?.total ?? movimentacoesAgrupadas.length})`}>
         {loading ? (
           <LoadingScreen className="h-64" />
         ) : (
@@ -508,9 +505,9 @@ export function CeuMovimentacoesPage() {
                               <Receipt className="w-4 h-4 mr-1" /> Recibo
                             </Button>
                             {emAberto && (
-                              <CeuButton variant="ghost" size="icon" onClick={() => setDevolverId(mov.entregas.find((e) => !e.data_devolucao)!.id)} className="h-8 w-8" title="Registrar devolução">
+                              <ModuleButton variant="ghost" size="icon" onClick={() => setDevolverId(mov.entregas.find((e) => !e.data_devolucao)!.id)} className="h-8 w-8" title="Registrar devolução">
                                 <RotateCcw className="w-4 h-4" />
-                              </CeuButton>
+                              </ModuleButton>
                             )}
                             <Button
                               variant="ghost"
@@ -551,21 +548,21 @@ export function CeuMovimentacoesPage() {
             )}
           </div>
         )}
-      </CeuCard>
+      </ModuleCard>
 
       <CeuDialog open={!!devolverId} onOpenChange={(open) => !open && setDevolverId(null)} title="Registrar devolução" description="Informe a data de devolução do item.">
         <div className="bg-white rounded-lg">
           <CeuInput type="date" value={dataDevolucao} onChange={(e) => setDataDevolucao(e.target.value)} />
           <div className="flex justify-end gap-2 mt-4">
-            <CeuButton variant="outline" size="sm" onClick={() => setDevolverId(null)}>Cancelar</CeuButton>
-            <CeuButton size="sm" onClick={() => devolverId && handleDevolver(devolverId)}>Confirmar</CeuButton>
+            <ModuleButton variant="outline" size="sm" onClick={() => setDevolverId(null)}>Cancelar</ModuleButton>
+            <ModuleButton size="sm" onClick={() => devolverId && handleDevolver(devolverId)}>Confirmar</ModuleButton>
           </div>
         </div>
       </CeuDialog>
 
       <CeuDialog open={!!removerId} onOpenChange={(open) => !open && setRemoverId(null)} title="Remover entrega?" description="Esta ação não pode ser desfeita." className="bg-white" footer={
         <>
-          <CeuButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>Cancelar</CeuButton>
+          <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>Cancelar</ModuleButton>
           <Button variant="destructive" size="sm" onClick={() => removerId && handleRemover(removerId)}>Excluir</Button>
         </>
       } />
@@ -589,10 +586,10 @@ export function CeuMovimentacoesPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <CeuButton variant="outline" size="sm" onClick={() => setModalLote(false)}>Cancelar</CeuButton>
-              <CeuButton size="sm" onClick={handleEmitirLote} disabled={gerandoLote || !dataInicioLote || !dataFimLote}>
+              <ModuleButton variant="outline" size="sm" onClick={() => setModalLote(false)}>Cancelar</ModuleButton>
+              <ModuleButton size="sm" onClick={handleEmitirLote} disabled={gerandoLote || !dataInicioLote || !dataFimLote}>
                 {gerandoLote ? 'Gerando...' : 'Gerar recibos'}
-              </CeuButton>
+              </ModuleButton>
             </div>
           </div>
         </div>

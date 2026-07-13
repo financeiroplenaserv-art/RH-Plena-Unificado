@@ -58,13 +58,15 @@ export function ModuleShell({ children, tabs, className }: ModuleShellProps) {
 
 export interface ModuleCardProps {
   children: React.ReactNode
-  title?: string
+  title?: React.ReactNode
   description?: string
+  icon?: React.ReactNode
   className?: string
   contentClassName?: string
+  headerClassName?: string
 }
 
-export function ModuleCard({ children, title, description, className, contentClassName }: ModuleCardProps) {
+export function ModuleCard({ children, title, description, icon, className, contentClassName, headerClassName }: ModuleCardProps) {
   return (
     <Card
       className={cn('border-0 shadow-sm', className)}
@@ -74,8 +76,13 @@ export function ModuleCard({ children, title, description, className, contentCla
       }}
     >
       {(title || description) && (
-        <CardHeader className="px-5 py-3 border-b" style={{ borderColor: 'var(--bg-page-soft)' }}>
-          {title && <CardTitle className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</CardTitle>}
+        <CardHeader className={cn('px-5 py-3 border-b', headerClassName)} style={{ borderColor: 'var(--bg-page-soft)' }}>
+          {title && (
+            <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              {icon && <span>{icon}</span>}
+              {title}
+            </CardTitle>
+          )}
           {description && <CardDescription className="text-sm mt-0.5">{description}</CardDescription>}
         </CardHeader>
       )}
@@ -86,7 +93,7 @@ export function ModuleCard({ children, title, description, className, contentCla
 
 export interface ModuleButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'outline' | 'danger' | 'ghost'
-  size?: 'sm' | 'default' | 'lg'
+  size?: 'sm' | 'default' | 'lg' | 'icon'
 }
 
 export function ModuleButton({
@@ -106,6 +113,7 @@ export function ModuleButton({
         size === 'sm' && 'h-8 px-3 text-xs',
         size === 'default' && 'h-9 px-4 text-sm',
         size === 'lg' && 'h-10 px-5 text-sm',
+        size === 'icon' && 'h-9 w-9',
         className
       )}
       style={{

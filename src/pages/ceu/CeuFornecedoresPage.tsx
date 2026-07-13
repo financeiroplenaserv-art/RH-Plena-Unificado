@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { Search, Trash2, Edit, Building2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -14,8 +15,6 @@ import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/PageHeader'
 import { CeuShell } from './CeuShell'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
@@ -71,10 +70,9 @@ export function CeuFornecedoresPage() {
     <CeuShell>
       <PageHeader backTo="/ceu/dashboard" title="Fornecedores" description="Cadastro de fornecedores de itens" />
 
-      <CeuCard
+      <ModuleCard
         title={editando.id ? 'Editar fornecedor' : 'Novo fornecedor'}
         icon={<Plus className="w-4 h-4" />}
-        gradient="blue"
       >
         <form onSubmit={handleSalvar} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -119,22 +117,22 @@ export function CeuFornecedoresPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <CeuButton type="submit" disabled={!editando.nome.trim()}>
+            <ModuleButton type="submit" disabled={!editando.nome.trim()}>
               {editando.id ? 'Atualizar' : 'Cadastrar'}
-            </CeuButton>
+            </ModuleButton>
             {editando.id && (
-              <CeuButton
+              <ModuleButton
                 variant="outline"
                 onClick={() => setEditando({ id: null, nome: '', cnpj: '', telefone: '', email: '' })}
               >
                 Cancelar
-              </CeuButton>
+              </ModuleButton>
             )}
           </div>
         </form>
-      </CeuCard>
+      </ModuleCard>
 
-      <CeuCard title={`Lista de fornecedores (${fornecedores.length})`} icon={<Search className="w-4 h-4" />} gradient="blue">
+      <ModuleCard title={`Lista de fornecedores (${fornecedores.length})`} icon={<Search className="w-4 h-4" />}>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
           <CeuInput
@@ -176,7 +174,7 @@ export function CeuFornecedoresPage() {
                       <TableCell>{f.email || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <CeuButton
+                          <ModuleButton
                             variant="ghost"
                             size="icon"
                             onClick={() =>
@@ -191,7 +189,7 @@ export function CeuFornecedoresPage() {
                             className="h-8 w-8"
                           >
                             <Edit className="w-4 h-4" />
-                          </CeuButton>
+                          </ModuleButton>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -209,7 +207,7 @@ export function CeuFornecedoresPage() {
             </Table>
           </div>
         )}
-      </CeuCard>
+      </ModuleCard>
 
       <CeuDialog
         open={!!removerId}
@@ -218,9 +216,9 @@ export function CeuFornecedoresPage() {
         description="Esta ação não pode ser desfeita."
         footer={
           <>
-            <CeuButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
+            <ModuleButton variant="outline" size="sm" onClick={() => setRemoverId(null)}>
               Cancelar
-            </CeuButton>
+            </ModuleButton>
             <Button
               variant="destructive"
               size="sm"

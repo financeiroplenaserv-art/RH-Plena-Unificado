@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, Download } from 'lucide-react'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
@@ -207,7 +206,7 @@ export function CeuImportarPage() {
       <div className="space-y-6 max-w-5xl mx-auto">
         <PageHeader backTo="/ceu/dashboard" title="Importar CEU" description="Importe itens ou fornecedores via CSV/Excel" />
 
-        <CeuCard title="Tipo de importação" icon={<Upload className="w-4 h-4" />} gradient="blue">
+        <ModuleCard title="Tipo de importação" icon={<Upload className="w-4 h-4" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {TIPOS.map((t) => (
               <button
@@ -227,16 +226,16 @@ export function CeuImportarPage() {
               </button>
             ))}
           </div>
-        </CeuCard>
+        </ModuleCard>
 
-        <CeuCard title="Upload do arquivo" icon={<FileSpreadsheet className="w-4 h-4" />} gradient="blue">
+        <ModuleCard title="Upload do arquivo" icon={<FileSpreadsheet className="w-4 h-4" />}>
           <div className="space-y-4">
             {tipo === 'itens' && (
               <div className="flex justify-end">
-                <CeuButton variant="outline" size="sm" onClick={exportarModelo} disabled={itens.length === 0}>
+                <ModuleButton variant="outline" size="sm" onClick={exportarModelo} disabled={itens.length === 0}>
                   <Download className="w-3.5 h-3.5 mr-1.5" />
                   Baixar modelo com itens atuais
-                </CeuButton>
+                </ModuleButton>
               </div>
             )}
             <div className="flex items-center justify-center w-full">
@@ -267,10 +266,10 @@ export function CeuImportarPage() {
               </div>
             )}
           </div>
-        </CeuCard>
+        </ModuleCard>
 
         {linhas && (
-          <CeuCard
+          <ModuleCard
             title={`Preview: ${linhas.filter((l) => l.valido).length} válido(s) / ${linhas.filter((l) => !l.valido).length} inválido(s)`}
             icon={<AlertTriangle className="w-4 h-4" />}
             gradient={linhas.some((l) => !l.valido) ? 'orange' : 'green'}
@@ -312,15 +311,15 @@ export function CeuImportarPage() {
               </table>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <CeuButton variant="outline" size="sm" onClick={() => { setLinhas(null); setNomeArquivo('') }}>
+              <ModuleButton variant="outline" size="sm" onClick={() => { setLinhas(null); setNomeArquivo('') }}>
                 Cancelar
-              </CeuButton>
-              <CeuButton size="sm" onClick={importar} disabled={importando || linhas.every((l) => !l.valido)}>
+              </ModuleButton>
+              <ModuleButton size="sm" onClick={importar} disabled={importando || linhas.every((l) => !l.valido)}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                 {importando ? 'Importando...' : 'Importar válidos'}
-              </CeuButton>
+              </ModuleButton>
             </div>
-          </CeuCard>
+          </ModuleCard>
         )}
       </div>
     </CeuShell>

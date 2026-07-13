@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Save, CheckCircle2, FileText, User, Package, AlertTriangle, Search } from 'lucide-react'
 import { Label } from '@/components/ui/label'
@@ -15,8 +16,6 @@ import { useCEUItens } from '@/hooks/useCEUItens'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { Input } from '@/components/ui/input'
 import { CeuShell } from './CeuShell'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
@@ -238,10 +237,10 @@ export function CeuEntregaFormPage() {
     <CeuShell>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <CeuButton variant="ghost" onClick={() => navigate('/ceu/movimentacoes')}>
+          <ModuleButton variant="ghost" onClick={() => navigate('/ceu/movimentacoes')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
-          </CeuButton>
+          </ModuleButton>
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Nova entrega</h2>
             <p className="text-sm text-slate-500">Wizard de entrega de itens CEU</p>
@@ -269,7 +268,7 @@ export function CeuEntregaFormPage() {
         </div>
 
         {passo === 1 && (
-          <CeuCard title="Passo 1: Selecionar colaborador" icon={<User className="w-4 h-4" />} gradient="blue">
+          <ModuleCard title="Passo 1: Selecionar colaborador" icon={<User className="w-4 h-4" />}>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Colaborador</Label>
@@ -372,16 +371,16 @@ export function CeuEntregaFormPage() {
               )}
 
               <div className="flex justify-end pt-2">
-                <CeuButton onClick={avancar}>
+                <ModuleButton onClick={avancar}>
                   Próximo <ArrowRight className="w-4 h-4 ml-2" />
-                </CeuButton>
+                </ModuleButton>
               </div>
             </div>
-          </CeuCard>
+          </ModuleCard>
         )}
 
         {passo === 2 && (
-          <CeuCard title="Passo 2: Selecionar itens" icon={<Package className="w-4 h-4" />} gradient="blue">
+          <ModuleCard title="Passo 2: Selecionar itens" icon={<Package className="w-4 h-4" />}>
             <div className="space-y-4">
               {carregandoItens ? (
                 <div className="text-center py-8 text-slate-500">
@@ -452,7 +451,7 @@ export function CeuEntregaFormPage() {
                     </div>
                     {(filtroTipo || filtroSubgrupo || buscaItem) && (
                       <div className="flex items-end">
-                        <CeuButton
+                        <ModuleButton
                           variant="outline"
                           size="sm"
                           onClick={() => {
@@ -462,7 +461,7 @@ export function CeuEntregaFormPage() {
                           }}
                         >
                           Limpar filtros
-                        </CeuButton>
+                        </ModuleButton>
                       </div>
                     )}
                   </div>
@@ -559,20 +558,20 @@ export function CeuEntregaFormPage() {
               )}
 
               <div className="flex justify-between pt-2">
-                <CeuButton variant="outline" onClick={voltar}>
+                <ModuleButton variant="outline" onClick={voltar}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Voltar
-                </CeuButton>
-                <CeuButton onClick={avancar}>
+                </ModuleButton>
+                <ModuleButton onClick={avancar}>
                   Próximo <ArrowRight className="w-4 h-4 ml-2" />
-                </CeuButton>
+                </ModuleButton>
               </div>
             </div>
-          </CeuCard>
+          </ModuleCard>
         )}
 
         {passo === 3 && (
-          <CeuCard title="Passo 3: Confirmar entrega" icon={<FileText className="w-4 h-4" />} gradient="blue">
+          <ModuleCard title="Passo 3: Confirmar entrega" icon={<FileText className="w-4 h-4" />}>
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 mb-3">Colaborador</h3>
@@ -649,23 +648,23 @@ export function CeuEntregaFormPage() {
               </div>
 
               <div className="flex justify-between pt-2">
-                <CeuButton variant="outline" onClick={voltar}>
+                <ModuleButton variant="outline" onClick={voltar}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Voltar
-                </CeuButton>
-                <CeuButton onClick={confirmar} disabled={salvando || !dataEntrega}>
+                </ModuleButton>
+                <ModuleButton onClick={confirmar} disabled={salvando || !dataEntrega}>
                   <Save className="w-4 h-4 mr-2" />
                   {salvando ? 'Salvando...' : 'Confirmar entrega'}
-                </CeuButton>
+                </ModuleButton>
               </div>
             </div>
-          </CeuCard>
+          </ModuleCard>
         )}
 
         <CeuReciboModal isOpen={modalRecibo} onClose={() => setModalRecibo(false)} dadosEntrega={dadosRecibo} />
 
         {passo === 4 && concluido && (
-          <CeuCard title="Entrega registrada" icon={<CheckCircle2 className="w-4 h-4" />} gradient="green">
+          <ModuleCard title="Entrega registrada" icon={<CheckCircle2 className="w-4 h-4" />}>
             <div className="text-center space-y-4 py-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
@@ -678,16 +677,16 @@ export function CeuEntregaFormPage() {
                 </p>
               </div>
               <div className="flex justify-center gap-3">
-                <CeuButton variant="outline" onClick={() => navigate('/ceu/movimentacoes')}>
+                <ModuleButton variant="outline" onClick={() => navigate('/ceu/movimentacoes')}>
                   Ver entregas
-                </CeuButton>
-                <CeuButton onClick={abrirRecibo}>
+                </ModuleButton>
+                <ModuleButton onClick={abrirRecibo}>
                   <FileText className="w-4 h-4 mr-2" />
                   Visualizar recibo
-                </CeuButton>
+                </ModuleButton>
               </div>
             </div>
-          </CeuCard>
+          </ModuleCard>
         )}
       </div>
     </CeuShell>

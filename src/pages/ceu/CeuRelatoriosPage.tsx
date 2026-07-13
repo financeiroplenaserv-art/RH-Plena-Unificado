@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 
 import {
   Users,
@@ -27,8 +28,6 @@ import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { supabase } from '@/lib/supabase'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/PageHeader'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import type { Colaborador } from '@/types/database'
@@ -43,7 +42,6 @@ const ABAS = [
 ] as const
 
 type AbaId = (typeof ABAS)[number]['id']
-
 
 function badgeType(tipo: string) {
   switch (tipo) {
@@ -342,14 +340,14 @@ export function CeuRelatoriosPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-slate-900">Itens por Colaborador</h3>
             <div className="flex flex-wrap gap-2">
-              <CeuButton variant="outline" size="sm">
+              <ModuleButton variant="outline" size="sm">
                 <FileText className="w-3.5 h-3.5 mr-1.5" />
                 Relatório em Lote
-              </CeuButton>
-              <CeuButton variant="outline" size="sm" onClick={exportarExcel}>
+              </ModuleButton>
+              <ModuleButton variant="outline" size="sm" onClick={exportarExcel}>
                 <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
                 Exportar Excel
-              </CeuButton>
+              </ModuleButton>
             </div>
           </div>
 
@@ -366,10 +364,10 @@ export function CeuRelatoriosPage() {
                         {colaborador.matricula} — {colaborador.departamento || '—'}
                       </p>
                     </div>
-                    <CeuButton variant="outline" size="sm">
+                    <ModuleButton variant="outline" size="sm">
                       <FileText className="w-3.5 h-3.5 mr-1.5" />
                       Gerar Recibo
-                    </CeuButton>
+                    </ModuleButton>
                   </div>
                 </div>
                 <table className="w-full text-sm">
@@ -689,7 +687,7 @@ export function CeuRelatoriosPage() {
       <div className="space-y-6">
         <PageHeader backTo="/ceu/dashboard" title="Relatórios CEU" description="Análise de entregas, itens e alertas" />
 
-        <CeuCard title="Filtros" icon={<Search className="w-4 h-4" />} gradient="blue">
+        <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data_inicio">Data inicial</Label>
@@ -781,24 +779,24 @@ export function CeuRelatoriosPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
-            <CeuButton size="sm" onClick={aplicarFiltros}>
+            <ModuleButton size="sm" onClick={aplicarFiltros}>
               <Filter className="w-3.5 h-3.5 mr-1.5" />
               Filtrar
-            </CeuButton>
-            <CeuButton variant="outline" size="sm" onClick={limparFiltros}>
+            </ModuleButton>
+            <ModuleButton variant="outline" size="sm" onClick={limparFiltros}>
               <X className="w-3.5 h-3.5 mr-1.5" />
               Limpar
-            </CeuButton>
-            <CeuButton variant="outline" size="sm" onClick={exportarExcel}>
+            </ModuleButton>
+            <ModuleButton variant="outline" size="sm" onClick={exportarExcel}>
               <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
               Exportar Excel
-            </CeuButton>
-            <CeuButton variant="outline" size="sm" onClick={exportarTSV}>
+            </ModuleButton>
+            <ModuleButton variant="outline" size="sm" onClick={exportarTSV}>
               <FileJson className="w-3.5 h-3.5 mr-1.5" />
               Exportar TSV
-            </CeuButton>
+            </ModuleButton>
           </div>
-        </CeuCard>
+        </ModuleCard>
 
         <div className="border-b border-slate-200">
           <div className="flex flex-wrap gap-1">
@@ -823,7 +821,7 @@ export function CeuRelatoriosPage() {
           </div>
         </div>
 
-        <CeuCard title={ABAS.find((a) => a.id === abaAtiva)?.label || ''} gradient="blue">
+        <ModuleCard title={ABAS.find((a) => a.id === abaAtiva)?.label || ''}>
           {(loadingItens || loadingEntregas) ? (
             <div className="text-center py-12 text-slate-500">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#3B82F6] mx-auto mb-2" />
@@ -832,7 +830,7 @@ export function CeuRelatoriosPage() {
           ) : (
             renderConteudoAba()
           )}
-        </CeuCard>
+        </ModuleCard>
       </div>
     </CeuShell>
   )

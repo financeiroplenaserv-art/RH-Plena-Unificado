@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
 import { Label } from '@/components/ui/label'
@@ -10,8 +11,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
-import { CeuCard } from '@/components/ceu/CeuCard'
-import { CeuButton } from '@/components/ceu/CeuButton'
 import { CeuInput } from '@/components/ceu/CeuInput'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
@@ -131,10 +130,10 @@ export function CeuItemFormPage() {
     <CeuShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <CeuButton variant="ghost" onClick={() => navigate('/ceu/itens')}>
+          <ModuleButton variant="ghost" onClick={() => navigate('/ceu/itens')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
-          </CeuButton>
+          </ModuleButton>
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{id ? 'Editar item' : 'Novo item'}</h2>
             <p className="text-sm text-slate-500">Dados do item CEU</p>
@@ -142,7 +141,7 @@ export function CeuItemFormPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <CeuCard title="Informações do item" gradient="blue">
+          <ModuleCard title="Informações do item">
             <div className="space-y-4">
               {/* Linha 1: Tipo */}
               <div className="space-y-2">
@@ -343,13 +342,13 @@ export function CeuItemFormPage() {
               )}
 
               <div className="pt-2">
-                <CeuButton type="submit" disabled={salvando || !form.nome || !form.tipo}>
+                <ModuleButton type="submit" disabled={salvando || !form.nome || !form.tipo}>
                   <Save className="w-4 h-4 mr-2" />
                   {salvando ? 'Salvando...' : 'Salvar item'}
-                </CeuButton>
+                </ModuleButton>
               </div>
             </div>
-          </CeuCard>
+          </ModuleCard>
         </form>
       </div>
     </CeuShell>
