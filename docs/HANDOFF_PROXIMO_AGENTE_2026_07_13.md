@@ -92,13 +92,19 @@ Foram criados 3 itens de crachá que não estavam na planilha original:
 - `scripts/criar-itens-cracha.mjs` — cria os itens de crachá
 - `scripts/importar-movimentacoes-ceu.mjs` — importa as movimentações com snapshot_item e validação de datas
 
+## ✅ Ajustes de UI realizados
+
+- **Aba Itens:** adicionados botões **Filtrar** e **Limpar** nos filtros.
+- **Lançamento Rápido:** adicionado botão de **deletar** ao final de cada linha.
+- **Relatórios:** reorganizados os filtros em grid de 3 colunas, adicionado filtro **Status** (Em aberto / Devolvido) e botões **Filtrar** / **Limpar**.
+- **Importação:** a página `/ceu/importar` **não é lixo** — serve para importar novos itens e fornecedores via planilha CSV/Excel.
+
 ## 🎯 Próximos passos sugeridos
 
 1. **Verificar no sistema** se os itens e movimentações aparecem corretamente (`/ceu/itens`, `/ceu/movimentacoes`, `/ceu/entregas`)
 2. **Decidir sobre o colaborador não encontrado:** cadastrar RAFAEL DE CARVALHO LEMOS (matrícula 1107) e reimportar, ou deixar sem essas 25 movimentações
 3. **ModuleShell** (`src/components/layout/ModuleShell.tsx`) — deixado como trabalho futuro
-4. **Rodar `npm run lint`** quando o notebook tiver memória disponível
-5. **Não rodar `npm run build` nem `npm test`** no notebook com pouca memória
+4. **Não rodar `npm run build` nem `npm test`** no notebook com pouca memória
 
 ---
 
