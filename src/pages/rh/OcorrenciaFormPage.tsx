@@ -105,12 +105,12 @@ const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
   },
   {
     macroGrupo: '1. Jornada e Ponto',
-    tipo: 'Falta Abonada Motivos Diversos',
+    tipo: 'Falta Abonada',
     gravidade: 'Leve',
-    baseLegal: 'Art. 473 CLT — faltas abonadas por motivos pessoais/familiares previstos em lei, convenção coletiva ou acordo individual.',
+    baseLegal: 'Art. 473 CLT — faltas abonadas por motivos previstos em lei, convenção coletiva ou acordo individual.',
     exigeAnexo: true,
     texto:
-      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistra-se que o(a) colaborador(a) faltou ao trabalho no dia ___/___/_____, por motivo de [LUTO / CASAMENTO / PATERNIDADE / ACOMPANHAMENTO FAMILIAR / OUTRO MOTIVO: ________________], conforme solicitação apresentada e documentação comprobatória em anexo.\n\nA falta encontra-se abonada nos termos do Art. 473 da CLT, legislação aplicável, convenção coletiva ou acordo individual, não acarretando desconto em remuneração ou benefícios. A documentação foi conferida e arquivada no RH.',
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistra-se que o(a) colaborador(a) faltou ao trabalho no dia ___/___/_____, por motivo de _________________, conforme solicitação apresentada e documentação comprobatória em anexo.\n\nA falta encontra-se abonada nos termos do Art. 473 da CLT, legislação aplicável, convenção coletiva ou acordo individual, não acarretando desconto em remuneração ou benefícios. A documentação foi conferida e arquivada no RH.',
   },
   {
     macroGrupo: '2. Conduta e Disciplina',
