@@ -481,6 +481,15 @@ const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
     texto:
       '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistramos a seguinte ocorrência positiva referente ao(a) colaborador(a) em ___/___/_____:\n\n[DESCREVER A OCORRÊNCIA — QUALQUER FATO POSITIVO QUE NÃO SE ENCAIXE NOS TIPOS ANTERIORES: ANIVERSÁRIO DE EMPRESA, TEMPO DE CASA, PREMIAÇÃO, MENÇÃO HONROSA, ETC.]\n\nEste registro será mantido no prontuário do colaborador para fins de histórico e avaliação.',
   },
+  {
+    macroGrupo: '9. Registro do RH',
+    tipo: 'Outros',
+    gravidade: 'Leve',
+    baseLegal: 'Registro interno geral — uso para fatos que não se enquadram nos demais tipos.',
+    exigeAnexo: false,
+    texto:
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistramos o seguinte fato referente ao(a) colaborador(a) em ___/___/_____:\n\n[DESCREVER A OCORRÊNCIA — QUALQUER INFORMAÇÃO, COMUNICAÇÃO OU REGISTRO QUE NÃO SE ENCAIXE NOS TIPOS ANTERIORES]\n\nEste registro será mantido no prontuário do colaborador para fins de histórico e controle interno do RH.',
+  },
 ]
 
 const MACRO_GRUPOS = [...new Set(TIPOS_OCORRENCIA.map((t) => t.macroGrupo))]

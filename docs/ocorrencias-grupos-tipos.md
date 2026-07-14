@@ -97,4 +97,5 @@ Fonte: `src/pages/rh/OcorrenciaFormPage.tsx`
 | Indicação para Promoção | Positiva | Não | Política de cargos e salários / Avaliação de desempenho. |
 | Ação de Destaque em Equipe | Positiva | Não | Registro de reconhecimento em equipe. |
 | Outro Registro Positivo | Positiva | Não | Registro interno diversos. |
+| Outros | Leve | Não | Registro interno geral — uso para fatos que não se enquadram nos demais tipos. |
 
