@@ -3,7 +3,7 @@ import path from 'path'
 import XLSX from '@e965/xlsx'
 
 async function buscar() {
-  const arquivoPath = path.resolve('public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
+  const arquivoPath = path.resolve('dados-locais/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
   const buffer = fs.readFileSync(arquivoPath)
   const workbook = XLSX.read(buffer, { type: 'buffer' })
   const sheet = workbook.Sheets[workbook.SheetNames[0]]

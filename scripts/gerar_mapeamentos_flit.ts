@@ -73,7 +73,7 @@ function encontrarMelhorMatch(valorFlit: string, locais: LocalTrabalho[]): Local
 }
 
 async function gerar() {
-  const excelPath = path.resolve('public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
+  const excelPath = path.resolve('dados-locais/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
   const locaisPath = path.resolve('scripts/locais_trabalho.json')
 
   const locais: LocalTrabalho[] = JSON.parse(fs.readFileSync(locaisPath, 'utf-8'))

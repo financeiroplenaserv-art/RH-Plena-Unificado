@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 async function testar() {
-  const arquivoPath = path.resolve('public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
+  const arquivoPath = path.resolve('dados-locais/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
   const buffer = fs.readFileSync(arquivoPath)
 
   try {

@@ -130,7 +130,7 @@ function processarLinha(row, tipo) {
 }
 
 async function importar() {
-  const arquivo = path.resolve(process.cwd(), 'public/EPIS e Uniformes para CORH.xlsx')
+  const arquivo = path.resolve(process.cwd(), 'dados-locais/EPIS e Uniformes para CORH.xlsx')
   if (!fs.existsSync(arquivo)) {
     console.error('Arquivo não encontrado:', arquivo)
     process.exit(1)

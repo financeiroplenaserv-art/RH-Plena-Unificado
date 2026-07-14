@@ -2,7 +2,7 @@ import XLSX from '@e965/xlsx'
 import fs from 'fs'
 import path from 'path'
 
-const arquivo = 'public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx'
+const arquivo = 'dados-locais/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx'
 const caminho = path.resolve(arquivo)
 
 const buffer = fs.readFileSync(caminho)

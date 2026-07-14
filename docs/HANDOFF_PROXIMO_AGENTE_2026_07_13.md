@@ -25,7 +25,7 @@ Arquivos alterados:
 
 Arquivo: `scripts/importar-itens-ceu.ts`
 
-- Lê a planilha `public/EPIS e Uniformes para CORH.xlsx`
+- Lê a planilha `dados-locais/EPIS e Uniformes para CORH.xlsx`
 - Processa as abas **EPI** e **Uniforme**
 - Importa todos os campos da planilha **exceto Gênero**
 - Campos cobertos: Código, Descrição, Un., Tam., C.A., Última Compra, Custo da Última, Vida Útil, Período, Sit.
@@ -71,7 +71,7 @@ A importação do Excel foi executada com sucesso nesta sessão.
 
 ## ✅ Resumo da importação de movimentações
 
-Arquivo: `public/relatorio_por_colaborador que estava no CEU - colabs ativos.xls`
+Arquivo: `dados-locais/relatorio_por_colaborador que estava no CEU - colabs ativos.xls`
 
 - **Total de movimentações na planilha:** 5.526
 - **Movimentações importadas com sucesso:** 5.500
@@ -179,7 +179,7 @@ e20d562 feat(design): aplica ModuleShell nos módulos RH e Escalas
 - `supabase/migrations/056_itens_ceu_campos_extras.sql`
 - `src/pages/ceu/CeuItemFormPage.tsx`
 - `src/types/database.ts`
-- `public/EPIS e Uniformes para CORH.xlsx`
+- `dados-locais/EPIS e Uniformes para CORH.xlsx`
 - `src/components/layout/ModuleShell.tsx`
 - `src/pages/rh/RhShell.tsx`
 - `src/pages/escalas/EscalasShell.tsx`

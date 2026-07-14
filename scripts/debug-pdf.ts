@@ -1,7 +1,7 @@
 import fs from 'fs'
 import { extrairPaginasPDF } from '../src/lib/vr/pdfExtractor'
 
-const buf = fs.readFileSync('public/teste-ponto.pdf')
+const buf = fs.readFileSync('dados-locais/teste-ponto.pdf')
 const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
 
 extrairPaginasPDF(arrayBuffer)

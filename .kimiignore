@@ -1,0 +1,39 @@
+# Dependencias
+node_modules
+.venv-pwa
+
+# Build outputs
+dist
+dist-ssr
+dev-dist
+.vite
+.vite-temp
+
+# Dados locais (planilhas, PDFs de teste, etc.)
+dados-locais
+
+# Logs
+*.log
+logs
+build.log
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Supabase CLI temporary files
+supabase/.temp
+
+# Editor directories and files
+.vscode
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.nproj
+*.sln
+*.sw?
+
+# Documentacao extensa de agentes (opcional - descomente se quiser)
+# docs/agentes

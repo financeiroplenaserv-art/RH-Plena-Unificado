@@ -13,8 +13,17 @@ lerna-debug.log*
 .env.*.local
 
 node_modules
+
+# Build outputs
 dist
 dist-ssr
+dev-dist
+.vite
+.vite-temp
+
+# Local data files (not for version control)
+dados-locais/
+
 *.local
 
 # Supabase CLI temporary files

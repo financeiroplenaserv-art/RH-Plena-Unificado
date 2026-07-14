@@ -71,8 +71,8 @@ function gerarPDF(): ArrayBuffer {
   })
 
   const buf = doc.output('arraybuffer')
-  fs.writeFileSync('public/teste-ponto.pdf', Buffer.from(buf))
-  console.log('[Teste] PDF gerado em public/teste-ponto.pdf')
+  fs.writeFileSync('dados-locais/teste-ponto.pdf', Buffer.from(buf))
+  console.log('[Teste] PDF gerado em dados-locais/teste-ponto.pdf')
   return buf
 }
 

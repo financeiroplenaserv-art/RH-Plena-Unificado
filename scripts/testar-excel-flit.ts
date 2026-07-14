@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseWorkbookBinary, agruparBatidasPorDia } from '../src/lib/escalas/importarFlit.js'
 
-const arquivo = resolve(process.cwd(), 'public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
+const arquivo = resolve(process.cwd(), 'dados-locais/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
 console.log('Lendo:', arquivo)
 
 const buffer = readFileSync(arquivo)

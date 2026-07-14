@@ -216,7 +216,7 @@ async function importar() {
   }
   console.log('Entregas antigas apagadas.')
 
-  const arquivo = 'public/relatorio_por_colaborador que estava no CEU - colabs ativos.xls'
+  const arquivo = 'dados-locais/relatorio_por_colaborador que estava no CEU - colabs ativos.xls'
   if (!fs.existsSync(arquivo)) {
     console.error('Arquivo não encontrado:', arquivo)
     process.exit(1)

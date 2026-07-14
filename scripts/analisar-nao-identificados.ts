@@ -13,7 +13,7 @@ interface Mapeamento {
 }
 
 async function analisar() {
-  const arquivoPath = path.resolve('public/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
+  const arquivoPath = path.resolve('dados-locais/Marcacoes 01_06_2026 - 05_06_2026 (2).xlsx')
   const mapeamentosPath = path.resolve('scripts/mapeamentos_atuais.json')
 
   const buffer = fs.readFileSync(arquivoPath)
