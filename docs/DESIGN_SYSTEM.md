@@ -105,15 +105,11 @@ import { ModuleButton } from '@/components/layout/ModuleShell'
 
 ### Componentes compartilhados
 
-- `KpiCard` — card de métrica
-- `FilterCard` — card de filtros com ações Filtrar/Limpar
-- `EmptyState` — estado vazio
-- `StatusBadge` — badge de status semântico
 - `DepartamentoAutocomplete` — autocomplete de departamentos
 
 ## Densidade
 
-- Fundo de página: `--bg-page` (`#E8F1FA`)
+- Fundo de página: `--bg-page` (`#F8FAFC`)
 - Padding do wrapper: `p-4 md:p-5`
 - Espaçamento entre cards: `space-y-4`
 - Padding interno do card: `p-5`
