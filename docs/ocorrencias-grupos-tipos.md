@@ -15,6 +15,7 @@ Fonte: `src/pages/rh/OcorrenciaFormPage.tsx`
 | Esquecimento de Marcação | Leve | Não | Portaria 1.510/2009 — registro de ponto obrigatório. |
 | Saída Antecipada | Leve | Não | Art. 482, alínea "e" CLT — desídia no cumprimento do horário. |
 | Atraso Autorizado | Leve | Não | Regimento interno e controle de jornada — atraso previamente comunicado e autorizado pela chefia imediata. |
+| Falta Abonada Motivos Diversos | Leve | Sim | Art. 473 CLT — faltas abonadas por motivos pessoais/familiares previstos em lei, convenção coletiva ou acordo individual. |
 
 ## 2. Conduta e Disciplina
 

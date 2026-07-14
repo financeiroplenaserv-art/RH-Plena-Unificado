@@ -104,6 +104,15 @@ const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
       '[EMPRESA] — CNPJ: [CNPJ]\n\nNo dia ___/___/_____, o(a) colaborador(a) registrou entrada às ___h___, com atraso de ___ minutos em relação ao horário estabelecido de ___h___.\n\nO atraso foi previamente comunicado e autorizado pela chefia imediata, conforme registro interno, não caracterizando desídia no desempenho das funções. Fica registrado para fins de controle de jornada e frequência.',
   },
   {
+    macroGrupo: '1. Jornada e Ponto',
+    tipo: 'Falta Abonada Motivos Diversos',
+    gravidade: 'Leve',
+    baseLegal: 'Art. 473 CLT — faltas abonadas por motivos pessoais/familiares previstos em lei, convenção coletiva ou acordo individual.',
+    exigeAnexo: true,
+    texto:
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistra-se que o(a) colaborador(a) faltou ao trabalho no dia ___/___/_____, por motivo de [LUTO / CASAMENTO / PATERNIDADE / ACOMPANHAMENTO FAMILIAR / OUTRO MOTIVO: ________________], conforme solicitação apresentada e documentação comprobatória em anexo.\n\nA falta encontra-se abonada nos termos do Art. 473 da CLT, legislação aplicável, convenção coletiva ou acordo individual, não acarretando desconto em remuneração ou benefícios. A documentação foi conferida e arquivada no RH.',
+  },
+  {
     macroGrupo: '2. Conduta e Disciplina',
     tipo: 'Advertência Verbal',
     gravidade: 'Leve',
