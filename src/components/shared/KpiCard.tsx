@@ -27,7 +27,7 @@ export function KpiCard({ title, value, description, icon: Icon, variant = 'defa
       className={cn('border-0 shadow-sm', className)}
       style={{
         backgroundColor: 'var(--surface)',
-        boxShadow: '0 1px 3px rgba(15, 94, 221, 0.06)',
+        boxShadow: '0 1px 3px rgba(31, 41, 55, 0.06)',
         borderLeft: `3px solid ${styles.border}`,
       }}
     >

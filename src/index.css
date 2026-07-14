@@ -17,33 +17,33 @@
   --brand-800: #05255C;
   --brand-900: #031636;
 
-  /* Primárias do design system (alias para brand) */
-  --primary-500: var(--brand-400);
-  --primary-600: var(--brand-500);
-  --primary-700: var(--brand-600);
+  /* Primárias do design system (neutro escuro para nao competir com o fundo) */
+  --primary-500: #374151;
+  --primary-600: #1F2937;
+  --primary-700: #111827;
 
   /* Acento verde-água */
   --accent-teal: #00BFA6;
   --accent-teal-soft: #E0F7F4;
 
   /* Fundo */
-  --bg-page: #E8F1FA;
-  --bg-page-soft: #F3F8FD;
+  --bg-page: #F8FAFC;
+  --bg-page-soft: #F1F5F9;
 
   /* Superfícies */
   --surface: #FFFFFF;
   --header-bg: #FFFFFF;
-  --sidebar-bg: #F8FBFF;
-  --sidebar-active: #E3EFFC;
+  --sidebar-bg: #FFFFFF;
+  --sidebar-active: #F1F5F9;
 
   /* Texto */
-  --text-primary: #1A2B44;
-  --text-secondary: #4A6B93;
-  --text-muted: #7A9ABE;
+  --text-primary: #1F2937;
+  --text-secondary: #4B5563;
+  --text-muted: #9CA3AF;
 
   /* Bordas e inputs */
-  --border-color: #D4E3F3;
-  --border-focus: #2B7EFF;
+  --border-color: #E2E8F0;
+  --border-focus: #1F2937;
 
   /* Semânticas suaves */
   --success: #22A36C;
@@ -52,11 +52,11 @@
   --warning-bg: #FDF4E3;
   --danger: #D6454B;
   --danger-bg: #FDEBEC;
-  --info: #2B7EFF;
-  --info-bg: #E8F1FA;
+  --info: #1F2937;
+  --info-bg: #F1F5F9;
 
   /* KPIs */
-  --kpi-primary: #0F5EDD;
+  --kpi-primary: #1F2937;
   --kpi-positive: #22A36C;
   --kpi-attention: #E09E2C;
   --kpi-complement: #5B6CC4;
