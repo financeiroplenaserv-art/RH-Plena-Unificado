@@ -14,6 +14,7 @@ Fonte: `src/pages/rh/OcorrenciaFormPage.tsx`
 | Horas Extras não autorizadas | Moderada | Não | Art. 59 CLT — horas extras devem ser autorizadas prévia e expressamente. |
 | Esquecimento de Marcação | Leve | Não | Portaria 1.510/2009 — registro de ponto obrigatório. |
 | Saída Antecipada | Leve | Não | Art. 482, alínea "e" CLT — desídia no cumprimento do horário. |
+| Atraso Autorizado | Leve | Não | Regimento interno e controle de jornada — atraso previamente comunicado e autorizado pela chefia imediata. |
 
 ## 2. Conduta e Disciplina
 

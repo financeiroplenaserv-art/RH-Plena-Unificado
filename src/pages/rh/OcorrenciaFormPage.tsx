@@ -95,6 +95,15 @@ const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
       '[EMPRESA] — CNPJ: [CNPJ]\n\nNo dia ___/___/_____, o(a) colaborador(a) deixou o local de trabalho às ___h___, antes do horário estabelecido de término às ___h___, sem autorização prévia.\n\nTal conduta configura desídia no desempenho das funções (Art. 482, alínea "e", CLT). Solicitamos comunicação prévia em caso de necessidade de ausentar-se antes do horário.',
   },
   {
+    macroGrupo: '1. Jornada e Ponto',
+    tipo: 'Atraso Autorizado',
+    gravidade: 'Leve',
+    baseLegal: 'Regimento interno e controle de jornada — atraso previamente comunicado e autorizado pela chefia imediata.',
+    exigeAnexo: false,
+    texto:
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nNo dia ___/___/_____, o(a) colaborador(a) registrou entrada às ___h___, com atraso de ___ minutos em relação ao horário estabelecido de ___h___.\n\nO atraso foi previamente comunicado e autorizado pela chefia imediata, conforme registro interno, não caracterizando desídia no desempenho das funções. Fica registrado para fins de controle de jornada e frequência.',
+  },
+  {
     macroGrupo: '2. Conduta e Disciplina',
     tipo: 'Advertência Verbal',
     gravidade: 'Leve',
