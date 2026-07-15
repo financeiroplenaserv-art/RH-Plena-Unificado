@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal } from 'lucide-react'
+import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal, Info } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
@@ -160,24 +160,36 @@ export function OcorrenciasPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-600" />
               <Input
-                placeholder="Buscar por tipo ou título..."
+                placeholder="Procurar ocorrências de colaboradores não cadastrados no CORH"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && loadOcorrencias()}
-                className="pl-9 bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937] placeholder:text-[#94A3B8]"
+                className="pl-9 bg-amber-50 border-amber-300 rounded-[8px] text-[#1F2937] placeholder:text-amber-700/70 focus-visible:ring-amber-400"
               />
             </div>
 
             <AutocompleteColaborador
               value={filtroColaboradorId}
               onChange={(c) => setFiltroColaboradorId(c?.id)}
-              placeholder="Filtrar por colaborador..."
+              placeholder="Filtrar por colaborador cadastrado..."
             />
+          </div>
 
+          <div className="flex items-start gap-2 rounded-[8px] bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+            <Info className="h-4 w-4 flex-shrink-0 mt-0.5 text-slate-400" />
+            <div>
+              <p className="font-medium text-slate-700">Dica para encontrar ocorrências</p>
+              <p className="text-slate-500 mt-0.5">
+                Use o campo <strong>amarelo</strong> para buscar ocorrências históricas de colaboradores não cadastrados no CORH (pesquisa por nome original e descrição). Use o campo ao lado para filtrar apenas por colaboradores cadastrados.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <Select value={filtroTipo} onValueChange={setFiltroTipo}>
               <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
                 <SelectValue placeholder="Tipo de ocorrência" />

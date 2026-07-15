@@ -69,8 +69,9 @@ export function useOcorrencias() {
       }
 
       if (colaboradorIds) {
+        const termo = filtros.busca!.trim()
         query = query.or(
-          `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${filtros.busca}%,titulo.ilike.%${filtros.busca}%`
+          `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${termo}%,titulo.ilike.%${termo}%,colaborador_nome.ilike.%${termo}%,descricao.ilike.%${termo}%`
         )
       }
 
@@ -118,7 +119,7 @@ export function useOcorrencias() {
     if (colaboradorIds) {
       const termo = filtros.busca!.trim()
       baseQuery = baseQuery.or(
-        `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${termo}%,titulo.ilike.%${termo}%`
+        `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${termo}%,titulo.ilike.%${termo}%,colaborador_nome.ilike.%${termo}%,descricao.ilike.%${termo}%`
       )
     }
 
@@ -129,7 +130,7 @@ export function useOcorrencias() {
     if (colaboradorIds) {
       const termo = filtros.busca!.trim()
       countQueryComFiltros.or(
-        `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${termo}%,titulo.ilike.%${termo}%`
+        `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${termo}%,titulo.ilike.%${termo}%,colaborador_nome.ilike.%${termo}%,descricao.ilike.%${termo}%`
       )
     }
 

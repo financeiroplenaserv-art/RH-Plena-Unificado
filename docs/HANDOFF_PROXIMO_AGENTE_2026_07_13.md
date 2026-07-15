@@ -154,7 +154,7 @@ e20d562 feat(design): aplica ModuleShell nos módulos RH e Escalas
 ## 🎯 Próximos passos sugeridos
 
 1. **Verificar no sistema** se os itens e movimentações aparecem corretamente (`/ceu/itens`, `/ceu/movimentacoes`, `/ceu/entregas`)
-2. **Decidir sobre o colaborador não encontrado:** cadastrar RAFAEL DE CARVALHO LEMOS (matrícula 1107) e reimportar, ou deixar sem essas 25 movimentações
+2. **~~Decidir sobre o colaborador não encontrado~~** ✅ **Resolvido em 15/07/2026:** matrícula atualizada de `000764` para `001107`, 25 movimentações reimportadas e linha com data inválida (`01/07/22026`) removida da planilha. Ver `docs/agentes/registro_2026-07-15_ceu_pendencia_rafael.md`.
 3. **Continuar aplicação do design system nas páginas restantes:**
    - `src/pages/ColaboradoresPage.tsx`
    - `src/pages/DepartamentosPage.tsx`

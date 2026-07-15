@@ -414,12 +414,20 @@ export function OcorrenciaDetailPage() {
               <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Colaborador
               </CardTitle>
+
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500 text-xs">Nome</span>
-                <span className="text-slate-800">{colaborador.nome_completo}</span>
-              </div>
+              {colaborador.matricula === '999999' ? (
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-2">
+                  <p className="text-xs text-amber-800 font-medium mb-1">Ocorrência histórica — colaborador não identificado</p>
+                  <p className="text-sm text-slate-800">{ocorrencia.colaborador_nome || 'Nome não informado'}</p>
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-slate-500 text-xs">Nome</span>
+                  <span className="text-slate-800">{colaborador.nome_completo}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500 text-xs">Matrícula</span>
                 <span className="text-slate-800">{colaborador.matricula}</span>
