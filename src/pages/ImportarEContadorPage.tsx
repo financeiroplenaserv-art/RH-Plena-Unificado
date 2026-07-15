@@ -44,8 +44,8 @@ const ITENS_POR_PAGINA = 50
 
 type ModoImportacao = 'todos' | 'ativos' | 'demissao15dias'
 
-function diferencaDias(dataISO: string | null | undefined): number | null {
-  if (!dataISO) return null
+function diferencaDias(dataISO: unknown): number | null {
+  if (typeof dataISO !== 'string' || !dataISO) return null
   const [ano, mes, dia] = dataISO.split('T')[0].split('-').map(Number)
   if (!ano || !mes || !dia) return null
   const data = new Date(ano, mes - 1, dia)
@@ -56,30 +56,41 @@ function diferencaDias(dataISO: string | null | undefined): number | null {
 }
 
 function filtrarPorModo(funcionarios: EContadorFuncionario[], modo: ModoImportacao): EContadorFuncionario[] {
+  if (!Array.isArray(funcionarios)) return []
   if (modo === 'todos') return funcionarios
-  if (modo === 'ativos') return funcionarios.filter(f => f.status === 'Ativo')
+  if (modo === 'ativos') return funcionarios.filter(f => !!f && String(f.status ?? '') === 'Ativo')
   return funcionarios.filter((f) => {
+    if (!f) return false
     const dias = diferencaDias(f.demissao)
     return dias !== null && dias >= 0 && dias <= 15
   })
 }
 
 function filtrarPorBusca(funcionarios: EContadorFuncionario[], termo: string): EContadorFuncionario[] {
+  if (!Array.isArray(funcionarios)) return []
   if (!termo) return funcionarios
-  return funcionarios.filter(f =>
-    f.nome.toLowerCase().includes(termo) ||
-    f.codigo.toLowerCase().includes(termo) ||
-    f.cpf.includes(termo) ||
-    (f.departamento || '').toLowerCase().includes(termo)
-  )
+  const termoLower = termo.toLowerCase()
+  return funcionarios.filter((f) => {
+    if (!f) return false
+    const nome = String(f.nome ?? '').toLowerCase()
+    const codigo = String(f.codigo ?? '').toLowerCase()
+    const cpf = String(f.cpf ?? '')
+    const departamento = String(f.departamento ?? '').toLowerCase()
+    return (
+      nome.includes(termoLower) ||
+      codigo.includes(termoLower) ||
+      cpf.includes(termo) ||
+      departamento.includes(termoLower)
+    )
+  })
 }
 
-function getStatusBadge(status: string) {
-  const s = status?.toLowerCase() || ''
+function getStatusBadge(status: unknown) {
+  const s = String(status ?? '').toLowerCase()
   if (s === 'ativo') return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Ativo</Badge>
   if (s === 'inativo' || s.includes('demi')) return <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">Inativo</Badge>
   if (s === 'afastado' || s.includes('afast')) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Afastado</Badge>
-  return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{status}</Badge>
+  return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{String(status ?? '')}</Badge>
 }
 
 function exportarCSV(funcionarios: EContadorFuncionario[]) {
@@ -454,10 +465,16 @@ export function ImportarEContadorPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94A3B8' }} />
                   <Input
+                    type="text"
+                    name="busca-econtador"
                     placeholder="Buscar por nome, matrícula, CPF ou departamento..."
                     value={busca}
                     onChange={(e) => { setBusca(e.target.value); setPagina(1) }}
                     className="pl-10 rounded-lg"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                   />
                 </div>
                 <Button
@@ -515,11 +532,11 @@ export function ImportarEContadorPage() {
                             onChange={() => toggleSelecionado(f.id)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium" style={{ color: '#1F2937' }}>{f.codigo}</TableCell>
-                        <TableCell style={{ color: '#1F2937' }}>{f.nome}</TableCell>
+                        <TableCell className="font-medium" style={{ color: '#1F2937' }}>{String(f.codigo ?? '')}</TableCell>
+                        <TableCell style={{ color: '#1F2937' }}>{String(f.nome ?? '')}</TableCell>
                         <TableCell style={{ color: '#64748B' }}>{formatarCPF(f.cpf)}</TableCell>
-                        <TableCell style={{ color: '#64748B' }}>{f.departamento || '—'}</TableCell>
-                        <TableCell style={{ color: '#64748B' }}>{f.nomefuncao || '—'}</TableCell>
+                        <TableCell style={{ color: '#64748B' }}>{String(f.departamento ?? '—')}</TableCell>
+                        <TableCell style={{ color: '#64748B' }}>{String(f.nomefuncao ?? '—')}</TableCell>
                         <TableCell>{getStatusBadge(f.status)}</TableCell>
                       </TableRow>
                     ))}

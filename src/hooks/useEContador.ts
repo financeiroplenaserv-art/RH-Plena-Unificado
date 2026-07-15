@@ -79,8 +79,20 @@ export function useEContador() {
         status,
         onProgress: (atual, total) => setProgresso({ atual, total }),
       })
-      setFuncionarios(todos)
-      toast.success(`${todos.length} funcionários carregados`)
+      const lista = Array.isArray(todos)
+        ? todos
+            .filter((f): f is EContadorFuncionario => !!f && typeof f === 'object' && 'id' in f)
+            .map((f) => ({
+              ...f,
+              nome: String(f.nome ?? ''),
+              codigo: String(f.codigo ?? ''),
+              cpf: String(f.cpf ?? ''),
+              status: String(f.status ?? ''),
+              departamento: typeof f.departamento === 'string' ? f.departamento : null,
+            }))
+        : []
+      setFuncionarios(lista)
+      toast.success(`${lista.length} funcionários carregados`)
       return todos
     } catch (err: unknown) {
       console.error('Erro ao consultar funcionários do e-Contador:', err)

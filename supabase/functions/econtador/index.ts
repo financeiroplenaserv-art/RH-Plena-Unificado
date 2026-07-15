@@ -268,6 +268,12 @@ interface FuncionarioItem {
   relationships?: { departamento?: { data?: { id?: string } } }
 }
 
+function asStringOrNull(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string') return value
+  return String(value)
+}
+
 function mapearFuncionario(item: FuncionarioItem, included: unknown[]): Record<string, unknown> {
   const attrs = item.attributes || {}
   const deptId = item.relationships?.departamento?.data?.id
@@ -275,10 +281,22 @@ function mapearFuncionario(item: FuncionarioItem, included: unknown[]): Record<s
     ? (included as Array<{ id?: string; attributes?: { nome?: string } }>).find((i) => i.id === deptId)
     : null
 
+  const camposString = [
+    'nome', 'codigo', 'cpf', 'pis', 'identidade', 'carteiradetrabalho', 'status',
+    'demissao', 'afastamentodescricao', 'admissao', 'nomefuncao', 'telefone',
+    'telefonecelular', 'email', 'cep', 'cidade', 'nascimento', 'dataAtualizacao',
+    'rua', 'numero', 'complemento', 'bairro', 'estado', 'afastamento', 'retorno',
+  ]
+
+  const normalizado: Record<string, unknown> = {}
+  for (const campo of camposString) {
+    normalizado[campo] = asStringOrNull(attrs[campo])
+  }
+
   return {
     id: String(item.id || ''),
-    ...attrs,
-    departamento: departamento?.attributes?.nome || attrs.departamento || null,
+    ...normalizado,
+    departamento: asStringOrNull(departamento?.attributes?.nome) || asStringOrNull(attrs.departamento),
   }
 }
 
