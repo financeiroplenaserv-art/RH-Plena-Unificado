@@ -46,12 +46,13 @@ Mudanças:
 
 ### 3. Limpeza de ocorrências de teste
 
-Deletadas 3 ocorrências de teste:
+Deletadas 4 ocorrências de teste:
 - JOAO BATISTA DA SILVA — "BRIGOU KKKKKKKKKKKK"
 - LUCIANO SANTANA DA FONSECA PEREIRA — "ddddddddd"
 - MARIA IZABEL DA ROCHA OLIVEIRA ARAUJO — "jjjjjjjjjjjjjjjj"
+- MARCELO DE OLIVEIRA NOYA — "dddddddd"
 
-Total de ocorrências no banco após a limpeza: **962**
+Total de ocorrências no banco após a limpeza: **961**
 
 ### 4. Build
 
