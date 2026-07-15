@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
-import { formatarCPF, mascararCPF } from '@/lib/utils'
+import { cn, formatarCPF, mascararCPF } from '@/lib/utils'
 import { PageHeader } from '@/components/PageHeader'
 import { TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
 import { toast } from 'sonner'
@@ -349,8 +349,8 @@ export function ImportarEContadorPage() {
               <Button
                 onClick={handleSalvarToken}
                 disabled={(!token.trim() && !tokenSalvoNaEdge) || loading || carregandoToken}
-                className="rounded-lg h-11 px-6"
-                style={{ backgroundColor: '#1F2937' }}
+                className="rounded-lg h-11 px-6 text-white"
+                style={{ backgroundColor: 'var(--primary-600)' }}
               >
                 {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
                 {tokenSalvoNaEdge ? 'Listar empresas' : 'Salvar token e listar empresas'}
@@ -386,8 +386,11 @@ export function ImportarEContadorPage() {
                     variant={empresaSelecionada?.id === empresa.id ? 'default' : 'outline'}
                     onClick={() => handleCarregarFuncionarios(empresa)}
                     disabled={loading}
-                    className="rounded-lg h-10"
-                    style={empresaSelecionada?.id === empresa.id ? { backgroundColor: '#1F2937' } : { borderColor: '#1F2937', color: '#1F2937' }}
+                    className={cn(
+                      'rounded-lg h-10',
+                      empresaSelecionada?.id === empresa.id && 'text-white'
+                    )}
+                    style={empresaSelecionada?.id === empresa.id ? { backgroundColor: 'var(--primary-600)' } : { borderColor: 'var(--primary-600)', color: 'var(--primary-600)' }}
                   >
                     <Building2 className="w-4 h-4 mr-2" />
                     {empresa.nome}
@@ -579,8 +582,8 @@ export function ImportarEContadorPage() {
               <Button
                 onClick={handleImportar}
                 disabled={loading}
-                className="w-full sm:w-auto rounded-lg h-11 px-6"
-                style={{ backgroundColor: '#1F2937' }}
+                className="w-full sm:w-auto rounded-lg h-11 px-6 text-white"
+                style={{ backgroundColor: 'var(--primary-600)' }}
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
