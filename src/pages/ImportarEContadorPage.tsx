@@ -42,7 +42,7 @@ import type { HistoricoImportacao } from '@/types/econtador'
 
 const ITENS_POR_PAGINA = 50
 
-type ModoImportacao = 'todos' | 'ativos' | 'demissao15dias'
+type ModoImportacao = 'todos' | 'ativos' | 'demissao15dias' | 'admissao15dias'
 
 function diferencaDias(dataISO: unknown): number | null {
   if (typeof dataISO !== 'string' || !dataISO) return null
@@ -59,9 +59,10 @@ function filtrarPorModo(funcionarios: EContadorFuncionario[], modo: ModoImportac
   if (!Array.isArray(funcionarios)) return []
   if (modo === 'todos') return funcionarios
   if (modo === 'ativos') return funcionarios.filter(f => !!f && String(f.status ?? '') === 'Ativo')
+  const campo = modo === 'demissao15dias' ? 'demissao' : 'admissao'
   return funcionarios.filter((f) => {
     if (!f) return false
-    const dias = diferencaDias(f.demissao)
+    const dias = diferencaDias(f[campo])
     return dias !== null && dias >= 0 && dias <= 15
   })
 }
@@ -207,7 +208,7 @@ export function ImportarEContadorPage() {
     setPagina(1)
     setResultadoImportacao(null)
     setSelecionados(new Set())
-    // Se o modo for ativos, já filtra pela API; para demissão filtramos localmente
+    // Se o modo for ativos, já filtra pela API; para demissão/admissão filtramos localmente
     const status = modoImportacao === 'ativos' ? 'Ativo' : undefined
     await listarFuncionarios(empresa.id, status)
   }
@@ -301,6 +302,7 @@ export function ImportarEContadorPage() {
                   {modoImportacao === 'todos' && 'Total de funcionários'}
                   {modoImportacao === 'ativos' && 'Funcionários ativos'}
                   {modoImportacao === 'demissao15dias' && 'Demitidos até 15 dias'}
+                  {modoImportacao === 'admissao15dias' && 'Admitidos até 15 dias'}
                 </p>
                 <p className="text-3xl font-bold" style={{ color: '#1F2937' }}>{totalFuncionarios}</p>
               </CardContent>
@@ -432,6 +434,7 @@ export function ImportarEContadorPage() {
                 {funcionariosFiltrados.length} funcionário{funcionariosFiltrados.length !== 1 ? 's' : ''} encontrado{funcionariosFiltrados.length !== 1 ? 's' : ''}
                 {modoImportacao === 'ativos' && ' (ativos)'}
                 {modoImportacao === 'demissao15dias' && ' (demitidos até 15 dias)'}
+                {modoImportacao === 'admissao15dias' && ' (admitidos até 15 dias)'}
                 {selecionados.size > 0 && (
                   <span className="ml-2 text-emerald-600">
                     • {selecionados.size} selecionado{selecionados.size !== 1 ? 's' : ''}
@@ -463,6 +466,7 @@ export function ImportarEContadorPage() {
                     <SelectItem value="todos">Importar todos</SelectItem>
                     <SelectItem value="ativos">Importar somente ativos</SelectItem>
                     <SelectItem value="demissao15dias">Importar demitidos nos últimos 15 dias</SelectItem>
+                    <SelectItem value="admissao15dias">Importar admitidos nos últimos 15 dias</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative flex-1">
