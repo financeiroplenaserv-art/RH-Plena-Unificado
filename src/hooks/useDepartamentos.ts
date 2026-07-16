@@ -171,6 +171,7 @@ export function useDepartamentos() {
           nome_contato_2: d.nome_contato_2,
           telefone_contato_2: d.telefone_contato_2,
           email_contato_2: d.email_contato_2,
+          data_inicio_contrato: d.data_inicio_contrato,
           status: d.status,
         }
 

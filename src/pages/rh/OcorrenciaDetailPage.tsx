@@ -307,7 +307,7 @@ export function OcorrenciaDetailPage() {
     return <LoadingScreen mensagem="Carregando ocorrência..." />
   }
 
-  if (!ocorrencia || !colaborador) {
+  if (!ocorrencia) {
     return <div className="text-center py-8 text-sm text-slate-400">Ocorrência não encontrada</div>
   }
 
@@ -341,7 +341,7 @@ export function OcorrenciaDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {podeGerarPDF && (
+          {podeGerarPDF && colaborador && (
             <Button
               variant="outline"
               size="sm"
@@ -430,9 +430,13 @@ export function OcorrenciaDetailPage() {
 
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {colaborador.matricula === '999999' ? (
+              {colaborador?.matricula === '999999' || !colaborador ? (
                 <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-2">
-                  <p className="text-xs text-amber-800 font-medium mb-1">Ocorrência histórica — colaborador não identificado</p>
+                  <p className="text-xs text-amber-800 font-medium mb-1">
+                    {colaborador?.matricula === '999999'
+                      ? 'Ocorrência histórica — colaborador não identificado'
+                      : 'Colaborador inativo/não cadastrado'}
+                  </p>
                   <p className="text-sm text-slate-800">{ocorrencia.colaborador_nome || 'Nome não informado'}</p>
                 </div>
               ) : (
@@ -443,19 +447,19 @@ export function OcorrenciaDetailPage() {
               )}
               <div className="flex justify-between">
                 <span className="text-slate-500 text-xs">Matrícula</span>
-                <span className="text-slate-800">{colaborador.matricula}</span>
+                <span className="text-slate-800">{colaborador?.matricula || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 text-xs">CPF</span>
-                <span className="text-slate-800">{colaborador.cpf || '—'}</span>
+                <span className="text-slate-800">{colaborador?.cpf || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 text-xs">Cargo</span>
-                <span className="text-slate-800">{colaborador.cargo || '—'}</span>
+                <span className="text-slate-800">{colaborador?.cargo || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 text-xs">Departamento</span>
-                <span className="text-slate-800">{colaborador.departamento || '—'}</span>
+                <span className="text-slate-800">{colaborador?.departamento || '—'}</span>
               </div>
             </CardContent>
           </Card>

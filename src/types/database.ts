@@ -45,6 +45,7 @@ export interface Departamento {
   nome_contato_2: string | null
   telefone_contato_2: string | null
   email_contato_2: string | null
+  data_inicio_contrato: string | null
   status: 'Ativo' | 'Inativo'
   created_at?: string
 }

@@ -1,5 +1,15 @@
 # Guia de Deploy — RH Plena Unificado
 
+> **Contexto atual (2026-07-16):** A usuária planeja finalizar mais importações de dados antes de concentrar esforços no deploy. A intenção é subir o projeto em um VPS após estabilizar essas importações. O banco de dados deve continuar no Supabase (gerenciado), e o VPS será usado apenas para servir o frontend (PWA) estático. Não migrar o PostgreSQL para o VPS sem avaliação técnica.
+>
+> **Pendente antes do deploy:**
+> 1. Finalizar as importações de dados pendentes.
+> 2. Fazer backup do banco (plano Free não tem backup automático; usar `scripts/backup_supabase_free.sql` no SQL Editor).
+> 3. Aplicar a migration `supabase/migrations/058_consolidar_rls_seguro.sql` no SQL Editor do Supabase.
+> 4. Testar login, colaboradores, empresas, departamentos, ocorrências, extras, VR, CEU e e-Contador.
+> 5. Corrigir qualquer erro de permissão/RLS encontrado nos testes.
+> 6. Após o deploy, considerar upgrade para o plano Pro do Supabase para ter backups automáticos.
+
 Este documento descreve como realizar o deploy da aplicação em ambiente local, preview e VPS.
 
 ---
@@ -24,6 +34,19 @@ VITE_USAR_EDGE_FUNCTION_ECONTADOR=true
 ```
 
 > **Nunca commite o arquivo `.env`.**
+
+---
+
+## Decisão de arquitetura: banco no Supabase (não no VPS)
+
+A usuária perguntou se o banco de dados não deveria ser hospedado no VPS e a responsabilidade dos dados ficar com a Hostgator. **Recomendamos manter o banco no Supabase.**
+
+- **Supabase** oferece banco PostgreSQL gerenciado: backups automáticos, patches de segurança, RLS, autenticação, storage e monitoramento incluídos.
+- **Hospedar o banco no VPS** exigiria instalar e administrar PostgreSQL, firewall, backups, réplicas e atualizações de segurança. Isso aumenta o risco de perda de dados e exige conhecimento técnico contínuo.
+- **A Hostgator** (ou qualquer provedor de VPS) é responsável pela disponibilidade do servidor, **não pelos dados do seu sistema**. A responsabilidade pelos dados (backup, integridade, segurança, LGPD) continua sendo sua.
+- **Portanto, o VPS será usado apenas para o frontend**: servir os arquivos estáticos de `dist/`. O banco, autenticação e storage permanecem no Supabase.
+
+Se no futuro o volume de dados ou exigências de compliance justificarem, pode-se avaliar uma migração para um banco gerenciado próprio (RDS, Supabase Dedicated, etc.), mas não um PostgreSQL auto-gerenciado no VPS.
 
 ---
 

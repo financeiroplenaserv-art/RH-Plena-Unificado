@@ -63,6 +63,7 @@ function exportarExcel(departamentos: Departamento[]) {
     'Nome do contato 2': d.nome_contato_2 || '',
     'Telefone do contato 2': d.telefone_contato_2 || '',
     'E-mail do contato 2': d.email_contato_2 || '',
+    'Data início contrato': d.data_inicio_contrato || '',
     Status: d.status,
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
@@ -118,6 +119,7 @@ const formVazio: Partial<Departamento> = {
   nome_contato_2: '',
   telefone_contato_2: '',
   email_contato_2: '',
+  data_inicio_contrato: '',
 }
 
 export function DepartamentosPage() {
@@ -221,6 +223,7 @@ export function DepartamentosPage() {
       nome_contato_2: d.nome_contato_2,
       telefone_contato_2: d.telefone_contato_2,
       email_contato_2: d.email_contato_2,
+      data_inicio_contrato: d.data_inicio_contrato,
       status: d.status,
     })
     setMostrarForm(true)
@@ -262,6 +265,7 @@ export function DepartamentosPage() {
           nome_contato_2: r['Nome do contato 2'] || r.nome_contato_2 || null,
           telefone_contato_2: r['Telefone do contato 2'] || r.telefone_contato_2 || null,
           email_contato_2: r['E-mail do contato 2'] || r.email_contato_2 || null,
+          data_inicio_contrato: r['Data início contrato'] || r.data_inicio_contrato || r['Data inicio contrato'] || null,
           status: (r.Status?.trim() === 'Inativo' ? 'Inativo' : 'Ativo') as 'Ativo' | 'Inativo',
         })
         if (resultado) criados++
@@ -510,7 +514,7 @@ export function DepartamentosPage() {
                 </div>
               </div>
 
-              {/* Linha 5: Status */}
+              {/* Linha 5: Status | Data início contrato */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label style={{ color: '#1F2937' }}>Status</Label>
@@ -526,6 +530,15 @@ export function DepartamentosPage() {
                       <SelectItem value="Inativo">Inativo</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label style={{ color: '#1F2937' }}>Data de início do contrato</Label>
+                  <Input
+                    type="date"
+                    value={form.data_inicio_contrato || ''}
+                    onChange={e => setForm(prev => ({ ...prev, data_inicio_contrato: e.target.value }))}
+                    className="rounded-lg"
+                  />
                 </div>
               </div>
 
@@ -601,6 +614,7 @@ export function DepartamentosPage() {
                       </TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Contato portaria/adm</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Síndico / Administrador</TableHead>
+                      <TableHead style={{ color: '#1F2937' }}>Início contrato</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Status</TableHead>
                       <TableHead className="w-24"></TableHead>
                     </TableRow>
@@ -639,6 +653,11 @@ export function DepartamentosPage() {
                               <span>{d.nome_contato}</span>
                               <span className="text-xs" style={{ color: '#94A3B8' }}>{mascaraTelefone(d.telefone_contato) || '—'}</span>
                             </div>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell style={{ color: '#64748B' }}>
+                          {d.data_inicio_contrato ? (
+                            <span>{new Date(d.data_inicio_contrato + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
                           ) : '—'}
                         </TableCell>
                         <TableCell>{getStatusBadge(d.status)}</TableCell>

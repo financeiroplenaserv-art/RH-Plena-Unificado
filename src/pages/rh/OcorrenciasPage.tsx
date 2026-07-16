@@ -79,6 +79,7 @@ export function OcorrenciasPage() {
   const [filtroDataFim, setFiltroDataFim] = useState('')
   const [filtroColaboradorId, setFiltroColaboradorId] = useState<string | undefined>(undefined)
   const [incluirNaoIdentificados, setIncluirNaoIdentificados] = useState(false)
+  const [filtroStatusColaborador, setFiltroStatusColaborador] = useState<'todos' | 'ativo' | 'inativo'>('ativo')
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [ocorrenciaParaExcluir, setOcorrenciaParaExcluir] = useState<string | null>(null)
 
@@ -104,7 +105,8 @@ export function OcorrenciasPage() {
     data_fim: filtroDataFim || undefined,
     busca: busca.trim() || undefined,
     incluir_nao_identificados: incluirNaoIdentificados,
-  }), [busca, filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
+    status_colaborador: filtroStatusColaborador,
+  }), [busca, filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador])
 
   const loadOcorrencias = useCallback(async (paginaAtual = pagina) => {
     await listarPaginado(buildFiltros(), { pagina: paginaAtual, tamanho: 50 })
@@ -129,6 +131,7 @@ export function OcorrenciasPage() {
     setFiltroDataFim('')
     setFiltroColaboradorId(undefined)
     setIncluirNaoIdentificados(false)
+    setFiltroStatusColaborador('ativo')
     setPagina(0)
   }, [])
 
@@ -140,7 +143,7 @@ export function OcorrenciasPage() {
     setPagina(0)
     loadOcorrencias(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
+  }, [filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -203,6 +206,12 @@ export function OcorrenciasPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <AutocompleteColaborador
+              value={filtroColaboradorId}
+              onChange={(c) => setFiltroColaboradorId(c?.id)}
+              placeholder="Filtrar por colaborador cadastrado..."
+            />
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-600" />
               <Input
@@ -213,12 +222,6 @@ export function OcorrenciasPage() {
                 className="pl-9 bg-amber-50 border-amber-300 rounded-[8px] text-[#1F2937] placeholder:text-amber-700/70 focus-visible:ring-amber-400"
               />
             </div>
-
-            <AutocompleteColaborador
-              value={filtroColaboradorId}
-              onChange={(c) => setFiltroColaboradorId(c?.id)}
-              placeholder="Filtrar por colaborador cadastrado..."
-            />
           </div>
 
           <div className="flex items-start gap-2 rounded-[8px] bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
@@ -226,12 +229,64 @@ export function OcorrenciasPage() {
             <div>
               <p className="font-medium text-slate-700">Dica para encontrar ocorrências</p>
               <p className="text-slate-500 mt-0.5">
-                Use o campo <strong>amarelo</strong> para buscar ocorrências históricas de colaboradores não cadastrados no CORH (pesquisa por nome original e descrição). Use o campo ao lado para filtrar apenas por colaboradores cadastrados.
+                Use o campo ao lado esquerdo para filtrar apenas por colaboradores cadastrados. Use o campo <strong>amarelo</strong> para buscar ocorrências históricas de colaboradores não cadastrados no CORH (pesquisa por nome original e descrição).
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <Select value={filtroStatusColaborador} onValueChange={(v) => setFiltroStatusColaborador(v as 'todos' | 'ativo' | 'inativo')}>
+              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
+                <SelectValue placeholder="Colaborador" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ativo">Colaboradores ativos</SelectItem>
+                <SelectItem value="inativo">Colaboradores inativos</SelectItem>
+                <SelectItem value="todos">Todos os colaboradores</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
+                <SelectValue placeholder="Empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as empresas</SelectItem>
+                {empresas.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="Pendente">Pendente</SelectItem>
+                <SelectItem value="Ativa">Ativa</SelectItem>
+                <SelectItem value="Resolvida">Resolvida</SelectItem>
+                <SelectItem value="Cancelada">Cancelada</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filtroMacroGrupo} onValueChange={setFiltroMacroGrupo}>
+              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
+                <SelectValue placeholder="Macro grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os grupos</SelectItem>
+                {MACRO_GRUPOS.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <div className="space-y-2">
               <div className="relative">
                 <Input
@@ -274,47 +329,6 @@ export function OcorrenciasPage() {
                 </div>
               )}
             </div>
-
-            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                <SelectItem value="Pendente">Pendente</SelectItem>
-                <SelectItem value="Ativa">Ativa</SelectItem>
-                <SelectItem value="Resolvida">Resolvida</SelectItem>
-                <SelectItem value="Cancelada">Cancelada</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Empresa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as empresas</SelectItem>
-                {empresas.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroMacroGrupo} onValueChange={setFiltroMacroGrupo}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Macro grupo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os grupos</SelectItem>
-                {MACRO_GRUPOS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-[#E2E8F0]">
@@ -412,9 +426,11 @@ export function OcorrenciasPage() {
                         </TableCell>
                         <TableCell>
                           <p className="font-medium text-[#1F2937] break-words">
-                            {o.colaborador?.nome_completo || 'N/A'}
+                            {o.colaborador?.nome_completo || o.colaborador_nome || 'N/A'}
                           </p>
-                          <p className="text-xs text-[#94A3B8]">{o.colaborador?.matricula}</p>
+                          <p className="text-xs text-[#94A3B8]">
+                            {o.colaborador?.matricula || (o.colaborador_nome ? 'Colaborador inativo/não cadastrado' : '')}
+                          </p>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-xs text-[#94A3B8] break-words">
                           {o.macro_grupo || '—'}

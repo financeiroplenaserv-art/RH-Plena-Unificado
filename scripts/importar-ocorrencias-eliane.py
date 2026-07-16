@@ -215,7 +215,7 @@ def mapear_tipo(tipo):
 def obter_gravidade_e_base_legal(macro_grupo, tipo_ocorrencia):
     return MAPEAMENTO_GRAVIDADE_BASE.get(
         (macro_grupo, tipo_ocorrencia),
-        {'gravidade': 'Moderada', 'base_legal': 'Não informado — importação planilha Eliane.'}
+        {'gravidade': 'Moderada', 'base_legal': 'Não informado — importação do Gesoper.'}
     )
 
 
@@ -251,7 +251,7 @@ def main():
     parser.add_argument('--limite', type=int, help='Limite de ocorrências para teste')
     args = parser.parse_args()
 
-    print('=== Importação de Ocorrências - Planilha Eliane ===')
+    print('=== Importação de Ocorrências - Gesoper ===')
     print('Modo:', 'REAL' if args.real else 'DRY-RUN')
     if args.limite:
         print(f'Limite: {args.limite} ocorrências')
@@ -338,8 +338,8 @@ def main():
 
         titulo = f'[{numero}] {limpar_texto(resumo_planilha) or tipo_ocorrencia}'
         descricao = (
-            f'Ocorrência nº {numero} registrada na planilha Eliane.\n\n'
-            f'Colaborador na planilha: {nome_planilha}\n\n'
+            f'Ocorrência nº {numero} registrada no Gesoper.\n\n'
+            f'Colaborador no Gesoper: {nome_planilha}\n\n'
             f'Descrição:\n{limpar_texto(descricao_planilha) or "Não informada."}'
         )
 
@@ -358,8 +358,8 @@ def main():
             'gravidade': info['gravidade'],
             'data_hora_ocorrido': data_ocorrencia,
             'local_ocorrido': limpar_texto(local) or None,
-            'defesa_funcionario': 'Não informada — importação planilha Eliane.',
-            'medida_corretiva': 'Não informada — importação planilha Eliane.',
+            'defesa_funcionario': 'Não informada — importação do Gesoper.',
+            'medida_corretiva': 'Não informada — importação do Gesoper.',
             'prazo_acompanhamento': None,
             'testemunha_1_nome': None,
             'testemunha_1_cargo': None,

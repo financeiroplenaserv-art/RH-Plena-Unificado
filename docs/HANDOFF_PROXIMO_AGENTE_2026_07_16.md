@@ -83,9 +83,51 @@ Deletadas 4 ocorrências de teste:
 Total de ocorrências no banco após as importações e reassociação: **973**
 - Ocorrências vinculadas ao placeholder após reassociação: **504**
 
-### 6. Build
+### 6. Ajuste na tela de Ocorrências para colaboradores inativos/não cadastrados
 
-- `npm run build` ✅ executado com sucesso após as alterações anteriores (não houve alteração de código-fonte nesta continuação).
+Problema: a lista de ocorrências mostrava **N/A** no nome do colaborador quando ele estava inativo ou não cadastrado no CORH, mesmo com o nome salvo na ocorrência.
+
+Solução aplicada:
+- `src/pages/rh/OcorrenciasPage.tsx`: a coluna "Colaborador" agora usa `o.colaborador?.nome_completo || o.colaborador_nome || 'N/A'`, e mostra "Colaborador inativo/não cadastrado" quando o join não trouxe o colaborador.
+- `src/pages/rh/OcorrenciaDetailPage.tsx`: a página de detalhes não exige mais que o colaborador exista no banco para abrir; exibe o nome salvo na ocorrência e um aviso amarelo quando o colaborador não é encontrado ou é o placeholder.
+- Botão "Gerar PDF" só aparece quando há um colaborador carregado no banco.
+
+Arquivos alterados:
+- `src/pages/rh/OcorrenciasPage.tsx`
+- `src/pages/rh/OcorrenciaDetailPage.tsx`
+
+### 7. Importação de ocorrências de faltas
+
+Arquivo fonte: `public/OCO_Funcionarios_160726 FALTAS tratada_final.xlsx`
+
+Script principal: `scripts/importar-ocorrencias-faltas.py`
+
+- **Total na planilha:** 4.378 ocorrências
+- **Inseridas no banco:** 4.372 ocorrências
+  - 1.907 vinculadas a colaboradores existentes no CORH
+  - 2.465 vinculadas ao colaborador placeholder (`OCORRENCIAS HISTORICAS - NAO IDENTIFICADO`)
+  - 6 ignoradas por múltiplo match (não importadas para evitar vinculação errada)
+- Mapeamento de Macro/Tipo:
+  - `Falta Injustificada`, `Falta Justificada (atestado)`, `Falta Abonada` → `1. Jornada e Ponto`
+  - `Licença Luto`, `Licença Casamento`, `Licença Médica (acima 15 dias é INSS)`, `Licença Paternidade` → `4. Afastamentos e Licenças`
+- Coluna `Matrícula` ignorada conforme orientação
+- `data_ocorrencia` = `data_hora_ocorrido` = data da planilha
+- Número original da ocorrência (`Seq`) preservado no `titulo` e na `descricao`
+- Origem: `sistema antigo`
+- Inconsistências Macro/Tipo: 0
+
+### 8. Backup do banco de dados (Supabase)
+
+- Planilha de Free Plan não inclui backups agendados — será necessário upgrade para Pro para backups automáticos.
+- Foi criado um script de backup manual: `scripts/backup_supabase_free.sql`
+- O script foi executado com sucesso e gerou tabelas `_backup_2026_07_16` no banco.
+
+### 9. Build
+
+- `npm run build` ✅ executado com sucesso após todos os ajustes.
+
+**Total de ocorrências no banco ao final do dia:** **5.345**
+- Vinculadas ao placeholder: **2.969**
 
 ---
 

@@ -188,7 +188,7 @@ export const podeVerRelatorioExtras = (p: NivelAcesso) =>
 
 /** Quem pode visualizar balanço de extras (8.15) */
 export const podeVerBalancoExtras = (p: NivelAcesso) =>
-  temPermissaoDinamica(p, 'extras', 'ver_balanco') ?? true
+  temPermissaoDinamica(p, 'extras', 'ver_balanco') ?? false
 
 /** Quem pode enviar comunicação de extras (8.16, 8.17) */
 export const podeEnviarComunicacaoExtras = (p: NivelAcesso) =>

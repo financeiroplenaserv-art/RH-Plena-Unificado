@@ -15,6 +15,7 @@ export interface FiltrosOcorrencia {
   data_fim?: string
   busca?: string
   incluir_nao_identificados?: boolean
+  status_colaborador?: 'todos' | 'ativo' | 'inativo'
 }
 
 const TAMANHO_PADRAO = 50
@@ -42,6 +43,13 @@ export function useOcorrencias() {
     if (filtros?.gravidade) query = query.eq('gravidade', filtros.gravidade)
     if (filtros?.data_inicio) query = query.gte('data_ocorrencia', filtros.data_inicio)
     if (filtros?.data_fim) query = query.lte('data_ocorrencia', filtros.data_fim)
+    if (filtros?.status_colaborador && filtros.status_colaborador !== 'todos') {
+      if (filtros.status_colaborador === 'ativo') {
+        query = query.eq('colaborador.status', 'Ativo')
+      } else {
+        query = query.not('colaborador.status', 'eq', 'Ativo')
+      }
+    }
     return query
   }, [])
 
@@ -102,7 +110,12 @@ export function useOcorrencias() {
 
     const countQuery = supabase
       .from('ocorrencias')
-      .select('*', { count: 'exact', head: true })
+      .select(
+        filtros.status_colaborador && filtros.status_colaborador !== 'todos'
+          ? 'colaborador:colaborador_id(*)'
+          : '*',
+        { count: 'exact', head: true }
+      )
     const countQueryComFiltros = aplicarFiltros(countQuery, filtros)
     if (placeholderIdAtual) {
       countQueryComFiltros.neq('colaborador_id', placeholderIdAtual)

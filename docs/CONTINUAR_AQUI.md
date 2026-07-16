@@ -1,6 +1,6 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 16/07/2026 — importação de ocorrências históricas, da inspetoria, da planilha Eliane e ajustes na tela de Ocorrências  
+> **Último trabalho:** 16/07/2026 — importação de faltas, ajuste de exibição de colaboradores inativos/não cadastrados na tela de Ocorrências e backup manual do banco  
 > **Relatório completo:** `docs/HANDOFF_PROXIMO_AGENTE_2026_07_16.md`  
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`  
 > **Perfis/Permissões:** `docs/PERFIL_ACOES_MODELO.md`  
@@ -28,15 +28,22 @@
   - 467 vinculadas ao colaborador placeholder
   - 0 inconsistências entre Macro e Tipo
   - Coluna `Matrícula` ignorada conforme orientação
-- **Total atual no banco: 1.842 ocorrências** (971 vinculadas ao placeholder).
+- **5.380 ocorrências importadas hoje:**
+  - Ocorrências históricas: 961
+  - Ocorrências da inspetoria: 12
+  - Planilha Eliane: 869
+  - Planilha de faltas: 4.372
+  - (6 ocorrências da planilha de faltas foram ignoradas por múltiplos matches)
+- **Total atual no banco: 5.345 ocorrências** (2.969 vinculadas ao placeholder).
 
 ### Ajustes na tela de Ocorrências
 - Busca textual agora inclui `colaborador_nome` e `descricao`.
 - Filtros reorganizados em 3 linhas + dica informativa.
 - Página de detalhes exibe nome original e aviso para ocorrências do placeholder.
-- **Filtro de tipos com autocomplete** — substituiu o filtro de gravidade; permite selecionar múltiplos tipos com chips.
-- **Botão "Limpar"** ao lado de "Aplicar" para resetar todos os filtros rapidamente.
-- **Edição de ocorrências** habilitada — botão "Editar" na lista e nos detalhes, rota `/rh/ocorrencias/:id/editar`.
+- **Listagem e detalhes mostram nome de colaboradores inativos/não cadastrados** usando o campo `colaborador_nome`.
+- Filtro de tipos com autocomplete — substituiu o filtro de gravidade; permite selecionar múltiplos tipos com chips.
+- Botão "Limpar" ao lado de "Aplicar" para resetar todos os filtros rapidamente.
+- Edição de ocorrências habilitada — botão "Editar" na lista e nos detalhes, rota `/rh/ocorrencias/:id/editar`.
 - Arquivos alterados: `src/hooks/useOcorrencias.ts`, `src/pages/rh/OcorrenciasPage.tsx`, `src/pages/rh/OcorrenciaDetailPage.tsx`.
 
 ### Responsividade mobile / PWA

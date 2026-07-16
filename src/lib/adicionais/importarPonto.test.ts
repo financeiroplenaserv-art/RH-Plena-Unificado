@@ -73,6 +73,7 @@ function criarDadosTeste() {
     nome_contato_2: null,
     telefone_contato_2: null,
     email_contato_2: null,
+    data_inicio_contrato: null,
     status: 'Ativo',
     created_at: new Date().toISOString(),
   }

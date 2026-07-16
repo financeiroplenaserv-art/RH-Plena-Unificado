@@ -238,10 +238,10 @@ export function VrProjetosPage() {
       </ModuleCard>
 
       <Dialog open={!!excluirId} onOpenChange={(open) => !open && setExcluirId(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm bg-white text-slate-900 border border-slate-200 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-base">Excluir projeto VR?</DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogTitle className="text-base text-slate-900">Excluir projeto VR?</DialogTitle>
+            <DialogDescription className="text-xs text-slate-600">
               Esta ação não pode ser desfeita. Deseja continuar?
             </DialogDescription>
           </DialogHeader>
