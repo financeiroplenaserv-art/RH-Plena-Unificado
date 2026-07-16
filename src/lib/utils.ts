@@ -64,33 +64,9 @@ export function formatarData(data: string | null | undefined): string {
   return d.toLocaleDateString('pt-BR')
 }
 
-export function normalizarTexto(texto: string): string {
-  return texto
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '')
-}
-
-export function slugify(texto: string): string {
-  return texto
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-}
-
 export function nomeDepartamento(departamento: Departamento | null | undefined): string {
   if (!departamento) return '—'
   return departamento.nome_curto?.trim() || departamento.nome
-}
-
-export function nomeCurtoColaborador(colaborador: { nome_completo: string } | null | undefined): string {
-  if (!colaborador?.nome_completo) return ''
-  const partes = colaborador.nome_completo.trim().split(/\s+/)
-  if (partes.length <= 2) return colaborador.nome_completo.trim()
-  return `${partes[0]} ${partes[partes.length - 1]}`
 }
 
 export function nomeCurtoLocal(local: { nome: string; nome_curto?: string | null } | null | undefined): string {

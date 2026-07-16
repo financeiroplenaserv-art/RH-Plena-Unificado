@@ -83,7 +83,7 @@ function parseDate(valor) {
   const str = String(valor).trim()
   const partes = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (!partes) return null
-  const [_, dia, mes, ano] = partes
+  const [, dia, mes, ano] = partes
   const data = new Date(Date.UTC(parseInt(ano, 10), parseInt(mes, 10) - 1, parseInt(dia, 10)))
   if (Number.isNaN(data.getTime())) return null
   return data.toISOString().split('T')[0]

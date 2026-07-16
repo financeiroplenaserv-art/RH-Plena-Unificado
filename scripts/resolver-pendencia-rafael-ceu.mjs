@@ -34,10 +34,6 @@ const NOVA_MATRICULA = '001107'
 const ARQUIVO = 'dados-locais/relatorio_por_colaborador que estava no CEU - colabs ativos.xls'
 const NOME_ALVO = 'RAFAEL DE CARVALHO LEMOS'
 
-function limparMatricula(valor) {
-  return String(valor || '').replace(/\D/g, '').replace(/^0+/, '')
-}
-
 function corrigirEncoding(str) {
   const s = String(str || '')
   try {
@@ -71,7 +67,7 @@ function formatarData(valor) {
     if (!str) return null
     const partesBR = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
     if (partesBR) {
-      const [_, dia, mes, ano] = partesBR
+      const [, dia, mes, ano] = partesBR
       data = new Date(Date.UTC(parseInt(ano, 10), parseInt(mes, 10) - 1, parseInt(dia, 10)))
     } else {
       data = new Date(str)

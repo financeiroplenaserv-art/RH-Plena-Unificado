@@ -163,7 +163,7 @@ function parseDate(valor) {
   const str = String(valor).trim()
   const partes = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (!partes) return null
-  const [_, dia, mes, ano] = partes
+  const [, dia, mes, ano] = partes
   const data = new Date(Date.UTC(parseInt(ano, 10), parseInt(mes, 10) - 1, parseInt(dia, 10)))
   if (Number.isNaN(data.getTime())) return null
   return data.toISOString().split('T')[0]
@@ -394,13 +394,11 @@ async function main() {
     let colaboradorId = placeholderId
     let colaboradorNome = nomePlanilha
     let empresaId = empresaPadrao.id
-    let identificado = false
 
     if (match) {
       colaboradorId = match.colaborador.id
       colaboradorNome = match.colaborador.nome_completo
       empresaId = match.colaborador.empresa_id || empresaPadrao.id
-      identificado = true
       resumo.identificados++
       if (match.todos && match.todos.length > 1) {
         resumo.multiplos++

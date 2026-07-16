@@ -11,13 +11,3 @@ export function normalizarTexto(texto: string | null | undefined): string {
     .toLowerCase()
     .trim()
 }
-
-/**
- * Verifica se o textoBuscado está contido no textoBase (ambos normalizados).
- */
-export function contemTexto(textoBase: string | null | undefined, textoBuscado: string | null | undefined): boolean {
-  const base = normalizarTexto(textoBase)
-  const buscado = normalizarTexto(textoBuscado)
-  if (!buscado) return false
-  return base.includes(buscado)
-}

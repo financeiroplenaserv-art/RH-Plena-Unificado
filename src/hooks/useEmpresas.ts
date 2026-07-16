@@ -23,20 +23,6 @@ export function useEmpresas() {
     return (data || []) as Empresa[]
   }, [])
 
-  const buscarPorId = useCallback(async (id: string) => {
-    const { data, error } = await supabase
-      .from('empresas')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      console.error('Erro ao buscar empresa:', error)
-      return null
-    }
-    return data as Empresa
-  }, [])
-
   const criar = useCallback(async (empresa: Omit<Empresa, 'id' | 'created_at'>) => {
     const { data, error } = await supabase
       .from('empresas')
@@ -83,5 +69,5 @@ export function useEmpresas() {
     return true
   }, [listar])
 
-  return { empresas, loading, listar, buscarPorId, criar, atualizar, remover }
+  return { empresas, loading, listar, criar, atualizar, remover }
 }

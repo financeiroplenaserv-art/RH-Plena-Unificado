@@ -296,21 +296,3 @@ export function gerarRecibosLoteHTML(
 </html>
   `.trim()
 }
-
-export function gerarComprovanteExcel(
-  resultados: VRResultadoCalculo[],
-  config: VRConfiguracao
-): string {
-  const linhas: string[] = []
-  linhas.push(['NOME', 'CPF', 'MATRICULA', 'DIAS_ELEGIVEIS', 'VALOR_UNITARIO', 'VALOR_TOTAL'].join('\t'))
-
-  for (const r of resultados) {
-    linhas.push([
-      r.nome, r.cpf, r.matricula || '', String(r.diasElegiveis),
-      String(config.valorVR), String(r.valorBruto)
-    ].join('\t'))
-  }
-
-  linhas.push(`TOTAL\t\t\t\t\tR$ ${resultados.reduce((s, r) => s + r.valorBruto, 0).toFixed(2)}`)
-  return linhas.join('\n')
-}

@@ -1,9 +1,15 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { parsePontoPDF, normalizarMatricula, resumoPonto } from '../src/lib/adicionais/importarPonto'
-import { diaIntrajornada, nomeDiaSemana } from '../src/lib/adicionais/calculoAdicionais'
+import { diaIntrajornada } from '../src/lib/adicionais/calculoAdicionais'
 import type { ContratoAdicional, VinculoAdicional, DiaCalendarioAdicional } from '../src/types/adicionais'
 import type { Colaborador } from '../src/types/database'
+
+const NOMES_DIA_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+
+function nomeDiaSemana(dataStr: string): string {
+  return NOMES_DIA_SEMANA[new Date(dataStr + 'T00:00:00').getDay()]
+}
 
 const PDF_PATH = join(process.cwd(), 'public', 'teste para sistema.pdf')
 

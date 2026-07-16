@@ -87,7 +87,6 @@ async function importar() {
   }
 
   console.log(`Total de departamentos lidos: ${registros.length}`)
-  console.log('Primeiro registro:', registros[0])
 
   // Verificar se já existem departamentos
   const { count, error: countError } = await supabase

@@ -51,39 +51,10 @@ export function useResultadosVR() {
     return true
   }, [])
 
-  const atualizar = useCallback(async (id: string, payload: Partial<ResultadoVR>) => {
-    const { data, error } = await supabase
-      .from('resultados_vr')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      toast.error('Erro ao atualizar resultado: ' + error.message)
-      return null
-    }
-
-    return data as ResultadoVR
-  }, [])
-
-  const excluir = useCallback(async (id: string) => {
-    const { error } = await supabase.from('resultados_vr').delete().eq('id', id)
-
-    if (error) {
-      toast.error('Erro ao remover resultado: ' + error.message)
-      return false
-    }
-
-    return true
-  }, [])
-
   return {
     resultados,
     loading,
     listarPorProjeto,
     salvarLote,
-    atualizar,
-    excluir,
   }
 }

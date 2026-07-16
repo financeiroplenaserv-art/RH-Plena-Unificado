@@ -950,16 +950,3 @@ export function gerarNumeroRecibo(): string {
     .padStart(5, '0')
   return `REC-${ano}-${sequencial}`
 }
-
-/* ============================================================
-   FUNÇÃO LEGADA — detecta tipo automaticamente
-   ============================================================ */
-export function gerarReciboColorido(data: ReciboData): string {
-  const isEPI = data.entregas.some((e) => e.item.grupo_macro === 'EPI')
-  return isEPI ? gerarReciboEPIColorido(data) : gerarReciboUniformeColorido(data)
-}
-
-export function gerarReciboPB(data: ReciboData): string {
-  const isEPI = data.entregas.some((e) => e.item.grupo_macro === 'EPI')
-  return isEPI ? gerarReciboEPIPB(data) : gerarReciboUniformePB(data)
-}

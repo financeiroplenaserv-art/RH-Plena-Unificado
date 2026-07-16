@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { getVRArquivoUrl } from '@/lib/storage'
 
 const BUCKET = 'vr-arquivos'
 
@@ -18,13 +17,4 @@ export async function uploadVRArquivo(
   if (uploadError) throw uploadError
 
   return { path }
-}
-
-export async function getVRArquivoSignedUrl(path: string): Promise<string> {
-  return getVRArquivoUrl(path)
-}
-
-export async function removerVRArquivo(path: string): Promise<void> {
-  const { error } = await supabase.storage.from(BUCKET).remove([path])
-  if (error) throw error
 }

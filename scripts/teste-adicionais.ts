@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import fs from 'fs'
 import { parsePontoPDF, normalizarMatricula } from '../src/lib/adicionais/importarPonto'
-import { diaIntrajornada, nomeDiaSemana } from '../src/lib/adicionais/calculoAdicionais'
+import { diaIntrajornada } from '../src/lib/adicionais/calculoAdicionais'
 import type { ContratoAdicional, VinculoAdicional, DiaCalendarioAdicional } from '../src/types/adicionais'
 import type { Colaborador, Departamento } from '../src/types/database'
 
@@ -260,9 +260,6 @@ function calcularRelatorio(mes: number, ano: number) {
           trabalhou.forEach(d => {
             if (diaIntrajornada(contrato, d.data)) {
               intrajornada++
-              console.log(`[Intrajornada Debug] ${col.nome_completo} trabalhou dia ${d.data} (${nomeDiaSemana(d.data)}) → contrato tem ${nomeDiaSemana(d.data).toLowerCase()} → +1 intrajornada`)
-            } else {
-              console.log(`[Intrajornada Debug] ${col.nome_completo} trabalhou dia ${d.data} (${nomeDiaSemana(d.data)}) → contrato NÃO tem ${nomeDiaSemana(d.data).toLowerCase()} → 0 intrajornada`)
             }
           })
         }

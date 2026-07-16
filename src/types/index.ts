@@ -4,18 +4,15 @@ export * from './vr'
 export * from './adicionais'
 export * from './extras'
 
-export interface Modulo {
-  id: string
-  nome: string
-  descricao: string
-  icone: string
-  path: string
-  cor: string
+export interface Paginacao {
+  pagina: number
+  tamanho: number
 }
 
-export interface MenuItem {
-  path: string
-  label: string
-  icone: string
-  nivelMinimo?: import('./database').NivelAcesso
+export interface ResultadoPaginado<T> {
+  dados: T[]
+  total: number
+  pagina: number
+  tamanho: number
+  totalPaginas: number
 }

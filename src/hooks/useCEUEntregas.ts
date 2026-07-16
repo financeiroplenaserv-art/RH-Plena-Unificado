@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { EntregaCEU } from '@/types/database'
+import type { Paginacao, ResultadoPaginado } from '@/types'
 
 export interface FiltrosEntrega {
   colaboradorId?: string
@@ -12,19 +13,6 @@ export interface FiltrosEntrega {
   devolvido?: boolean
   buscaColaborador?: string
   departamento?: string
-}
-
-export interface Paginacao {
-  pagina: number
-  tamanho: number
-}
-
-export interface ResultadoPaginado<T> {
-  dados: T[]
-  total: number
-  pagina: number
-  tamanho: number
-  totalPaginas: number
 }
 
 const TAMANHO_PADRAO = 50

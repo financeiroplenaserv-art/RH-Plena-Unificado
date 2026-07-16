@@ -46,23 +46,6 @@ export function useEscalasMapeamento() {
     }
   }, [listar])
 
-  const atualizar = useCallback(async (id: string, mapeamento: Partial<Omit<MapeamentoFlitLocalTrabalho, 'id' | 'created_at' | 'updated_at'>>) => {
-    try {
-      const { error } = await supabase
-        .from('mapeamento_flit_local_trabalho')
-        .update(mapeamento as Partial<MapeamentoFlitLocalTrabalho>)
-        .eq('id', id)
-      if (error) throw error
-      toast.success('Mapeamento atualizado')
-      await listar()
-      return true
-    } catch (err: unknown) {
-      console.error('Erro ao atualizar mapeamento:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar mapeamento')
-      return false
-    }
-  }, [listar])
-
   const remover = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
@@ -80,5 +63,5 @@ export function useEscalasMapeamento() {
     }
   }, [listar])
 
-  return { mapeamentos, loading, listar, criar, atualizar, remover }
+  return { mapeamentos, loading, listar, criar, remover }
 }

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Colaborador, StatusColaborador } from '@/types/database'
+import type { Paginacao, ResultadoPaginado } from '@/types'
 
 interface FiltrosColaborador {
   empresaId?: string
@@ -11,19 +12,6 @@ interface FiltrosColaborador {
   cargo?: string
   status?: StatusColaborador
   busca?: string
-}
-
-export interface Paginacao {
-  pagina: number
-  tamanho: number
-}
-
-export interface ResultadoPaginado<T> {
-  dados: T[]
-  total: number
-  pagina: number
-  tamanho: number
-  totalPaginas: number
 }
 
 const TAMANHO_PADRAO = 50
@@ -198,63 +186,6 @@ export function useColaboradores() {
     return resultado
   }, [montarQuery])
 
-  const buscarPorId = useCallback(async (id: string) => {
-    const { data, error } = await supabase
-      .from('colaboradores')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      console.error('Erro ao buscar colaborador:', error)
-      return null
-    }
-    return data as Colaborador
-  }, [])
-
-  const buscarPorCpf = useCallback(async (cpf: string) => {
-    const { data, error } = await supabase
-      .from('colaboradores')
-      .select('*')
-      .eq('cpf', cpf)
-      .maybeSingle()
-
-    if (error) {
-      console.error('Erro ao buscar por CPF:', error)
-      return null
-    }
-    return data as Colaborador | null
-  }, [])
-
-  const buscarPorMatricula = useCallback(async (matricula: string) => {
-    const { data, error } = await supabase
-      .from('colaboradores')
-      .select('*')
-      .eq('matricula', matricula)
-      .maybeSingle()
-
-    if (error) {
-      console.error('Erro ao buscar por matrícula:', error)
-      return null
-    }
-    return data as Colaborador | null
-  }, [])
-
-  const criar = useCallback(async (colaborador: Omit<Colaborador, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase
-      .from('colaboradores')
-      .insert(colaborador as Partial<Colaborador>)
-      .select()
-      .single()
-
-    if (error) {
-      toast.error('Erro ao criar colaborador: ' + error.message)
-      return null
-    }
-    toast.success('Colaborador criado')
-    return data as Colaborador
-  }, [])
-
   const atualizar = useCallback(async (id: string, colaborador: Partial<Omit<Colaborador, 'id' | 'created_at' | 'updated_at'>>) => {
     const { error } = await supabase
       .from('colaboradores')
@@ -266,20 +197,6 @@ export function useColaboradores() {
       return false
     }
     toast.success('Colaborador atualizado')
-    return true
-  }, [])
-
-  const remover = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from('colaboradores')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      toast.error('Erro ao remover colaborador: ' + error.message)
-      return false
-    }
-    toast.success('Colaborador removido')
     return true
   }, [])
 
@@ -367,12 +284,7 @@ export function useColaboradores() {
     paginacao,
     listar,
     listarPaginado,
-    buscarPorId,
-    buscarPorCpf,
-    buscarPorMatricula,
-    criar,
     atualizar,
-    remover,
     upsertPorMatricula,
   }
 }

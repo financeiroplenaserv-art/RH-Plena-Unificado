@@ -26,6 +26,10 @@ dados-locais/
 
 *.local
 
+# Python bytecode
+__pycache__/
+*.pyc
+
 # Supabase CLI temporary files
 supabase/.temp
 

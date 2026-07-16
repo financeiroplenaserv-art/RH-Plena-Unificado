@@ -79,8 +79,6 @@ function gerarId() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 }
 
-const DIAS_NOMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-
 function normalizarStatusDia(status: unknown): StatusDiaAdicional {
   if (
     status === 'trabalhou' ||
@@ -562,7 +560,6 @@ export function useAdicionaisContratuais() {
   }, [])
 
   return {
-    DIAS_NOMES,
     contratos,
     vinculos,
     calendario,

@@ -23,7 +23,6 @@ export const VrProjetoFormPage = lazyNamed(() => import('@/pages/vr/VrProjetoFor
 export const VrProjetoDetailPage = lazyNamed(() => import('@/pages/vr/VrProjetoDetailPage'), 'VrProjetoDetailPage')
 
 // CEU
-export const CeuDashboardPage = lazyNamed(() => import('@/pages/ceu/CeuDashboardPage'), 'CeuDashboardPage')
 export const CeuItensPage = lazyNamed(() => import('@/pages/ceu/CeuItensPage'), 'CeuItensPage')
 export const CeuItemFormPage = lazyNamed(() => import('@/pages/ceu/CeuItemFormPage'), 'CeuItemFormPage')
 export const CeuFornecedoresPage = lazyNamed(() => import('@/pages/ceu/CeuFornecedoresPage'), 'CeuFornecedoresPage')

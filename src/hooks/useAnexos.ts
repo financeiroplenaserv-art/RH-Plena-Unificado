@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import { getOcorrenciaAnexoUrl } from '@/lib/storage'
 import type { OcorrenciaAnexo } from '@/types/database'
 
 const BUCKET_NAME = 'ocorrencia-anexos'
@@ -90,9 +89,5 @@ export function useAnexos() {
     return true
   }, [])
 
-  const gerarUrlAssinada = useCallback(async (caminhoStorage: string) => {
-    return getOcorrenciaAnexoUrl(caminhoStorage)
-  }, [])
-
-  return { anexos, loading, loadAnexos, uploadAnexo, removerAnexo, gerarUrlAssinada }
+  return { anexos, loading, loadAnexos, uploadAnexo, removerAnexo }
 }

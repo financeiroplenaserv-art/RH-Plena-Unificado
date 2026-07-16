@@ -17,7 +17,7 @@
     try {
       const raw = localStorage.getItem(mockKey(tabela))
       return raw ? JSON.parse(raw) : []
-    } catch (e) {
+    } catch {
       return []
     }
   }
@@ -32,11 +32,6 @@
 
   function normalizarMatricula(m) {
     return String(m || '').replace(/\D/g, '').replace(/^0+/, '') || '0'
-  }
-
-  function nomeDiaSemana(dataStr) {
-    const dias = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado']
-    return dias[new Date(dataStr + 'T00:00:00').getDay()]
   }
 
   function carregarDados() {
@@ -60,12 +55,6 @@
   function encontrarColaborador(colaboradores, matricula) {
     return colaboradores.find(function(c) {
       return normalizarMatricula(c.matricula) === normalizarMatricula(matricula)
-    })
-  }
-
-  function encontrarContrato(contratos, nome) {
-    return contratos.find(function(c) {
-      return c.nome.toLowerCase().includes(nome.toLowerCase())
     })
   }
 

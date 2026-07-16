@@ -41,18 +41,6 @@ export function useExtrasRecibos() {
     }
   }, [])
 
-  const buscarPorId = useCallback(async (id: string): Promise<ReciboExtra | null> => {
-    try {
-      const { data, error } = await supabase.from('recibos_extras').select('*').eq('id', id).single()
-      if (error) throw error
-      return data as ReciboExtra
-    } catch (err: unknown) {
-      console.error('Erro ao buscar recibo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao buscar recibo')
-      return null
-    }
-  }, [])
-
   const criar = useCallback(async (dados: Omit<ReciboExtra, 'id' | 'created_at' | 'updated_at'>): Promise<ReciboExtra | null> => {
     try {
       const { data, error } = await supabase.from('recibos_extras').insert(dados).select().single()
@@ -102,19 +90,6 @@ export function useExtrasRecibos() {
     }
   }, [])
 
-  const atualizar = useCallback(async (id: string, dados: Partial<Omit<ReciboExtra, 'id' | 'created_at' | 'updated_at'>>): Promise<ReciboExtra | null> => {
-    try {
-      const { data, error } = await supabase.from('recibos_extras').update(dados).eq('id', id).select().single()
-      if (error) throw error
-      setRecibos(prev => prev.map(r => r.id === id ? { ...r, ...dados } : r))
-      return data as ReciboExtra
-    } catch (err: unknown) {
-      console.error('Erro ao atualizar recibo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar recibo')
-      return null
-    }
-  }, [])
-
   const remover = useCallback(async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase.from('recibos_extras').delete().eq('id', id)
@@ -133,10 +108,8 @@ export function useExtrasRecibos() {
     recibos,
     loading,
     listar,
-    buscarPorId,
     criar,
     assinar,
-    atualizar,
     remover,
   }
 }

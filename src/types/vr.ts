@@ -74,20 +74,3 @@ export interface VRResultadoCalculo {
   matchTipo?: VRMatchTipo
   detalhes: string[]
 }
-
-export interface VRArquivoImportado {
-  id?: string
-  projeto_id: string
-  tipo: 'pdf_anterior' | 'pdf_atual' | 'escala' | 'base'
-  nome_arquivo: string
-  tamanho_bytes: number
-  caminho_storage: string
-  url_publica?: string | null
-  usuario_id?: string | null
-  created_at?: string
-}
-
-export interface VRProjetoCompleto {
-  projeto: import('./database').ProjetoVR
-  resultados: import('./database').ResultadoVR[]
-}

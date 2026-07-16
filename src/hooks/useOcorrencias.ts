@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Ocorrencia, StatusOcorrencia } from '@/types/database'
+import type { Paginacao, ResultadoPaginado } from '@/types'
 
 export interface FiltrosOcorrencia {
   colaborador_id?: string
@@ -13,19 +14,6 @@ export interface FiltrosOcorrencia {
   data_inicio?: string
   data_fim?: string
   busca?: string
-}
-
-export interface Paginacao {
-  pagina: number
-  tamanho: number
-}
-
-export interface ResultadoPaginado<T> {
-  dados: T[]
-  total: number
-  pagina: number
-  tamanho: number
-  totalPaginas: number
 }
 
 const TAMANHO_PADRAO = 50
@@ -46,47 +34,6 @@ export function useOcorrencias() {
     if (filtros?.data_fim) query = query.lte('data_ocorrencia', filtros.data_fim)
     return query
   }, [])
-
-  const listar = useCallback(async (filtros: FiltrosOcorrencia = {}) => {
-    setLoading(true)
-    setPaginacao(null)
-    try {
-      let query = supabase
-        .from('ocorrencias')
-        .select('*, colaborador:colaborador_id(*), total_anexos:ocorrencia_anexos(count)')
-        .order('data_ocorrencia', { ascending: false })
-
-      query = aplicarFiltros(query, filtros)
-
-      let colaboradorIds: string[] | undefined
-      if (filtros.busca) {
-        const termo = filtros.busca.trim()
-        const { data: colaboradores } = await supabase
-          .from('colaboradores')
-          .select('id')
-          .or(`nome_completo.ilike.%${termo}%,cpf.ilike.%${termo}%,matricula.ilike.%${termo}%`)
-        colaboradorIds = (colaboradores || []).map((c) => c.id)
-      }
-
-      if (colaboradorIds) {
-        const termo = filtros.busca!.trim()
-        query = query.or(
-          `colaborador_id.in.(${colaboradorIds.join(',')}),tipo_ocorrencia.ilike.%${termo}%,titulo.ilike.%${termo}%,colaborador_nome.ilike.%${termo}%,descricao.ilike.%${termo}%`
-        )
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        toast.error('Erro ao carregar ocorrências: ' + error.message)
-        return
-      }
-
-      setOcorrencias((data as Ocorrencia[]) || [])
-    } finally {
-      setLoading(false)
-    }
-  }, [aplicarFiltros])
 
   const listarPaginado = useCallback(async (
     filtros: FiltrosOcorrencia = {},
@@ -164,67 +111,6 @@ export function useOcorrencias() {
     return resultado
   }, [aplicarFiltros])
 
-  const buscarPorId = useCallback(async (id: string) => {
-    const { data, error } = await supabase
-      .from('ocorrencias')
-      .select('*, colaborador:colaborador_id(*)')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      toast.error('Erro ao carregar ocorrência: ' + error.message)
-      return null
-    }
-
-    return data as Ocorrencia
-  }, [])
-
-  const criar = useCallback(async (payload: Partial<Ocorrencia>) => {
-    const { data, error } = await supabase
-      .from('ocorrencias')
-      .insert(payload)
-      .select()
-      .single()
-
-    if (error) {
-      toast.error('Erro ao registrar ocorrência: ' + error.message)
-      return null
-    }
-
-    return data as Ocorrencia
-  }, [])
-
-  const atualizar = useCallback(async (id: string, payload: Partial<Ocorrencia>) => {
-    const { data, error } = await supabase
-      .from('ocorrencias')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      toast.error('Erro ao atualizar ocorrência: ' + error.message)
-      return null
-    }
-
-    return data as Ocorrencia
-  }, [])
-
-  const cancelar = useCallback(async (id: string) => {
-    const { error } = await supabase
-      .from('ocorrencias')
-      .update({ status: 'Cancelada' as StatusOcorrencia })
-      .eq('id', id)
-
-    if (error) {
-      toast.error('Erro ao cancelar ocorrência: ' + error.message)
-      return false
-    }
-
-    toast.success('Ocorrência cancelada')
-    return true
-  }, [])
-
   const excluir = useCallback(async (id: string) => {
     const { error } = await supabase.from('ocorrencias').delete().eq('id', id)
 
@@ -241,12 +127,7 @@ export function useOcorrencias() {
     ocorrencias,
     loading,
     paginacao,
-    listar,
     listarPaginado,
-    buscarPorId,
-    criar,
-    atualizar,
-    cancelar,
     excluir,
   }
 }

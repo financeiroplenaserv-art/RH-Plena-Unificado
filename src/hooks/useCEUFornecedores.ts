@@ -52,14 +52,5 @@ export function useCEUFornecedores() {
     return true
   }, [])
 
-  const buscarPorId = useCallback(async (id: string) => {
-    const { data, error } = await supabase.from('fornecedores').select('*').eq('id', id).single()
-    if (error) {
-      toast.error('Erro ao buscar fornecedor: ' + error.message)
-      return null
-    }
-    return data as Fornecedor
-  }, [])
-
-  return { fornecedores, loading, listar, criar, atualizar, remover, buscarPorId }
+  return { fornecedores, loading, listar, criar, atualizar, remover }
 }

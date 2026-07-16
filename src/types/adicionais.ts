@@ -49,17 +49,3 @@ export interface DiaCalendarioAdicional {
   created_at?: string
   updated_at?: string
 }
-
-export interface RelatorioAdicionalLinha {
-  colaborador_id: string
-  colaborador_nome: string
-  contrato_id: string
-  contrato_nome: string
-  departamento: string
-  adicional: string
-  dia?: string
-  status?: string
-  observacao?: string
-  dias_trabalhados: number
-  dias_intrajornada: number
-}

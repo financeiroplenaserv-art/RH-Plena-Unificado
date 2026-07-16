@@ -300,35 +300,6 @@ export interface AuditoriaLog {
   created_at?: string
 }
 
-// Tipos para views/estatísticas
-export interface RankingColaborador {
-  id: string
-  nome_completo: string
-  matricula: string
-  cargo: string | null
-  departamento: string | null
-  advertencias: number
-  suspensoes: number
-  faltas: number
-  total_ocorrencias: number
-}
-
-export interface EstatisticaDepartamento {
-  departamento: string
-  total_colaboradores: number
-  total_ocorrencias: number
-  ocorrencias_pendentes: number
-}
-
-export interface OcorrenciaPorMes {
-  mes: string
-  mes_label: string
-  ativas: number
-  pendentes: number
-  resolvidas: number
-  total: number
-}
-
 export interface ProjetoVR {
   id: string
   nome: string

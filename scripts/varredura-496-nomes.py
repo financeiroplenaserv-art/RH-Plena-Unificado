@@ -4,7 +4,6 @@ Varredura dos 496 nomes não identificados da importação de 15/07/2026.
 Busca correspondências no cadastro de colaboradores do CORH com várias estratégias.
 """
 import os
-import re
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client

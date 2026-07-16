@@ -5,7 +5,6 @@ Associa colaboradores pelo nome completo. Usa placeholder para não identificado
 """
 import os
 import re
-import unicodedata
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv

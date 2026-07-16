@@ -8,7 +8,6 @@ interface PaginacaoProps {
   tamanho?: number
   onPaginaAnterior: () => void
   onPaginaProxima: () => void
-  onIrParaPagina?: (pagina: number) => void
   carregando?: boolean
 }
 

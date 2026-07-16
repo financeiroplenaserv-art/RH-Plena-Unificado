@@ -7,10 +7,8 @@ const CHAVE = 'vr_configuracao_padrao'
 
 export function useConfiguracaoVR() {
   const [config, setConfig] = useState<VRConfiguracao | null>(null)
-  const [loading, setLoading] = useState(false)
 
   const carregar = useCallback(async () => {
-    setLoading(true)
     try {
       const { data, error } = await supabase
         .from('configuracoes')
@@ -31,34 +29,13 @@ export function useConfiguracaoVR() {
           setConfig(null)
         }
       }
-    } finally {
-      setLoading(false)
+    } catch (err) {
+      console.error('Erro ao carregar configuração VR:', err)
     }
-  }, [])
-
-  const salvar = useCallback(async (novaConfig: VRConfiguracao) => {
-    const { error } = await supabase
-      .from('configuracoes')
-      .upsert({
-        chave: CHAVE,
-        valor: JSON.stringify(novaConfig),
-        descricao: 'Configuração padrão do módulo Vale Refeição'
-      })
-
-    if (error) {
-      toast.error('Erro ao salvar configuração VR: ' + error.message)
-      return false
-    }
-
-    setConfig(novaConfig)
-    toast.success('Configuração VR salva')
-    return true
   }, [])
 
   return {
     config,
-    loading,
     carregar,
-    salvar,
   }
 }
