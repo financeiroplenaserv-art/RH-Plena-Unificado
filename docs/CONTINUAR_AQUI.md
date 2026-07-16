@@ -87,8 +87,8 @@
 - Importação Flit, inferência de local, aba Escalas, modal de confirmação, exportações ✅
 - Importação de departamentos com deduplicação por similaridade de nome ✅
 
-### Validação final (16/07)
-- `npm run build` ✅
+### Página de login
+- Redesign com layout split: lado esquerdo em azul escuro degradê, texto "CORH — Controle Operacional e de RH", design limpo com cards de destaque; formulário de login do lado direito. ✅
 
 ---
 
