@@ -7,7 +7,7 @@ import type { Paginacao, ResultadoPaginado } from '@/types'
 export interface FiltrosOcorrencia {
   colaborador_id?: string
   status?: string
-  tipo?: string
+  tipo?: string | string[]
   empresa_id?: string
   macro_grupo?: string
   gravidade?: string
@@ -29,7 +29,14 @@ export function useOcorrencias() {
   const aplicarFiltros = useCallback((query: ReturnType<typeof supabase.from>, filtros?: FiltrosOcorrencia) => {
     if (filtros?.colaborador_id) query = query.eq('colaborador_id', filtros.colaborador_id)
     if (filtros?.status) query = query.eq('status', filtros.status as StatusOcorrencia)
-    if (filtros?.tipo) query = query.eq('tipo_ocorrencia', filtros.tipo)
+    if (filtros?.tipo) {
+      const tipos = Array.isArray(filtros.tipo) ? filtros.tipo : [filtros.tipo]
+      if (tipos.length === 1) {
+        query = query.eq('tipo_ocorrencia', tipos[0])
+      } else if (tipos.length > 1) {
+        query = query.in('tipo_ocorrencia', tipos)
+      }
+    }
     if (filtros?.empresa_id) query = query.eq('empresa_id', filtros.empresa_id)
     if (filtros?.macro_grupo) query = query.eq('macro_grupo', filtros.macro_grupo)
     if (filtros?.gravidade) query = query.eq('gravidade', filtros.gravidade)

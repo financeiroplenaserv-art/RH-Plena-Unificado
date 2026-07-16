@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal, Info, SquarePen } from 'lucide-react'
+import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal, Info, SquarePen, X } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
@@ -58,8 +58,6 @@ const MACRO_GRUPOS = [
   '9. Registro do RH',
 ]
 
-const GRAVIDADES = ['Leve', 'Média', 'Grave', 'Gravíssima']
-
 export function OcorrenciasPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -72,11 +70,11 @@ export function OcorrenciasPage() {
   const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
   const [pagina, setPagina] = useState(0)
   const [busca, setBusca] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('todos')
+  const [filtroTipos, setFiltroTipos] = useState<string[]>([])
+  const [inputTipo, setInputTipo] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
   const [filtroMacroGrupo, setFiltroMacroGrupo] = useState('todos')
-  const [filtroGravidade, setFiltroGravidade] = useState('todos')
   const [filtroDataInicio, setFiltroDataInicio] = useState('')
   const [filtroDataFim, setFiltroDataFim] = useState('')
   const [filtroColaboradorId, setFiltroColaboradorId] = useState<string | undefined>(undefined)
@@ -97,17 +95,16 @@ export function OcorrenciasPage() {
   }, [])
 
   const buildFiltros = useCallback(() => ({
-    tipo: filtroTipo !== 'todos' ? filtroTipo.trim() : undefined,
+    tipo: filtroTipos.length > 0 ? filtroTipos : undefined,
     status: filtroStatus !== 'todos' ? filtroStatus.trim() : undefined,
     empresa_id: filtroEmpresa !== 'todos' ? filtroEmpresa.trim() : undefined,
     macro_grupo: filtroMacroGrupo !== 'todos' ? filtroMacroGrupo.trim() : undefined,
-    gravidade: filtroGravidade !== 'todos' ? filtroGravidade.trim() : undefined,
     colaborador_id: filtroColaboradorId,
     data_inicio: filtroDataInicio || undefined,
     data_fim: filtroDataFim || undefined,
     busca: busca.trim() || undefined,
     incluir_nao_identificados: incluirNaoIdentificados,
-  }), [busca, filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
+  }), [busca, filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
 
   const loadOcorrencias = useCallback(async (paginaAtual = pagina) => {
     await listarPaginado(buildFiltros(), { pagina: paginaAtual, tamanho: 50 })
@@ -121,6 +118,20 @@ export function OcorrenciasPage() {
     setOcorrenciaParaExcluir(null)
   }
 
+  const limparFiltros = useCallback(() => {
+    setBusca('')
+    setFiltroTipos([])
+    setInputTipo('')
+    setFiltroStatus('todos')
+    setFiltroEmpresa('todos')
+    setFiltroMacroGrupo('todos')
+    setFiltroDataInicio('')
+    setFiltroDataFim('')
+    setFiltroColaboradorId(undefined)
+    setIncluirNaoIdentificados(false)
+    setPagina(0)
+  }, [])
+
   useEffect(() => {
     loadEmpresas()
   }, [loadEmpresas])
@@ -129,7 +140,7 @@ export function OcorrenciasPage() {
     setPagina(0)
     loadOcorrencias(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
+  }, [filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -140,8 +151,34 @@ export function OcorrenciasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca])
 
-  const tiposUnicos = [...new Set(ocorrencias.map((o) => o.tipo_ocorrencia))].sort()
+  // Dispara busca após limpar filtros
+  useEffect(() => {
+    loadOcorrencias(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limparFiltros])
+
+  const todosTiposUnicos = [...new Set(ocorrencias.map((o) => o.tipo_ocorrencia))].sort()
   const pendentesCount = ocorrencias.filter((o) => o.status === 'Pendente').length
+
+  const adicionarTipo = (tipo: string) => {
+    const t = tipo.trim()
+    if (!t) return
+    if (!filtroTipos.includes(t)) {
+      setFiltroTipos((prev) => [...prev, t])
+    }
+    setInputTipo('')
+  }
+
+  const removerTipo = (tipo: string) => {
+    setFiltroTipos((prev) => prev.filter((t) => t !== tipo))
+  }
+
+  const handleKeyDownTipo = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      adicionarTipo(inputTipo)
+    }
+  }
 
   return (
     <RhShell>
@@ -194,20 +231,49 @@ export function OcorrenciasPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Tipo de ocorrência" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                {tiposUnicos.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="space-y-2">
+              <div className="relative">
+                <Input
+                  list="tipos-ocorrencia"
+                  placeholder="Digite e pressione Enter para filtrar tipo"
+                  value={inputTipo}
+                  onChange={(e) => setInputTipo(e.target.value)}
+                  onKeyDown={handleKeyDownTipo}
+                  onBlur={() => {
+                    if (inputTipo.trim() && todosTiposUnicos.includes(inputTipo.trim())) {
+                      adicionarTipo(inputTipo)
+                    }
+                  }}
+                  className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937] text-sm"
+                />
+                <datalist id="tipos-ocorrencia">
+                  {todosTiposUnicos.map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+              </div>
+              {filtroTipos.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {filtroTipos.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-800 text-xs border border-amber-200"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        onClick={() => removerTipo(t)}
+                        className="hover:text-amber-600"
+                        title="Remover"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
               <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
@@ -243,20 +309,6 @@ export function OcorrenciasPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos os grupos</SelectItem>
                 {MACRO_GRUPOS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroGravidade} onValueChange={setFiltroGravidade}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Gravidade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as gravidades</SelectItem>
-                {GRAVIDADES.map((g) => (
                   <SelectItem key={g} value={g}>
                     {g}
                   </SelectItem>
@@ -307,6 +359,15 @@ export function OcorrenciasPage() {
               className="bg-[#1F2937] hover:bg-slate-800 text-white rounded-[8px]"
             >
               Aplicar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={limparFiltros}
+              disabled={loading}
+              className="rounded-[8px] border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              Limpar
             </Button>
           </div>
         </CardContent>
