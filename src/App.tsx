@@ -236,6 +236,14 @@ function App() {
                 }
               />
               <Route
+                path="/rh/ocorrencias/:id/editar"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ocorrencias' }}>
+                    <OcorrenciaFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/rh/ocorrencias/:id"
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ocorrencias' }}>

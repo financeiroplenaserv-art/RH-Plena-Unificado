@@ -29,6 +29,7 @@ import {
   podeAnexarOcorrencia,
   podeAdicionarTestemunha,
   podeVerAuditoria,
+  podeEditarOcorrencia,
 } from '@/lib/permissoes'
 import { RhShell } from './RhShell'
 import {
@@ -47,6 +48,7 @@ import {
   Video,
   Headphones,
   Loader2,
+  SquarePen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Ocorrencia, Colaborador } from '@/types/database'
@@ -80,6 +82,7 @@ export function OcorrenciaDetailPage() {
   const podeAnexar = perfil ? podeAnexarOcorrencia(perfil) : false
   const podeTestemunha = perfil ? podeAdicionarTestemunha(perfil) : false
   const podeAuditoria = perfil ? podeVerAuditoria(perfil) : false
+  const podeEditar = perfil ? podeEditarOcorrencia(perfil) : false
 
   const { id } = useParams<{ id: string }>()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -346,6 +349,16 @@ export function OcorrenciaDetailPage() {
               className="gap-1 text-xs h-8"
             >
               <Printer className="h-3.5 w-3.5" /> Gerar PDF
+            </Button>
+          )}
+          {podeEditar && ocorrencia.status !== 'Cancelada' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/rh/ocorrencias/${id}/editar`)}
+              className="gap-1 text-xs h-8"
+            >
+              <SquarePen className="h-3.5 w-3.5" /> Editar
             </Button>
           )}
           {isPendente &&

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -26,6 +26,7 @@ import {
   ClipboardCheck,
   Users,
   Building2,
+  Loader2,
 } from 'lucide-react'
 import type { Colaborador } from '@/types/database'
 import { RhShell } from './RhShell'
@@ -504,7 +505,10 @@ function exigeDocumento(tipo: string): boolean {
 
 export function OcorrenciaFormPage() {
   const navigate = useNavigate()
-  const { colaboradorId } = useParams()
+  const { id, colaboradorId } = useParams()
+
+  const isEdicao = Boolean(id)
+  const [ocorrenciaOriginal, setOcorrenciaOriginal] = useState<Ocorrencia | null>(null)
 
   const [colabSelecionado, setColabSelecionado] = useState<Colaborador | null>(null)
   const [empresaSelecionada, setEmpresaSelecionada] = useState<{
@@ -512,6 +516,7 @@ export function OcorrenciaFormPage() {
     cnpj: string
   } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingOcorrencia, setLoadingOcorrencia] = useState(isEdicao)
 
   const [form, setForm] = useState({
     colaborador_id: colaboradorId || '',
@@ -548,6 +553,70 @@ export function OcorrenciaFormPage() {
       .single()
     if (data) setEmpresaSelecionada(data as { nome: string; cnpj: string })
   }, [])
+
+  const carregarColaborador = useCallback(async (colabId: string) => {
+    const { data } = await supabase
+      .from('colaboradores')
+      .select('*')
+      .eq('id', colabId)
+      .single()
+    if (data) {
+      setColabSelecionado(data as Colaborador)
+      carregarEmpresa(data.empresa_id || null)
+    }
+  }, [carregarEmpresa])
+
+  useEffect(() => {
+    if (!isEdicao || !id) return
+
+    const carregar = async () => {
+      setLoadingOcorrencia(true)
+      const { data, error } = await supabase
+        .from('ocorrencias')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error || !data) {
+        toast.error('Erro ao carregar ocorrência: ' + (error?.message || 'Não encontrada'))
+        navigate('/rh/ocorrencias')
+        return
+      }
+
+      const o = data as Ocorrencia
+      setOcorrenciaOriginal(o)
+
+      setForm({
+        colaborador_id: o.colaborador_id || '',
+        macro_grupo: o.macro_grupo || '',
+        titulo: o.titulo || '',
+        tipo_ocorrencia: o.tipo_ocorrencia || '',
+        data_ocorrencia: o.data_ocorrencia || new Date().toISOString().split('T')[0],
+        descricao: o.descricao || '',
+        status: o.status || 'Pendente',
+        tipo_penalidade: o.tipo_penalidade || '',
+        base_legal: o.base_legal || '',
+        gravidade: o.gravidade || '',
+        data_hora_ocorrido: o.data_hora_ocorrido || '',
+        local_ocorrido: o.local_ocorrido || '',
+        defesa_funcionario: o.defesa_funcionario || '',
+        medida_corretiva: o.medida_corretiva || '',
+        prazo_acompanhamento: o.prazo_acompanhamento || '',
+        testemunha_1_nome: o.testemunha_1_nome || '',
+        testemunha_1_cargo: o.testemunha_1_cargo || '',
+        testemunha_2_nome: o.testemunha_2_nome || '',
+        testemunha_2_cargo: o.testemunha_2_cargo || '',
+      })
+
+      if (o.colaborador_id) {
+        await carregarColaborador(o.colaborador_id)
+      }
+
+      setLoadingOcorrencia(false)
+    }
+
+    carregar()
+  }, [isEdicao, id, navigate, carregarColaborador])
 
   const handleColaboradorChange = (colab: Colaborador | null) => {
     setColabSelecionado(colab)
@@ -619,12 +688,12 @@ export function OcorrenciaFormPage() {
     setLoading(true)
 
     const precisaDocumento = exigeDocumento(form.tipo_penalidade)
-    const statusFinal = precisaDocumento ? 'Pendente' : 'Ativa'
+    const statusFinal = isEdicao ? ocorrenciaOriginal?.status || 'Ativa' : (precisaDocumento ? 'Pendente' : 'Ativa')
 
     const payload: Record<string, string | null> = {
       ...form,
       status: statusFinal,
-      empresa_id: colabSelecionado?.empresa_id || null,
+      empresa_id: colabSelecionado?.empresa_id || ocorrenciaOriginal?.empresa_id || null,
     }
     if (colabSelecionado) payload.colaborador_nome = colabSelecionado.nome_completo
 
@@ -632,20 +701,31 @@ export function OcorrenciaFormPage() {
       if (v === '') payload[k] = null
     }
 
-    const { data, error } = await supabase
-      .from('ocorrencias')
-      .insert(payload as Partial<Ocorrencia>)
-      .select()
-      .single()
+    let data, error
+
+    if (isEdicao && id) {
+      const result = await supabase
+        .from('ocorrencias')
+        .update(payload as Partial<Ocorrencia>)
+        .eq('id', id)
+        .select()
+        .single()
+      data = result.data
+      error = result.error
+    } else {
+      const result = await supabase
+        .from('ocorrencias')
+        .insert(payload as Partial<Ocorrencia>)
+        .select()
+        .single()
+      data = result.data
+      error = result.error
+    }
 
     if (error) {
-      toast.error('Erro ao registrar: ' + error.message)
+      toast.error(isEdicao ? 'Erro ao salvar alterações: ' + error.message : 'Erro ao registrar: ' + error.message)
     } else {
-      if (precisaDocumento) {
-        toast.success('Ocorrência registrada como PENDENTE. Anexe documentos comprobatórios para ativar.')
-      } else {
-        toast.success('Ocorrência registrada como ATIVA.')
-      }
+      toast.success(isEdicao ? 'Ocorrência atualizada com sucesso.' : (precisaDocumento ? 'Ocorrência registrada como PENDENTE. Anexe documentos comprobatórios para ativar.' : 'Ocorrência registrada como ATIVA.'))
       if (colabSelecionado && data) {
         await gerarPDFOcorrencia(colabSelecionado, data as Ocorrencia, undefined, undefined, empresaSelecionada)
       }
@@ -660,11 +740,18 @@ export function OcorrenciaFormPage() {
         <Button variant="outline" size="sm" onClick={() => navigate('/rh/ocorrencias')} className="gap-1 h-8">
           <ArrowLeft className="h-3.5 w-3.5" />
         </Button>
-        <h2 className="text-lg font-semibold text-slate-900">Nova Ocorrência</h2>
+        <h2 className="text-lg font-semibold text-slate-900">
+          {isEdicao ? 'Editar Ocorrência' : 'Nova Ocorrência'}
+        </h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <Card className="border-slate-100 shadow-sm">
+      {loadingOcorrencia ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <Card className="border-slate-100 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-2">
               <Users className="h-3.5 w-3.5" /> 1. Colaborador
@@ -985,6 +1072,7 @@ export function OcorrenciaFormPage() {
           </Button>
         </div>
       </form>
+      )}
     </RhShell>
   )
 }

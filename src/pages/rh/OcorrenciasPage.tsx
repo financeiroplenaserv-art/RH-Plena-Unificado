@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal, Info } from 'lucide-react'
+import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal, Info, SquarePen } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
@@ -43,6 +43,7 @@ import {
   podeCriarOcorrencia,
   podeVerDetalhesOcorrencia,
   podeCancelarOcorrencia,
+  podeEditarOcorrencia,
 } from '@/lib/permissoes'
 
 const MACRO_GRUPOS = [
@@ -66,6 +67,7 @@ export function OcorrenciasPage() {
   const podeCriar = perfil ? podeCriarOcorrencia(perfil) : false
   const podeVerDetalhes = perfil ? podeVerDetalhesOcorrencia(perfil) : false
   const podeCancelar = perfil ? podeCancelarOcorrencia(perfil) : false
+  const podeEditar = perfil ? podeEditarOcorrencia(perfil) : false
 
   const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
   const [pagina, setPagina] = useState(0)
@@ -374,6 +376,17 @@ export function OcorrenciasPage() {
                                 title="Ver detalhes"
                               >
                                 <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {podeEditar && o.status !== 'Cancelada' && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => navigate(`/rh/ocorrencias/${o.id}/editar`)}
+                                className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white h-8 w-8"
+                                title="Editar ocorrência"
+                              >
+                                <SquarePen className="h-4 w-4" />
                               </Button>
                             )}
                             {o.status !== 'Cancelada' && podeCancelar && (
