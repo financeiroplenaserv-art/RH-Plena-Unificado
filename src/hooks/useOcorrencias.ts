@@ -14,14 +14,17 @@ export interface FiltrosOcorrencia {
   data_inicio?: string
   data_fim?: string
   busca?: string
+  incluir_nao_identificados?: boolean
 }
 
 const TAMANHO_PADRAO = 50
+const PLACEHOLDER_MATRICULA = '999999'
 
 export function useOcorrencias() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [loading, setLoading] = useState(false)
   const [paginacao, setPaginacao] = useState<ResultadoPaginado<Ocorrencia> | null>(null)
+  const [placeholderId, setPlaceholderId] = useState<string | null>(null)
 
   const aplicarFiltros = useCallback((query: ReturnType<typeof supabase.from>, filtros?: FiltrosOcorrencia) => {
     if (filtros?.colaborador_id) query = query.eq('colaborador_id', filtros.colaborador_id)
@@ -46,6 +49,23 @@ export function useOcorrencias() {
     const inicio = pagina * tamanho
     const fim = inicio + tamanho - 1
 
+    let placeholderIdAtual: string | null = null
+    if (!filtros.incluir_nao_identificados) {
+      if (!placeholderId) {
+        const { data } = await supabase
+          .from('colaboradores')
+          .select('id')
+          .eq('matricula', PLACEHOLDER_MATRICULA)
+          .single()
+        if (data?.id) {
+          setPlaceholderId(data.id)
+          placeholderIdAtual = data.id
+        }
+      } else {
+        placeholderIdAtual = placeholderId
+      }
+    }
+
     let colaboradorIds: string[] | undefined
     if (filtros.busca) {
       const termo = filtros.busca.trim()
@@ -62,6 +82,9 @@ export function useOcorrencias() {
       .order('data_ocorrencia', { ascending: false })
 
     baseQuery = aplicarFiltros(baseQuery, filtros)
+    if (placeholderIdAtual) {
+      baseQuery = baseQuery.neq('colaborador_id', placeholderIdAtual)
+    }
 
     if (colaboradorIds) {
       const termo = filtros.busca!.trim()
@@ -74,6 +97,9 @@ export function useOcorrencias() {
       .from('ocorrencias')
       .select('*', { count: 'exact', head: true })
     const countQueryComFiltros = aplicarFiltros(countQuery, filtros)
+    if (placeholderIdAtual) {
+      countQueryComFiltros.neq('colaborador_id', placeholderIdAtual)
+    }
     if (colaboradorIds) {
       const termo = filtros.busca!.trim()
       countQueryComFiltros.or(
@@ -109,7 +135,7 @@ export function useOcorrencias() {
     setPaginacao(resultado)
     setLoading(false)
     return resultado
-  }, [aplicarFiltros])
+  }, [aplicarFiltros, placeholderId])
 
   const excluir = useCallback(async (id: string) => {
     const { error } = await supabase.from('ocorrencias').delete().eq('id', id)

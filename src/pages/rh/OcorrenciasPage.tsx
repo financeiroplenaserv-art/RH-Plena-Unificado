@@ -33,6 +33,7 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { Paginacao } from '@/components/Paginacao'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ModuleButton } from '@/components/layout/ModuleShell'
 import { RhShell } from './RhShell'
 import { useOcorrencias } from '@/hooks/useOcorrencias'
@@ -77,6 +78,7 @@ export function OcorrenciasPage() {
   const [filtroDataInicio, setFiltroDataInicio] = useState('')
   const [filtroDataFim, setFiltroDataFim] = useState('')
   const [filtroColaboradorId, setFiltroColaboradorId] = useState<string | undefined>(undefined)
+  const [incluirNaoIdentificados, setIncluirNaoIdentificados] = useState(false)
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [ocorrenciaParaExcluir, setOcorrenciaParaExcluir] = useState<string | null>(null)
 
@@ -102,7 +104,8 @@ export function OcorrenciasPage() {
     data_inicio: filtroDataInicio || undefined,
     data_fim: filtroDataFim || undefined,
     busca: busca.trim() || undefined,
-  }), [busca, filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim])
+    incluir_nao_identificados: incluirNaoIdentificados,
+  }), [busca, filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
 
   const loadOcorrencias = useCallback(async (paginaAtual = pagina) => {
     await listarPaginado(buildFiltros(), { pagina: paginaAtual, tamanho: 50 })
@@ -124,7 +127,7 @@ export function OcorrenciasPage() {
     setPagina(0)
     loadOcorrencias(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim])
+  }, [filtroTipo, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroGravidade, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -279,6 +282,19 @@ export function OcorrenciasPage() {
                 onChange={(e) => setFiltroDataFim(e.target.value)}
                 className="w-auto bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="incluir-nao-identificados"
+                checked={incluirNaoIdentificados}
+                onCheckedChange={(checked) => setIncluirNaoIdentificados(Boolean(checked))}
+              />
+              <label
+                htmlFor="incluir-nao-identificados"
+                className="text-sm text-[#1F2937] cursor-pointer select-none"
+              >
+                Incluir colaboradores não identificados
+              </label>
             </div>
             <Button
               onClick={() => {
