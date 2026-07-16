@@ -26,7 +26,6 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
         {/* Elementos decorativos sutis */}
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute bottom-12 -left-12 w-64 h-64 rounded-full bg-blue-400/10 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full border border-white/5" />
 
         <div className="relative z-10 flex items-center gap-3">
           <img
@@ -155,9 +154,8 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
 
             <Button
               type="submit"
-              className="w-full h-11 text-sm font-medium hover:bg-[#152b4a]"
+              className="w-full h-11 text-sm font-medium bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] hover:from-[#1e40af] hover:to-[#3b82f6] text-white border-0"
               disabled={loading}
-              style={{ backgroundColor: '#1E3A5F' }}
             >
               {loading ? (
                 <>
