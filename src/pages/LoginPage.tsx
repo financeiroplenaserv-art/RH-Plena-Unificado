@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, Eye, EyeOff, ShieldCheck, Building2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff, ShieldCheck, Building2, BarChart3, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,9 +21,14 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row">
-      {/* Lado esquerdo — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 text-white" style={{ background: 'linear-gradient(135deg, #1F2937 0%, #111827 100%)' }}>
-        <div className="flex items-center gap-3">
+      {/* Lado esquerdo — Branding / Hero */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#2563eb]">
+        {/* Elementos decorativos sutis */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute bottom-12 -left-12 w-64 h-64 rounded-full bg-blue-400/10 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full border border-white/5" />
+
+        <div className="relative z-10 flex items-center gap-3">
           <img
             src="/logo_plena_cab.jpg"
             alt="Plena"
@@ -32,38 +37,52 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
           <span className="text-xl font-semibold tracking-tight">CORH</span>
         </div>
 
-        <div className="space-y-6 max-w-md">
-          <img
-            src="/logo_plena.jpg"
-            alt="Plena 30 Anos"
-            className="w-48 h-48 object-contain rounded-2xl bg-white/5 p-4 border border-white/10"
-          />
-          <h1 className="text-4xl font-bold leading-tight">
-            Gestão de RH unificada para o seu negócio
-          </h1>
-          <p className="text-slate-300 text-lg">
-            Controle de colaboradores, ocorrências, uniformes, benefícios e muito mais em um só lugar.
-          </p>
+        <div className="relative z-10 space-y-8 max-w-lg">
+          <div className="space-y-4">
+            <h1 className="text-5xl font-bold leading-tight">
+              CORH
+            </h1>
+            <p className="text-2xl font-light text-blue-100">
+              Controle Operacional e de RH
+            </p>
+            <p className="text-slate-300 text-lg max-w-md">
+              Gestão unificada de colaboradores, ocorrências, uniformes, benefícios e muito mais em um só lugar.
+            </p>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-              <ShieldCheck className="w-5 h-5 mt-0.5" style={{ color: '#2563EB' }} />
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <ShieldCheck className="w-5 h-5 mt-0.5 text-blue-300" />
               <div>
                 <p className="font-medium text-sm">Seguro</p>
-                <p className="text-xs text-slate-400">Dados protegidos com criptografia</p>
+                <p className="text-xs text-slate-300">Dados protegidos com criptografia</p>
               </div>
             </div>
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-              <Building2 className="w-5 h-5 mt-0.5" style={{ color: '#2563EB' }} />
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Building2 className="w-5 h-5 mt-0.5 text-blue-300" />
               <div>
                 <p className="font-medium text-sm">Unificado</p>
-                <p className="text-xs text-slate-400">Todos os módulos integrados</p>
+                <p className="text-xs text-slate-300">Todos os módulos integrados</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <BarChart3 className="w-5 h-5 mt-0.5 text-blue-300" />
+              <div>
+                <p className="font-medium text-sm">Estratégico</p>
+                <p className="text-xs text-slate-300">Dados para decisões de RH</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Users className="w-5 h-5 mt-0.5 text-blue-300" />
+              <div>
+                <p className="font-medium text-sm">Colaborativo</p>
+                <p className="text-xs text-slate-300">Toda a equipe conectada</p>
               </div>
             </div>
           </div>
         </div>
 
-        <p className="text-xs text-slate-500">
+        <p className="relative z-10 text-xs text-slate-400">
           © {new Date().getFullYear()} CORH — Plena. Todos os direitos reservados.
         </p>
       </div>
@@ -72,22 +91,22 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
       <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
         <div className="w-full max-w-md space-y-8">
           {/* Header mobile */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+          <div className="lg:hidden flex flex-col items-center justify-center gap-4 mb-8">
             <img
               src="/logo_plena_cab.jpg"
               alt="Plena"
-              className="h-10 w-auto rounded-lg object-contain"
+              className="h-12 w-auto rounded-lg object-contain"
             />
-            <span className="text-xl font-semibold text-slate-900">CORH</span>
+            <div className="text-center">
+              <span className="text-xl font-semibold text-slate-900">CORH</span>
+              <p className="text-sm text-slate-500">Controle Operacional e de RH</p>
+            </div>
           </div>
 
           <div className="space-y-2 text-center lg:text-left">
             <h2 className="text-2xl font-bold text-slate-900">
               Bem-vindo de volta
             </h2>
-            <p className="text-xs font-medium tracking-wider text-[#1E3A5F] uppercase">
-              Controle Operacional e de RH
-            </p>
             <p className="text-slate-500 text-sm">
               Digite seu e-mail e senha para acessar o sistema
             </p>
@@ -136,7 +155,7 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
 
             <Button
               type="submit"
-              className="w-full h-11 text-sm font-medium"
+              className="w-full h-11 text-sm font-medium hover:bg-[#152b4a]"
               disabled={loading}
               style={{ backgroundColor: '#1E3A5F' }}
             >
