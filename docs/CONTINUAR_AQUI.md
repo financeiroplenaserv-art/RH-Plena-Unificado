@@ -35,6 +35,7 @@
 - Filtros reorganizados em 3 linhas + dica informativa.
 - Página de detalhes exibe nome original e aviso para ocorrências do placeholder.
 - **Filtro "Incluir colaboradores não identificados"** adicionado e desativado por padrão — oculta as ocorrências do placeholder do dia a dia, permitindo exibi-las apenas quando necessário.
+- **Edição de ocorrências** habilitada — botão "Editar" na lista e nos detalhes, rota `/rh/ocorrencias/:id/editar`.
 - Arquivos alterados: `src/hooks/useOcorrencias.ts`, `src/pages/rh/OcorrenciasPage.tsx`, `src/pages/rh/OcorrenciaDetailPage.tsx`.
 
 ### Responsividade mobile / PWA
