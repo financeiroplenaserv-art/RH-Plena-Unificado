@@ -1,6 +1,6 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 16/07/2026 — importação de ocorrências históricas e da inspetoria, ajustes na tela de Ocorrências  
+> **Último trabalho:** 16/07/2026 — importação de ocorrências históricas, da inspetoria, da planilha Eliane e ajustes na tela de Ocorrências  
 > **Relatório completo:** `docs/HANDOFF_PROXIMO_AGENTE_2026_07_16.md`  
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`  
 > **Perfis/Permissões:** `docs/PERFIL_ACOES_MODELO.md`  
@@ -22,8 +22,13 @@
 - Nome original preservado em `colaborador_nome`; número original em `titulo` e `descricao`.
 - **1 ocorrência reassociada** após varredura dos 496 nomes: `PAULO JOSE DA SILVA` → `JOSE PAULO SILVA DE ARAUJO`.
 - Planilha de revisão gerada: `dados-locais/revisao_496_nomes.xlsx`.
-- 4 ocorrências de teste deletadas.
-- **Total atual no banco: 973 ocorrências** (504 vinculadas ao placeholder).
+- **869 ocorrências da planilha Eliane** importadas (`public/ELIANE_OCO_Funcionarios_160726 occ rh tratada_final.xlsx`).
+  - Script: `scripts/importar-ocorrencias-eliane.py`
+  - 402 vinculadas a colaboradores existentes
+  - 467 vinculadas ao colaborador placeholder
+  - 0 inconsistências entre Macro e Tipo
+  - Coluna `Matrícula` ignorada conforme orientação
+- **Total atual no banco: 1.842 ocorrências** (971 vinculadas ao placeholder).
 
 ### Ajustes na tela de Ocorrências
 - Busca textual agora inclui `colaborador_nome` e `descricao`.
