@@ -1,7 +1,7 @@
 # Handoff para o Próximo Agente — 16/07/2026
 
-> Último trabalho: importação de ocorrências históricas do sistema antigo e ajustes de UX na tela de Ocorrências
-> Estado: ✅ importação concluída (962 ocorrências no banco), busca e detalhes ajustados para ocorrências do placeholder
+> Último trabalho: importação de ocorrências históricas do sistema antigo, importação de ocorrências da inspetoria e ajustes de UX na tela de Ocorrências
+> Estado: ✅ importações concluídas (973 ocorrências no banco), busca e detalhes ajustados para ocorrências do placeholder
 
 ---
 
@@ -28,7 +28,35 @@ Script principal: `scripts/importar-ocorrencias-antigas.py`
 
 Registro detalhado: `docs/agentes/registro_2026-07-16_importacao_ocorrencias_antigas.md`
 
-### 2. Ajustes na tela de Ocorrências
+### 2. Importação de ocorrências da inspetoria
+
+Arquivo fonte: `public/ocorrencias_inspetoria_classificado.xlsx` (aba `Ocorrências`)
+
+Script principal: `scripts/importar-ocorrencias-inspetoria.py`
+
+- **Total importado:** 12 ocorrências da inspetoria
+  - 3 vinculadas a colaboradores existentes no CORH
+  - 9 vinculadas ao colaborador placeholder
+- Número original da ocorrência preservado no `titulo` (ex: `[30853] Atraso no posto de trabalho`)
+- Macro grupo e tipo mapeados para o formato do sistema (`1. Jornada e Ponto`, `8. Administrativas`, etc.)
+- Status de todas as ocorrências importadas: `Ativa`
+
+Registro detalhado: `docs/agentes/registro_2026-07-16_importacao_ocorrencias_inspetoria.md`
+
+### 3. Reassociação de ocorrências do placeholder
+
+Após varredura dos 496 nomes não identificados da importação de 15/07/2026, foram reassociadas ao cadastro as ocorrências do placeholder com match exato ou alto-token.
+
+- **Ocorrências no placeholder analisadas:** 505
+- **Reassociadas:** 1
+  - `PAULO JOSE DA SILVA` → `JOSE PAULO SILVA DE ARAUJO` (matrícula `000658`, status `Inativo`)
+- **Planilha de revisão gerada:** `dados-locais/revisao_496_nomes.xlsx`
+  - Contém matches sugeridos organizados por nível de confiança (Exato, Alto - Tokens, Alto - Primeiro+Último, Médio - Substring, Médio - Similaridade, Não encontrado)
+  - Colunas `acao` e `observacao` em branco para revisão manual
+
+Registro detalhado: `docs/agentes/registro_2026-07-16_reassociacao_placeholder.md`
+
+### 4. Ajustes na tela de Ocorrências
 
 Arquivos alterados:
 - `src/hooks/useOcorrencias.ts`
@@ -44,7 +72,7 @@ Mudanças:
   - **3ª linha:** período + botão Aplicar
 - Página de detalhes ajustada para exibir o nome original (`colaborador_nome`) e um aviso quando a ocorrência pertence ao placeholder.
 
-### 3. Limpeza de ocorrências de teste
+### 5. Limpeza de ocorrências de teste
 
 Deletadas 4 ocorrências de teste:
 - JOAO BATISTA DA SILVA — "BRIGOU KKKKKKKKKKKK"
@@ -52,17 +80,21 @@ Deletadas 4 ocorrências de teste:
 - MARIA IZABEL DA ROCHA OLIVEIRA ARAUJO — "jjjjjjjjjjjjjjjj"
 - MARCELO DE OLIVEIRA NOYA — "dddddddd"
 
-Total de ocorrências no banco após a limpeza: **961**
+Total de ocorrências no banco após as importações e reassociação: **973**
+- Ocorrências vinculadas ao placeholder após reassociação: **504**
 
-### 4. Build
+### 6. Build
 
-- `npm run build` ✅ executado com sucesso após as alterações.
+- `npm run build` ✅ executado com sucesso após as alterações anteriores (não houve alteração de código-fonte nesta continuação).
 
 ---
 
 ## 🚀 Próximos passos sugeridos
 
-1. **Reassociação futura de ocorrências do placeholder:** quando os colaboradores forem cadastrados com nome igual ao da planilha, rodar um script que atualiza `colaborador_id` das ocorrências do placeholder. Instruções no registro `docs/agentes/registro_2026-07-16_importacao_ocorrencias_antigas.md`.
+1. **Reassociação futura de ocorrências do placeholder:**
+   - Planilha de revisão disponível: `dados-locais/revisao_496_nomes.xlsx`
+   - Após revisão, aplicar reassociações com o script `scripts/reassociar-placeholder-exato-token.py` (ajustar conforme os níveis de confiança aprovados) ou criar um script específico para os matches aprovados.
+   - Instruções nos registros `docs/agentes/registro_2026-07-16_importacao_ocorrencias_antigas.md`, `docs/agentes/registro_2026-07-16_importacao_ocorrencias_inspetoria.md` e `docs/agentes/registro_2026-07-16_reassociacao_placeholder.md`.
 2. **Revisar os 9 casos de múltiplos matches** (mais de um colaborador com o mesmo nome) para garantir que foram vinculados ao colaborador correto.
 3. **Verificar no sistema** se a busca e os detalhes das ocorrências históricas estão funcionando corretamente.
 4. Continuar a aplicação do design system nas páginas restantes (ver handoff anterior).
@@ -80,8 +112,15 @@ Total de ocorrências no banco após a limpeza: **961**
 ## 📁 Arquivos importantes desta tarefa
 
 - `scripts/importar-ocorrencias-antigas.py`
+- `scripts/importar-ocorrencias-inspetoria.py`
+- `scripts/varredura-496-nomes.py`
+- `scripts/gerar-planilha-revisao-496.py`
+- `scripts/reassociar-placeholder-exato-token.py`
 - `src/hooks/useOcorrencias.ts`
 - `src/pages/rh/OcorrenciasPage.tsx`
 - `src/pages/rh/OcorrenciaDetailPage.tsx`
 - `docs/agentes/registro_2026-07-16_importacao_ocorrencias_antigas.md`
+- `docs/agentes/registro_2026-07-16_importacao_ocorrencias_inspetoria.md`
+- `docs/agentes/registro_2026-07-16_reassociacao_placeholder.md`
+- `docs/agentes/relatorio_varredura_496_nomes.md`
 - `docs/HANDOFF_PROXIMO_AGENTE_2026_07_16.md` (este arquivo)
