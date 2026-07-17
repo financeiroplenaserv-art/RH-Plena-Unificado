@@ -84,14 +84,6 @@ function formatarDataCompleta(data: Date): string {
   return data.toLocaleDateString('pt-BR', opcoes)
 }
 
-function calcularMarcoExperiencia(dias: number): MarcoExperiencia | null {
-  const marcos: MarcoExperiencia[] = [30, 60, 90]
-  for (const marco of marcos) {
-    if (dias >= marco - 7 && dias <= marco + 7) return marco
-  }
-  return null
-}
-
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -219,8 +211,9 @@ export function DashboardPage() {
       const dAdmissao = normalizarData(colab.data_admissao)
       if (!dAdmissao || dAdmissao > hoje) return
       const dias = diasDesde(colab.data_admissao)
-      const marco = calcularMarcoExperiencia(dias)
-      if (marco) resultado.push({ colaborador: colab, marco, dias })
+      if (dias > 90) return
+      const marco: MarcoExperiencia = dias <= 30 ? 30 : dias <= 60 ? 60 : 90
+      resultado.push({ colaborador: colab, marco, dias })
     })
 
     return resultado.sort((a, b) => a.dias - b.dias)
@@ -267,23 +260,6 @@ export function DashboardPage() {
       }),
       destaqueHoje: (dataStr: string) => ehHoje(dataStr),
     }
-  }, [colaboradoresAtivos])
-
-  const admissoesRecentes = useMemo(() => {
-    const trintaDiasAtras = new Date()
-    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
-
-    return colaboradoresAtivos
-      .filter((colab) => {
-        if (!colab.data_admissao) return false
-        const dAdm = normalizarData(colab.data_admissao)
-        return dAdm ? dAdm >= trintaDiasAtras : false
-      })
-      .sort((a, b) => {
-        const da = normalizarData(a.data_admissao)!
-        const db = normalizarData(b.data_admissao)!
-        return db.getTime() - da.getTime()
-      })
   }, [colaboradoresAtivos])
 
   if (carregando) {
@@ -513,48 +489,6 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Admissões recentes */}
-        <Card className="rounded-2xl shadow-sm bg-white border-none">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Admissões recentes</h3>
-                  <p className="text-xs text-slate-500">Últimos 30 dias</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/colaboradores')} className="gap-1 text-slate-600">
-                Ver todos <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {admissoesRecentes.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">Nenhuma admissão nos últimos 30 dias.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {admissoesRecentes.map((colab) => (
-                  <button
-                    key={colab.id}
-                    onClick={() => navigate(`/colaboradores/${colab.id}`)}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-colors text-left"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{colab.nome_completo}</p>
-                      <p className="text-xs text-slate-500">{colab.cargo || '—'} · {colab.departamento || '—'}</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700 bg-emerald-50">
-                      {formatarDiaMes(colab.data_admissao)}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Alertas dos módulos */}
         {alertas.length > 0 && (
