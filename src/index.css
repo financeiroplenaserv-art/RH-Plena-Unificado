@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Reduz ligeiramente a escala base do site (padrão 16px → 14px) */
-  font-size: 14px;
+  /* Reduz a escala base do site (padrão 16px → 13px) */
+  font-size: 13px;
 
   /* Brand - Azul Edge sofisticado */
   --brand-50: #F0F7FF;
