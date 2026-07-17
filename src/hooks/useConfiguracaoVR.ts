@@ -1,7 +1,10 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { safeJsonParse } from '@/lib/utils'
 import type { VRConfiguracao } from '@/types'
+
+const COLUNAS_CONFIGURACAO = 'chave, valor, descricao, created_at, updated_at'
 
 const CHAVE = 'vr_configuracao_padrao'
 
@@ -12,7 +15,7 @@ export function useConfiguracaoVR() {
     try {
       const { data, error } = await supabase
         .from('configuracoes')
-        .select('*')
+        .select(COLUNAS_CONFIGURACAO)
         .eq('chave', CHAVE)
         .single()
 
@@ -23,7 +26,7 @@ export function useConfiguracaoVR() {
 
       if (data?.valor) {
         try {
-          setConfig(JSON.parse(data.valor) as VRConfiguracao)
+          setConfig(safeJsonParse<VRConfiguracao>(data.valor, null))
         } catch (err) {
           console.error('Erro ao parsear configuração VR:', err)
           setConfig(null)

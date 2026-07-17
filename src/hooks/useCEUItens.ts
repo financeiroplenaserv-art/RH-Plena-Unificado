@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { ItemCEU } from '@/types/database'
 
+const COLUNAS_ITEM_CEU = 'id, codigo, nome, tipo, ca, validade, subgrupo, valor, fornecedor_id, estoque, estoque_minimo, prazo_uso_dias, unidade, ultima_compra, situacao, created_at'
+
 export function useCEUItens() {
   const [itens, setItens] = useState<ItemCEU[]>([])
   const [loading, setLoading] = useState(false)
@@ -11,7 +13,7 @@ export function useCEUItens() {
     setLoading(true)
     let query = supabase
       .from('itens')
-      .select('*, fornecedor:fornecedor_id(*)')
+      .select(COLUNAS_ITEM_CEU)
       .order('nome')
 
     if (filtros?.busca) {
@@ -34,7 +36,7 @@ export function useCEUItens() {
   }, [])
 
   const criar = useCallback(async (item: Partial<ItemCEU>) => {
-    const { data, error } = await supabase.from('itens').insert(item).select().single()
+    const { data, error } = await supabase.from('itens').insert(item).select(COLUNAS_ITEM_CEU).single()
     if (error) {
       toast.error('Erro ao criar item: ' + error.message)
       return null
@@ -66,7 +68,7 @@ export function useCEUItens() {
   const buscarPorId = useCallback(async (id: string) => {
     const { data, error } = await supabase
       .from('itens')
-      .select('*, fornecedor:fornecedor_id(*)')
+      .select(COLUNAS_ITEM_CEU)
       .eq('id', id)
       .single()
     if (error) {

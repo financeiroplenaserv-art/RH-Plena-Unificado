@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { ResultadoVR } from '@/types'
 
+const COLUNAS_RESULTADO_VR = 'id, projeto_id, colaborador_id, nome, cpf, matricula, dias_elegiveis, dias_pdf, dias_escala, dias_abatimento, valor_bruto, extra, detalhes_json, created_at, updated_at'
+
 export function useResultadosVR() {
   const [resultados, setResultados] = useState<ResultadoVR[]>([])
   const [loading, setLoading] = useState(false)
@@ -12,7 +14,7 @@ export function useResultadosVR() {
     try {
       const { data, error } = await supabase
         .from('resultados_vr')
-        .select('*, colaborador:colaborador_id(*)')
+        .select(COLUNAS_RESULTADO_VR)
         .eq('projeto_id', projetoId)
         .order('created_at', { ascending: true })
 

@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Empresa } from '@/types/database'
 
+const COLUNAS_EMPRESA = 'id, nome, cnpj, codigo_alterdata, created_at'
+
 export function useEmpresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [loading, setLoading] = useState(false)
@@ -11,7 +13,7 @@ export function useEmpresas() {
     setLoading(true)
     const { data, error } = await supabase
       .from('empresas')
-      .select('*')
+      .select(COLUNAS_EMPRESA)
       .order('nome')
 
     if (error) {
@@ -27,7 +29,7 @@ export function useEmpresas() {
     const { data, error } = await supabase
       .from('empresas')
       .insert(empresa as Partial<Empresa>)
-      .select()
+      .select(COLUNAS_EMPRESA)
       .single()
 
     if (error) {

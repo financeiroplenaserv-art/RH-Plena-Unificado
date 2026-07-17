@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { TermoLGPD } from '@/types/database'
 
+const COLUNAS_TERMO_LGPD = 'id, versao, titulo, conteudo, finalidades, ativo, created_at'
+
 interface ConsentimentoLGPDPageProps {
   onConsentimentoAceito: () => void
 }
@@ -21,7 +23,7 @@ export function ConsentimentoLGPDPage({ onConsentimentoAceito }: ConsentimentoLG
     async function carregarTermo() {
       const { data, error } = await supabase
         .from('termos_lgpd')
-        .select('*')
+        .select(COLUNAS_TERMO_LGPD)
         .eq('ativo', true)
         .order('created_at', { ascending: false })
         .limit(1)

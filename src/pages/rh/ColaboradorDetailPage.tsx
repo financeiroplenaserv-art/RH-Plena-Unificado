@@ -48,14 +48,14 @@ export function ColaboradorDetailPage() {
     setLoading(true)
     const { data: colab } = await supabase
       .from('colaboradores')
-      .select('*')
+      .select('id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at')
       .eq('id', id!)
       .single()
     setColaborador(colab as Colaborador)
     if (colab) {
       const { data: ocors } = await supabase
         .from('ocorrencias')
-        .select('*')
+        .select('id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, macro_grupo, titulo, data_ocorrencia, descricao, status, tipo_penalidade, base_legal, gravidade, data_hora_ocorrido, local_ocorrido, defesa_funcionario, medida_corretiva, prazo_acompanhamento, testemunha_1_nome, testemunha_1_cargo, testemunha_2_nome, testemunha_2_cargo, usuario_id, created_at, updated_at')
         .eq('colaborador_id', id!)
         .order('data_ocorrencia', { ascending: false })
       setOcorrencias((ocors as Ocorrencia[]) || [])
@@ -99,13 +99,9 @@ export function ColaboradorDetailPage() {
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </Button>
-          {colaborador.foto_url ? (
-            <img src={colaborador.foto_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-              <User className="h-5 w-5 text-slate-400" />
-            </div>
-          )}
+          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+            <User className="h-5 w-5 text-slate-400" />
+          </div>
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{colaborador.nome_completo}</h2>
             <div className="flex items-center gap-2">

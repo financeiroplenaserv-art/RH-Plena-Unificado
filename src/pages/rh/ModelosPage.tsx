@@ -19,6 +19,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { podeGerenciarModelosOcorrencia } from '@/lib/permissoes'
 import type { ModeloOcorrencia } from '@/types/database'
+
+const COLUNAS_MODELO = 'id, nome, tipo, texto_padrao, macro_grupo, created_at, updated_at'
+
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { RhShell } from './RhShell'
 
@@ -89,7 +92,7 @@ export function ModelosPage() {
 
   const loadModelos = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from('modelos_ocorrencia').select('*').order('tipo')
+    const { data } = await supabase.from('modelos_ocorrencia').select(COLUNAS_MODELO).order('tipo')
     setModelos((data as ModeloOcorrencia[]) || [])
     setLoading(false)
   }, [])

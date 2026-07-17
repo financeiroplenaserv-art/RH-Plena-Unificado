@@ -57,7 +57,11 @@ export function ColaboradorFormPage() {
   const [loading, setLoading] = useState(false)
 
   const loadColaborador = useCallback(async () => {
-    const { data } = await supabase.from('colaboradores').select('*').eq('id', id!).single()
+    const { data } = await supabase
+      .from('colaboradores')
+      .select('id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at')
+      .eq('id', id!)
+      .single()
     if (data) {
       const d = data as Colaborador
       setForm({

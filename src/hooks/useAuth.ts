@@ -4,6 +4,9 @@ import { loginComEmail, logout as logoutAuth, cadastrarComEmail } from '@/lib/au
 import { setPermissoesCache } from '@/lib/permissoes'
 import type { Perfil, NivelAcesso } from '@/types/database'
 
+const COLUNAS_PERMISSOES_PERFIL = 'perfil, recurso, acao, permitido'
+const COLUNAS_PERFIL = 'id, email, nome, nivel_acesso, empresa_id, consentimento_lgpd, consentimento_lgpd_data, consentimento_lgpd_versao, consentimento_lgpd_finalidades, created_at'
+
 const PERFIL_STORAGE_KEY = 'plena_perfil'
 
 // Perfis legados mantidos para compatibilidade
@@ -30,7 +33,7 @@ export function useAuth() {
     try {
       const { data, error } = await supabase
         .from('permissoes_perfil')
-        .select('*')
+        .select(COLUNAS_PERMISSOES_PERFIL)
         .eq('perfil', perfil)
       if (error) {
         console.error('Erro ao carregar permissões do perfil:', error)
@@ -50,7 +53,7 @@ export function useAuth() {
   ) => {
     const { data: perfil, error } = await supabase
       .from('perfis')
-      .select('*')
+      .select(COLUNAS_PERFIL)
       .eq('id', authUser.id)
       .single()
 
@@ -77,7 +80,7 @@ export function useAuth() {
       const { data: criado, error: erroInsert } = await supabase
         .from('perfis')
         .insert(novoPerfil as Partial<Perfil>)
-        .select()
+        .select(COLUNAS_PERFIL)
         .single()
 
       if (erroInsert) {

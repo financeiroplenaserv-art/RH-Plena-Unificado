@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { MapeamentoFlitLocalTrabalho } from '@/types/database'
 
+const COLUNAS_MAPEAMENTO = 'id, local_trabalho_id, tipo_match, valor_flit, prioridade, ativo, created_at, updated_at'
+const COLUNAS_LOCAL_TRABALHO = 'id, nome, nome_curto, status, observacao'
+
 export function useEscalasMapeamento() {
   const [mapeamentos, setMapeamentos] = useState<MapeamentoFlitLocalTrabalho[]>([])
   const [loading, setLoading] = useState(false)
@@ -12,7 +15,7 @@ export function useEscalasMapeamento() {
     try {
       const { data, error } = await supabase
         .from('mapeamento_flit_local_trabalho')
-        .select('*, local_trabalho:locais_trabalho(*)')
+        .select(`${COLUNAS_MAPEAMENTO}, local_trabalho:locais_trabalho(${COLUNAS_LOCAL_TRABALHO})`)
         .eq('ativo', true)
         .order('tipo_match')
         .order('valor_flit')
@@ -33,12 +36,12 @@ export function useEscalasMapeamento() {
       const { data, error } = await supabase
         .from('mapeamento_flit_local_trabalho')
         .insert(mapeamento as Partial<MapeamentoFlitLocalTrabalho>)
-        .select()
+        .select(COLUNAS_MAPEAMENTO)
         .single()
       if (error) throw error
       toast.success('Mapeamento criado')
       await listar()
-      return data as MapeamentoFlitLocalTrabalho
+      return data as unknown as MapeamentoFlitLocalTrabalho
     } catch (err: unknown) {
       console.error('Erro ao criar mapeamento:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao criar mapeamento')

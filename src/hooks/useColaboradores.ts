@@ -14,6 +14,8 @@ interface FiltrosColaborador {
   busca?: string
 }
 
+const COLUNAS_LISTAGEM = 'id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at'
+
 const TAMANHO_PADRAO = 50
 
 export function useColaboradores() {
@@ -59,7 +61,7 @@ export function useColaboradores() {
       }
     }
 
-    let query = supabase.from('colaboradores').select('*').order('nome_completo')
+    let query = supabase.from('colaboradores').select(COLUNAS_LISTAGEM).order('nome_completo')
 
     if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
     if (filtros?.departamento) query = query.ilike('departamento', filtros.departamento)
@@ -134,7 +136,7 @@ export function useColaboradores() {
 
     const countQuery = supabase
       .from('colaboradores')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
 
     // Reaplica os mesmos filtros na contagem
     if (filtros?.empresaId) countQuery.eq('empresa_id', filtros.empresaId)
@@ -273,7 +275,7 @@ export function useColaboradores() {
       return { acao: 'atualizado', id: existente.id } as const
     }
 
-    const { data, error } = await supabase.from('colaboradores').insert(dados).select().single()
+    const { data, error } = await supabase.from('colaboradores').insert(dados).select(COLUNAS_LISTAGEM).single()
     if (error) throw error
     return { acao: 'criado', id: data.id } as const
   }, [])

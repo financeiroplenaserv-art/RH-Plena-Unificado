@@ -93,22 +93,22 @@ export function DashboardPage() {
           { data: itensCEU },
           { data: entregasCEU },
         ] = await Promise.all([
-          supabase.from('colaboradores').select('*', { count: 'exact', head: true }),
-          supabase.from('colaboradores').select('*', { count: 'exact', head: true }).eq('status', 'Ativo'),
-          supabase.from('colaboradores').select('*', { count: 'exact', head: true }).eq('status', 'Afastado'),
-          supabase.from('colaboradores').select('*').order('created_at', { ascending: false }).limit(1),
-          supabase.from('colaboradores').select('*').eq('status', 'Ativo').order('created_at', { ascending: false }).limit(5),
-          supabase.from('ocorrencias').select('*'),
-          supabase.from('ocorrencias').select('*', { count: 'exact', head: true }).eq('status', 'Pendente'),
+          supabase.from('colaboradores').select('id', { count: 'exact', head: true }),
+          supabase.from('colaboradores').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
+          supabase.from('colaboradores').select('id', { count: 'exact', head: true }).eq('status', 'Afastado'),
+          supabase.from('colaboradores').select('created_at').order('created_at', { ascending: false }).limit(1),
+          supabase.from('colaboradores').select('nome_completo, cargo, departamento, status, created_at').eq('status', 'Ativo').order('created_at', { ascending: false }).limit(5),
+          supabase.from('ocorrencias').select('data_ocorrencia, status'),
+          supabase.from('ocorrencias').select('id', { count: 'exact', head: true }).eq('status', 'Pendente'),
           supabase
             .from('alertas')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
             .eq('status', 'ativo')
             .in('severidade', ['critica', 'alta']),
-          supabase.from('projetos_vr').select('*', { count: 'exact', head: true }),
-          supabase.from('contratos_adicionais').select('*', { count: 'exact', head: true }),
-          supabase.from('itens').select('*'),
-          supabase.from('entregas').select('*'),
+          supabase.from('projetos_vr').select('id', { count: 'exact', head: true }),
+          supabase.from('contratos_adicionais').select('id', { count: 'exact', head: true }),
+          supabase.from('itens').select('estoque, estoque_minimo, ca, validade'),
+          supabase.from('entregas').select('data_entrega, data_devolucao'),
         ])
 
         const pendentes = pendentesCount || 0

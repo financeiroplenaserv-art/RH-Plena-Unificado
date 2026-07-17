@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { nomesSimilares } from '@/lib/utils'
 import type { LocalTrabalho } from '@/types/database'
 
+const COLUNAS_LOCAL_TRABALHO = 'id, nome, nome_curto, status, observacao, created_at, updated_at'
+
 export function useEscalasLocais() {
   const [locais, setLocais] = useState<LocalTrabalho[]>([])
   const [loading, setLoading] = useState(false)
@@ -13,7 +15,7 @@ export function useEscalasLocais() {
     try {
       const { data, error } = await supabase
         .from('locais_trabalho')
-        .select('*')
+        .select(COLUNAS_LOCAL_TRABALHO)
         .eq('status', 'Ativo')
         .order('nome')
       if (error) throw error
@@ -33,7 +35,7 @@ export function useEscalasLocais() {
       const { data, error } = await supabase
         .from('locais_trabalho')
         .insert(local as Partial<LocalTrabalho>)
-        .select()
+        .select(COLUNAS_LOCAL_TRABALHO)
         .single()
       if (error) throw error
       toast.success('Local de trabalho criado')

@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import type { Colaborador } from '@/types/database'
 import { BadgeStatus } from './BadgeStatus'
 
+const COLUNAS_AUTOCOMPLETE = 'id, nome_completo, matricula, cargo, departamento, departamento_id, status'
+
 interface AutocompleteColaboradorProps {
   value?: string
   onChange: (colaborador: Colaborador | null) => void
@@ -36,7 +38,7 @@ export function AutocompleteColaborador({
   const [carregando, setCarregando] = useState(false)
 
   const carregarSelecionado = useCallback(async (id: string) => {
-    const { data } = await supabase.from('colaboradores').select('*').eq('id', id).single()
+    const { data } = await supabase.from('colaboradores').select(COLUNAS_AUTOCOMPLETE).eq('id', id).single()
     if (data) {
       const c = data as Colaborador
       setSelecionado(c)
@@ -93,7 +95,7 @@ export function AutocompleteColaborador({
     setCarregando(true)
     let query = supabase
       .from('colaboradores')
-      .select('*')
+      .select(COLUNAS_AUTOCOMPLETE)
       .or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
@@ -123,7 +125,7 @@ export function AutocompleteColaborador({
     if (grupo.nomeCurto) filtros.push(`departamento.ilike.%${grupo.nomeCurto}%`)
     if (grupo.nome && grupo.nome !== grupo.nomeCurto) filtros.push(`departamento.ilike.%${grupo.nome}%`)
 
-    let query = supabase.from('colaboradores').select('*').or(filtros.join(','))
+    let query = supabase.from('colaboradores').select(COLUNAS_AUTOCOMPLETE).or(filtros.join(','))
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
     }

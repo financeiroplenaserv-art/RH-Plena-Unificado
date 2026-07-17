@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { OcorrenciaAnexo } from '@/types/database'
 
+const COLUNAS_ANEXO = 'id, ocorrencia_id, nome_arquivo, tipo_arquivo, tamanho_bytes, descricao, caminho_storage, url_publica, usuario_id, created_at'
+
 const BUCKET_NAME = 'ocorrencia-anexos'
 
 export function useAnexos() {
@@ -13,7 +15,7 @@ export function useAnexos() {
     setLoading(true)
     const { data, error } = await supabase
       .from('ocorrencia_anexos')
-      .select('*')
+      .select(COLUNAS_ANEXO)
       .eq('ocorrencia_id', ocorrenciaId)
       .order('created_at', { ascending: false })
 
@@ -50,7 +52,7 @@ export function useAnexos() {
           caminho_storage: path,
           url_publica: null,
         })
-        .select()
+        .select(COLUNAS_ANEXO)
         .single()
 
       if (error) {

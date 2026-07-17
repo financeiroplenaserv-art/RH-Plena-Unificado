@@ -3,6 +3,8 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import type { ReciboExtra } from '@/types/extras'
 
+const COLUNAS_RECIBO_EXTRA = 'id, colaborador_id, colaborador_nome, data_inicio, data_fim, valor_total, quantidade_extras, assinatura_colaborador, extras_ids, marcar_pago, status, data_assinatura, usuario_id, created_at, updated_at'
+
 export function useExtrasRecibos() {
   const [recibos, setRecibos] = useState<ReciboExtra[]>([])
   const [loading, setLoading] = useState(false)
@@ -12,7 +14,7 @@ export function useExtrasRecibos() {
     try {
       let query = supabase
         .from('recibos_extras')
-        .select('*')
+        .select(COLUNAS_RECIBO_EXTRA)
         .order('created_at', { ascending: false })
 
       if (filtros?.dataInicio) {
@@ -43,7 +45,7 @@ export function useExtrasRecibos() {
 
   const criar = useCallback(async (dados: Omit<ReciboExtra, 'id' | 'created_at' | 'updated_at'>): Promise<ReciboExtra | null> => {
     try {
-      const { data, error } = await supabase.from('recibos_extras').insert(dados).select().single()
+      const { data, error } = await supabase.from('recibos_extras').insert(dados).select(COLUNAS_RECIBO_EXTRA).single()
       if (error) throw error
 
       toast.success('Recibo gerado com sucesso')
@@ -67,7 +69,7 @@ export function useExtrasRecibos() {
           marcar_pago: marcarPago,
         })
         .eq('id', id)
-        .select()
+        .select(COLUNAS_RECIBO_EXTRA)
         .single()
 
       if (error) throw error

@@ -17,6 +17,10 @@ export interface FiltrosEntrega {
 
 const TAMANHO_PADRAO = 50
 
+const COLUNAS_ENTREGA = 'id, colaborador_id, item_id, data_entrega, data_devolucao, quantidade, observacao, usuario_id, snapshot_item, recibo_emitido, created_at'
+const COLUNAS_COLABORADOR_CEU = 'id, nome_completo, matricula, departamento, cargo'
+const COLUNAS_ITEM_CEU_RESUMIDO = 'id, nome, tipo, ca, subgrupo, prazo_uso_dias'
+
 export function useCEUEntregas() {
   const [entregas, setEntregas] = useState<EntregaCEU[]>([])
   const [loading, setLoading] = useState(false)
@@ -56,7 +60,7 @@ export function useCEUEntregas() {
     while (continuar) {
       let query = supabase
         .from('entregas')
-        .select('*, colaborador:colaborador_id(*), item:item_id(*)')
+        .select(`${COLUNAS_ENTREGA}, colaborador:colaborador_id(${COLUNAS_COLABORADOR_CEU}), item:item_id(${COLUNAS_ITEM_CEU_RESUMIDO})`)
         .order('data_entrega', { ascending: false })
         .range(pagina * TAMANHO_PAGINA, (pagina + 1) * TAMANHO_PAGINA - 1)
 
@@ -69,7 +73,7 @@ export function useCEUEntregas() {
         return todos
       }
 
-      const paginaAtual = (data as EntregaCEU[]) || []
+      const paginaAtual = ((data as unknown) as EntregaCEU[]) || []
       todos = [...todos, ...paginaAtual]
       continuar = paginaAtual.length === TAMANHO_PAGINA
       pagina++
@@ -134,7 +138,7 @@ export function useCEUEntregas() {
 
     let baseQuery = supabase
       .from('entregas')
-      .select('*, colaborador:colaborador_id(*), item:item_id(*)')
+      .select(`${COLUNAS_ENTREGA}, colaborador:colaborador_id(${COLUNAS_COLABORADOR_CEU}), item:item_id(${COLUNAS_ITEM_CEU_RESUMIDO})`)
       .order('data_entrega', { ascending: false })
 
     baseQuery = aplicarFiltros(baseQuery, filtros)
@@ -144,7 +148,7 @@ export function useCEUEntregas() {
 
     const countQuery = supabase
       .from('entregas')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
     const countQueryComFiltros = aplicarFiltros(countQuery, filtros)
     if (colaboradorIds) {
       countQueryComFiltros.in('colaborador_id', colaboradorIds)
@@ -167,7 +171,7 @@ export function useCEUEntregas() {
 
     const total = count ?? 0
     const resultado = {
-      dados: (data as EntregaCEU[]) || [],
+      dados: ((data as unknown) as EntregaCEU[]) || [],
       total,
       pagina,
       tamanho,
@@ -190,7 +194,7 @@ export function useCEUEntregas() {
     const { data, error } = await supabase
       .from('entregas')
       .insert({ ...entrega, usuario_id: userData.user.id })
-      .select()
+      .select(COLUNAS_ENTREGA)
       .single()
     if (error) {
       toast.error('Erro ao registrar entrega: ' + error.message)

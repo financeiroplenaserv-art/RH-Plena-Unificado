@@ -370,8 +370,8 @@ export function ImportarPontoPage() {
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                                        <SelectItem key={value} value={value}>{EMOJI_STATUS[value as StatusDiaAdicional]} {label}</SelectItem>
+                                      {(Object.entries(STATUS_LABELS) as [StatusDiaAdicional, string][]).map(([value, label]) => (
+                                        <SelectItem key={value} value={value}>{EMOJI_STATUS[value]} {label}</SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>

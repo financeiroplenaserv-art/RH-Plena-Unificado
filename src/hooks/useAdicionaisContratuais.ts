@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { safeJsonParse } from '@/lib/utils'
 import type {
   ContratoAdicional,
   VinculoAdicional,
@@ -11,6 +12,10 @@ import type {
 
 const MODO_MOCK = false
 
+const COLUNAS_CONTRATO = 'id, nome, departamento_id, quantidade_colaboradores, regime_trabalho, adicionais, dias_intrajornada, created_at, updated_at'
+const COLUNAS_VINCULO = 'id, contrato_id, colaborador_id, data_inicio, data_fim, created_at'
+const COLUNAS_CALENDARIO = 'id, vinculo_id, data, status, intrajornada, substituto_colaborador_id, substituto_colaborador_nome, created_at, updated_at'
+
 function mockKey(tabela: string) {
   return `mock_${tabela}_adicionais`
 }
@@ -18,7 +23,7 @@ function mockKey(tabela: string) {
 function lerMock<T>(tabela: string): T[] {
   try {
     const raw = localStorage.getItem(mockKey(tabela))
-    return raw ? (JSON.parse(raw) as T[]) : []
+    return raw ? safeJsonParse<T[]>(raw, []) : []
   } catch (err) {
     console.error(`Erro ao ler mock de ${tabela}:`, err)
     return []
@@ -32,7 +37,7 @@ function salvarMock<T>(tabela: string, dados: T[]) {
 function lerMockRaw(tabela: string): unknown[] {
   try {
     const raw = localStorage.getItem(mockKey(tabela))
-    return raw ? (JSON.parse(raw) as unknown[]) : []
+    return raw ? safeJsonParse<unknown[]>(raw, []) : []
   } catch (err) {
     console.error(`Erro ao ler mock raw de ${tabela}:`, err)
     return []
@@ -136,7 +141,7 @@ export function useAdicionaisContratuais() {
       }
       const { data, error } = await supabase
         .from('contratos_adicionais')
-        .select('*, departamentos(nome)')
+        .select(`${COLUNAS_CONTRATO}, departamentos(nome)`)
         .order('nome')
       if (error) throw error
       const normalizado = (data || []).map((c: Record<string, unknown>) => ({
@@ -165,7 +170,7 @@ export function useAdicionaisContratuais() {
         toast.success('Contrato criado')
         return novo
       }
-      const { data, error } = await supabase.from('contratos_adicionais').insert(dados).select().single()
+      const { data, error } = await supabase.from('contratos_adicionais').insert(dados).select(COLUNAS_CONTRATO).single()
       if (error) throw error
       toast.success('Contrato criado')
       await listarContratos()
@@ -233,7 +238,7 @@ export function useAdicionaisContratuais() {
       }
       const { data, error } = await supabase
         .from('vinculos_adicionais')
-        .select('*, contratos_adicionais(nome, adicionais), colaboradores(nome_completo, matricula)')
+        .select(`${COLUNAS_VINCULO}, contratos_adicionais(nome, adicionais), colaboradores(nome_completo, matricula)`)
         .order('created_at', { ascending: false })
       if (error) throw error
       const normalizado = (data || []).map((v: Record<string, unknown>) => {
@@ -278,7 +283,7 @@ export function useAdicionaisContratuais() {
         data_inicio: dados.data_inicio,
         data_fim: dados.data_fim,
       }
-      const { data, error } = await supabase.from('vinculos_adicionais').insert(payload).select().single()
+      const { data, error } = await supabase.from('vinculos_adicionais').insert(payload).select(COLUNAS_VINCULO).single()
       if (error) throw error
       toast.success('Vínculo criado')
       await listarVinculos()
@@ -398,7 +403,7 @@ export function useAdicionaisContratuais() {
         setCalendario(dados)
         return dados
       }
-      let query = supabase.from('calendario_adicionais').select('*')
+      let query = supabase.from('calendario_adicionais').select(COLUNAS_CALENDARIO)
       if (filtro) query = query.gte('data', filtro.dataInicio).lte('data', filtro.dataFim)
       const { data, error } = await query
       if (error) throw error

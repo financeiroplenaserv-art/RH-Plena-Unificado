@@ -6,9 +6,10 @@
 > 1. Finalizar as importações de dados pendentes.
 > 2. Fazer backup do banco (plano Free não tem backup automático; usar `scripts/backup_supabase_free.sql` no SQL Editor).
 > 3. Aplicar a migration `supabase/migrations/058_consolidar_rls_seguro.sql` no SQL Editor do Supabase.
-> 4. Testar login, colaboradores, empresas, departamentos, ocorrências, extras, VR, CEU e e-Contador.
-> 5. Corrigir qualquer erro de permissão/RLS encontrado nos testes.
-> 6. Após o deploy, considerar upgrade para o plano Pro do Supabase para ter backups automáticos.
+> 4. Aplicar a migration `supabase/migrations/059_corrigir_rls_conflitantes.sql` no SQL Editor do Supabase (corrige policies conflitantes remanescentes da 058).
+> 5. Testar login, colaboradores, empresas, departamentos, ocorrências, extras, VR, CEU e e-Contador.
+> 6. Corrigir qualquer erro de permissão/RLS encontrado nos testes.
+> 7. Após o deploy, considerar upgrade para o plano Pro do Supabase para ter backups automáticos.
 
 Este documento descreve como realizar o deploy da aplicação em ambiente local, preview e VPS.
 

@@ -21,6 +21,10 @@ export interface FiltrosOcorrencia {
 const TAMANHO_PADRAO = 50
 const PLACEHOLDER_MATRICULA = '999999'
 
+const COLUNAS_OCORRENCIA_LISTAGEM = `id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, macro_grupo, titulo, data_ocorrencia, descricao, status, tipo_penalidade, base_legal, gravidade, data_hora_ocorrido, local_ocorrido, defesa_funcionario, medida_corretiva, prazo_acompanhamento, testemunha_1_nome, testemunha_1_cargo, testemunha_2_nome, testemunha_2_cargo, usuario_id, created_at, updated_at`
+
+const COLUNAS_COLABORADOR_RESUMIDO = `id, nome_completo, matricula, cargo, status, empresa_id`
+
 export function useOcorrencias() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [loading, setLoading] = useState(false)
@@ -93,7 +97,7 @@ export function useOcorrencias() {
 
     let baseQuery = supabase
       .from('ocorrencias')
-      .select('*, colaborador:colaborador_id(*), total_anexos:ocorrencia_anexos(count)')
+      .select(`${COLUNAS_OCORRENCIA_LISTAGEM}, colaborador:colaborador_id(${COLUNAS_COLABORADOR_RESUMIDO}), total_anexos:ocorrencia_anexos(count)`)
       .order('data_ocorrencia', { ascending: false })
 
     baseQuery = aplicarFiltros(baseQuery, filtros)
@@ -112,8 +116,8 @@ export function useOcorrencias() {
       .from('ocorrencias')
       .select(
         filtros.status_colaborador && filtros.status_colaborador !== 'todos'
-          ? 'colaborador:colaborador_id(*)'
-          : '*',
+          ? `id, colaborador:colaborador_id(${COLUNAS_COLABORADOR_RESUMIDO})`
+          : 'id',
         { count: 'exact', head: true }
       )
     const countQueryComFiltros = aplicarFiltros(countQuery, filtros)
@@ -144,7 +148,7 @@ export function useOcorrencias() {
 
     const total = count ?? 0
     const resultado = {
-      dados: (data as Ocorrencia[]) || [],
+      dados: (((data as unknown) as Ocorrencia[]) || []),
       total,
       pagina,
       tamanho,

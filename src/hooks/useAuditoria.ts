@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { AuditoriaLog } from '@/types/database'
 
+const COLUNAS_AUDITORIA = 'id, tabela, registro_id, operacao, dados_anteriores, dados_novos, usuario_id, created_at'
+
 export interface FiltrosAuditoria {
   tabela?: string
   registroId?: string
@@ -16,7 +18,7 @@ export function useAuditoria() {
     setLoading(true)
     let query = supabase
       .from('log_auditoria')
-      .select('*')
+      .select(COLUNAS_AUDITORIA)
       .order('created_at', { ascending: false })
       .limit(200)
 

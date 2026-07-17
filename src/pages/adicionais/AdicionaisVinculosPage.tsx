@@ -66,7 +66,7 @@ export function AdicionaisVinculosPage() {
   const [editContratoId, setEditContratoId] = useState('')
   const [editDataInicio, setEditDataInicio] = useState('')
   const [editDataFim, setEditDataFim] = useState('')
-  const [editAdicionais, setEditAdicionais] = useState<string[]>([])
+  const [editAdicionais, setEditAdicionais] = useState<AdicionalTipo[]>([])
 
   useEffect(() => {
     listarContratos()
@@ -181,7 +181,7 @@ export function AdicionaisVinculosPage() {
     const contrato = contratos.find(c => c.id === editContratoId)
     const adicionaisAtivos: AdicionalTipo[] = editAdicionais.filter(a =>
       ['insalubridade', 'noturno', 'periculosidade', 'feriado', 'intrajornada'].includes(a)
-    ) as AdicionalTipo[]
+    )
 
     await atualizarVinculo(editandoVinculo.id, {
       contrato_id: editContratoId,
@@ -440,7 +440,7 @@ export function AdicionaisVinculosPage() {
             <div className="space-y-2">
               <Label style={{ color: '#1F2937' }}>Adicionais deste vínculo</Label>
               <div className="flex flex-wrap gap-3">
-                {(['insalubridade', 'noturno', 'periculosidade', 'feriado', 'intrajornada'] as AdicionalTipo[]).map(a => (
+                {(['insalubridade', 'noturno', 'periculosidade', 'feriado', 'intrajornada'] satisfies AdicionalTipo[]).map(a => (
                   <label key={a} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1F2937' }}>
                     <input
                       type="checkbox"

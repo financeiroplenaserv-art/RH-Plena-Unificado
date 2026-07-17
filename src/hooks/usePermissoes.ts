@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { setPermissoesCache } from '@/lib/permissoes'
 import type { PermissaoPerfil, NivelAcesso } from '@/types/database'
 
+const COLUNAS_PERMISSAO_PERFIL = 'id, perfil, recurso, acao, permitido, created_at, updated_at'
+
 export interface ResetPerfilResult {
   sucesso: boolean
   mensagem: string
@@ -19,7 +21,7 @@ export function usePermissoes() {
     try {
       let query = supabase
         .from('permissoes_perfil')
-        .select('*')
+        .select(COLUNAS_PERMISSAO_PERFIL)
         .order('perfil', { ascending: true })
         .order('recurso', { ascending: true })
         .order('acao', { ascending: true })

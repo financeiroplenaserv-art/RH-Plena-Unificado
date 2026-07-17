@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import type { Departamento } from '@/types/database'
 
+const COLUNAS_DEPARTAMENTO_AUTOCOMPLETE = 'id, nome, nome_curto'
+
 interface DepartamentoAutocompleteProps {
   value: string
   onChange: (value: string) => void
@@ -33,7 +35,7 @@ export function DepartamentoAutocomplete({
     async function carregar() {
       const { data, error } = await supabase
         .from('departamentos')
-        .select('*')
+        .select(COLUNAS_DEPARTAMENTO_AUTOCOMPLETE)
         .not('nome_curto', 'is', null)
         .neq('nome_curto', '')
         .order('nome_curto')

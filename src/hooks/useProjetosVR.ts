@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { ProjetoVR } from '@/types'
 
+const COLUNAS_PROJETO_VR = 'id, nome, data_corte, data_efetivacao, configuracao_json, usuario_id, created_at'
+
 export function useProjetosVR() {
   const [projetos, setProjetos] = useState<ProjetoVR[]>([])
   const [loading, setLoading] = useState(false)
@@ -12,7 +14,7 @@ export function useProjetosVR() {
     try {
       const { data, error } = await supabase
         .from('projetos_vr')
-        .select('*')
+        .select(COLUNAS_PROJETO_VR)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -29,7 +31,7 @@ export function useProjetosVR() {
   const buscarPorId = useCallback(async (id: string) => {
     const { data, error } = await supabase
       .from('projetos_vr')
-      .select('*')
+      .select(COLUNAS_PROJETO_VR)
       .eq('id', id)
       .single()
 
@@ -46,7 +48,7 @@ export function useProjetosVR() {
     const { data, error } = await supabase
       .from('projetos_vr')
       .insert({ ...payload, usuario_id: user.user?.id } as Partial<ProjetoVR>)
-      .select()
+      .select(COLUNAS_PROJETO_VR)
       .single()
 
     if (error) {
@@ -63,7 +65,7 @@ export function useProjetosVR() {
       .from('projetos_vr')
       .update(payload)
       .eq('id', id)
-      .select()
+      .select(COLUNAS_PROJETO_VR)
       .single()
 
     if (error) {

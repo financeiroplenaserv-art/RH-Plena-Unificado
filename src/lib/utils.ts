@@ -205,6 +205,28 @@ export function mascaraCEP(valor: string | null | undefined): string {
 }
 
 /**
+ * Faz parse seguro de JSON com fallback controlado.
+ * Evita `JSON.parse(...) as T` sem validação e previne crashes em caso de JSON inválido.
+ */
+export function safeJsonParse<T>(valor: string | null | undefined, fallback: T): T {
+  if (!valor) return fallback
+  try {
+    return JSON.parse(valor) as T
+  } catch {
+    return fallback
+  }
+}
+
+/**
+ * Wrapper para leitura de localStorage com parse seguro.
+ */
+export function localStorageGetJson<T>(chave: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  const raw = window.localStorage.getItem(chave)
+  return safeJsonParse(raw, fallback)
+}
+
+/**
  * Escapa caracteres especiais de HTML para prevenir XSS.
  * Converte <, >, &, " e ' em suas entidades HTML seguras.
  */

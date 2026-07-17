@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos } from './utils'
+import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson } from './utils'
 
 describe('formatarCPF', () => {
   it('formata CPF string com 11 dígitos', () => {
@@ -75,5 +75,46 @@ describe('parseMoedaParaCentavos', () => {
     expect(parseMoedaParaCentavos('')).toBe(null)
     expect(parseMoedaParaCentavos(null)).toBe(null)
     expect(parseMoedaParaCentavos(undefined)).toBe(null)
+  })
+})
+
+describe('safeJsonParse', () => {
+  it('parseia JSON válido', () => {
+    expect(safeJsonParse('{"a":1}', {})).toEqual({ a: 1 })
+  })
+
+  it('parseia array JSON válido', () => {
+    expect(safeJsonParse('[1,2,3]', [])).toEqual([1, 2, 3])
+  })
+
+  it('retorna fallback para JSON inválido', () => {
+    expect(safeJsonParse('{invalido}', [])).toEqual([])
+  })
+
+  it('retorna fallback para null/undefined', () => {
+    expect(safeJsonParse(null, [])).toEqual([])
+    expect(safeJsonParse(undefined, {})).toEqual({})
+  })
+
+  it('retorna fallback para string vazia', () => {
+    expect(safeJsonParse('', [])).toEqual([])
+  })
+})
+
+describe('localStorageGetJson', () => {
+  it('lê e parseia JSON do localStorage', () => {
+    window.localStorage.setItem('teste_safe_json', '[1,2]')
+    expect(localStorageGetJson('teste_safe_json', [])).toEqual([1, 2])
+    window.localStorage.removeItem('teste_safe_json')
+  })
+
+  it('retorna fallback quando chave não existe', () => {
+    expect(localStorageGetJson('chave_inexistente_12345', [])).toEqual([])
+  })
+
+  it('retorna fallback quando JSON é inválido', () => {
+    window.localStorage.setItem('teste_safe_json_invalido', 'not-json')
+    expect(localStorageGetJson('teste_safe_json_invalido', [])).toEqual([])
+    window.localStorage.removeItem('teste_safe_json_invalido')
   })
 })

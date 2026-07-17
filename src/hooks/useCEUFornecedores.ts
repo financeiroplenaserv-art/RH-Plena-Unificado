@@ -3,13 +3,15 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Fornecedor } from '@/types/database'
 
+const COLUNAS_FORNECEDOR = 'id, nome, cnpj, telefone, email, created_at'
+
 export function useCEUFornecedores() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([])
   const [loading, setLoading] = useState(false)
 
   const listar = useCallback(async (busca?: string) => {
     setLoading(true)
-    let query = supabase.from('fornecedores').select('*').order('nome')
+    let query = supabase.from('fornecedores').select(COLUNAS_FORNECEDOR).order('nome')
     if (busca) {
       query = query.or(`nome.ilike.%${busca}%,cnpj.ilike.%${busca}%`)
     }
@@ -23,7 +25,7 @@ export function useCEUFornecedores() {
   }, [])
 
   const criar = useCallback(async (fornecedor: Partial<Fornecedor>) => {
-    const { data, error } = await supabase.from('fornecedores').insert(fornecedor).select().single()
+    const { data, error } = await supabase.from('fornecedores').insert(fornecedor).select(COLUNAS_FORNECEDOR).single()
     if (error) {
       toast.error('Erro ao criar fornecedor: ' + error.message)
       return null

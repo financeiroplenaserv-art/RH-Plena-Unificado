@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Alerta, Ocorrencia, Colaborador } from '@/types/database'
 
+const COLUNAS_ALERTA = 'id, tipo, titulo, descricao, severidade, status, data_vencimento, colaborador_id, empresa_id, dados_json, created_at, updated_at'
+const COLUNAS_COLABORADOR_ALERTA = 'id, nome_completo, matricula'
+const COLUNAS_OCORRENCIA_ALERTA = 'id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, status'
+const COLUNAS_OCORRENCIA_RELACAO = 'status'
+
 export function useAlertas() {
   const [alertas, setAlertas] = useState<Alerta[]>([])
   const [loading, setLoading] = useState(false)
@@ -11,7 +16,7 @@ export function useAlertas() {
     setLoading(true)
     let query = supabase
       .from('alertas')
-      .select('*, colaborador:colaborador_id(*)')
+      .select(`${COLUNAS_ALERTA}, colaborador:colaborador_id(${COLUNAS_COLABORADOR_ALERTA})`)
       .order('created_at', { ascending: false })
 
     if (status) query = query.eq('status', status as Alerta['status'])
@@ -21,7 +26,7 @@ export function useAlertas() {
     if (error) {
       toast.error('Erro ao carregar alertas: ' + error.message)
     } else {
-      setAlertas((data as Alerta[]) || [])
+      setAlertas(((data as unknown) as Alerta[]) || [])
     }
     setLoading(false)
   }, [])
@@ -63,26 +68,27 @@ export function useAlertas() {
     try {
       const { data: ocorrencias } = await supabase
         .from('ocorrencias')
-        .select('*, colaborador:colaborador_id(*)')
+        .select(`${COLUNAS_OCORRENCIA_ALERTA}, colaborador:colaborador_id(${COLUNAS_COLABORADOR_ALERTA})`)
         .in('status', ['Pendente', 'Ativa'])
 
       const { data: colaboradores } = await supabase
         .from('colaboradores')
-        .select('*, ocorrencias(*)')
+        .select(`id, nome_completo, empresa_id, ocorrencias(${COLUNAS_OCORRENCIA_RELACAO})`)
 
       const novosAlertas: Partial<Alerta>[] = []
 
       // Ocorrências pendentes de anexo
-      ;(ocorrencias || []).forEach((o: Ocorrencia) => {
-        if (o.status === 'Pendente') {
+      ;(ocorrencias || []).forEach((o: unknown) => {
+        const ocorrencia = o as Ocorrencia
+        if (ocorrencia.status === 'Pendente') {
           novosAlertas.push({
             tipo: 'OCORRENCIA_PENDENTE',
             titulo: 'Ocorrência pendente de documentos',
-            descricao: `${o.colaborador?.nome_completo || o.colaborador_nome} — ${o.tipo_ocorrencia}`,
+            descricao: `${ocorrencia.colaborador?.nome_completo || ocorrencia.colaborador_nome} — ${ocorrencia.tipo_ocorrencia}`,
             severidade: 'alta',
             status: 'ativo',
-            colaborador_id: o.colaborador_id,
-            empresa_id: o.empresa_id,
+            colaborador_id: ocorrencia.colaborador_id,
+            empresa_id: ocorrencia.empresa_id,
           })
         }
       })

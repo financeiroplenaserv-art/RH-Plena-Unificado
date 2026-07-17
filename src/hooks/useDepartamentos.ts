@@ -2,6 +2,9 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Departamento } from '@/types/database'
+import { safeJsonParse } from '@/lib/utils'
+
+const COLUNAS_DEPARTAMENTO = 'id, nome, nome_curto, contato_portaria, empresa_id, endereco, bairro, cidade, estado, cep, nome_contato, telefone_contato, email_contato, nome_contato_2, telefone_contato_2, email_contato_2, data_inicio_contrato, status, created_at'
 
 const MODO_MOCK = false
 
@@ -14,7 +17,7 @@ function gerarId() {
 function lerMock(): Departamento[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as Departamento[]) : []
+    return raw ? safeJsonParse(raw, []) : []
   } catch (err) {
     console.error('Erro ao ler mock de departamentos:', err)
     return []
@@ -41,7 +44,7 @@ export function useDepartamentos() {
       }
       let query = supabase
         .from('departamentos')
-        .select('*')
+        .select(COLUNAS_DEPARTAMENTO)
         .not('nome_curto', 'is', null)
         .neq('nome_curto', '')
         .order('nome')
@@ -73,7 +76,7 @@ export function useDepartamentos() {
       const { data, error } = await supabase
         .from('departamentos')
         .insert(departamento as Partial<Departamento>)
-        .select()
+        .select(COLUNAS_DEPARTAMENTO)
         .single()
       if (error) throw error
       toast.success('Departamento criado')

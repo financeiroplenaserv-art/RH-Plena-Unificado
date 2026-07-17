@@ -7,6 +7,8 @@ import type { Colaborador, Departamento, StatusColaborador } from '@/types/datab
 import { useColaboradores } from './useColaboradores'
 import { useEmpresas } from './useEmpresas'
 
+const COLUNAS_HISTORICO_IMPORTACAO = 'id, usuario_id, empresa_id, empresa_nome, quantidade, importados, atualizados, erros, detalhes_erros, created_at'
+
 export function useEContador() {
   const [empresas, setEmpresas] = useState<EContadorEmpresa[]>([])
   const [funcionarios, setFuncionarios] = useState<EContadorFuncionario[]>([])
@@ -195,7 +197,7 @@ export function useEContador() {
 
       const { data, error } = await supabase
         .from('historico_importacoes_econtador')
-        .select('*')
+        .select(COLUNAS_HISTORICO_IMPORTACAO)
         .eq('usuario_id', userData.user?.id)
         .order('created_at', { ascending: false })
         .limit(10)
@@ -292,7 +294,7 @@ export function useEContador() {
           codigo_alterdata: eContadorEmpresaId || null,
           cnpj: null,
         })
-        .select()
+        .select('id')
         .single()
 
       if (erroEmpresa) {

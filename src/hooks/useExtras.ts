@@ -3,6 +3,10 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import type { Extra, CategoriaExtra, ExtrasFiltros } from '@/types/extras'
 
+const COLUNAS_EXTRAS = 'id, data_ocorrencia, turno, categoria, posto, departamento_id, departamento_nome, colaborador_ausente_id, colaborador_ausente_nome, substituto_id, substituto_nome, motivo, extra_faturado, valor, categoria_valor_id, categoria_valor_nome, comunicacao_tipo, comunicacao_data, comunicacao_hora, comunicacao_detalhes, observacoes, status, usuario_id, empresa_id, created_at, updated_at'
+
+const COLUNAS_CATEGORIA_EXTRA = 'id, nome, valor_padrao, ativo, created_at, updated_at'
+
 export function useExtras() {
   const [extras, setExtras] = useState<Extra[]>([])
   const [categorias, setCategorias] = useState<CategoriaExtra[]>([])
@@ -13,7 +17,7 @@ export function useExtras() {
     try {
       let query = supabase
         .from('extras')
-        .select('*')
+        .select(COLUNAS_EXTRAS)
         .order('data_ocorrencia', { ascending: false })
 
       if (filtros?.dataInicio) {
@@ -52,7 +56,7 @@ export function useExtras() {
     try {
       const { data, error } = await supabase
         .from('categorias_extras')
-        .select('*')
+        .select(COLUNAS_CATEGORIA_EXTRA)
         .order('nome')
       if (error) throw error
       setCategorias(data || [])
@@ -66,7 +70,7 @@ export function useExtras() {
 
   const criarCategoria = useCallback(async (dados: Omit<CategoriaExtra, 'id' | 'created_at' | 'updated_at'>): Promise<CategoriaExtra | null> => {
     try {
-      const { data, error } = await supabase.from('categorias_extras').insert(dados).select().single()
+      const { data, error } = await supabase.from('categorias_extras').insert(dados).select(COLUNAS_CATEGORIA_EXTRA).single()
       if (error) throw error
       toast.success('Categoria criada')
       setCategorias(prev => [...prev, data as CategoriaExtra].sort((a, b) => a.nome.localeCompare(b.nome)))
@@ -108,7 +112,7 @@ export function useExtras() {
 
   const buscarPorId = useCallback(async (id: string): Promise<Extra | null> => {
     try {
-      const { data, error } = await supabase.from('extras').select('*').eq('id', id).single()
+      const { data, error } = await supabase.from('extras').select(COLUNAS_EXTRAS).eq('id', id).single()
       if (error) throw error
       return data as Extra
     } catch (err: unknown) {
@@ -123,7 +127,7 @@ export function useExtras() {
     try {
       let query = supabase
         .from('extras')
-        .select('*')
+        .select(COLUNAS_EXTRAS)
         .eq('data_ocorrencia', dataOcorrencia)
         .eq('departamento_id', departamentoId)
         .neq('status', 'Cancelado')
@@ -151,7 +155,7 @@ export function useExtras() {
 
   const criar = useCallback(async (dados: Omit<Extra, 'id' | 'created_at' | 'updated_at'>): Promise<Extra | null> => {
     try {
-      const { data, error } = await supabase.from('extras').insert(dados).select().single()
+      const { data, error } = await supabase.from('extras').insert(dados).select(COLUNAS_EXTRAS).single()
       if (error) throw error
       toast.success('Extra registrado com sucesso')
       setExtras(prev => [data as Extra, ...prev])

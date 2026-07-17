@@ -5,6 +5,10 @@ import type { LocalTrabalhoDiario, MapeamentoFlitLocalTrabalho, Colaborador } fr
 import { parseExcelFlit, agruparBatidasPorDia, encontrarColaborador } from '@/lib/escalas/importarFlit'
 import { inferirLocalTrabalho } from '@/lib/escalas/inferirLocalTrabalho'
 
+const COLUNAS_LOCAL_TRABALHO_DIARIO = 'id, colaborador_id, data, local_trabalho_id, fonte, usuario_confirmacao_id, confirmado_em, observacao, importacao_ref, created_at, updated_at'
+const COLUNAS_COLABORADOR_ESCALAS = 'id, nome_completo, matricula'
+const COLUNAS_LOCAL_TRABALHO = 'id, nome, nome_curto, status, observacao'
+
 export interface FiltrosEscalasDiario {
   colaboradorId?: string
   localTrabalhoId?: string
@@ -57,7 +61,7 @@ export function useEscalasDiario() {
     try {
       let query = supabase
         .from('locais_trabalho_diario')
-        .select('*, colaborador:colaboradores(*), local_trabalho:locais_trabalho(*)')
+        .select(`${COLUNAS_LOCAL_TRABALHO_DIARIO}, colaborador:colaboradores(${COLUNAS_COLABORADOR_ESCALAS}), local_trabalho:locais_trabalho(${COLUNAS_LOCAL_TRABALHO})`)
         .gte('data', competencia.inicio)
         .lte('data', competencia.fim)
         .order('data', { ascending: true })
@@ -269,7 +273,7 @@ export function useEscalasDiario() {
     try {
       const { data, error } = await supabase
         .from('locais_trabalho_diario')
-        .select('*, local_trabalho:locais_trabalho(*)')
+        .select(`${COLUNAS_LOCAL_TRABALHO_DIARIO}, local_trabalho:locais_trabalho(${COLUNAS_LOCAL_TRABALHO})`)
         .eq('colaborador_id', colaboradorId)
         .not('local_trabalho_id', 'is', null)
         .order('data', { ascending: false })

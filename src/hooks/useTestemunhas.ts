@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { OcorrenciaTestemunha } from '@/types/database'
 
+const COLUNAS_TESTEMUNHA = 'id, ocorrencia_id, nome, cargo, departamento, cpf, usuario_id, created_at'
+
 export function useTestemunhas() {
   const [testemunhas, setTestemunhas] = useState<OcorrenciaTestemunha[]>([])
   const [loading, setLoading] = useState(false)
@@ -11,7 +13,7 @@ export function useTestemunhas() {
     setLoading(true)
     const { data, error } = await supabase
       .from('ocorrencia_testemunhas')
-      .select('*')
+      .select(COLUNAS_TESTEMUNHA)
       .eq('ocorrencia_id', ocorrenciaId)
       .order('created_at', { ascending: true })
 
@@ -28,7 +30,7 @@ export function useTestemunhas() {
       const { data, error } = await supabase
         .from('ocorrencia_testemunhas')
         .insert(payload)
-        .select()
+        .select(COLUNAS_TESTEMUNHA)
         .single()
 
       if (error) {
