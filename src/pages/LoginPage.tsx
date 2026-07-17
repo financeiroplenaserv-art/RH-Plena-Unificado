@@ -7,55 +7,18 @@ import { BrandHug } from '@/components/BrandHug'
 
 interface LoginPageProps {
   onLogin: (email: string, senha: string) => Promise<void>
-  onSignUp?: (email: string, senha: string) => Promise<void>
-  loginLoading?: boolean
-  signupLoading?: boolean
+  loading?: boolean
 }
 
-export function LoginPage({
-  onLogin,
-  onSignUp,
-  loginLoading = false,
-  signupLoading = false,
-}: LoginPageProps) {
-  const [modo, setModo] = useState<'login' | 'cadastro'>('login')
+export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [confirmarSenha, setConfirmarSenha] = useState('')
-  const [erroSenha, setErroSenha] = useState<string | null>(null)
   const [mostrarSenha, setMostrarSenha] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErroSenha(null)
-
-    if (modo === 'cadastro') {
-      if (senha.length < 6) {
-        setErroSenha('A senha deve ter pelo menos 6 caracteres.')
-        return
-      }
-      if (senha !== confirmarSenha) {
-        setErroSenha('As senhas não coincidem.')
-        return
-      }
-      if (onSignUp) {
-        await onSignUp(email, senha)
-      }
-      return
-    }
-
     await onLogin(email, senha)
   }
-
-  const alternarModo = () => {
-    setModo((atual) => (atual === 'login' ? 'cadastro' : 'login'))
-    setErroSenha(null)
-    setSenha('')
-    setConfirmarSenha('')
-    setMostrarSenha(false)
-  }
-
-  const isLoading = loginLoading || signupLoading
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row">
@@ -135,12 +98,10 @@ export function LoginPage({
 
           <div className="space-y-2 text-center lg:text-left">
             <h2 className="text-2xl font-bold text-slate-900">
-              {modo === 'login' ? 'Bem-vindo de volta' : 'Criar conta'}
+              Acesso restrito
             </h2>
             <p className="text-slate-500 text-sm">
-              {modo === 'login'
-                ? 'Digite seu e-mail e senha para acessar o sistema'
-                : 'Preencha seus dados para começar a usar o CORH'}
+              Digite seu e-mail e senha para acessar o sistema
             </p>
           </div>
 
@@ -172,7 +133,6 @@ export function LoginPage({
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   required
-                  minLength={modo === 'cadastro' ? 6 : undefined}
                   className="h-11 border-slate-200 pr-10 focus-visible:ring-[#1E3A5F] focus-visible:ring-1"
                 />
                 <button
@@ -186,68 +146,32 @@ export function LoginPage({
               </div>
             </div>
 
-            {modo === 'cadastro' && (
-              <div className="space-y-1.5">
-                <Label htmlFor="confirmar-senha" className="text-slate-700 text-sm font-medium">
-                  Confirmar senha
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="confirmar-senha"
-                    type={mostrarSenha ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={confirmarSenha}
-                    onChange={(e) => setConfirmarSenha(e.target.value)}
-                    required
-                    className="h-11 border-slate-200 pr-10 focus-visible:ring-[#1E3A5F] focus-visible:ring-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setMostrarSenha(!mostrarSenha)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    tabIndex={-1}
-                  >
-                    {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {erroSenha && (
-              <p className="text-sm text-red-600">{erroSenha}</p>
-            )}
-
             <Button
               type="submit"
               className="w-full h-11 text-sm font-medium bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] hover:from-[#1e40af] hover:to-[#3b82f6] text-white border-0"
-              disabled={isLoading}
+              disabled={loading}
             >
-              {isLoading ? (
+              {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {modo === 'login' ? 'Entrando...' : 'Criando conta...'}
+                  Entrando...
                 </>
               ) : (
-                modo === 'login' ? 'Entrar' : 'Criar conta'
+                'Entrar'
               )}
             </Button>
           </form>
 
-          <div className="text-center space-y-3">
-            <button
-              type="button"
-              onClick={alternarModo}
-              className="text-sm text-[#2563eb] hover:text-[#1e40af] font-medium"
-            >
-              {modo === 'login'
-                ? 'Não tem conta? Cadastre-se'
-                : 'Já tem conta? Faça login'}
-            </button>
-
-            <p className="text-center text-xs text-slate-400">
-              Em caso de problemas, entre em contato com o administrador do sistema.
+          <div className="p-4 rounded-xl bg-slate-100 border border-slate-200">
+            <p className="text-sm text-slate-700 font-medium">Não tem acesso?</p>
+            <p className="text-xs text-slate-500 mt-1">
+              O acesso ao CORH é controlado. Entre em contato com o administrador do sistema para criar seu usuário.
             </p>
           </div>
+
+          <p className="text-center text-xs text-slate-400">
+            Em caso de problemas, entre em contato com o administrador do sistema.
+          </p>
         </div>
       </div>
     </div>

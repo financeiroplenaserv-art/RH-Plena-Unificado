@@ -73,10 +73,9 @@ function HeaderWrapper({ user }: { user: Perfil }) {
 }
 
 function App() {
-  const { user, loading, login, logout, signUp, carregarPerfil } = useAuth()
+  const { user, loading, login, logout, carregarPerfil } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
-  const [signupLoading, setSignupLoading] = useState(false)
   const [recarregandoPerfil, setRecarregandoPerfil] = useState(false)
   const location = useLocation()
   const isMobileFalta = location.pathname === '/mobile/falta'
@@ -91,19 +90,6 @@ function App() {
       toast.error(err instanceof Error ? err.message : 'Erro ao realizar login')
     } finally {
       setLoginLoading(false)
-    }
-  }
-
-  const handleSignUp = async (email: string, senha: string) => {
-    setSignupLoading(true)
-    try {
-      await signUp(email, senha)
-      toast.success('Conta criada com sucesso. Você já pode usar o sistema.')
-    } catch (err: unknown) {
-      console.error('Erro ao criar conta:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar conta')
-    } finally {
-      setSignupLoading(false)
     }
   }
 
@@ -135,9 +121,7 @@ function App() {
         <Toaster position="top-right" richColors />
         <LoginPage
           onLogin={handleLogin}
-          onSignUp={handleSignUp}
-          loginLoading={loginLoading}
-          signupLoading={signupLoading}
+          loading={loginLoading}
         />
       </>
     )
