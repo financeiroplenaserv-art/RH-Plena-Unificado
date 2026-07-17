@@ -1,4 +1,5 @@
 import { Bell, User } from 'lucide-react'
+import { LogoMarca } from '@/components/LogoMarca'
 import type { Perfil } from '@/types/database'
 
 interface HeaderProps {
@@ -9,11 +10,7 @@ export function Header({ user }: HeaderProps) {
   return (
     <header className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-4">
-        <img
-          src="/logo_plena_30anos_redonda.png"
-          alt="Plena"
-          className="h-8 w-auto object-contain"
-        />
+        <LogoMarca size={36} alt="Plena" />
         <div className="hidden sm:block h-6 w-px bg-slate-200" />
         <div className="hidden sm:block">
           <h1 className="text-lg font-semibold text-slate-900">CORH</h1>

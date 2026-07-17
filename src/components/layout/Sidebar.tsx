@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { LogoMarca } from '@/components/LogoMarca'
 import {
   LayoutDashboard,
   Users,
@@ -181,22 +182,14 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
       <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
         {isOpen ? (
           <div className="flex items-center gap-3">
-            <img
-              src="/logo_plena_30anos_redonda.png"
-              alt="Plena"
-              className="h-8 w-auto object-contain rounded"
-            />
+            <LogoMarca size={36} alt="Plena" />
             <div>
               <h1 className="text-base font-bold text-slate-900 leading-tight">CORH</h1>
               <p className="text-[10px] text-slate-500 leading-tight">Controle Operacional e de RH</p>
             </div>
           </div>
         ) : (
-          <img
-            src="/logo_plena_30anos_redonda.png"
-            alt="Plena"
-            className="h-8 w-auto object-contain rounded mx-auto"
-          />
+          <LogoMarca size={32} alt="Plena" className="mx-auto" />
         )}
         <button
           onClick={onToggle}

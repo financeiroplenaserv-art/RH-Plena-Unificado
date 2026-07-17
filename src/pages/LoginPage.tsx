@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BrandHug } from '@/components/BrandHug'
+import { LogoMarca } from '@/components/LogoMarca'
 
 interface LoginPageProps {
   onLogin: (email: string, senha: string) => Promise<void>
@@ -85,11 +86,7 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
         <div className="w-full max-w-md space-y-8">
           {/* Header mobile */}
           <div className="lg:hidden flex flex-col items-center justify-center gap-4 mb-8">
-            <img
-              src="/logo_plena_30anos_redonda.png"
-              alt="Plena"
-              className="h-12 w-auto rounded-lg object-contain"
-            />
+            <LogoMarca size={56} alt="Plena" />
             <div className="text-center">
               <span className="text-xl font-semibold text-slate-900">CORH</span>
               <p className="text-sm text-slate-500">Controle Operacional e de RH</p>
