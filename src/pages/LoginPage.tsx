@@ -30,15 +30,6 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute bottom-12 -left-12 w-64 h-64 rounded-full bg-blue-400/10 blur-3xl" />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <img
-            src="/logo_plena_cab.jpg"
-            alt="Plena"
-            className="h-10 w-auto rounded-lg object-contain bg-white/10 p-1"
-          />
-          <span className="text-xl font-semibold tracking-tight">CORH</span>
-        </div>
-
         <div className="relative z-10 space-y-8 max-w-lg">
           <div className="space-y-4">
             <h1 className="text-5xl font-bold leading-tight">
