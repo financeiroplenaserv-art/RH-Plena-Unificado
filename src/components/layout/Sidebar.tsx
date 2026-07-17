@@ -174,12 +174,11 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen flex flex-col transition-all duration-300 z-50',
+        'fixed left-0 top-0 h-screen flex flex-col transition-all duration-300 z-50 bg-white border-r border-slate-200',
         isOpen ? 'w-60' : 'w-16'
       )}
-      style={{ backgroundColor: '#1F2937' }}
     >
-      <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
         {isOpen && (
           <img
             src="/logo_plena_cab.jpg"
@@ -191,7 +190,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
           onClick={onToggle}
           className={cn(
             'p-1.5 rounded-md transition-colors',
-            isOpen ? 'hover:bg-white/10 text-[#94A3B8] hover:text-white' : 'mx-auto text-[#94A3B8] hover:text-white hover:bg-white/10'
+            isOpen ? 'hover:bg-slate-100 text-slate-500 hover:text-slate-900' : 'mx-auto text-slate-500 hover:text-slate-900 hover:bg-slate-100'
           )}
           title={isOpen ? 'Recolher menu' : 'Expandir menu'}
         >
@@ -209,14 +208,14 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
               cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
                 isActive
-                  ? 'text-white font-bold bg-white/10'
-                  : 'text-[#94A3B8] hover:text-white hover:bg-white/5'
+                  ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
               )
             }
           >
             {({ isActive }) => (
               <>
-                <span className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-[#94A3B8]')}>
+                <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
                   {item.icon}
                 </span>
                 {isOpen && <span>{item.label}</span>}
@@ -238,12 +237,12 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
                   isActive
-                    ? 'text-white font-bold bg-white/10'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-white/5'
+                    ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                 )}
                 title={group.label}
               >
-                <span className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-[#94A3B8]')}>
+                <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
                   {group.icon}
                 </span>
                 {isOpen && (
@@ -260,7 +259,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
               </button>
 
               {isOpen && isExpanded && (
-                <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-2">
+                <div className="ml-4 mt-1 space-y-1 border-l border-slate-200 pl-2">
                   {group.items.map((item) => (
                     <NavLink
                       key={item.path}
@@ -269,14 +268,14 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
                         cn(
                           'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
                           isActive
-                            ? 'text-white font-bold bg-white/10'
-                            : 'text-[#94A3B8] hover:text-white hover:bg-white/5'
+                            ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
+                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                         )
                       }
                     >
                       {({ isActive }) => (
                         <>
-                          <span className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-[#94A3B8]')}>
+                          <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
                             {item.icon}
                           </span>
                           <span>{item.label}</span>
@@ -299,14 +298,14 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
               cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
                 isActive
-                  ? 'text-white font-bold bg-white/10'
-                  : 'text-[#94A3B8] hover:text-white hover:bg-white/5'
+                  ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
               )
             }
           >
             {({ isActive }) => (
               <>
-                <span className={cn('flex-shrink-0', isActive ? 'text-white' : 'text-[#94A3B8]')}>
+                <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
                   {item.icon}
                 </span>
                 {isOpen && <span>{item.label}</span>}
@@ -316,11 +315,11 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="p-2 border-t border-white/10">
+      <div className="p-2 border-t border-slate-200">
         <button
           onClick={onLogout}
           className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-[#94A3B8] hover:text-white hover:bg-white/5 w-full transition-colors',
+            'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-100 w-full transition-colors',
             !isOpen && 'justify-center'
           )}
         >
