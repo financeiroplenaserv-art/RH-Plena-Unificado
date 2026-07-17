@@ -2,29 +2,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
-  Wallet,
   AlertCircle,
-  FileWarning,
-  ClipboardList,
-  Bell,
-  Package,
-  Briefcase,
-  Building2,
   ArrowRight,
-  Boxes,
   CalendarHeart,
   CalendarDays,
   UserCheck,
   Cake,
+  Bell,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
-import { cn, formatarData } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import type { Ocorrencia, Colaborador } from '@/types/database'
 import { useAuth } from '@/hooks/useAuth'
 
 interface AlertaModulo {
@@ -46,18 +38,6 @@ interface ColaboradorResumido {
 }
 
 type MarcoExperiencia = 30 | 60 | 90
-
-const statusConfig: Record<Colaborador['status'], { bullet: string; label: string }> = {
-  Ativo: { bullet: 'bg-emerald-500', label: 'Ativo' },
-  Inativo: { bullet: 'bg-slate-400', label: 'Inativo' },
-  Afastado: { bullet: 'bg-amber-400', label: 'Afastado' },
-}
-
-function isMesAtual(dataStr: string) {
-  const data = new Date(dataStr)
-  const hoje = new Date()
-  return data.getFullYear() === hoje.getFullYear() && data.getMonth() === hoje.getMonth()
-}
 
 function diasAte(dataStr: string) {
   const hoje = new Date()
@@ -119,61 +99,32 @@ export function DashboardPage() {
 
   const [totalColaboradores, setTotalColaboradores] = useState(0)
   const [ativos, setAtivos] = useState(0)
-  const [afastados, setAfastados] = useState(0)
   const [ocorrenciasPendentes, setOcorrenciasPendentes] = useState(0)
-  const [ocorrenciasMes, setOcorrenciasMes] = useState(0)
-  const [projetosVR, setProjetosVR] = useState(0)
-  const [contratosAdicionais, setContratosAdicionais] = useState(0)
-  const [totalItensCEU, setTotalItensCEU] = useState(0)
-  const [entregasMesCEU, setEntregasMesCEU] = useState(0)
-  const [ultimosColaboradores, setUltimosColaboradores] = useState<Colaborador[]>([])
-  const [ultimaImportacao, setUltimaImportacao] = useState<string | null>(null)
   const [alertas, setAlertas] = useState<AlertaModulo[]>([])
   const [colaboradoresAtivos, setColaboradoresAtivos] = useState<ColaboradorResumido[]>([])
 
   useEffect(() => {
     async function carregarKpis() {
       setCarregando(true)
-      const inicioMes = new Date()
-      inicioMes.setDate(1)
-      inicioMes.setHours(0, 0, 0, 0)
-
-      const hoje = new Date()
-      const trintaDiasAtras = new Date(hoje)
-      trintaDiasAtras.setDate(hoje.getDate() - 30)
 
       try {
         const [
           { count: total },
           { count: ativosCount },
-          { count: afastadosCount },
-          { data: colaboradores },
-          { data: colaboradoresRecentes },
-          { data: ocorrencias },
           { count: pendentesCount },
           { count: alertasCount },
-          { count: projetosVRCount },
-          { count: contratosCount },
           { data: itensCEU },
-          { data: entregasCEU },
           { data: ativosCompletos },
         ] = await Promise.all([
           supabase.from('colaboradores').select('id', { count: 'exact', head: true }),
           supabase.from('colaboradores').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
-          supabase.from('colaboradores').select('id', { count: 'exact', head: true }).eq('status', 'Afastado'),
-          supabase.from('colaboradores').select('created_at').order('created_at', { ascending: false }).limit(1),
-          supabase.from('colaboradores').select('nome_completo, cargo, departamento, status, created_at').eq('status', 'Ativo').order('created_at', { ascending: false }).limit(5),
-          supabase.from('ocorrencias').select('data_ocorrencia, status'),
           supabase.from('ocorrencias').select('id', { count: 'exact', head: true }).eq('status', 'Pendente'),
           supabase
             .from('alertas')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'ativo')
             .in('severidade', ['critica', 'alta']),
-          supabase.from('projetos_vr').select('id', { count: 'exact', head: true }),
-          supabase.from('contratos_adicionais').select('id', { count: 'exact', head: true }),
           supabase.from('itens').select('estoque, estoque_minimo, ca, validade'),
-          supabase.from('entregas').select('data_entrega, data_devolucao'),
           supabase
             .from('colaboradores')
             .select('id, nome_completo, data_admissao, data_nascimento, cargo, departamento')
@@ -184,7 +135,6 @@ export function DashboardPage() {
         const pendentes = pendentesCount || 0
 
         const itens = (itensCEU || []) as { id: string; nome: string; tipo: string; ca: string | null; validade: string | null; estoque: number | null; estoque_minimo: number | null }[]
-        const entregas = (entregasCEU || []) as { id: string; data_entrega: string; data_devolucao: string | null }[]
 
         const estoqueBaixo = itens.filter(
           (item) =>
@@ -202,17 +152,7 @@ export function DashboardPage() {
 
         setTotalColaboradores(total || 0)
         setAtivos(ativosCount || 0)
-        setAfastados(afastadosCount || 0)
-        setUltimaImportacao(colaboradores?.[0]?.created_at || null)
-        setUltimosColaboradores((colaboradoresRecentes || []) as Colaborador[])
         setOcorrenciasPendentes(pendentes)
-        setOcorrenciasMes(
-          (ocorrencias || []).filter((o: Ocorrencia) => new Date(o.data_ocorrencia) >= inicioMes).length
-        )
-        setProjetosVR(projetosVRCount || 0)
-        setContratosAdicionais(contratosCount || 0)
-        setTotalItensCEU(itens.length)
-        setEntregasMesCEU(entregas.filter((e) => isMesAtual(e.data_entrega)).length)
         setColaboradoresAtivos((ativosCompletos || []) as ColaboradorResumido[])
 
         const listaAlertas: AlertaModulo[] = []
@@ -268,21 +208,6 @@ export function DashboardPage() {
 
     carregarKpis()
   }, [])
-
-  const atalhos = useMemo(
-    () => [
-      { label: 'Nova Ocorrência', path: '/rh/ocorrencias/novo', icon: <FileWarning className="h-4 w-4 text-amber-600" /> },
-      { label: 'Listar Ocorrências', path: '/rh/ocorrencias', icon: <ClipboardList className="h-4 w-4 text-blue-600" /> },
-      { label: 'Verificar Alertas', path: '/rh/alertas', icon: <Bell className="h-4 w-4 text-emerald-600" /> },
-      { label: 'Projetos VR', path: '/vr/projetos', icon: <Wallet className="h-4 w-4 text-purple-600" /> },
-      { label: 'Nova Entrega CEU', path: '/ceu/movimentacoes/novo', icon: <Package className="h-4 w-4 text-cyan-600" /> },
-      { label: 'Itens CEU', path: '/ceu/itens', icon: <Boxes className="h-4 w-4 text-indigo-600" /> },
-      { label: 'Contratos', path: '/adicionais/contratos', icon: <Briefcase className="h-4 w-4 text-rose-600" /> },
-      { label: 'Empresas', path: '/empresas', icon: <Building2 className="h-4 w-4 text-slate-600" /> },
-      { label: 'Colaboradores', path: '/colaboradores', icon: <Users className="h-4 w-4 text-teal-600" /> },
-    ],
-    []
-  )
 
   const experiencia = useMemo(() => {
     const hoje = new Date()
@@ -447,26 +372,6 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Atalhos rápidos */}
-        <Card className="rounded-2xl shadow-sm bg-white border-none">
-          <CardContent className="p-6">
-            <h3 className="text-base font-semibold text-slate-900 mb-4">Atalhos rápidos</h3>
-            <div className="flex flex-wrap gap-3">
-              {atalhos.map((atalho) => (
-                <Button
-                  key={atalho.path}
-                  variant="outline"
-                  onClick={() => navigate(atalho.path)}
-                  className="gap-2 rounded-lg border-slate-300 bg-white hover:bg-slate-50"
-                >
-                  {atalho.icon}
-                  {atalho.label}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Seções de rolagem */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -642,7 +547,7 @@ export function DashboardPage() {
                       <p className="text-xs text-slate-500">{colab.cargo || '—'} · {colab.departamento || '—'}</p>
                     </div>
                     <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700 bg-emerald-50">
-                      {formatarData(colab.data_admissao)}
+                      {formatarDiaMes(colab.data_admissao)}
                     </Badge>
                   </button>
                 ))}
@@ -690,91 +595,6 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         )}
-
-        {/* Colaboradores recentes e resumo por módulo */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="rounded-2xl shadow-sm bg-white border-none lg:col-span-2">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-slate-900">Colaboradores recentes</h3>
-                <span className="text-xs text-slate-500">
-                  Última atualização: {ultimaImportacao ? formatarData(ultimaImportacao.split('T')[0]) : 'Nunca'}
-                </span>
-              </div>
-
-              {ultimosColaboradores.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4">Nenhum colaborador encontrado.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-xs font-medium text-slate-500 border-b border-slate-100">
-                        <th className="pb-3 pl-2">Colaborador</th>
-                        <th className="pb-3">Cargo</th>
-                        <th className="pb-3">Departamento</th>
-                        <th className="pb-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ultimosColaboradores.map((colab) => {
-                        const status = statusConfig[colab.status]
-                        return (
-                          <tr
-                            key={colab.id}
-                            className="text-sm text-slate-700 border-b border-slate-50 last:border-none hover:bg-slate-50/50"
-                            style={{ height: '52px' }}
-                          >
-                            <td className="py-[7px] pl-2 font-medium text-slate-900">{colab.nome_completo}</td>
-                            <td className="py-[7px]">{colab.cargo || '—'}</td>
-                            <td className="py-[7px]">{colab.departamento || '—'}</td>
-                            <td className="py-[7px]">
-                              <div className="flex items-center gap-2">
-                                <span className={cn('w-2 h-2 rounded-full', status.bullet)} />
-                                <span>{status.label}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl shadow-sm bg-white border-none">
-            <CardContent className="p-6">
-              <h3 className="text-base font-semibold text-slate-900 mb-4">Resumo por módulo</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Projetos VR</span>
-                  <span className="font-semibold text-slate-900">{projetosVR}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Contratos adicionais</span>
-                  <span className="font-semibold text-slate-900">{contratosAdicionais}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Itens CEU</span>
-                  <span className="font-semibold text-slate-900">{totalItensCEU}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Entregas CEU no mês</span>
-                  <span className="font-semibold text-slate-900">{entregasMesCEU}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Afastados</span>
-                  <span className="font-semibold text-slate-900">{afastados}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Ocorrências no mês</span>
-                  <span className="font-semibold text-slate-900">{ocorrenciasMes}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

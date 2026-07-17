@@ -408,10 +408,10 @@ export function AdicionaisContratosPage() {
       </Dialog>
 
       <Dialog open={!!confirmarExclusao} onOpenChange={() => setConfirmarExclusao(null)}>
-        <DialogContent className="sm:max-w-sm rounded-xl">
+        <DialogContent className="sm:max-w-sm bg-white text-slate-900 border border-slate-200 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-base" style={{ color: '#1F2937' }}>Excluir contrato?</DialogTitle>
-            <DialogDescription className="text-xs" style={{ color: '#94A3B8' }}>
+            <DialogTitle className="text-base text-slate-900">Excluir contrato?</DialogTitle>
+            <DialogDescription className="text-xs text-slate-600">
               Esta ação remove o contrato e não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
