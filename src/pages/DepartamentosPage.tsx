@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { PageHeader } from '@/components/PageHeader'
+import { ModuleButton } from '@/components/layout/ModuleShell'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
 import * as XLSX from '@e965/xlsx'
@@ -697,27 +698,20 @@ export function DepartamentosPage() {
       </div>
 
       <Dialog open={!!confirmarExclusao} onOpenChange={() => setConfirmarExclusao(null)}>
-        <DialogContent className="sm:max-w-sm rounded-xl">
+        <DialogContent className="sm:max-w-sm bg-white text-slate-900 border border-slate-200 shadow-xl rounded-xl">
           <DialogHeader>
-            <DialogTitle className="text-base" style={{ color: '#1F2937' }}>Excluir departamento?</DialogTitle>
-            <DialogDescription className="text-xs" style={{ color: '#94A3B8' }}>
+            <DialogTitle className="text-base text-slate-900">Excluir departamento?</DialogTitle>
+            <DialogDescription className="text-xs text-slate-600">
               Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <button
-              onClick={() => setConfirmarExclusao(null)}
-              className="inline-flex items-center justify-center rounded-lg h-9 px-3 text-sm font-medium bg-white hover:bg-slate-50"
-              style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-            >
+            <ModuleButton variant="outline" size="sm" onClick={() => setConfirmarExclusao(null)}>
               Cancelar
-            </button>
-            <button
-              onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}
-              className="inline-flex items-center justify-center rounded-lg h-9 px-3 text-sm font-medium bg-red-600 text-white hover:bg-red-700"
-            >
+            </ModuleButton>
+            <ModuleButton variant="danger" size="sm" onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}>
               Excluir
-            </button>
+            </ModuleButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
