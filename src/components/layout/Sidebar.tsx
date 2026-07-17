@@ -41,6 +41,7 @@ interface MenuItem {
   path: string
   label: string
   icon: React.ReactNode
+  color: string
   permissao: { recurso: string; acao: string }
 }
 
@@ -48,6 +49,7 @@ interface MenuGroup {
   id: string
   label: string
   icon: React.ReactNode
+  color: string
   items: MenuItem[]
 }
 
@@ -58,58 +60,63 @@ const groups: MenuGroup[] = [
     id: 'cadastros',
     label: 'Cadastros',
     icon: <FolderOpen className="w-5 h-5" />,
+    color: '#7C3AED',
     items: [
-      { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'colaboradores' } },
-      { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'departamentos' } },
-      { path: '/empresas', label: 'Empresas', icon: <Building className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'empresas' } },
+      { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-4 h-4" />, color: '#059669', permissao: { recurso: 'menu', acao: 'colaboradores' } },
+      { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-4 h-4" />, color: '#7C3AED', permissao: { recurso: 'menu', acao: 'departamentos' } },
+      { path: '/empresas', label: 'Empresas', icon: <Building className="w-4 h-4" />, color: '#4F46E5', permissao: { recurso: 'menu', acao: 'empresas' } },
     ],
   },
   {
     id: 'operacional',
     label: 'Operacional',
     icon: <CalendarClock className="w-5 h-5" />,
+    color: '#EA580C',
     items: [
-      { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'escalas' } },
-      { path: '/extras', label: 'Extras', icon: <Banknote className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'extras' } },
+      { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-4 h-4" />, color: '#EA580C', permissao: { recurso: 'menu', acao: 'escalas' } },
+      { path: '/extras', label: 'Extras', icon: <Banknote className="w-4 h-4" />, color: '#DC2626', permissao: { recurso: 'menu', acao: 'extras' } },
     ],
   },
   {
     id: 'rh',
     label: 'RH',
     icon: <HeartPulse className="w-5 h-5" />,
+    color: '#E11D48',
     items: [
-      { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'ferias' } },
-      { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'rh' } },
+      { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-4 h-4" />, color: '#0891B2', permissao: { recurso: 'menu', acao: 'ferias' } },
+      { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-4 h-4" />, color: '#D97706', permissao: { recurso: 'menu', acao: 'rh' } },
     ],
   },
   {
     id: 'dp',
     label: 'DP',
     icon: <Briefcase className="w-5 h-5" />,
+    color: '#0D9488',
     items: [
-      { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'adicionais' } },
-      { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'vr' } },
-      { path: '/ceu/movimentacoes', label: 'CEU', icon: <Package className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'ceu' } },
+      { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-4 h-4" />, color: '#475569', permissao: { recurso: 'menu', acao: 'adicionais' } },
+      { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-4 h-4" />, color: '#10B981', permissao: { recurso: 'menu', acao: 'vr' } },
+      { path: '/ceu/movimentacoes', label: 'CEU', icon: <Package className="w-4 h-4" />, color: '#9333EA', permissao: { recurso: 'menu', acao: 'ceu' } },
     ],
   },
   {
     id: 'gestao',
     label: 'Gestão',
     icon: <ShieldCheck className="w-5 h-5" />,
+    color: '#9333EA',
     items: [
-      { path: '/auditoria', label: 'Auditoria', icon: <ClipboardList className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'auditoria' } },
-      { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'econtador' } },
-      { path: '/permissoes', label: 'Permissões', icon: <Shield className="w-4 h-4" />, permissao: { recurso: 'menu', acao: 'permissoes' } },
+      { path: '/auditoria', label: 'Auditoria', icon: <ClipboardList className="w-4 h-4" />, color: '#F97316', permissao: { recurso: 'menu', acao: 'auditoria' } },
+      { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-4 h-4" />, color: '#0EA5E9', permissao: { recurso: 'menu', acao: 'econtador' } },
+      { path: '/permissoes', label: 'Permissões', icon: <Shield className="w-4 h-4" />, color: '#E11D48', permissao: { recurso: 'menu', acao: 'permissoes' } },
     ],
   },
 ]
 
 const topItems: MenuItem[] = [
-  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'dashboard' } },
+  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, color: '#2563EB', permissao: { recurso: 'menu', acao: 'dashboard' } },
 ]
 
 const bottomItems: MenuItem[] = [
-  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, permissao: { recurso: 'menu', acao: 'relatorios' } },
+  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, color: '#2563EB', permissao: { recurso: 'menu', acao: 'relatorios' } },
 ]
 
 function getInitialExpandedState(): Record<string, boolean> {
@@ -218,9 +225,9 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
               )
             }
           >
-            {({ isActive }) => (
+            {() => (
               <>
-                <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
+                <span className="flex-shrink-0" style={{ color: item.color }}>
                   {item.icon}
                 </span>
                 {isOpen && <span>{item.label}</span>}
@@ -247,7 +254,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
                 )}
                 title={group.label}
               >
-                <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
+                <span className="flex-shrink-0" style={{ color: group.color }}>
                   {group.icon}
                 </span>
                 {isOpen && (
@@ -278,9 +285,9 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
                         )
                       }
                     >
-                      {({ isActive }) => (
+                      {() => (
                         <>
-                          <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
+                          <span className="flex-shrink-0" style={{ color: item.color }}>
                             {item.icon}
                           </span>
                           <span>{item.label}</span>
@@ -308,9 +315,9 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
               )
             }
           >
-            {({ isActive }) => (
+            {() => (
               <>
-                <span className={cn('flex-shrink-0', isActive ? 'text-[#0F5EDD]' : 'text-slate-500')}>
+                <span className="flex-shrink-0" style={{ color: item.color }}>
                   {item.icon}
                 </span>
                 {isOpen && <span>{item.label}</span>}
