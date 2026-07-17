@@ -73,6 +73,46 @@ export function AbaEscalasDiario() {
 
   const competencia: Competencia = useMemo(() => calcularCompetencia(aplicado.ano, aplicado.mes), [aplicado.ano, aplicado.mes])
 
+  const obterCompetenciaAplicada = useCallback((): Competencia | null => {
+    if (aplicado.modoPeriodo === 'competencia') {
+      return calcularCompetencia(aplicado.ano, aplicado.mes)
+    }
+    if (aplicado.dataInicio && aplicado.dataFim) {
+      return {
+        ano: aplicado.ano,
+        mes: aplicado.mes,
+        inicio: aplicado.dataInicio,
+        fim: aplicado.dataFim,
+        label: `${aplicado.dataInicio} a ${aplicado.dataFim}`,
+      }
+    }
+    return null
+  }, [aplicado])
+
+  const ordenarDias = useCallback(
+    (dados: LocalTrabalhoDiario[]) => {
+      const sorted = [...dados]
+      sorted.sort((a, b) => {
+        if (ordenacao.coluna === 'data') {
+          return ordenacao.direcao === 'asc' ? a.data.localeCompare(b.data) : b.data.localeCompare(a.data)
+        }
+        const nomeA = a.colaborador?.nome_completo || ''
+        const nomeB = b.colaborador?.nome_completo || ''
+        return ordenacao.direcao === 'asc' ? nomeA.localeCompare(nomeB) : nomeB.localeCompare(nomeA)
+      })
+      return sorted
+    },
+    [ordenacao]
+  )
+
+  const buscarDadosFiltrados = useCallback(async (): Promise<LocalTrabalhoDiario[]> => {
+    const periodo = obterCompetenciaAplicada()
+    if (!periodo) return []
+    const filtros = { colaboradorId: aplicado.colaboradorId, localTrabalhoId: aplicado.localId, status: aplicado.status }
+    const dados = await listar(periodo, filtros)
+    return ordenarDias(dados)
+  }, [aplicado, listar, obterCompetenciaAplicada, ordenarDias])
+
   const executarBusca = useCallback(async () => {
     setSelecionados(new Set())
     if (aplicado.modoPeriodo === 'competencia') {
@@ -104,18 +144,7 @@ export function AbaEscalasDiario() {
     }
   }, [diaEditando, buscarHistoricoColaborador])
 
-  const diasOrdenados = useMemo(() => {
-    const sorted = [...dias]
-    sorted.sort((a, b) => {
-      if (ordenacao.coluna === 'data') {
-        return ordenacao.direcao === 'asc' ? a.data.localeCompare(b.data) : b.data.localeCompare(a.data)
-      }
-      const nomeA = a.colaborador?.nome_completo || ''
-      const nomeB = b.colaborador?.nome_completo || ''
-      return ordenacao.direcao === 'asc' ? nomeA.localeCompare(nomeB) : nomeB.localeCompare(nomeA)
-    })
-    return sorted
-  }, [dias, ordenacao])
+  const diasOrdenados = useMemo(() => ordenarDias(dias), [dias, ordenarDias])
 
   const toggleOrdenacao = (coluna: 'data' | 'colaborador') => {
     setOrdenacao((atual) => ({
@@ -195,7 +224,7 @@ export function AbaEscalasDiario() {
 
   const exportarExcel = async () => {
     try {
-      const dados = diasOrdenados
+      const dados = await buscarDadosFiltrados()
       if (dados.length === 0) {
         toast.info('Nenhum registro para exportar. Aplique um filtro primeiro.')
         return
@@ -222,7 +251,7 @@ export function AbaEscalasDiario() {
 
   const exportarPDF = async () => {
     try {
-      const dados = diasOrdenados
+      const dados = await buscarDadosFiltrados()
       if (dados.length === 0) {
         toast.info('Nenhum registro para exportar. Aplique um filtro primeiro.')
         return
