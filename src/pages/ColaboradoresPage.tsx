@@ -18,6 +18,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
@@ -257,26 +265,61 @@ export function ColaboradoresPage() {
               <p>Nenhum colaborador encontrado.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {colaboradoresFiltrados.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => abrirDetalhes(c)}
-                  className="flex items-start gap-3 p-3 bg-white rounded-[12px] shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B] text-[14px] font-semibold">
-                    {c.nome_completo ? (
-                      <span>{iniciais(c.nome_completo)}</span>
-                    ) : (
-                      <User className="w-6 h-6" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-medium text-[#1F2937] leading-tight line-clamp-3 sm:line-clamp-2 break-words">{c.nome_completo}</p>
-                    <p className="text-[12px] font-normal text-[#94A3B8] mt-0.5 line-clamp-2 sm:line-clamp-1 break-words">{c.cargo || c.departamento || '—'}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="border rounded-xl overflow-hidden" style={{ borderColor: '#F1F5F9' }}>
+              <Table>
+                <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
+                  <TableRow>
+                    <TableHead style={{ color: '#1F2937' }}>Colaborador</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Cargo</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Departamento</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Empresa</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Telefone</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Status</TableHead>
+                    <TableHead className="w-24"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {colaboradoresFiltrados.map((c) => (
+                    <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => abrirDetalhes(c)}>
+                      <TableCell className="font-medium" style={{ color: '#1F2937' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B] text-xs font-semibold">
+                            {c.foto_url ? (
+                              <img src={c.foto_url} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : c.nome_completo ? (
+                              <span>{iniciais(c.nome_completo)}</span>
+                            ) : (
+                              <User className="w-4 h-4" />
+                            )}
+                          </div>
+                          <span className="line-clamp-2 sm:line-clamp-1 break-words">{c.nome_completo}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell style={{ color: '#64748B' }}>{c.cargo || '—'}</TableCell>
+                      <TableCell style={{ color: '#64748B' }}>{c.departamento || '—'}</TableCell>
+                      <TableCell style={{ color: '#64748B' }}>{empresas.find((e) => e.id === c.empresa_id)?.nome || '—'}</TableCell>
+                      <TableCell style={{ color: '#64748B' }}>{c.telefone || c.celular || '—'}</TableCell>
+                      <TableCell><BadgeStatus status={c.status} /></TableCell>
+                      <TableCell>
+                        {podeEditar && (
+                          <button
+                            type="button"
+                            className="p-1.5 rounded-md hover:bg-slate-100"
+                            style={{ color: '#1F2937' }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              abrirDetalhes(c)
+                              setModoEdicao(true)
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
           {paginacao && paginacao.totalPaginas > 1 && (
