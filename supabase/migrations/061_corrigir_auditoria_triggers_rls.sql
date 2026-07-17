@@ -1,0 +1,187 @@
+-- Migração 061: Corrige auditoria automática e RLS da tabela log_auditoria
+--
+-- Problema: a migration 059 criou policies de INSERT/UPDATE/DELETE na tabela
+-- log_auditoria exigindo admin. Isso pode bloquear os triggers de auditoria,
+-- que devem executar independentemente do usuário logado.
+--
+-- Solução:
+--   1. Garante a estrutura da tabela log_auditoria.
+--   2. Recria a função de auditoria como SECURITY DEFINER.
+--   3. Recria os triggers nas tabelas críticas.
+--   4. Remove policies de INSERT/UPDATE/DELETE de log_auditoria (triggers não
+--      devem ser limitados por RLS).
+--   5. Mantém SELECT restrito a admin/editor para proteger dados sensíveis.
+
+-- ============================================================
+-- 1. Garante estrutura da tabela de log
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.log_auditoria (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tabela text NOT NULL,
+  registro_id text NOT NULL,
+  operacao text NOT NULL CHECK (operacao IN ('INSERT', 'UPDATE', 'DELETE', 'CANCEL')),
+  dados_anteriores jsonb,
+  dados_novos jsonb,
+  usuario_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.log_auditoria IS 'Registro automático de alterações em dados sensíveis do sistema';
+
+CREATE INDEX IF NOT EXISTS idx_log_auditoria_tabela ON public.log_auditoria(tabela);
+CREATE INDEX IF NOT EXISTS idx_log_auditoria_registro_id ON public.log_auditoria(registro_id);
+CREATE INDEX IF NOT EXISTS idx_log_auditoria_created_at ON public.log_auditoria(created_at);
+
+-- ============================================================
+-- 2. Recria função genérica de auditoria
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.auditar_operacao()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    INSERT INTO public.log_auditoria (tabela, registro_id, operacao, dados_novos, usuario_id)
+    VALUES (TG_TABLE_NAME, COALESCE(NEW.id::text, 'sem-id'), 'INSERT', to_jsonb(NEW), auth.uid());
+    RETURN NEW;
+  ELSIF (TG_OP = 'UPDATE') THEN
+    INSERT INTO public.log_auditoria (tabela, registro_id, operacao, dados_anteriores, dados_novos, usuario_id)
+    VALUES (TG_TABLE_NAME, COALESCE(NEW.id::text, OLD.id::text, 'sem-id'), 'UPDATE', to_jsonb(OLD), to_jsonb(NEW), auth.uid());
+    RETURN NEW;
+  ELSIF (TG_OP = 'DELETE') THEN
+    INSERT INTO public.log_auditoria (tabela, registro_id, operacao, dados_anteriores, usuario_id)
+    VALUES (TG_TABLE_NAME, COALESCE(OLD.id::text, 'sem-id'), 'DELETE', to_jsonb(OLD), auth.uid());
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+-- ============================================================
+-- 3. Recria função específica de auditoria para permissoes_perfil
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.auditar_permissoes_perfil()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    INSERT INTO public.log_auditoria (tabela, registro_id, operacao, dados_novos, usuario_id)
+    VALUES (
+      'permissoes_perfil',
+      COALESCE(NEW.id::text, 'sem-id'),
+      'INSERT',
+      to_jsonb(NEW),
+      auth.uid()
+    );
+    RETURN NEW;
+
+  ELSIF (TG_OP = 'UPDATE') THEN
+    IF NEW.permitido IS DISTINCT FROM OLD.permitido THEN
+      INSERT INTO public.log_auditoria (
+        tabela,
+        registro_id,
+        operacao,
+        dados_anteriores,
+        dados_novos,
+        usuario_id
+      )
+      VALUES (
+        'permissoes_perfil',
+        COALESCE(NEW.id::text, OLD.id::text, 'sem-id'),
+        'UPDATE',
+        to_jsonb(OLD),
+        to_jsonb(NEW),
+        auth.uid()
+      );
+    END IF;
+    RETURN NEW;
+
+  ELSIF (TG_OP = 'DELETE') THEN
+    INSERT INTO public.log_auditoria (tabela, registro_id, operacao, dados_anteriores, usuario_id)
+    VALUES (
+      'permissoes_perfil',
+      COALESCE(OLD.id::text, 'sem-id'),
+      'DELETE',
+      to_jsonb(OLD),
+      auth.uid()
+    );
+    RETURN OLD;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+-- ============================================================
+-- 4. Recria triggers nas tabelas críticas
+-- ============================================================
+
+DROP TRIGGER IF EXISTS trigger_auditoria_ocorrencias ON public.ocorrencias;
+CREATE TRIGGER trigger_auditoria_ocorrencias
+  AFTER INSERT OR UPDATE OR DELETE ON public.ocorrencias
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_operacao();
+
+DROP TRIGGER IF EXISTS trigger_auditoria_colaboradores ON public.colaboradores;
+CREATE TRIGGER trigger_auditoria_colaboradores
+  AFTER INSERT OR UPDATE OR DELETE ON public.colaboradores
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_operacao();
+
+DROP TRIGGER IF EXISTS trigger_auditoria_extras ON public.extras;
+CREATE TRIGGER trigger_auditoria_extras
+  AFTER INSERT OR UPDATE OR DELETE ON public.extras
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_operacao();
+
+DROP TRIGGER IF EXISTS trigger_auditoria_recibos_extras ON public.recibos_extras;
+CREATE TRIGGER trigger_auditoria_recibos_extras
+  AFTER INSERT OR UPDATE OR DELETE ON public.recibos_extras
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_operacao();
+
+DROP TRIGGER IF EXISTS trigger_auditoria_projetos_vr ON public.projetos_vr;
+CREATE TRIGGER trigger_auditoria_projetos_vr
+  AFTER INSERT OR UPDATE OR DELETE ON public.projetos_vr
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_operacao();
+
+DROP TRIGGER IF EXISTS trigger_auditoria_resultados_vr ON public.resultados_vr;
+CREATE TRIGGER trigger_auditoria_resultados_vr
+  AFTER INSERT OR UPDATE OR DELETE ON public.resultados_vr
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_operacao();
+
+DROP TRIGGER IF EXISTS trigger_auditoria_permissoes_perfil ON public.permissoes_perfil;
+CREATE TRIGGER trigger_auditoria_permissoes_perfil
+  AFTER INSERT OR UPDATE OR DELETE ON public.permissoes_perfil
+  FOR EACH ROW EXECUTE FUNCTION public.auditar_permissoes_perfil();
+
+-- ============================================================
+-- 5. Corrige RLS da tabela log_auditoria
+--    - SELECT restrito a admin/editor (dados sensíveis)
+--    - INSERT/UPDATE/DELETE sem policy (triggers SECURITY DEFINER)
+-- ============================================================
+
+ALTER TABLE public.log_auditoria ENABLE ROW LEVEL SECURITY;
+
+-- Remove todas as policies antigas para recriar de forma limpa
+DROP POLICY IF EXISTS "Permitir select para autenticados" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir insert para autenticados" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir update para autenticados" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir delete apenas para admins" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir insert para editores" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir update para editores" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir select de log_auditoria" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Log auditoria select restrito" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir insert de log_auditoria" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir update de log_auditoria" ON public.log_auditoria;
+DROP POLICY IF EXISTS "Permitir delete de log_auditoria" ON public.log_auditoria;
+
+-- Apenas SELECT restrito. INSERT/UPDATE/DELETE ficam sem policy para os triggers.
+CREATE POLICY "Permitir select de log_auditoria"
+  ON public.log_auditoria
+  FOR SELECT TO authenticated
+  USING (public.is_admin() OR public.is_editor());
