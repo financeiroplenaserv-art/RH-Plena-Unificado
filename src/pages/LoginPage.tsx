@@ -3,6 +3,7 @@ import { Loader2, Eye, EyeOff, ShieldCheck, Building2, BarChart3, Users } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BrandHug } from '@/components/BrandHug'
 
 interface LoginPageProps {
   onLogin: (email: string, senha: string) => Promise<void>
@@ -23,6 +24,8 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
     <div className="min-h-screen w-full flex flex-col lg:flex-row">
       {/* Lado esquerdo — Branding / Hero */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#2563eb]">
+        <BrandHug />
+
         {/* Elementos decorativos sutis */}
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute bottom-12 -left-12 w-64 h-64 rounded-full bg-blue-400/10 blur-3xl" />

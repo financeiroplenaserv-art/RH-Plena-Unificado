@@ -4,8 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
-const THEME_COLOR = '#65a2cd'
-const BACKGROUND_COLOR = '#65a2cd'
+const THEME_COLOR = '#16225C'
+const BACKGROUND_COLOR = '#16225C'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -36,19 +36,19 @@ export default defineConfig({
         dir: 'ltr',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: '/corh_icone_app_192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-512x512.png',
+            src: '/corh_icone_app_512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-512x512.png',
+            src: '/corh_icone_app_512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
