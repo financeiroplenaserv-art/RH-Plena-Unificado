@@ -300,7 +300,11 @@ export function ColaboradoresPage() {
                       <TableCell style={{ color: '#64748B' }}>{c.cargo || '—'}</TableCell>
                       <TableCell style={{ color: '#64748B' }}>
                         {(() => {
-                          const dep = departamentos.find((d) => d.id === c.departamento_id)
+                          const dep =
+                            departamentos.find((d) => d.id === c.departamento_id) ||
+                            departamentos.find(
+                              (d) => d.nome?.trim().toLowerCase() === (c.departamento || '').trim().toLowerCase()
+                            )
                           return dep?.nome_curto?.trim() || dep?.nome?.trim() || c.departamento || '—'
                         })()}
                       </TableCell>
