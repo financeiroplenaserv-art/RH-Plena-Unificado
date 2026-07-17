@@ -50,6 +50,7 @@ export function ColaboradoresPage() {
   const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
   const [cargos, setCargos] = useState<{ nome: string }[]>([])
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
+  const [departamentos, setDepartamentos] = useState<{ id: string; nome: string; nome_curto: string | null }[]>([])
   const [colaboradorSelecionado, setColaboradorSelecionado] = useState<Colaborador | null>(null)
   const [modoEdicao, setModoEdicao] = useState(false)
   const [formEdicao, setFormEdicao] = useState<Partial<Colaborador>>({})
@@ -59,9 +60,10 @@ export function ColaboradoresPage() {
   useEffect(() => {
     listarPaginado({ status: 'Ativo' }, { pagina: 0, tamanho: 50 })
     async function carregarOpcoes() {
-      const [{ data: cargosData }, { data: empresasData }] = await Promise.all([
+      const [{ data: cargosData }, { data: empresasData }, { data: departamentosData }] = await Promise.all([
         supabase.from('colaboradores').select('cargo').not('cargo', 'is', null),
         supabase.from('empresas').select('id, nome').order('nome'),
+        supabase.from('departamentos').select('id, nome, nome_curto').order('nome_curto'),
       ])
 
       const cargosUnicos = Array.from(
@@ -70,6 +72,7 @@ export function ColaboradoresPage() {
       setCargos(cargosUnicos.map((nome) => ({ nome })))
 
       setEmpresas((empresasData || []) as { id: string; nome: string }[])
+      setDepartamentos((departamentosData || []) as { id: string; nome: string; nome_curto: string | null }[])
     }
     carregarOpcoes()
   }, [listarPaginado])
@@ -272,7 +275,6 @@ export function ColaboradoresPage() {
                     <TableHead style={{ color: '#1F2937' }}>Colaborador</TableHead>
                     <TableHead style={{ color: '#1F2937' }}>Cargo</TableHead>
                     <TableHead style={{ color: '#1F2937' }}>Departamento</TableHead>
-                    <TableHead style={{ color: '#1F2937' }}>Empresa</TableHead>
                     <TableHead style={{ color: '#1F2937' }}>Telefone</TableHead>
                     <TableHead style={{ color: '#1F2937' }}>Status</TableHead>
                     <TableHead className="w-24"></TableHead>
@@ -296,9 +298,13 @@ export function ColaboradoresPage() {
                         </div>
                       </TableCell>
                       <TableCell style={{ color: '#64748B' }}>{c.cargo || '—'}</TableCell>
-                      <TableCell style={{ color: '#64748B' }}>{c.departamento || '—'}</TableCell>
-                      <TableCell style={{ color: '#64748B' }}>{empresas.find((e) => e.id === c.empresa_id)?.nome || '—'}</TableCell>
-                      <TableCell style={{ color: '#64748B' }}>{c.telefone || c.celular || '—'}</TableCell>
+                      <TableCell style={{ color: '#64748B' }}>
+                        {(() => {
+                          const dep = departamentos.find((d) => d.id === c.departamento_id)
+                          return dep?.nome_curto?.trim() || dep?.nome?.trim() || c.departamento || '—'
+                        })()}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap" style={{ color: '#64748B' }}>{c.telefone || c.celular || '—'}</TableCell>
                       <TableCell><BadgeStatus status={c.status} /></TableCell>
                       <TableCell>
                         {podeEditar && (
