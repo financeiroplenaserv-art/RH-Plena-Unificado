@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import type { LocalTrabalhoDiario, MapeamentoFlitLocalTrabalho, Colaborador } from '@/types/database'
-import { parseExcelFlit, agruparBatidasPorDia, encontrarColaborador } from '@/lib/escalas/importarFlit'
+import type { LocalTrabalhoDiario, MapeamentoFlitLocalTrabalho, Colaborador, LocalTrabalho } from '@/types/database'
+import { parseExcelFlit, encontrarColaborador } from '@/lib/escalas/importarFlit'
 import { inferirLocalTrabalho } from '@/lib/escalas/inferirLocalTrabalho'
+import { nomesSimilares } from '@/lib/utils'
 
 const COLUNAS_LOCAL_TRABALHO_DIARIO = 'id, colaborador_id, data, local_trabalho_id, fonte, usuario_confirmacao_id, confirmado_em, observacao, importacao_ref, created_at, updated_at'
 const COLUNAS_COLABORADOR_ESCALAS = 'id, nome_completo, matricula'
@@ -53,33 +54,46 @@ export function useEscalasDiario() {
   const [loading, setLoading] = useState(false)
   const [importando, setImportando] = useState(false)
 
+  const criarQuery = useCallback((competencia: Competencia, filtros: FiltrosEscalasDiario = {}) => {
+    let query = supabase
+      .from('locais_trabalho_diario')
+      .select(`${COLUNAS_LOCAL_TRABALHO_DIARIO}, colaborador:colaboradores(${COLUNAS_COLABORADOR_ESCALAS}), local_trabalho:locais_trabalho(${COLUNAS_LOCAL_TRABALHO})`)
+      .gte('data', competencia.inicio)
+      .lte('data', competencia.fim)
+      .order('data', { ascending: true })
+
+    if (filtros.colaboradorId) {
+      query = query.eq('colaborador_id', filtros.colaboradorId)
+    }
+    if (filtros.localTrabalhoId) {
+      query = query.eq('local_trabalho_id', filtros.localTrabalhoId)
+    }
+    if (filtros.status === 'identificados') {
+      query = query.not('local_trabalho_id', 'is', null)
+    } else if (filtros.status === 'pendentes') {
+      query = query.is('local_trabalho_id', null)
+    }
+
+    return query
+  }, [])
+
   const listar = useCallback(async (
     competencia: Competencia,
     filtros: FiltrosEscalasDiario = {}
   ) => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('locais_trabalho_diario')
-        .select(`${COLUNAS_LOCAL_TRABALHO_DIARIO}, colaborador:colaboradores(${COLUNAS_COLABORADOR_ESCALAS}), local_trabalho:locais_trabalho(${COLUNAS_LOCAL_TRABALHO})`)
-        .gte('data', competencia.inicio)
-        .lte('data', competencia.fim)
-        .order('data', { ascending: true })
-
-      if (filtros.colaboradorId) {
-        query = query.eq('colaborador_id', filtros.colaboradorId)
-      }
-      if (filtros.localTrabalhoId) {
-        query = query.eq('local_trabalho_id', filtros.localTrabalhoId)
-      }
-      if (filtros.status === 'identificados') {
-        query = query.not('local_trabalho_id', 'is', null)
-      } else if (filtros.status === 'pendentes') {
-        query = query.is('local_trabalho_id', null)
-      }
-
-      const { data, error } = await query
+      const query = criarQuery(competencia, filtros)
+      const { data, error, count } = await query
       if (error) throw error
+
+      // Log de debug para rastrear divergências entre tabela e exportação.
+      console.log('[useEscalasDiario.listar]', {
+        competencia: `${competencia.inicio} a ${competencia.fim}`,
+        filtros,
+        retornados: (data || []).length,
+        count,
+      })
 
       setDias((data || []) as unknown as LocalTrabalhoDiario[])
       return (data || []) as unknown as LocalTrabalhoDiario[]
@@ -90,7 +104,37 @@ export function useEscalasDiario() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [criarQuery])
+
+  const listarTodos = useCallback(async (
+    competencia: Competencia,
+    filtros: FiltrosEscalasDiario = {}
+  ): Promise<LocalTrabalhoDiario[]> => {
+    const PAGE_SIZE = 1000
+    const todos: LocalTrabalhoDiario[] = []
+    let start = 0
+
+    while (true) {
+      const query = criarQuery(competencia, filtros).range(start, start + PAGE_SIZE - 1)
+      const { data, error } = await query
+      if (error) throw error
+
+      const pagina = (data || []) as unknown as LocalTrabalhoDiario[]
+      if (pagina.length === 0) break
+
+      todos.push(...pagina)
+      if (pagina.length < PAGE_SIZE) break
+      start += PAGE_SIZE
+    }
+
+    console.log('[useEscalasDiario.listarTodos]', {
+      competencia: `${competencia.inicio} a ${competencia.fim}`,
+      filtros,
+      total: todos.length,
+    })
+
+    return todos
+  }, [criarQuery])
 
   const confirmarManual = useCallback(async (
     diaId: string,
@@ -154,17 +198,25 @@ export function useEscalasDiario() {
     file: File,
     colaboradores: Colaborador[],
     mapeamentos: MapeamentoFlitLocalTrabalho[],
+    locais: LocalTrabalho[],
     competencia: Competencia | null
   ) => {
     setImportando(true)
     try {
-      const batidas = await parseExcelFlit(file)
-      const dias = agruparBatidasPorDia(batidas)
+      const dias = await parseExcelFlit(file)
 
       const registrosPorChave = new Map<string, Partial<LocalTrabalhoDiario>>()
       const naoEncontrados = new Set<string>()
       let identificados = 0
       let pendentes = 0
+
+      const encontrarLocalPorNome = (nome: string): LocalTrabalho | undefined => {
+        if (!nome) return undefined
+        return locais.find((l) =>
+          nomesSimilares(l.nome, nome) ||
+          nomesSimilares(l.nome_curto || l.nome, nome)
+        )
+      }
 
       for (const dia of dias) {
         // Filtra apenas dias dentro da competência (se informada)
@@ -178,31 +230,58 @@ export function useEscalasDiario() {
           continue
         }
 
-        const inferido = inferirLocalTrabalho(mapeamentos, {
-          tipoDispositivo: dia.tipoDispositivo,
-          nomeDispositivo: dia.nomeDispositivo,
-          perimetro: dia.perimetro,
-          departamento: dia.departamento,
-          turno: dia.turno,
-        })
+        let localTrabalhoId: string | null = null
+        let fonte: LocalTrabalhoDiario['fonte'] = 'nao_identificado'
+
+        if (dia.localTrabalhoNome) {
+          // Formato de exportação do CORH: local já resolvido
+          const local = encontrarLocalPorNome(dia.localTrabalhoNome)
+          if (local) {
+            localTrabalhoId = local.id
+            fonte = 'manual'
+          } else {
+            pendentes++
+          }
+        } else {
+          // Formato Flit: inferência por mapeamentos
+          const inferido = inferirLocalTrabalho(mapeamentos, {
+            tipoDispositivo: dia.tipoDispositivo,
+            nomeDispositivo: dia.nomeDispositivo,
+            perimetro: dia.perimetro,
+            departamento: dia.departamento,
+            turno: dia.turno,
+          })
+          if (inferido) {
+            localTrabalhoId = inferido.localTrabalhoId
+            fonte = inferido.fonte
+            identificados++
+          } else {
+            pendentes++
+          }
+        }
+
+        if (fonte !== 'nao_identificado') {
+          identificados++
+        }
 
         const chave = `${colaborador.id}|${dia.data}`
         if (registrosPorChave.has(chave)) {
-          // Evita duplicatas no upsert (mesmo colaborador + mesma data)
+          // Evita duplicatas no upsert (mesmo colaborador + mesma data).
+          // Registra no console para facilitar investigação de perda de registros.
+          console.warn('[useEscalasDiario.importarExcelFlit] Registro duplicado descartado:', {
+            colaboradorId: colaborador.id,
+            data: dia.data,
+            nome: dia.nomeColaborador,
+            matricula: dia.matricula,
+          })
           continue
-        }
-
-        if (inferido) {
-          identificados++
-        } else {
-          pendentes++
         }
 
         registrosPorChave.set(chave, {
           colaborador_id: colaborador.id,
           data: dia.data,
-          local_trabalho_id: inferido?.localTrabalhoId || null,
-          fonte: inferido?.fonte || 'nao_identificado',
+          local_trabalho_id: localTrabalhoId,
+          fonte,
           observacao: null,
         })
       }
@@ -292,6 +371,7 @@ export function useEscalasDiario() {
     loading,
     importando,
     listar,
+    listarTodos,
     confirmarManual,
     aplicarEmLote,
     importarExcelFlit,

@@ -47,7 +47,7 @@ const filtroInicial: FiltroEscalas = {
 }
 
 export function AbaEscalasDiario() {
-  const { dias, loading, listar, confirmarManual, aplicarEmLote, buscarHistoricoColaborador } = useEscalasDiario()
+  const { dias, loading, listar, listarTodos, confirmarManual, aplicarEmLote, buscarHistoricoColaborador } = useEscalasDiario()
   const { locais, listar: listarLocais } = useEscalasLocais()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
 
@@ -105,32 +105,30 @@ export function AbaEscalasDiario() {
     [ordenacao]
   )
 
+  const obterFiltrosAplicados = useCallback(() => ({
+    colaboradorId: aplicado.colaboradorId,
+    localTrabalhoId: aplicado.localId,
+    status: aplicado.status,
+  }), [aplicado])
+
+  const buscarDados = useCallback(async (): Promise<LocalTrabalhoDiario[]> => {
+    const periodo = obterCompetenciaAplicada()
+    if (!periodo) return []
+    const dados = await listar(periodo, obterFiltrosAplicados())
+    return ordenarDias(dados)
+  }, [obterCompetenciaAplicada, obterFiltrosAplicados, listar, ordenarDias])
+
   const buscarDadosFiltrados = useCallback(async (): Promise<LocalTrabalhoDiario[]> => {
     const periodo = obterCompetenciaAplicada()
     if (!periodo) return []
-    const filtros = { colaboradorId: aplicado.colaboradorId, localTrabalhoId: aplicado.localId, status: aplicado.status }
-    const dados = await listar(periodo, filtros)
+    const dados = await listarTodos(periodo, obterFiltrosAplicados())
     return ordenarDias(dados)
-  }, [aplicado, listar, obterCompetenciaAplicada, ordenarDias])
+  }, [obterCompetenciaAplicada, obterFiltrosAplicados, listarTodos, ordenarDias])
 
   const executarBusca = useCallback(async () => {
     setSelecionados(new Set())
-    if (aplicado.modoPeriodo === 'competencia') {
-      return await listar(competencia, { colaboradorId: aplicado.colaboradorId, localTrabalhoId: aplicado.localId, status: aplicado.status })
-    } else if (aplicado.dataInicio && aplicado.dataFim) {
-      return await listar(
-        {
-          ano: aplicado.ano,
-          mes: aplicado.mes,
-          inicio: aplicado.dataInicio,
-          fim: aplicado.dataFim,
-          label: `${aplicado.dataInicio} a ${aplicado.dataFim}`,
-        },
-        { colaboradorId: aplicado.colaboradorId, localTrabalhoId: aplicado.localId, status: aplicado.status }
-      )
-    }
-    return []
-  }, [aplicado, competencia, listar])
+    await buscarDados()
+  }, [buscarDados])
 
   useEffect(() => {
     executarBusca()

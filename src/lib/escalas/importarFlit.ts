@@ -1,5 +1,5 @@
 import type { Colaborador } from '@/types/database'
-import { normalizarTexto } from './normalizarTexto'
+import { normalizarTexto, normalizarMatricula } from './normalizarTexto'
 
 export interface BatidaFlit {
   nomeColaborador: string
@@ -24,12 +24,17 @@ export interface DiaFlit {
   departamento: string
   turno: string
   batidas: Array<{ hora: string }>
+  // Quando o arquivo for uma exportação do CORH, guarda o nome do local já resolvido.
+  localTrabalhoNome?: string
 }
+
+export type FormatoEscalasExcel = 'flit' | 'exportacao_corh' | 'desconhecido'
 
 export interface ResultadoImportacaoFlit {
   dias: DiaFlit[]
   totalLinhas: number
   colaboradoresNaoEncontrados: string[]
+  formato: FormatoEscalasExcel
 }
 
 async function getXLSX() {
@@ -140,10 +145,107 @@ function coletarTodasAsChaves(jsonData: Record<string, unknown>[]): string[] {
   return Array.from(chaves)
 }
 
-function parseJsonRows(jsonData: Record<string, unknown>[]): BatidaFlit[] {
+function detectarFormato(todasAsChaves: string[]): FormatoEscalasExcel {
+  const chavesNormalizadas = todasAsChaves.map((k) => normalizarTexto(k))
+  const temNome = chavesNormalizadas.some((k) => ['colaborador', 'nome', 'nome do colaborador', 'funcionario'].includes(k))
+  const temData = chavesNormalizadas.some((k) => ['data', 'data da batida', 'dia'].includes(k))
+  const temHora = chavesNormalizadas.some((k) => ['hora', 'horario', 'horário'].includes(k))
+  const temLocalExportacao = chavesNormalizadas.includes('local de trabalho')
+  const temFonteExportacao = chavesNormalizadas.includes('fonte')
+
+  if (temLocalExportacao && temFonteExportacao && temNome && temData) {
+    return 'exportacao_corh'
+  }
+  if (temNome && temData && temHora) {
+    return 'flit'
+  }
+  return 'desconhecido'
+}
+
+function extrairNomeMatricula(colaboradorValor: unknown): { nome: string; matricula: string } {
+  const texto = String(colaboradorValor || '').trim()
+  // Formato esperado: "NOME COMPLETO (000123)"
+  const match = texto.match(/^(.*?)\s*\(([^)]+)\)\s*$/)
+  if (match) {
+    return { nome: match[1].trim(), matricula: match[2].trim() }
+  }
+  return { nome: texto, matricula: '' }
+}
+
+function parseDataExportacaoCorh(dataValor: unknown): string | null {
+  const dataStr = String(dataValor).trim()
+  // DD/MM/YYYY
+  const partes = dataStr.split('/')
+  if (partes.length === 3) {
+    const dia = parseInt(partes[0], 10)
+    const mes = parseInt(partes[1], 10) - 1
+    const ano = parseInt(partes[2], 10)
+    if (!isNaN(dia) && !isNaN(mes) && !isNaN(ano)) {
+      const data = new Date(ano, mes, dia)
+      if (!isNaN(data.getTime())) {
+        return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+      }
+    }
+  }
+  // Tenta outros formatos
+  const data = new Date(dataStr)
+  if (!isNaN(data.getTime())) {
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+  }
+  return null
+}
+
+function parseExportacaoCorh(jsonData: Record<string, unknown>[]): DiaFlit[] {
   if (jsonData.length === 0) return []
 
   const todasAsChaves = coletarTodasAsChaves(jsonData)
+  const colDia = detectarColuna(todasAsChaves, ['dia', 'data'])
+  const colColaborador = detectarColuna(todasAsChaves, ['colaborador', 'nome', 'nome do colaborador', 'funcionario'])
+  const colLocal = detectarColuna(todasAsChaves, ['local de trabalho'])
+
+  if (!colDia || !colColaborador || !colLocal) {
+    throw new Error(`Colunas obrigatórias não encontradas na exportação do CORH (Dia, Colaborador, Local de Trabalho). Colunas detectadas: ${todasAsChaves.join(', ')}`)
+  }
+
+  return jsonData
+    .map((row): DiaFlit | null => {
+      const data = parseDataExportacaoCorh(row[colDia])
+      if (!data) return null
+
+      const { nome, matricula } = extrairNomeMatricula(row[colColaborador])
+      if (!nome) return null
+
+      return {
+        nomeColaborador: nome,
+        matricula,
+        data,
+        tipoDispositivo: '',
+        nomeDispositivo: '',
+        perimetro: '',
+        departamento: '',
+        turno: '',
+        batidas: [],
+        localTrabalhoNome: String(row[colLocal] || '').trim() || undefined,
+      }
+    })
+    .filter((d): d is DiaFlit => d !== null)
+}
+
+function parseJsonRows(jsonData: Record<string, unknown>[]): DiaFlit[] {
+  if (jsonData.length === 0) return []
+
+  const todasAsChaves = coletarTodasAsChaves(jsonData)
+  const formato = detectarFormato(todasAsChaves)
+
+  if (formato === 'exportacao_corh') {
+    return parseExportacaoCorh(jsonData)
+  }
+
+  if (formato === 'desconhecido') {
+    throw new Error(`Colunas obrigatórias não encontradas no Excel (Nome, Data e Hora). Colunas detectadas: ${todasAsChaves.join(', ')}`)
+  }
+
+  // Formato Flit padrão
   const colNome = detectarColuna(todasAsChaves, ['colaborador', 'nome', 'nome do colaborador', 'funcionario'])
   const colMatricula = detectarColuna(todasAsChaves, ['matricula', 'matrícula'])
   const colData = detectarColuna(todasAsChaves, ['data', 'data da batida', 'dia'])
@@ -158,7 +260,7 @@ function parseJsonRows(jsonData: Record<string, unknown>[]): BatidaFlit[] {
     throw new Error(`Colunas obrigatórias não encontradas no Excel (Nome, Data e Hora). Colunas detectadas: ${todasAsChaves.join(', ')}`)
   }
 
-  return jsonData
+  const batidas = jsonData
     .map((row) => {
       const dataHoraInfo = extrairDataHora(row[colData], row[colHora])
       if (!dataHoraInfo) return null
@@ -177,18 +279,21 @@ function parseJsonRows(jsonData: Record<string, unknown>[]): BatidaFlit[] {
       }
     })
     .filter((b): b is BatidaFlit => b !== null && b.nomeColaborador.length > 0)
+
+  return agruparBatidasPorDia(batidas)
 }
 
-export async function parseWorkbookBinary(binaryData: string | ArrayBuffer): Promise<BatidaFlit[]> {
+export async function parseWorkbookBinary(binaryData: string | ArrayBuffer): Promise<DiaFlit[]> {
   const XLSX = await getXLSX()
   const workbook = XLSX.read(binaryData, { type: typeof binaryData === 'string' ? 'binary' : 'array' })
   const sheetName = workbook.SheetNames[0]
   const worksheet = workbook.Sheets[sheetName]
   const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet)
-  return parseJsonRows(jsonData)
+  const dias = parseJsonRows(jsonData)
+  return dias
 }
 
-export async function parseExcelFlit(file: File): Promise<BatidaFlit[]> {
+export async function parseExcelFlit(file: File): Promise<DiaFlit[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = async (e) => {
@@ -197,8 +302,8 @@ export async function parseExcelFlit(file: File): Promise<BatidaFlit[]> {
         if (!data || !(data instanceof ArrayBuffer)) {
           throw new Error('Não foi possível ler o conteúdo do arquivo')
         }
-        const batidas = await parseWorkbookBinary(data)
-        resolve(batidas)
+        const dias = await parseWorkbookBinary(data)
+        resolve(dias)
       } catch (error) {
         reject(error)
       }
@@ -213,9 +318,10 @@ export function agruparBatidasPorDia(batidas: BatidaFlit[]): DiaFlit[] {
   const grupos = new Map<string, DiaFlit>()
 
   for (const batida of batidas) {
-    // Agrupa por matrícula quando disponível (mais estável que o nome)
+    // Agrupa por matrícula normalizada (ignora zeros à esquerda) quando disponível.
+    // Isso evita que '000772' e '772' sejam tratados como colaboradores diferentes.
     const identificador = batida.matricula
-      ? normalizarTexto(batida.matricula)
+      ? normalizarMatricula(batida.matricula)
       : normalizarTexto(batida.nomeColaborador)
     const chave = `${identificador}|${batida.data}`
 
@@ -253,12 +359,12 @@ export function encontrarColaborador(
   colaboradores: Colaborador[]
 ): Colaborador | undefined {
   const nomeNormalizado = normalizarTexto(nome)
-  const matriculaNormalizada = normalizarTexto(matricula)
+  const matriculaNormalizada = normalizarMatricula(matricula)
 
-  // Prioriza busca por matrícula
+  // Prioriza busca por matrícula, ignorando zeros à esquerda e caracteres não numéricos.
   if (matriculaNormalizada) {
     const porMatricula = colaboradores.find((c) =>
-      normalizarTexto(c.matricula) === matriculaNormalizada
+      normalizarMatricula(c.matricula) === matriculaNormalizada
     )
     if (porMatricula) return porMatricula
   }

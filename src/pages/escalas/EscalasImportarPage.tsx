@@ -3,7 +3,8 @@ import { Label } from '@/components/ui/label'
 import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks/useEscalasDiario'
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { parseExcelFlit, type BatidaFlit } from '@/lib/escalas/importarFlit'
+import { useEscalasLocais } from '@/hooks/useEscalasLocais'
+import { parseExcelFlit, type DiaFlit } from '@/lib/escalas/importarFlit'
 import { Upload, AlertCircle, Calendar } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
@@ -28,19 +29,21 @@ export function EscalasImportarPage() {
   const { importando, importarExcelFlit } = useEscalasDiario()
   const { mapeamentos, listar: listarMapeamentos } = useEscalasMapeamento()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { locais, listar: listarLocais } = useEscalasLocais()
 
   const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [ano, setAno] = useState(new Date().getFullYear())
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [resumo, setResumo] = useState<{ sucesso: number; identificados: number; pendentes: number; preservados: number; naoEncontrados: string[] } | null>(null)
-  const [preview, setPreview] = useState<BatidaFlit[] | null>(null)
+  const [preview, setPreview] = useState<DiaFlit[] | null>(null)
   const [erroPreview, setErroPreview] = useState<string | null>(null)
 
   useEffect(() => {
     listarMapeamentos()
     listarColaboradores()
-  }, [listarMapeamentos, listarColaboradores])
+    listarLocais()
+  }, [listarMapeamentos, listarColaboradores, listarLocais])
 
   const competencia = calcularCompetencia(ano, mes)
 
@@ -73,7 +76,7 @@ export function EscalasImportarPage() {
       filtroCompetencia = calcularCompetenciaOntem()
     }
 
-    const resultado = await importarExcelFlit(arquivo, colaboradores, mapeamentos, filtroCompetencia)
+    const resultado = await importarExcelFlit(arquivo, colaboradores, mapeamentos, locais, filtroCompetencia)
     setResumo(resultado)
   }
 
@@ -169,6 +172,18 @@ export function EscalasImportarPage() {
             </div>
           )}
 
+          <div className="flex items-start gap-2 text-sm text-blue-700 bg-blue-50 p-3 rounded-md">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Como funciona a importação</p>
+              <p>
+                Os dias importados ficam salvos no CORH. Se você importar um período que já existia,
+                os dias em comum serão atualizados com os novos dados. Confirmações manuais feitas
+                na tela Escalas não são sobrescritas.
+              </p>
+            </div>
+          </div>
+
           <ModuleButton
             onClick={handleImportar}
             disabled={!arquivo || importando || !!erroPreview}
@@ -186,22 +201,20 @@ export function EscalasImportarPage() {
               <thead>
                 <tr className="border-b text-left text-slate-500">
                   <th className="py-2 pr-2">Colaborador</th>
+                  <th className="py-2 pr-2">Matrícula</th>
                   <th className="py-2 pr-2">Data</th>
-                  <th className="py-2 pr-2">Hora</th>
+                  <th className="py-2 pr-2">Local de Trabalho</th>
                   <th className="py-2 pr-2">Dispositivo</th>
-                  <th className="py-2 pr-2">Perímetro</th>
-                  <th className="py-2 pr-2">Departamento</th>
                 </tr>
               </thead>
               <tbody>
-                {preview.map((batida, idx) => (
+                {preview.map((dia, idx) => (
                   <tr key={idx} className="border-b border-slate-100">
-                    <td className="py-2 pr-2 whitespace-nowrap">{batida.nomeColaborador}</td>
-                    <td className="py-2 pr-2">{batida.data}</td>
-                    <td className="py-2 pr-2">{batida.hora}</td>
-                    <td className="py-2 pr-2">{batida.nomeDispositivo || batida.tipoDispositivo}</td>
-                    <td className="py-2 pr-2">{batida.perimetro || '-'}</td>
-                    <td className="py-2 pr-2">{batida.departamento}</td>
+                    <td className="py-2 pr-2 whitespace-nowrap">{dia.nomeColaborador}</td>
+                    <td className="py-2 pr-2 whitespace-nowrap">{dia.matricula || '-'}</td>
+                    <td className="py-2 pr-2">{new Date(dia.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                    <td className="py-2 pr-2">{dia.localTrabalhoNome || '-'}</td>
+                    <td className="py-2 pr-2">{dia.nomeDispositivo || dia.tipoDispositivo || '-'}</td>
                   </tr>
                 ))}
               </tbody>
