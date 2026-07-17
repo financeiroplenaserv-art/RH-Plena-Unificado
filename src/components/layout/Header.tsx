@@ -10,7 +10,7 @@ export function Header({ user }: HeaderProps) {
     <header className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-4">
         <img
-          src="/logo_plena_cab.jpg"
+          src="/logo_plena_30anos_redonda.png"
           alt="Plena"
           className="h-8 w-auto object-contain"
         />

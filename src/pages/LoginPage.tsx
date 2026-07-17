@@ -86,7 +86,7 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
           {/* Header mobile */}
           <div className="lg:hidden flex flex-col items-center justify-center gap-4 mb-8">
             <img
-              src="/logo_plena_cab.jpg"
+              src="/logo_plena_30anos_redonda.png"
               alt="Plena"
               className="h-12 w-auto rounded-lg object-contain"
             />

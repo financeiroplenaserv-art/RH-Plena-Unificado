@@ -182,7 +182,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
         {isOpen ? (
           <div className="flex items-center gap-3">
             <img
-              src="/logo_plena_cab.jpg"
+              src="/logo_plena_30anos_redonda.png"
               alt="Plena"
               className="h-8 w-auto object-contain rounded"
             />
@@ -193,7 +193,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
           </div>
         ) : (
           <img
-            src="/logo_plena_cab.jpg"
+            src="/logo_plena_30anos_redonda.png"
             alt="Plena"
             className="h-8 w-auto object-contain rounded mx-auto"
           />
