@@ -2,12 +2,23 @@
 --
 -- Objetivo: criar/atualizar perfis de teste para cada nível de acesso.
 --
--- Instruções:
--- 1. Faça sign-up manual no sistema (http://localhost:4174/login) para cada um
---    dos emails abaixo, usando a senha definida.
--- 2. Após criar todas as contas, execute este script no SQL Editor do Supabase.
--- 3. O script faz JOIN com auth.users pelo email e insere/atualiza o nível de
---    acesso correspondente na tabela public.perfis.
+-- IMPORTANTE: o cadastro público foi desabilitado. Para usar este script,
+-- você deve primeiro criar os usuários no painel do Supabase Auth
+-- (Authentication → Users → Add user) para cada email abaixo.
+-- Depois de criar todos os usuários, execute este script no SQL Editor do
+-- Supabase para definir o nome e o nível de acesso de cada um na tabela
+-- public.perfis.
+--
+-- Emails e perfis de teste:
+--   teste.adm@plena.local        -> adm
+--   teste.gestor@plena.local     -> gestor
+--   teste.rh@plena.local         -> rh
+--   teste.dp1@plena.local        -> dp1
+--   teste.dp2@plena.local        -> dp2
+--   teste.mesa@plena.local       -> mesa
+--   teste.inspetoria@plena.local -> inspetoria
+--   teste.financeiro@plena.local -> financeiro
+--   teste.visualizador@plena.local -> visualizador
 
 DO $$
 DECLARE
