@@ -350,9 +350,9 @@ export function DashboardPage() {
         </div>
 
         {/* Seções de rolagem */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Contratos de experiência */}
-          <Card className="rounded-2xl shadow-sm bg-white border-none lg:col-span-2">
+          <Card className="rounded-2xl shadow-sm bg-white border-none">
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
