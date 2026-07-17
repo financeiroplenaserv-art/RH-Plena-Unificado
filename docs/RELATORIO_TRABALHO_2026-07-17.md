@@ -18,6 +18,7 @@
 5. `19a699a` — style(sidebar): aplica cores distintas aos ícones do menu
 6. `4779560` — refactor(colaboradores): substitui cards por tabela igual à de departamentos
 7. `dfdbe08` — refactor(colaboradores): tabela com nome curto do departamento, sem empresa e telefone em uma linha
+8. `361e43b` — fix(colaboradores): busca nome curto do departamento também pelo nome textual quando não há departamento_id
 
 ---
 
@@ -48,6 +49,7 @@
 
 - O usuário confirmou que o problema do Acácio na importação do Excel já está resolvido. Caso surja alguma regressão, os arquivos de teste estão na pasta `public` (últimos 3 arquivos anexados pelo usuário).
 - A foto real do colaborador na tabela ainda não foi implementada; o avatar atual renderiza `foto_url` se existir, senão exibe iniciais ou ícone. O usuário pediu para deixar o espaço reservado para implementar depois.
+- **Nome curto do departamento:** a lógica atual encontra o nome curto pelo `departamento_id` ou, como fallback, pelo nome textual do departamento cadastrado no colaborador. Se ainda houver colaboradores mostrando o nome completo, é porque o nome textual não bate exatamente com o cadastro de departamentos. Para esses casos, o próximo passo é implementar uma correspondência aproximada (fuzzy) ou normalizar os dados no banco. O usuário pediu para deixar isso anotado.
 - A tela de colaboradores pode receber melhorias de responsividade e ações adicionais (ex: botão de visualizar, excluir, filtros mais avançados) conforme demanda.
 - O modal de detalhes do colaborador continua como estava; não houve alteração nele.
 
