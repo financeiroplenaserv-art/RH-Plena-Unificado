@@ -6,22 +6,26 @@ import {
   AlertCircle,
   FileWarning,
   ClipboardList,
-  TrendingUp,
   Bell,
   Package,
   Briefcase,
   Building2,
   ArrowRight,
   Boxes,
+  CalendarHeart,
+  CalendarDays,
+  UserCheck,
+  Cake,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { cn, formatarData } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { PageHeader } from '@/components/PageHeader'
 import type { Ocorrencia, Colaborador } from '@/types/database'
+import { useAuth } from '@/hooks/useAuth'
 
 interface AlertaModulo {
   id: string
@@ -31,6 +35,17 @@ interface AlertaModulo {
   severidade: 'critica' | 'alta' | 'media' | 'baixa'
   link: string
 }
+
+interface ColaboradorResumido {
+  id: string
+  nome_completo: string
+  data_admissao: string | null
+  data_nascimento: string | null
+  cargo: string | null
+  departamento: string | null
+}
+
+type MarcoExperiencia = 30 | 60 | 90
 
 const statusConfig: Record<Colaborador['status'], { bullet: string; label: string }> = {
   Ativo: { bullet: 'bg-emerald-500', label: 'Ativo' },
@@ -52,8 +67,54 @@ function diasAte(dataStr: string) {
   return Math.ceil((data.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
 }
 
+function diasDesde(dataStr: string) {
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const data = new Date(dataStr)
+  data.setHours(0, 0, 0, 0)
+  return Math.floor((hoje.getTime() - data.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function normalizarData(dataStr: string | null | undefined): Date | null {
+  if (!dataStr) return null
+  const d = new Date(dataStr + 'T00:00:00')
+  return isNaN(d.getTime()) ? null : d
+}
+
+function formatarDiaMes(data: Date | string | null | undefined): string {
+  const d = typeof data === 'string' ? normalizarData(data) : data
+  if (!d) return '—'
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function saudacao(): string {
+  const hora = new Date().getHours()
+  if (hora < 12) return 'Bom dia'
+  if (hora < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+function formatarDataCompleta(data: Date): string {
+  const opcoes: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }
+  return data.toLocaleDateString('pt-BR', opcoes)
+}
+
+function calcularMarcoExperiencia(dias: number): MarcoExperiencia | null {
+  const marcos: MarcoExperiencia[] = [30, 60, 90]
+  for (const marco of marcos) {
+    if (dias >= marco - 7 && dias <= marco + 7) return marco
+  }
+  return null
+}
+
 export function DashboardPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [carregando, setCarregando] = useState(true)
 
   const [totalColaboradores, setTotalColaboradores] = useState(0)
@@ -61,15 +122,14 @@ export function DashboardPage() {
   const [afastados, setAfastados] = useState(0)
   const [ocorrenciasPendentes, setOcorrenciasPendentes] = useState(0)
   const [ocorrenciasMes, setOcorrenciasMes] = useState(0)
-  const [alertasCriticos, setAlertasCriticos] = useState(0)
   const [projetosVR, setProjetosVR] = useState(0)
   const [contratosAdicionais, setContratosAdicionais] = useState(0)
   const [totalItensCEU, setTotalItensCEU] = useState(0)
   const [entregasMesCEU, setEntregasMesCEU] = useState(0)
-  const [itensEmAbertoCEU, setItensEmAbertoCEU] = useState(0)
   const [ultimosColaboradores, setUltimosColaboradores] = useState<Colaborador[]>([])
   const [ultimaImportacao, setUltimaImportacao] = useState<string | null>(null)
   const [alertas, setAlertas] = useState<AlertaModulo[]>([])
+  const [colaboradoresAtivos, setColaboradoresAtivos] = useState<ColaboradorResumido[]>([])
 
   useEffect(() => {
     async function carregarKpis() {
@@ -77,6 +137,10 @@ export function DashboardPage() {
       const inicioMes = new Date()
       inicioMes.setDate(1)
       inicioMes.setHours(0, 0, 0, 0)
+
+      const hoje = new Date()
+      const trintaDiasAtras = new Date(hoje)
+      trintaDiasAtras.setDate(hoje.getDate() - 30)
 
       try {
         const [
@@ -92,6 +156,7 @@ export function DashboardPage() {
           { count: contratosCount },
           { data: itensCEU },
           { data: entregasCEU },
+          { data: ativosCompletos },
         ] = await Promise.all([
           supabase.from('colaboradores').select('id', { count: 'exact', head: true }),
           supabase.from('colaboradores').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
@@ -109,10 +174,14 @@ export function DashboardPage() {
           supabase.from('contratos_adicionais').select('id', { count: 'exact', head: true }),
           supabase.from('itens').select('estoque, estoque_minimo, ca, validade'),
           supabase.from('entregas').select('data_entrega, data_devolucao'),
+          supabase
+            .from('colaboradores')
+            .select('id, nome_completo, data_admissao, data_nascimento, cargo, departamento')
+            .eq('status', 'Ativo')
+            .order('nome_completo'),
         ])
 
         const pendentes = pendentesCount || 0
-        const alertasCriticosCount = alertasCount || 0
 
         const itens = (itensCEU || []) as { id: string; nome: string; tipo: string; ca: string | null; validade: string | null; estoque: number | null; estoque_minimo: number | null }[]
         const entregas = (entregasCEU || []) as { id: string; data_entrega: string; data_devolucao: string | null }[]
@@ -140,12 +209,12 @@ export function DashboardPage() {
         setOcorrenciasMes(
           (ocorrencias || []).filter((o: Ocorrencia) => new Date(o.data_ocorrencia) >= inicioMes).length
         )
-        setAlertasCriticos(alertasCriticosCount)
         setProjetosVR(projetosVRCount || 0)
         setContratosAdicionais(contratosCount || 0)
         setTotalItensCEU(itens.length)
         setEntregasMesCEU(entregas.filter((e) => isMesAtual(e.data_entrega)).length)
-        setItensEmAbertoCEU(entregas.filter((e) => !e.data_devolucao).length)
+        setColaboradoresAtivos((ativosCompletos || []) as ColaboradorResumido[])
+
         const listaAlertas: AlertaModulo[] = []
         if (pendentes > 0) {
           listaAlertas.push({
@@ -157,12 +226,12 @@ export function DashboardPage() {
             link: '/rh/ocorrencias',
           })
         }
-        if (alertasCriticosCount > 0) {
+        if ((alertasCount || 0) > 0) {
           listaAlertas.push({
             id: 'alertas-criticos',
             modulo: 'Alertas',
             tipo: 'Alertas críticos',
-            descricao: `${alertasCriticosCount} alerta(s) crítico(s) ativo(s)`,
+            descricao: `${alertasCount} alerta(s) crítico(s) ativo(s)`,
             severidade: 'critica',
             link: '/rh/alertas',
           })
@@ -204,7 +273,7 @@ export function DashboardPage() {
     () => [
       { label: 'Nova Ocorrência', path: '/rh/ocorrencias/novo', icon: <FileWarning className="h-4 w-4 text-amber-600" /> },
       { label: 'Listar Ocorrências', path: '/rh/ocorrencias', icon: <ClipboardList className="h-4 w-4 text-blue-600" /> },
-      { label: 'Verificar Alertas', path: '/rh/alertas', icon: <TrendingUp className="h-4 w-4 text-emerald-600" /> },
+      { label: 'Verificar Alertas', path: '/rh/alertas', icon: <Bell className="h-4 w-4 text-emerald-600" /> },
       { label: 'Projetos VR', path: '/vr/projetos', icon: <Wallet className="h-4 w-4 text-purple-600" /> },
       { label: 'Nova Entrega CEU', path: '/ceu/movimentacoes/novo', icon: <Package className="h-4 w-4 text-cyan-600" /> },
       { label: 'Itens CEU', path: '/ceu/itens', icon: <Boxes className="h-4 w-4 text-indigo-600" /> },
@@ -215,84 +284,173 @@ export function DashboardPage() {
     []
   )
 
+  const experiencia = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const resultado: { colaborador: ColaboradorResumido; marco: MarcoExperiencia; dias: number }[] = []
+
+    colaboradoresAtivos.forEach((colab) => {
+      if (!colab.data_admissao) return
+      const dAdmissao = normalizarData(colab.data_admissao)
+      if (!dAdmissao || dAdmissao > hoje) return
+      const dias = diasDesde(colab.data_admissao)
+      const marco = calcularMarcoExperiencia(dias)
+      if (marco) resultado.push({ colaborador: colab, marco, dias })
+    })
+
+    return resultado.sort((a, b) => a.dias - b.dias)
+  }, [colaboradoresAtivos])
+
+  const aniversariantes = useMemo(() => {
+    const hoje = new Date()
+    const hojeMes = hoje.getMonth()
+    const hojeDia = hoje.getDate()
+
+    const aniversariosVida: { colaborador: ColaboradorResumido; tipo: 'vida' | 'empresa'; data: string }[] = []
+    const aniversariosEmpresa: { colaborador: ColaboradorResumido; tipo: 'vida' | 'empresa'; data: string }[] = []
+
+    colaboradoresAtivos.forEach((colab) => {
+      if (colab.data_nascimento) {
+        const dNasc = normalizarData(colab.data_nascimento)
+        if (dNasc && dNasc.getMonth() === hojeMes) {
+          aniversariosVida.push({ colaborador: colab, tipo: 'vida', data: colab.data_nascimento })
+        }
+      }
+      if (colab.data_admissao) {
+        const dAdm = normalizarData(colab.data_admissao)
+        if (dAdm && dAdm.getMonth() === hojeMes) {
+          aniversariosEmpresa.push({ colaborador: colab, tipo: 'empresa', data: colab.data_admissao })
+        }
+      }
+    })
+
+    const ehHoje = (dataStr: string) => {
+      const d = normalizarData(dataStr)
+      return d ? d.getDate() === hojeDia : false
+    }
+
+    return {
+      vida: aniversariosVida.sort((a, b) => {
+        const da = normalizarData(a.data)!
+        const db = normalizarData(b.data)!
+        return da.getDate() - db.getDate()
+      }),
+      empresa: aniversariosEmpresa.sort((a, b) => {
+        const da = normalizarData(a.data)!
+        const db = normalizarData(b.data)!
+        return da.getDate() - db.getDate()
+      }),
+      destaqueHoje: (dataStr: string) => ehHoje(dataStr),
+    }
+  }, [colaboradoresAtivos])
+
+  const admissoesRecentes = useMemo(() => {
+    const trintaDiasAtras = new Date()
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+
+    return colaboradoresAtivos
+      .filter((colab) => {
+        if (!colab.data_admissao) return false
+        const dAdm = normalizarData(colab.data_admissao)
+        return dAdm ? dAdm >= trintaDiasAtras : false
+      })
+      .sort((a, b) => {
+        const da = normalizarData(a.data_admissao)!
+        const db = normalizarData(b.data_admissao)!
+        return db.getTime() - da.getTime()
+      })
+  }, [colaboradoresAtivos])
+
   if (carregando) {
     return <LoadingScreen className="h-screen" />
   }
 
+  const totalAlertas = alertas.length
+  const nomeUsuario = user?.nome?.split(' ')[0] || 'Usuário'
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6 space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Visão geral dos módulos da plataforma"
-        showBackButton={false}
-      >
-        <Button
-          size="sm"
-          onClick={() => navigate('/rh/alertas')}
-          className="gap-1.5 text-xs bg-red-600 hover:bg-red-700"
-        >
-          <Bell className="h-3.5 w-3.5" />
-          {alertasCriticos > 0 ? `${alertasCriticos} alerta(s) crítico(s)` : 'Central de Alertas'}
-        </Button>
-      </PageHeader>
+    <div className="min-h-screen bg-[#F8FAFC] pb-12">
+      {/* Header com saudação */}
+      <div className="bg-white border-b border-slate-200 px-6 py-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold text-slate-900">
+            {saudacao()}, {nomeUsuario} 👋
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            {formatarDataCompleta(new Date())}
+            {totalAlertas > 0 && (
+              <>
+                {' · '}
+                <span className="font-semibold text-slate-900">{totalAlertas} itens</span>
+                {' precisam de atenção hoje'}
+              </>
+            )}
+          </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-slate-900 text-white border-none rounded-[12px] shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-300">Colaboradores Ativos</span>
-              <div className="p-2 rounded-lg bg-white/10">
-                <Users className="w-5 h-5 text-slate-300" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold">{ativos}</div>
-            <p className="text-xs text-slate-400 mt-1">Total geral: {totalColaboradores}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-[12px] shadow-sm bg-white border-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-600">Ocorrências Pendentes</span>
-              <div className="p-2 rounded-lg bg-red-50 text-red-600">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900">{ocorrenciasPendentes}</div>
-            <p className="text-xs text-slate-500 mt-1">Aguardando análise</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-[12px] shadow-sm bg-white border-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-600">Projetos VR</span>
-              <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
-                <Wallet className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900">{projetosVR}</div>
-            <p className="text-xs text-slate-500 mt-1">Cadastrados</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-[12px] shadow-sm bg-white border-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-600">Entregas CEU no Mês</span>
-              <div className="p-2 rounded-lg bg-cyan-50 text-cyan-600">
-                <Package className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900">{entregasMesCEU}</div>
-            <p className="text-xs text-slate-500 mt-1">{itensEmAbertoCEU} em aberto no total</p>
-          </CardContent>
-        </Card>
+          <Button
+            size="sm"
+            onClick={() => navigate('/rh/alertas')}
+            className={cn(
+              'mt-4 gap-2 rounded-lg',
+              totalAlertas > 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+            )}
+          >
+            <Bell className="h-4 w-4" />
+            Central de Alertas
+            {totalAlertas > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-red-600 text-xs font-bold">
+                {totalAlertas}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="rounded-[12px] shadow-sm bg-white border-none lg:col-span-2">
-          <CardContent className="p-5">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* Cards principais */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card
+            className="rounded-2xl shadow-sm bg-white border-none cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/colaboradores')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
+                  <Users className="w-6 h-6" />
+                </div>
+                <ArrowRight className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Colaboradores Ativos</p>
+                <p className="text-3xl font-bold text-slate-900 mt-1">{ativos}</p>
+                <p className="text-sm text-slate-400 mt-1">Total geral: {totalColaboradores}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="rounded-2xl shadow-sm bg-white border-none cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/rh/ocorrencias')}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <ArrowRight className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Ocorrências Pendentes</p>
+                <p className="text-3xl font-bold text-slate-900 mt-1">{ocorrenciasPendentes}</p>
+                <p className="text-sm text-slate-400 mt-1">Aguardando análise</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Atalhos rápidos */}
+        <Card className="rounded-2xl shadow-sm bg-white border-none">
+          <CardContent className="p-6">
             <h3 className="text-base font-semibold text-slate-900 mb-4">Atalhos rápidos</h3>
             <div className="flex flex-wrap gap-3">
               {atalhos.map((atalho) => (
@@ -310,126 +468,314 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[12px] shadow-sm bg-white border-none">
-          <CardContent className="p-5">
-            <h3 className="text-base font-semibold text-slate-900 mb-4">Resumo por módulo</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Itens CEU</span>
-                <span className="font-semibold text-slate-900">{totalItensCEU}</span>
+        {/* Seções de rolagem */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Contratos de experiência */}
+          <Card className="rounded-2xl shadow-sm bg-white border-none lg:col-span-2">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
+                  <CalendarHeart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Contratos de experiência</h3>
+                  <p className="text-xs text-slate-500">Colaboradores próximos dos marcos de 30, 60 ou 90 dias</p>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Contratos adicionais</span>
-                <span className="font-semibold text-slate-900">{contratosAdicionais}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Afastados</span>
-                <span className="font-semibold text-slate-900">{afastados}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Ocorrências no mês</span>
-                <span className="font-semibold text-slate-900">{ocorrenciasMes}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {alertas.length > 0 && (
-        <Card className="rounded-[12px] shadow-sm bg-white border-none border-l-4 border-l-red-500">
-          <CardContent className="p-5">
-            <h3 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-red-600" />
-              Alertas dos módulos
-            </h3>
-            <div className="space-y-2">
-              {alertas.map((alerta) => (
-                <button
-                  key={alerta.id}
-                  onClick={() => navigate(alerta.link)}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        'w-2 h-2 rounded-full',
-                        alerta.severidade === 'critica' && 'bg-red-600',
-                        alerta.severidade === 'alta' && 'bg-orange-500',
-                        alerta.severidade === 'media' && 'bg-amber-400',
-                        alerta.severidade === 'baixa' && 'bg-blue-400'
-                      )}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">
-                        [{alerta.modulo}] {alerta.tipo}
-                      </p>
-                      <p className="text-xs text-slate-500">{alerta.descricao}</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-slate-400" />
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              {experiencia.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">Nenhum contrato de experiência próximo do vencimento.</p>
+              ) : (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                  {experiencia.map(({ colaborador: colab, marco, dias }) => (
+                    <button
+                      key={colab.id}
+                      onClick={() => navigate(`/colaboradores/${colab.id}`)}
+                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 text-left transition-colors border border-transparent hover:border-slate-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold',
+                          marco === 30 && 'bg-purple-100 text-purple-700',
+                          marco === 60 && 'bg-blue-100 text-blue-700',
+                          marco === 90 && 'bg-emerald-100 text-emerald-700'
+                        )}>
+                          {marco}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{colab.nome_completo}</p>
+                          <p className="text-xs text-slate-500">{colab.cargo || '—'} · {colab.departamento || '—'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className={cn(
+                          'text-xs',
+                          marco === 30 && 'border-purple-200 text-purple-700 bg-purple-50',
+                          marco === 60 && 'border-blue-200 text-blue-700 bg-blue-50',
+                          marco === 90 && 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                        )}>
+                          {dias} dias
+                        </Badge>
+                        <p className="text-xs text-slate-400 mt-1">Adm. {formatarDiaMes(colab.data_admissao)}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card className="rounded-[12px] shadow-sm bg-white border-none">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-slate-900">Colaboradores recentes</h3>
-            <span className="text-xs text-slate-500">
-              Última atualização: {ultimaImportacao ? formatarData(ultimaImportacao.split('T')[0]) : 'Nunca'}
-            </span>
-          </div>
+          {/* Aniversariantes */}
+          <Card className="rounded-2xl shadow-sm bg-white border-none">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-rose-50 text-rose-600">
+                  <Cake className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Aniversariantes</h3>
+                  <p className="text-xs text-slate-500">Mês atual</p>
+                </div>
+              </div>
 
-          {ultimosColaboradores.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4">Nenhum colaborador encontrado.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left text-xs font-medium text-slate-500 border-b border-slate-100">
-                    <th className="pb-3 pl-2">Colaborador</th>
-                    <th className="pb-3">Cargo</th>
-                    <th className="pb-3">Departamento</th>
-                    <th className="pb-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ultimosColaboradores.map((colab) => {
-                    const status = statusConfig[colab.status]
-                    return (
-                      <tr
-                        key={colab.id}
-                        className="text-sm text-slate-700 border-b border-slate-50 last:border-none hover:bg-slate-50/50"
-                        style={{ height: '52px' }}
-                      >
-                        <td className="py-[7px] pl-2 font-medium text-slate-900">{colab.nome_completo}</td>
-                        <td className="py-[7px]">{colab.cargo || '—'}</td>
-                        <td className="py-[7px]">{colab.departamento || '—'}</td>
-                        <td className="py-[7px]">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Aniversário de vida</p>
+                  {aniversariantes.vida.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-2">Nenhum aniversariante este mês.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                      {aniversariantes.vida.map(({ colaborador: colab, data }) => (
+                        <div
+                          key={colab.id}
+                          className={cn(
+                            'flex items-center justify-between p-2 rounded-lg',
+                            aniversariantes.destaqueHoje(data) ? 'bg-rose-50 border border-rose-100' : 'hover:bg-slate-50'
+                          )}
+                        >
                           <div className="flex items-center gap-2">
-                            <span className={cn('w-2 h-2 rounded-full', status.bullet)} />
-                            <span>{status.label}</span>
+                            <CalendarDays className={cn('w-4 h-4', aniversariantes.destaqueHoje(data) ? 'text-rose-600' : 'text-slate-400')} />
+                            <span className="text-sm text-slate-900">{colab.nome_completo}</span>
                           </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                          <span className={cn(
+                            'text-xs font-medium',
+                            aniversariantes.destaqueHoje(data) ? 'text-rose-600' : 'text-slate-500'
+                          )}>
+                            {formatarDiaMes(data)}
+                            {aniversariantes.destaqueHoje(data) && ' · Hoje'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-          <div className="flex justify-between text-xs text-slate-500 mt-4 pt-4 border-t border-slate-100">
-            <span>{ativos} ativos</span>
-            <span>{afastados} afastados</span>
-            <span>{ocorrenciasPendentes} ocorrências pendentes</span>
-            <span>{ocorrenciasMes} ocorrências no mês</span>
-          </div>
-        </CardContent>
-      </Card>
+                <div className="pt-3 border-t border-slate-100">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Aniversário de empresa</p>
+                  {aniversariantes.empresa.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-2">Nenhum aniversário de empresa este mês.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                      {aniversariantes.empresa.map(({ colaborador: colab, data }) => {
+                        const dAdm = normalizarData(data)!
+                        const anos = new Date().getFullYear() - dAdm.getFullYear()
+                        return (
+                          <div
+                            key={colab.id}
+                            className={cn(
+                              'flex items-center justify-between p-2 rounded-lg',
+                              aniversariantes.destaqueHoje(data) ? 'bg-emerald-50 border border-emerald-100' : 'hover:bg-slate-50'
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <UserCheck className={cn('w-4 h-4', aniversariantes.destaqueHoje(data) ? 'text-emerald-600' : 'text-slate-400')} />
+                              <span className="text-sm text-slate-900">{colab.nome_completo}</span>
+                            </div>
+                            <span className={cn(
+                              'text-xs font-medium',
+                              aniversariantes.destaqueHoje(data) ? 'text-emerald-600' : 'text-slate-500'
+                            )}>
+                              {formatarDiaMes(data)}
+                              {aniversariantes.destaqueHoje(data) && ` · ${anos} anos`}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Admissões recentes */}
+        <Card className="rounded-2xl shadow-sm bg-white border-none">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Admissões recentes</h3>
+                  <p className="text-xs text-slate-500">Últimos 30 dias</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/colaboradores')} className="gap-1 text-slate-600">
+                Ver todos <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {admissoesRecentes.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4">Nenhuma admissão nos últimos 30 dias.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {admissoesRecentes.map((colab) => (
+                  <button
+                    key={colab.id}
+                    onClick={() => navigate(`/colaboradores/${colab.id}`)}
+                    className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{colab.nome_completo}</p>
+                      <p className="text-xs text-slate-500">{colab.cargo || '—'} · {colab.departamento || '—'}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700 bg-emerald-50">
+                      {formatarData(colab.data_admissao)}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Alertas dos módulos */}
+        {alertas.length > 0 && (
+          <Card className="rounded-2xl shadow-sm bg-white border-none border-l-4 border-l-red-500">
+            <CardContent className="p-6">
+              <h3 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Bell className="w-4 h-4 text-red-600" />
+                Alertas dos módulos
+              </h3>
+              <div className="space-y-2">
+                {alertas.map((alerta) => (
+                  <button
+                    key={alerta.id}
+                    onClick={() => navigate(alerta.link)}
+                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 text-left transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          'w-2 h-2 rounded-full',
+                          alerta.severidade === 'critica' && 'bg-red-600',
+                          alerta.severidade === 'alta' && 'bg-orange-500',
+                          alerta.severidade === 'media' && 'bg-amber-400',
+                          alerta.severidade === 'baixa' && 'bg-blue-400'
+                        )}
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          [{alerta.modulo}] {alerta.tipo}
+                        </p>
+                        <p className="text-xs text-slate-500">{alerta.descricao}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-400" />
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Colaboradores recentes e resumo por módulo */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="rounded-2xl shadow-sm bg-white border-none lg:col-span-2">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-slate-900">Colaboradores recentes</h3>
+                <span className="text-xs text-slate-500">
+                  Última atualização: {ultimaImportacao ? formatarData(ultimaImportacao.split('T')[0]) : 'Nunca'}
+                </span>
+              </div>
+
+              {ultimosColaboradores.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">Nenhum colaborador encontrado.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-xs font-medium text-slate-500 border-b border-slate-100">
+                        <th className="pb-3 pl-2">Colaborador</th>
+                        <th className="pb-3">Cargo</th>
+                        <th className="pb-3">Departamento</th>
+                        <th className="pb-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ultimosColaboradores.map((colab) => {
+                        const status = statusConfig[colab.status]
+                        return (
+                          <tr
+                            key={colab.id}
+                            className="text-sm text-slate-700 border-b border-slate-50 last:border-none hover:bg-slate-50/50"
+                            style={{ height: '52px' }}
+                          >
+                            <td className="py-[7px] pl-2 font-medium text-slate-900">{colab.nome_completo}</td>
+                            <td className="py-[7px]">{colab.cargo || '—'}</td>
+                            <td className="py-[7px]">{colab.departamento || '—'}</td>
+                            <td className="py-[7px]">
+                              <div className="flex items-center gap-2">
+                                <span className={cn('w-2 h-2 rounded-full', status.bullet)} />
+                                <span>{status.label}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-sm bg-white border-none">
+            <CardContent className="p-6">
+              <h3 className="text-base font-semibold text-slate-900 mb-4">Resumo por módulo</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Projetos VR</span>
+                  <span className="font-semibold text-slate-900">{projetosVR}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Contratos adicionais</span>
+                  <span className="font-semibold text-slate-900">{contratosAdicionais}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Itens CEU</span>
+                  <span className="font-semibold text-slate-900">{totalItensCEU}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Entregas CEU no mês</span>
+                  <span className="font-semibold text-slate-900">{entregasMesCEU}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Afastados</span>
+                  <span className="font-semibold text-slate-900">{afastados}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Ocorrências no mês</span>
+                  <span className="font-semibold text-slate-900">{ocorrenciasMes}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
