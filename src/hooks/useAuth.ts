@@ -51,6 +51,11 @@ export function useAuth() {
     authUser: { id: string; email?: string | null },
     nivelPadrao: NivelAcesso = 'visualizador'
   ) => {
+    // Marca o início do carregamento: no login (quando loading já era false),
+    // sem isso o App renderiza o layout assim que setUser roda — ANTES das
+    // permissões do perfil chegarem — e a sidebar fica vazia até o F5,
+    // pois o cache de permissões não é reativo.
+    setLoading(true)
     const { data: perfil, error } = await supabase
       .from('perfis')
       .select(COLUNAS_PERFIL)
