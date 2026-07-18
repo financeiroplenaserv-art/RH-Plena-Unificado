@@ -108,6 +108,17 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'escala', acao: 'confirmar_manual', label: 'Confirmar local manualmente', grupo: 'Escalas' },
   { recurso: 'escala', acao: 'editar_dia', label: 'Editar local de um dia', grupo: 'Escalas' },
 
+  // CEU
+  { recurso: 'ceu', acao: 'registrar_entrega', label: 'Registrar entrega (nova/lançamento rápido)', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'devolver', label: 'Registrar devolução', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'excluir_entrega', label: 'Excluir entrega', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'emitir_recibo', label: 'Emitir recibos', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'editar_itens', label: 'Cadastrar/editar itens', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'excluir_itens', label: 'Excluir itens', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'gerenciar_fornecedores', label: 'Gerenciar fornecedores', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'importar', label: 'Importar planilha', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'ver_relatorios', label: 'Ver relatórios', grupo: 'CEU' },
+
   // Menus
   { recurso: 'menu', acao: 'dashboard', label: 'Ver menu Dashboard', grupo: 'Menus' },
   { recurso: 'menu', acao: 'colaboradores', label: 'Ver menu Colaboradores', grupo: 'Menus' },

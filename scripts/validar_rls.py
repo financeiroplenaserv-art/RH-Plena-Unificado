@@ -40,13 +40,16 @@ TABELAS_SENSIVEIS: Set[str] = {
     "resultados_vr",
     "contratos_adicionais",
     "vinculos_adicionais",
+    "calendario_adicionais",
+    "empresas",
+    "departamentos",
     "historico_importacoes_econtador",
 }
 
-TABELAS_SELECT_ABERTO_PERMITIDO: Set[str] = {
-    "empresas",
-    "departamentos",
-}
+# Tabelas onde SELECT aberto (USING true) e uma decisao de negocio aceita.
+# Vazio desde a migration 063/064: empresas e departamentos passaram a ser
+# restritas por perfil (pode_ver_empresas/pode_ver_departamentos).
+TABELAS_SELECT_ABERTO_PERMITIDO: Set[str] = set()
 
 
 @dataclass

@@ -105,6 +105,7 @@ export function useAuth() {
       } else {
         // Sem sessao valida: descarta qualquer perfil em cache e forca tela de login.
         setUser(null)
+        setPermissoesCache([])
         localStorage.removeItem(PERFIL_STORAGE_KEY)
         setLoading(false)
       }
@@ -112,6 +113,7 @@ export function useAuth() {
       if (ignore) return
       console.error('Erro ao verificar sessao:', err)
       setUser(null)
+      setPermissoesCache([])
       localStorage.removeItem(PERFIL_STORAGE_KEY)
       setLoading(false)
     })
@@ -121,6 +123,7 @@ export function useAuth() {
         carregarPerfil(session.user)
       } else {
         setUser(null)
+        setPermissoesCache([])
         localStorage.removeItem(PERFIL_STORAGE_KEY)
         setLoading(false)
       }
@@ -147,6 +150,7 @@ export function useAuth() {
   const logout = useCallback(async () => {
     await logoutAuth()
     setUser(null)
+    setPermissoesCache([])
     localStorage.removeItem(PERFIL_STORAGE_KEY)
   }, [])
 

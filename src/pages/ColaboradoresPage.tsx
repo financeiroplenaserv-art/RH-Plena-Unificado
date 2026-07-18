@@ -28,8 +28,8 @@ import {
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
-import { formatarCPF, formatarData, mascaraTelefone } from '@/lib/utils'
-import { podeEditarColaboradorBasico } from '@/lib/permissoes'
+import { formatarCPF, formatarData, mascaraTelefone, mascararCPF } from '@/lib/utils'
+import { podeEditarColaboradorBasico, podeEditarColaboradorCompleto } from '@/lib/permissoes'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -44,6 +44,7 @@ export function ColaboradoresPage() {
   const { user } = useAuth()
   const perfil = user?.nivel_acesso
   const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
+  const podeVerCPFCompleto = perfil ? podeEditarColaboradorCompleto(perfil) : false
 
   const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
   const [busca, setBusca] = useState('')
@@ -484,7 +485,11 @@ export function ColaboradoresPage() {
                         <div>
                           <span className="text-[10px] text-muted-foreground">CPF</span>
                           <p className="text-sm font-medium">
-                            {colaboradorSelecionado.cpf ? formatarCPF(colaboradorSelecionado.cpf) : '—'}
+                            {colaboradorSelecionado.cpf
+                              ? podeVerCPFCompleto
+                                ? formatarCPF(colaboradorSelecionado.cpf)
+                                : mascararCPF(colaboradorSelecionado.cpf)
+                              : '—'}
                           </p>
                         </div>
                         <div>

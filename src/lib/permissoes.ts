@@ -207,6 +207,53 @@ export const podeGerenciarVR = (p: NivelAcesso) =>
   temPermissaoDinamica(p, 'vr', 'gerenciar') ??
   (isAdm(p) || p === 'dp2')
 
+// ================= CEU =================
+
+/** Quem pode registrar entregas (nova entrega / lançamento rápido) */
+export const podeRegistrarEntregaCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'registrar_entrega') ??
+  (isAdm(p) || p === 'gestor' || isDp(p) || p === 'mesa' || p === 'inspetoria')
+
+/** Quem pode registrar devolução de itens */
+export const podeDevolverCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'devolver') ??
+  (isAdm(p) || p === 'gestor' || isDp(p) || p === 'mesa' || p === 'inspetoria')
+
+/** Quem pode excluir entregas */
+export const podeExcluirEntregaCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'excluir_entrega') ??
+  (isAdm(p) || p === 'gestor' || isDp(p))
+
+/** Quem pode emitir recibos de entrega */
+export const podeEmitirReciboCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'emitir_recibo') ??
+  (isAdm(p) || p === 'gestor' || isDp(p) || p === 'mesa' || p === 'inspetoria')
+
+/** Quem pode cadastrar/editar itens do CEU */
+export const podeEditarItemCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'editar_itens') ??
+  (isAdm(p) || p === 'gestor' || isDp(p))
+
+/** Quem pode excluir itens do CEU */
+export const podeExcluirItemCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'excluir_itens') ??
+  (isAdm(p) || p === 'gestor' || isDp(p))
+
+/** Quem pode gerenciar fornecedores */
+export const podeGerenciarFornecedoresCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'gerenciar_fornecedores') ??
+  (isAdm(p) || p === 'gestor' || isDp(p))
+
+/** Quem pode importar planilha de itens */
+export const podeImportarCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'importar') ??
+  (isAdm(p) || p === 'gestor' || isDp(p))
+
+/** Quem pode visualizar relatórios do CEU */
+export const podeVerRelatoriosCEU = (p: NivelAcesso) =>
+  temPermissaoDinamica(p, 'ceu', 'ver_relatorios') ??
+  (isAdm(p) || p === 'gestor' || isDp(p) || p === 'mesa' || p === 'inspetoria')
+
 // ================= ADICIONAIS CONTRATUAIS =================
 
 /** Quem pode criar/editar/excluir contratos (7.2, 7.3) */

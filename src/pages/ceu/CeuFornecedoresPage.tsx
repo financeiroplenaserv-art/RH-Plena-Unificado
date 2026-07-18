@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
+import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { CeuShell } from './CeuShell'
@@ -18,8 +19,12 @@ import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
 import { mascaraTelefone } from '@/lib/utils'
+import { podeGerenciarFornecedoresCEU } from '@/lib/permissoes'
 
 export function CeuFornecedoresPage() {
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeGerenciar = perfil ? podeGerenciarFornecedoresCEU(perfil) : false
   const { fornecedores, loading, listar, criar, atualizar, remover } = useCEUFornecedores()
   const [busca, setBusca] = useState('')
   const [removerId, setRemoverId] = useState<string | null>(null)
@@ -69,6 +74,7 @@ export function CeuFornecedoresPage() {
     <CeuShell>
       <PageHeader backTo="/ceu/movimentacoes" title="Fornecedores" description="Cadastro de fornecedores de itens" />
 
+      {podeGerenciar && (
       <ModuleCard
         title={editando.id ? 'Editar fornecedor' : 'Novo fornecedor'}
         icon={<Plus className="w-4 h-4" />}
@@ -130,6 +136,7 @@ export function CeuFornecedoresPage() {
           </div>
         </form>
       </ModuleCard>
+      )}
 
       <ModuleCard title={`Lista de fornecedores (${fornecedores.length})`} icon={<Search className="w-4 h-4" />}>
         <div className="relative mb-4">
@@ -173,30 +180,34 @@ export function CeuFornecedoresPage() {
                       <TableCell>{f.email || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <ModuleButton
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              setEditando({
-                                id: f.id,
-                                nome: f.nome,
-                                cnpj: f.cnpj || '',
-                                telefone: f.telefone || '',
-                                email: f.email || '',
-                              })
-                            }
-                            className="h-8 w-8"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </ModuleButton>
-                          <ModuleButton
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setRemoverId(f.id)}
-                            className="h-8 w-8 text-slate-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </ModuleButton>
+                          {podeGerenciar && (
+                            <>
+                              <ModuleButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  setEditando({
+                                    id: f.id,
+                                    nome: f.nome,
+                                    cnpj: f.cnpj || '',
+                                    telefone: f.telefone || '',
+                                    email: f.email || '',
+                                  })
+                                }
+                                className="h-8 w-8"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </ModuleButton>
+                              <ModuleButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRemoverId(f.id)}
+                                className="h-8 w-8 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </ModuleButton>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

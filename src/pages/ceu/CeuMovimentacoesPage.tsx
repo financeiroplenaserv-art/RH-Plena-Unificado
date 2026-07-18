@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
+import { useAuth } from '@/hooks/useAuth'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -28,6 +29,13 @@ import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
 import { formatarData } from '@/lib/utils'
+import {
+  podeRegistrarEntregaCEU,
+  podeDevolverCEU,
+  podeExcluirEntregaCEU,
+  podeEmitirReciboCEU,
+  podeImportarCEU,
+} from '@/lib/permissoes'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import {
   gerarReciboEPIColorido,
@@ -56,6 +64,13 @@ function corPorTipo(tipo: string | undefined) {
 
 export function CeuMovimentacoesPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeRegistrar = perfil ? podeRegistrarEntregaCEU(perfil) : false
+  const podeDevolver = perfil ? podeDevolverCEU(perfil) : false
+  const podeExcluir = perfil ? podeExcluirEntregaCEU(perfil) : false
+  const podeRecibo = perfil ? podeEmitirReciboCEU(perfil) : false
+  const podeImportar = perfil ? podeImportarCEU(perfil) : false
   const { entregas, loading, paginacao, listar, listarPaginado, devolver, remover, marcarReciboEmitido, marcarLoteReciboEmitido } = useCEUEntregas()
   const { itens, listar: listarItens } = useCEUItens()
   const [busca, setBusca] = useState('')
@@ -349,22 +364,28 @@ export function CeuMovimentacoesPage() {
   return (
     <CeuShell>
       <PageHeader backTo="/ceu/movimentacoes" title="Movimentações" description="Registro de entregas e devoluções">
-        <ModuleButton variant="outline" onClick={() => setModalLote(true)}>
-          <FileText className="w-4 h-4 mr-2" />
-          Emitir recibos em lote
-        </ModuleButton>
-        <ModuleButton variant="outline" onClick={() => navigate('/ceu/importar')}>
-          <Upload className="w-4 h-4 mr-2" />
-          Importar Planilha
-        </ModuleButton>
+        {podeRecibo && (
+          <ModuleButton variant="outline" onClick={() => setModalLote(true)}>
+            <FileText className="w-4 h-4 mr-2" />
+            Emitir recibos em lote
+          </ModuleButton>
+        )}
+        {podeImportar && (
+          <ModuleButton variant="outline" onClick={() => navigate('/ceu/importar')}>
+            <Upload className="w-4 h-4 mr-2" />
+            Importar Planilha
+          </ModuleButton>
+        )}
         <ModuleButton variant="outline" onClick={() => setMostrarFiltros((v) => !v)}>
           <Filter className="w-4 h-4 mr-2" />
           Filtros
         </ModuleButton>
-        <ModuleButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Entrega
-        </ModuleButton>
+        {podeRegistrar && (
+          <ModuleButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Entrega
+          </ModuleButton>
+        )}
       </PageHeader>
 
       {mostrarFiltros && (
@@ -507,24 +528,28 @@ export function CeuMovimentacoesPage() {
                         <TableCell className="text-right font-medium">{mov.qtdTotal}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <ModuleButton variant="ghost" size="sm" onClick={() => handleEmitirRecibo(mov.entregas)}>
-                              <Receipt className="w-4 h-4 mr-1" /> Recibo
-                            </ModuleButton>
-                            {emAberto && (
+                            {podeRecibo && (
+                              <ModuleButton variant="ghost" size="sm" onClick={() => handleEmitirRecibo(mov.entregas)}>
+                                <Receipt className="w-4 h-4 mr-1" /> Recibo
+                              </ModuleButton>
+                            )}
+                            {emAberto && podeDevolver && (
                               <ModuleButton variant="ghost" size="icon" onClick={() => setDevolverId(mov.entregas.find((e) => !e.data_devolucao)!.id)} className="h-8 w-8" title="Registrar devolução">
                                 <RotateCcw className="w-4 h-4" />
                               </ModuleButton>
                             )}
-                            <ModuleButton
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setRemoverId(mov.entregas[0].id)}
-                              disabled={mov.entregas.some((e) => e.recibo_emitido)}
-                              title={mov.entregas.some((e) => e.recibo_emitido) ? 'Exclusão bloqueada: recibo já emitido' : 'Excluir entrega'}
-                              className="h-8 w-8 text-slate-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </ModuleButton>
+                            {podeExcluir && (
+                              <ModuleButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRemoverId(mov.entregas[0].id)}
+                                disabled={mov.entregas.some((e) => e.recibo_emitido)}
+                                title={mov.entregas.some((e) => e.recibo_emitido) ? 'Exclusão bloqueada: recibo já emitido' : 'Excluir entrega'}
+                                className="h-8 w-8 text-slate-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </ModuleButton>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -4,9 +4,10 @@ interface LogoMarcaProps {
   size?: number
   alt?: string
   className?: string
+  coracao?: 'azul' | 'branco'
 }
 
-export function LogoMarca({ size = 40, alt = 'Plena', className = '' }: LogoMarcaProps) {
+export function LogoMarca({ size = 40, alt = 'Plena', className = '', coracao = 'azul' }: LogoMarcaProps) {
   return (
     <div
       className={`logo-marca ${className}`}
@@ -14,7 +15,7 @@ export function LogoMarca({ size = 40, alt = 'Plena', className = '' }: LogoMarc
       aria-hidden="true"
     >
       <img
-        src="/corh_coracao_icone_azul.svg"
+        src={coracao === 'branco' ? '/corh_coracao_icone_branco.svg' : '/corh_coracao_icone_azul.svg'}
         alt=""
         className="coracao"
       />

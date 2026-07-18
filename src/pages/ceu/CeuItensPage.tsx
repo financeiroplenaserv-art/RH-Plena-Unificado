@@ -24,8 +24,10 @@ import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
+import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
+import { podeEditarItemCEU, podeExcluirItemCEU } from '@/lib/permissoes'
 
 const TIPOS = ['Crachá', 'Uniforme', 'EPI']
 
@@ -50,6 +52,10 @@ function formatarValorCentavos(valor?: number | null): string {
 
 export function CeuItensPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perfil = user?.nivel_acesso
+  const podeEditar = perfil ? podeEditarItemCEU(perfil) : false
+  const podeExcluir = perfil ? podeExcluirItemCEU(perfil) : false
   const { itens, loading, listar, remover } = useCEUItens()
   const { fornecedores, listar: listarFornecedores } = useCEUFornecedores()
   const [busca, setBusca] = useState('')
@@ -100,10 +106,12 @@ export function CeuItensPage() {
   return (
     <CeuShell>
       <PageHeader backTo="/ceu/movimentacoes" title="Itens CEU" description="Crachás, uniformes, equipamentos e EPIs">
-        <ModuleButton onClick={() => navigate('/ceu/itens/novo')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo item
-        </ModuleButton>
+        {podeEditar && (
+          <ModuleButton onClick={() => navigate('/ceu/itens/novo')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo item
+          </ModuleButton>
+        )}
       </PageHeader>
 
       <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
@@ -215,22 +223,26 @@ export function CeuItensPage() {
                       <TableCell>{formatarValorCentavos(item.valor)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <ModuleButton
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/ceu/itens/${item.id}/editar`)}
-                            className="h-8 w-8"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </ModuleButton>
-                          <ModuleButton
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setRemoverId(item.id)}
-                            className="h-8 w-8 text-slate-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </ModuleButton>
+                          {podeEditar && (
+                            <ModuleButton
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => navigate(`/ceu/itens/${item.id}/editar`)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </ModuleButton>
+                          )}
+                          {podeExcluir && (
+                            <ModuleButton
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setRemoverId(item.id)}
+                              className="h-8 w-8 text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </ModuleButton>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

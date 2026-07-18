@@ -169,9 +169,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
   const sidebarContent = (
     <>
       <div className="flex items-center gap-3 px-5 pb-5 pt-6">
-        <div className="bg-brand-gradient-soft flex size-10 items-center justify-center rounded-xl shadow-lg shadow-black/30">
-          <LogoMarca size={28} alt="Plena" className="[&_svg]:size-6 [&_img]:size-6" />
-        </div>
+        <LogoMarca size={40} alt="Plena" coracao="branco" className="[&_svg]:size-10 [&_img]:size-10" />
         <div className="leading-tight">
           <p className="text-[15px] font-bold tracking-tight text-white">CORH</p>
           <p className="text-[10px] text-sidebar-foreground/60">Controle Operacional e de RH</p>

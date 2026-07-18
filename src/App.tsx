@@ -162,16 +162,18 @@ function App() {
   return (
     <>
       <Toaster position="top-right" richColors />
-      <Routes>
-        <Route
-          path="/mobile/falta"
-          element={
-            <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'mobile_falta' }}>
-              <MobileFaltaPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
+          <Route
+            path="/mobile/falta"
+            element={
+              <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'mobile_falta' }}>
+                <MobileFaltaPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
       {!isMobileFalta && (
         <div className="flex h-screen bg-background">
           <SidebarWrapper
@@ -194,7 +196,14 @@ function App() {
               <Routes>
               <Route path="/mobile/falta" element={null} />
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/colaboradores" element={<ColaboradoresPage />} />
+              <Route
+                path="/colaboradores"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'colaboradores' }}>
+                    <ColaboradoresPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/departamentos"
                 element={
