@@ -18,19 +18,22 @@
 
 **Pendente do usuário:** aplicar `supabase/migrations/064_seguranca_perfis_calendario_ceu.sql` no SQL Editor (instruções em `docs/APLICAR_MIGRATION_064.md`).
 
-## LEVA 2 — Altos (próxima rodada)
+## LEVA 2 — Altos (FEITA nesta rodada)
 
-| # | Item | Origem |
+| # | Item | Status |
 |---|------|--------|
-| A1 | Tela Permissões mostra "desmarcado" mas fallbacks hardcoded em `permissoes.ts` concedem acesso — alinhar exibição ao valor efetivo ou eliminar fallbacks (fail-closed) | Frontend #3 |
-| A2 | SELECT aberto em `locais_trabalho_diario`, `historico_local_trabalho_diario` (localização diária — LGPD) e `locais_trabalho`, `mapeamento_flit_local_trabalho` | Banco #3 |
-| A3 | SELECT aberto em `itens`, `fornecedores`, `entregas`, `alertas`, `modelos_ocorrencia` (remanescente das migrations 010/014/037) | Banco #4 |
-| A4 | Perfil `rh` lê `econtador_token` em `configuracoes` — trocar para `is_admin_ou_dp()` | Banco #5 |
-| A5 | Importação de colaboradores (`ImportarPage`) zera CPF/RG/CTPS/datas ao reimportar planilha parcial (upsert com campos vazios) | Qualidade A1 |
-| A6 | Rotas de escrita com permissão de leitura (`/rh/colaboradores/:id/editar`, `/rh/importar` usa rota `ocorrencias`) + páginas sem verificação `pode*` interna | Frontend #6 |
-| A7 | Falha ao carregar `permissoes_perfil` degrada para fallbacks generosos — decidir fail-closed | Frontend #5 |
-| A8 | Entrega CEU mostra sucesso mesmo com inserts falhando; edição de item CEU apaga valor (input `type=number` com vírgula) | Qualidade A2/A3 |
-| A9 | Falha no PDF de ocorrência após salvar trava tela e induz duplicidade | Qualidade A4 |
+| A1 | Tela Permissões mostrava "desmarcado" enquanto fallbacks concediam acesso | ✅ mapa único `PERMISSOES_PADRAO` em `permissoes.ts`; tela exibe o valor efetivo real e o toggle não apaga mais os fallbacks ao salvar |
+| A2 | SELECT aberto em `locais_trabalho*` e `mapeamento_flit_*` (localização diária — LGPD) | ✅ migration 065 (`pode_ver_escalas`) |
+| A3 | SELECT aberto em `itens`, `fornecedores`, `entregas`, `alertas`, `modelos_ocorrencia` | ✅ migration 065 (`pode_ver_ceu`, `pode_ver_alertas`) |
+| A4 | Perfil `rh` lia `econtador_token` | ✅ migration 065 (policy única com `is_admin_ou_dp`) |
+| A5 | Importação de colaboradores zerava CPF/RG/datas em reimportação parcial | ✅ `limparRegistroParaUpsert` (payload sem vazios) + validações + testes |
+| A6 | Rotas de escrita com permissão de leitura; páginas sem verificação `pode*` | ✅ rota `/rh/importar` corrigida; guards em `ColaboradorFormPage` e `ImportarPage` |
+| A7 | Falha ao carregar permissões degrada para fallbacks | 🔶 comportamento mantido por decisão (disponibilidade); a tela passou a mostrar o valor efetivo, eliminando a confusão |
+| A8 | Entrega CEU com falso sucesso; edição de item CEU apagava valor | ✅ `criarLote` atômico + input de moeda com máscara + navegação só após sucesso |
+| A9 | Falha no PDF de ocorrência travava tela e induzia duplicidade | ✅ try/catch no PDF + navegação garantida |
+| — | Extras da rodada: dialogs Departamentos/Empresas só fecham em sucesso; validação de CPF no cadastro de colaborador | ✅ |
+
+**Pendente do usuário:** aplicar `supabase/migrations/065_rls_escalas_ceu_alertas_modelos.sql` no SQL Editor (instruções em `docs/APLICAR_MIGRATION_065.md`).
 
 ## LEVA 3 — Médios
 

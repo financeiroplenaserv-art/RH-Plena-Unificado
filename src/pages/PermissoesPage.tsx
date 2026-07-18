@@ -19,6 +19,7 @@ import {
 import { usePermissoes } from '@/hooks/usePermissoes'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuditoria } from '@/hooks/useAuditoria'
+import { temPermissaoComPadrao } from '@/lib/permissoes'
 import { toast } from 'sonner'
 import type { NivelAcesso, PermissaoPerfil } from '@/types/database'
 import { Loader2, RotateCcw } from 'lucide-react'
@@ -181,7 +182,9 @@ export function PermissoesPage() {
       const chave = `${perfilSelecionado}:${cfg.recurso}:${cfg.acao}`
       return {
         ...cfg,
-        permitido: permissoesPorChave.get(chave) ?? false,
+        // Valor efetivo: linha explícita do banco ou o padrão do sistema.
+        // A tela mostra exatamente o que o sistema concede.
+        permitido: permissoesPorChave.get(chave) ?? temPermissaoComPadrao(perfilSelecionado, cfg.recurso, cfg.acao),
       }
     })
   }, [perfilSelecionado, permissoesPorChave])
@@ -189,7 +192,7 @@ export function PermissoesPage() {
   const togglePermissao = (recurso: string, acao: string) => {
     const novasPermissoes: PermissaoPerfil[] = PERMISSOES_CONFIG.map((cfg) => {
       const chave = `${perfilSelecionado}:${cfg.recurso}:${cfg.acao}`
-      const atual = permissoesPorChave.get(chave) ?? false
+      const atual = permissoesPorChave.get(chave) ?? temPermissaoComPadrao(perfilSelecionado, cfg.recurso, cfg.acao)
       return {
         perfil: perfilSelecionado,
         recurso: cfg.recurso,
