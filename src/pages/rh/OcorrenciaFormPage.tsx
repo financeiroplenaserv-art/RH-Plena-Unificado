@@ -203,10 +203,6 @@ export function OcorrenciaFormPage() {
       toast.error('O campo "Defesa do Funcionário" é obrigatório')
       return
     }
-    if (!form.medida_corretiva.trim()) {
-      toast.error('O campo "Medida Corretiva" é obrigatório')
-      return
-    }
 
     setLoading(true)
 

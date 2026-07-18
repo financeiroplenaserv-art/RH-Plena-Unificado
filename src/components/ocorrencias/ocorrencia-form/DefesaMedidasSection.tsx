@@ -38,12 +38,11 @@ export function DefesaMedidasSection({ form, onChange }: DefesaMedidasSectionPro
           />
         </div>
         <div>
-          <Label className="text-xs">Medida Corretiva Tomada *</Label>
+          <Label className="text-xs">Medida Corretiva Tomada</Label>
           <Input
             name="medida_corretiva"
             value={form.medida_corretiva}
             onChange={onChange}
-            required
             placeholder="Ex: Aplicação de advertência verbal, encaminhamento para treinamento, etc."
             className="text-xs h-9"
           />
