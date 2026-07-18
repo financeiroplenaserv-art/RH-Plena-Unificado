@@ -195,6 +195,10 @@ export function OcorrenciaFormPage() {
       toast.error('Selecione o tipo de ocorrência')
       return
     }
+    if (!form.descricao.trim()) {
+      toast.error('O campo "Descrição" é obrigatório')
+      return
+    }
     if (!form.defesa_funcionario.trim()) {
       toast.error('O campo "Defesa do Funcionário" é obrigatório')
       return
