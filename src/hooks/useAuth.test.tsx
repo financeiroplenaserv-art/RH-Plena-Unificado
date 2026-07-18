@@ -130,7 +130,8 @@ describe('useAuth', () => {
     await waitFor(() => expect(result.current.user).not.toBeNull())
     expect(mockSignIn).toHaveBeenCalledWith({ email: 'usuario@exemplo.com', password: 'senha123' })
     expect(result.current.user).toEqual(perfil)
-    expect(localStorage.getItem('plena_perfil')).toBeTruthy()
+    // O perfil nunca é persistido no localStorage (PII fora de alcance de XSS)
+    expect(localStorage.getItem('plena_perfil')).toBeNull()
   })
 
   it('signUp cria perfil com nível padrão visualizador, nunca admin', async () => {

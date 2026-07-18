@@ -534,7 +534,9 @@ export function gerarArquivoVRPAT(
   for (const r of resultados) {
     if (r.diasElegiveis <= 0) continue
     const cpfLimpo = campoNum(r.cpf, 11)
-    if (cpfLimpo === '00000000000' || cpfLimpo.length !== 11) continue
+    // Mesma validação do Tipo 30: CPF inválido não pode receber crédito
+    // sem o registro de beneficiário correspondente.
+    if (cpfLimpo === '00000000000' || cpfLimpo.length !== 11 || !validarCPF(cpfLimpo)) continue
 
     const l60 = new Linha350()
     l60.alfa(0, '60', 2)

@@ -13,6 +13,7 @@ import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { MapeamentoFlitLocalTrabalho } from '@/types/database'
 import { Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { EscalasShell } from './EscalasShell'
 
@@ -29,6 +30,7 @@ export function EscalasMapeamentoPage() {
   const [localId, setLocalId] = useState('')
   const [tipo, setTipo] = useState<MapeamentoFlitLocalTrabalho['tipo_match']>('dispositivo')
   const [valor, setValor] = useState('')
+  const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
 
   useEffect(() => {
     listar()
@@ -117,7 +119,7 @@ export function EscalasMapeamentoPage() {
                       {TIPOS_MATCH.find((t) => t.value === m.tipo_match)?.label} → "{m.valor_flit}"
                     </p>
                   </div>
-                  <ModuleButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => remover(m.id)}>
+                  <ModuleButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => setConfirmarExclusao(m.id)}>
                     <Trash2 className="h-4 w-4" />
                   </ModuleButton>
                 </div>
@@ -125,6 +127,22 @@ export function EscalasMapeamentoPage() {
             </div>
           )}
       </ModuleCard>
+
+      <ConfirmDialog
+        open={!!confirmarExclusao}
+        onOpenChange={() => setConfirmarExclusao(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Excluir mapeamento?"
+        description="O mapeamento será removido permanentemente. Esta ação não pode ser desfeita."
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={async () => {
+          if (confirmarExclusao) await remover(confirmarExclusao)
+          setConfirmarExclusao(null)
+        }}
+        destructive
+      />
     </EscalasShell>
   )
 }

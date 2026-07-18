@@ -583,6 +583,35 @@ export type Database = {
         }
         Returns: void
       }
+      salvar_resultados_vr_lote: {
+        Args: {
+          p_projeto_id: string
+          p_itens: Record<string, unknown>[]
+        }
+        Returns: number
+      }
+      assinar_recibo_extras: {
+        Args: {
+          p_recibo_id: string
+          p_assinatura_base64: string
+          p_marcar_pago?: boolean
+          p_data_assinatura?: string
+        }
+        Returns: boolean
+      }
+      cancelar_recibo_extras: {
+        Args: {
+          p_recibo_id: string
+        }
+        Returns: boolean
+      }
+      registrar_consentimento_lgpd: {
+        Args: {
+          p_versao: string
+          p_finalidades?: string[]
+        }
+        Returns: boolean
+      }
     }
   }
 }

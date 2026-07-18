@@ -5,6 +5,7 @@ import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { LocalTrabalho } from '@/types/database'
 import { Plus, Trash2, Building2 } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { EscalasShell } from './EscalasShell'
 
@@ -14,6 +15,7 @@ export function EscalasLocaisPage() {
   const [novoNomeCurto, setNovoNomeCurto] = useState('')
   const [editando, setEditando] = useState<LocalTrabalho | null>(null)
   const [importando, setImportando] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
 
   useEffect(() => {
     listar()
@@ -128,7 +130,7 @@ export function EscalasLocaisPage() {
                         <ModuleButton size="sm" variant="outline" onClick={() => setEditando(local)}>
                           Editar
                         </ModuleButton>
-                        <ModuleButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => remover(local.id)}>
+                        <ModuleButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => setConfirmarExclusao(local.id)}>
                           <Trash2 className="h-4 w-4" />
                         </ModuleButton>
                       </>
@@ -139,6 +141,22 @@ export function EscalasLocaisPage() {
             </div>
           )}
       </ModuleCard>
+
+      <ConfirmDialog
+        open={!!confirmarExclusao}
+        onOpenChange={() => setConfirmarExclusao(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Excluir local de trabalho?"
+        description="O local será removido permanentemente. Esta ação não pode ser desfeita."
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={async () => {
+          if (confirmarExclusao) await remover(confirmarExclusao)
+          setConfirmarExclusao(null)
+        }}
+        destructive
+      />
     </EscalasShell>
   )
 }

@@ -171,12 +171,20 @@ export function ExtrasFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.departamento_id) {
+      toast.error('Selecione o departamento')
+      return
+    }
     if (!form.categoria) {
       toast.error('Selecione a categoria')
       return
     }
     if (!form.motivo) {
       toast.error('Selecione o motivo')
+      return
+    }
+    if (!form.valor || form.valor <= 0) {
+      toast.error('Informe um valor maior que zero')
       return
     }
     setSalvando(true)

@@ -59,7 +59,6 @@ export function useAuth() {
 
     if (perfil) {
       setUser(perfil as Perfil)
-      localStorage.setItem(PERFIL_STORAGE_KEY, JSON.stringify(perfil))
       // Carrega permissões dinâmicas do perfil
       await carregarPermissoesDoPerfil((perfil as Perfil).nivel_acesso)
     } else if (!error || error.code === 'PGRST116') {
@@ -88,7 +87,6 @@ export function useAuth() {
         setUser(novoPerfil as Perfil)
       } else {
         setUser((criado || novoPerfil) as Perfil)
-        localStorage.setItem(PERFIL_STORAGE_KEY, JSON.stringify(criado || novoPerfil))
       }
       await carregarPermissoesDoPerfil(nivelPadrao)
     }

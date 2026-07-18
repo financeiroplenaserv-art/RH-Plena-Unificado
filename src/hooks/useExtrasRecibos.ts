@@ -58,29 +58,24 @@ export function useExtrasRecibos() {
     }
   }, [])
 
-  const assinar = useCallback(async (id: string, assinaturaBase64: string, marcarPago = false, extrasIds: string[] = []): Promise<ReciboExtra | null> => {
+  const assinar = useCallback(async (id: string, assinaturaBase64: string, marcarPago = false): Promise<ReciboExtra | null> => {
     try {
+      // RPC transacional: atualiza o recibo e marca os extras como Pago na
+      // mesma operação — nunca fica "recibo pago com extras pendentes".
+      const { error: rpcError } = await supabase.rpc('assinar_recibo_extras', {
+        p_recibo_id: id,
+        p_assinatura_base64: assinaturaBase64,
+        p_marcar_pago: marcarPago,
+      })
+      if (rpcError) throw rpcError
+
       const { data, error } = await supabase
         .from('recibos_extras')
-        .update({
-          assinatura_colaborador: assinaturaBase64,
-          status: 'assinado',
-          data_assinatura: new Date().toISOString(),
-          marcar_pago: marcarPago,
-        })
-        .eq('id', id)
         .select(COLUNAS_RECIBO_EXTRA)
+        .eq('id', id)
         .single()
 
       if (error) throw error
-
-      if (marcarPago && extrasIds.length > 0) {
-        const { error: updateError } = await supabase
-          .from('extras')
-          .update({ status: 'Pago' })
-          .in('id', extrasIds)
-        if (updateError) throw updateError
-      }
 
       toast.success('Recibo assinado com sucesso')
       setRecibos(prev => prev.map(r => r.id === id ? (data as ReciboExtra) : r))
@@ -94,14 +89,16 @@ export function useExtrasRecibos() {
 
   const remover = useCallback(async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('recibos_extras').delete().eq('id', id)
+      // Cancela o recibo e reverte os extras para Pendente na mesma transação,
+      // preservando a trilha de auditoria (antes era delete sem reversão).
+      const { error } = await supabase.rpc('cancelar_recibo_extras', { p_recibo_id: id })
       if (error) throw error
-      toast.success('Recibo removido')
+      toast.success('Recibo cancelado e extras revertidos para pendente')
       setRecibos(prev => prev.filter(r => r.id !== id))
       return true
     } catch (err: unknown) {
-      console.error('Erro ao remover recibo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao remover recibo')
+      console.error('Erro ao cancelar recibo:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao cancelar recibo')
       return false
     }
   }, [])

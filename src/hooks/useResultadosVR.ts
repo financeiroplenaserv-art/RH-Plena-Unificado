@@ -33,16 +33,12 @@ export function useResultadosVR() {
   }, [])
 
   const salvarLote = useCallback(async (projetoId: string, items: Partial<ResultadoVR>[]) => {
-    // Remove resultados antigos do projeto
-    const { error: erroDelete } = await supabase.from('resultados_vr').delete().eq('projeto_id', projetoId)
-    if (erroDelete) {
-      toast.error('Erro ao limpar resultados anteriores: ' + erroDelete.message)
-      return false
-    }
-
-    if (items.length === 0) return true
-
-    const { error } = await supabase.from('resultados_vr').insert(items as Partial<ResultadoVR>[])
+    // RPC transacional: delete + insert atômicos. Se algo falhar, nada é
+    // perdido (antes o delete acontecia mesmo com insert quebrado).
+    const { error } = await supabase.rpc('salvar_resultados_vr_lote', {
+      p_projeto_id: projetoId,
+      p_itens: items,
+    })
 
     if (error) {
       toast.error('Erro ao salvar resultados: ' + error.message)

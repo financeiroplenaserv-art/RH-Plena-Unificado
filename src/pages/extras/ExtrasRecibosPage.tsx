@@ -243,7 +243,7 @@ export function ExtrasRecibosPage() {
     setEmitindo(true)
     const assinatura = assinaturaRef.current?.toDataURL() || ''
 
-    const recibo = await assinar(reciboParaAssinar.id, assinatura, marcarPago, reciboParaAssinar.extras_ids)
+    const recibo = await assinar(reciboParaAssinar.id, assinatura, marcarPago)
 
     if (recibo) {
       const colab = grupoSelecionado.substituto_id

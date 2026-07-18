@@ -43,15 +43,12 @@ export function ConsentimentoLGPDPage({ onConsentimentoAceito }: ConsentimentoLG
     if (!termo || !aceito) return
 
     setSalvando(true)
-    const { error } = await supabase
-      .from('perfis')
-      .update({
-        consentimento_lgpd: true,
-        consentimento_lgpd_data: new Date().toISOString(),
-        consentimento_lgpd_versao: termo.versao,
-        consentimento_lgpd_finalidades: termo.finalidades,
-      })
-      .eq('id', (await supabase.auth.getUser()).data.user?.id || '')
+    // RPC server-side: valida a versão do termo ativo, grava o consentimento
+    // e registra a prova imutável (consentimentos_lgpd) na mesma transação.
+    const { error } = await supabase.rpc('registrar_consentimento_lgpd', {
+      p_versao: termo.versao,
+      p_finalidades: termo.finalidades,
+    })
 
     if (error) {
       toast.error('Erro ao registrar consentimento: ' + error.message)

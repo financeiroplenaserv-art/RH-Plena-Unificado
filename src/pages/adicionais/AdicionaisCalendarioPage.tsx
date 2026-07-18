@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn, nomeDepartamento } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
@@ -146,6 +147,7 @@ export function AdicionaisCalendarioPage() {
   const [ignorados, setIgnorados] = useState<Set<string>>(new Set())
   const [statusFiltro, setStatusFiltro] = useState<StatusDiaAdicional[]>([])
   const [modalStatus, setModalStatus] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
+  const [confirmarRemocao, setConfirmarRemocao] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
 
   const periodoInicio = useMemo(() => {
     const data = new Date(periodoAno, periodoMes - 1, 20)
@@ -288,7 +290,9 @@ export function AdicionaisCalendarioPage() {
     }
   }
 
-  const removerLancamento = async (vinculo: VinculoAdicional, data: string) => {
+  const removerLancamento = async () => {
+    if (!confirmarRemocao) return
+    const { vinculo, data } = confirmarRemocao
     await excluirDiaCalendario(vinculo.id, data)
     const chave = `${vinculo.id}|${data}`
     setAlteracoes(prev => {
@@ -296,6 +300,7 @@ export function AdicionaisCalendarioPage() {
       delete atualizado[chave]
       return atualizado
     })
+    setConfirmarRemocao(null)
     setModalStatus(null)
   }
 
@@ -673,7 +678,7 @@ export function AdicionaisCalendarioPage() {
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
-                onClick={() => removerLancamento(modalStatus.vinculo, modalStatus.data)}
+                onClick={() => setConfirmarRemocao({ vinculo: modalStatus.vinculo, data: modalStatus.data })}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Remover lançamento
@@ -686,6 +691,23 @@ export function AdicionaisCalendarioPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmarRemocao}
+        onOpenChange={() => setConfirmarRemocao(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Remover lançamento?"
+        description={
+          confirmarRemocao
+            ? `O lançamento de ${formatarDataBR(confirmarRemocao.data)} será removido permanentemente.`
+            : ''
+        }
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={removerLancamento}
+        destructive
+      />
 
       <Dialog open={!!modalSubstituto} onOpenChange={() => setModalSubstituto(null)}>
         <DialogContent className="sm:max-w-md rounded-xl">

@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { VrShell } from './VrShell'
+import { toast } from 'sonner'
+import { mascaraCNPJ, validarCNPJ } from '@/lib/utils'
 import type { ProjetoVR, VRConfiguracao, VRDadosEmpresa } from '@/types'
 
 const PRODUTOS_VR = ['FLX', 'VBR', 'AXR', 'VBA', 'AXA', 'VCA', 'VBV', 'MBF', 'RAD', 'MNT']
@@ -112,6 +114,16 @@ export function VrProjetoFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!validarCNPJ(config.cnpjCliente)) {
+      toast.error('CNPJ do cliente inválido. Verifique os dígitos.')
+      return
+    }
+    if (config.valorVR < 0 || config.descontoPercentual < 0 || config.descontoPercentual > 100) {
+      toast.error('Valores não podem ser negativos e o desconto deve estar entre 0 e 100%.')
+      return
+    }
+
     setLoading(true)
 
     const payload: Partial<ProjetoVR> = {
@@ -236,7 +248,8 @@ export function VrProjetoFormPage() {
               <Input
                 id="cnpj"
                 value={config.cnpjCliente}
-                onChange={e => atualizarConfig({ cnpjCliente: e.target.value })}
+                onChange={e => atualizarConfig({ cnpjCliente: mascaraCNPJ(e.target.value) })}
+                placeholder="00.000.000/0000-00"
                 required
               />
             </div>

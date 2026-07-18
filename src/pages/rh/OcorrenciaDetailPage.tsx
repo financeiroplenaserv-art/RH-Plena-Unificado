@@ -27,14 +27,16 @@ import {
   podeEditarOcorrencia,
 } from '@/lib/permissoes'
 import { RhShell } from './RhShell'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import {
   Paperclip,
   UserPlus,
   Clock,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import type { Ocorrencia, Colaborador } from '@/types/database'
+import type { Ocorrencia, Colaborador, OcorrenciaAnexo } from '@/types/database'
 import { DetailHeader } from '@/components/ocorrencias/ocorrencia-detail/DetailHeader'
 import { StatusBanner } from '@/components/ocorrencias/ocorrencia-detail/StatusBanner'
 import { ColaboradorCard } from '@/components/ocorrencias/ocorrencia-detail/ColaboradorCard'
@@ -84,6 +86,20 @@ export function OcorrenciaDetailPage() {
     cpf: '',
   })
   const [mostrarFormTestemunha, setMostrarFormTestemunha] = useState(false)
+  const [anexoParaRemover, setAnexoParaRemover] = useState<OcorrenciaAnexo | null>(null)
+  const [testemunhaParaRemover, setTestemunhaParaRemover] = useState<string | null>(null)
+
+  const confirmarRemoverAnexo = async () => {
+    if (!anexoParaRemover) return
+    await removerAnexo(anexoParaRemover)
+    setAnexoParaRemover(null)
+  }
+
+  const confirmarRemoverTestemunha = async () => {
+    if (!testemunhaParaRemover) return
+    await removerTestemunha(testemunhaParaRemover)
+    setTestemunhaParaRemover(null)
+  }
 
   const loadData = useCallback(async () => {
     if (!id) return
@@ -346,7 +362,7 @@ export function OcorrenciaDetailPage() {
                 fileInputRef={fileInputRef}
                 onDescricaoUploadChange={setDescricaoUpload}
                 onFileSelect={handleFileSelect}
-                onRemoverAnexo={removerAnexo}
+                onRemoverAnexo={setAnexoParaRemover}
               />
             </TabsContent>
 
@@ -361,7 +377,7 @@ export function OcorrenciaDetailPage() {
                 onToggleForm={() => setMostrarFormTestemunha((prev) => !prev)}
                 onNovaTestemunhaChange={handleNovaTestemunhaChange}
                 onSalvarTestemunha={handleAddTestemunha}
-                onRemoverTestemunha={removerTestemunha}
+                onRemoverTestemunha={setTestemunhaParaRemover}
               />
             </TabsContent>
 
@@ -390,6 +406,32 @@ export function OcorrenciaDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!anexoParaRemover}
+        onOpenChange={() => setAnexoParaRemover(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Remover anexo?"
+        description={`O arquivo "${anexoParaRemover?.nome_arquivo || ''}" será removido permanentemente. Esta ação não pode ser desfeita.`}
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={confirmarRemoverAnexo}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={!!testemunhaParaRemover}
+        onOpenChange={() => setTestemunhaParaRemover(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Remover testemunha?"
+        description="A testemunha será removida permanentemente desta ocorrência."
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={confirmarRemoverTestemunha}
+        destructive
+      />
     </RhShell>
   )
 }

@@ -26,8 +26,9 @@ import {
 import { useEmpresas } from '@/hooks/useEmpresas'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { formatarCNPJ } from '@/lib/utils'
+import { formatarCNPJ, mascaraCNPJ, validarCNPJ } from '@/lib/utils'
 import { podeEditarEmpresa, podeExcluirEmpresa } from '@/lib/permissoes'
+import { toast } from 'sonner'
 import type { Empresa } from '@/types/database'
 
 const emptyForm = {
@@ -70,6 +71,10 @@ export function EmpresasPage() {
 
   const handleSubmit = async () => {
     if (!form.nome.trim()) return
+    if (form.cnpj.trim() && !validarCNPJ(form.cnpj)) {
+      toast.error('CNPJ inválido. Verifique os dígitos.')
+      return
+    }
 
     const payload = {
       nome: form.nome.trim(),
@@ -209,7 +214,7 @@ export function EmpresasPage() {
                 <Input
                   id="cnpj"
                   value={form.cnpj}
-                  onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, cnpj: mascaraCNPJ(e.target.value) }))}
                   placeholder="00.000.000/0000-00"
                 />
               </div>

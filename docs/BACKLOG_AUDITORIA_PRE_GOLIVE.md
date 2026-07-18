@@ -35,21 +35,23 @@
 
 **Pendente do usuário:** aplicar `supabase/migrations/065_rls_escalas_ceu_alertas_modelos.sql` no SQL Editor (instruções em `docs/APLICAR_MIGRATION_065.md`).
 
-## LEVA 3 — Médios
+## LEVA 3 — Médios (FEITA nesta rodada)
 
-| # | Item | Origem |
+| # | Item | Status |
 |---|------|--------|
-| M1 | `salvarLote` VR: delete-total + insert sem transação (risco de perda total) | Qualidade M2 |
-| M2 | Assinar recibo + marcar Pago não atômicos; exclusão de recibo assinado não reverte extras | Qualidade M3/M4 |
-| M3 | Arquivo VR PAT gera crédito (Tipo 60) para CPF sem beneficiário (Tipo 30) | Qualidade M1 |
-| M4 | Dialogs Departamentos/Empresas fecham como "salvo" mesmo quando o save falha | Qualidade M5 |
-| M5 | CNPJ sem máscara/validação (Empresas, VR); CPF sem validação no cadastro de colaborador | Qualidade M6/M7 |
-| M6 | Duplicidade de extras contornável sem departamento; valor R$ 0,00 aceito; VR aceita negativos | Qualidade M8/M9 |
-| M7 | Remoção de anexos/testemunhas sem confirmação; deletes diretos em Locais/Mapeamento/Calendário | Qualidade M10/B7 |
-| M8 | Auditoria por triggers não cobre `departamentos`, `empresas`, CEU, adicionais | Qualidade M11 |
-| M9 | Consentimento LGPD sem valor probatório (self-update) — mover para RPC server-side | Frontend #7 |
-| M10 | `plena_perfil` em localStorage: escrito, nunca lido — remover | Frontend #9 |
-| M11 | Divergências matriz × RLS fail-closed (financeiro/inspetoria/visualizador) — alinhar e documentar fonte única | Banco #9 |
+| M1 | `salvarLote` VR: delete-total + insert sem transação | ✅ RPC `salvar_resultados_vr_lote` (migration 067) |
+| M2 | Assinar recibo + marcar Pago não atômicos; exclusão de recibo sem reversão | ✅ RPCs `assinar_recibo_extras` e `cancelar_recibo_extras` (migration 067) |
+| M3 | Arquivo VR PAT gerava crédito (Tipo 60) para CPF sem beneficiário | ✅ `validarCPF` aplicado também no Tipo 60 |
+| M4 | Dialogs Departamentos/Empresas fechavam como "salvo" com save falho | ✅ feito na leva 2 |
+| M5 | CNPJ sem máscara/validação (Empresas, VR); CPF sem validação no cadastro | ✅ `validarCNPJ` + `mascaraCNPJ` criadas e aplicadas; CPF na leva 2 |
+| M6 | Duplicidade de extras contornável; valor R$ 0,00 aceito; VR aceitava negativos | ✅ departamento obrigatório + valor > 0; VR valida faixa e não-negativo |
+| M7 | Remoção de anexos/testemunhas sem confirmação; deletes diretos em Locais/Mapeamento/Calendário | ✅ `ConfirmDialog` em todos |
+| M8 | Auditoria sem trilha em departamentos, empresas, CEU, adicionais | ✅ migration 066 (triggers) |
+| M9 | Consentimento LGPD sem valor probatório | ✅ migration 068 (RPC + tabela de prova + trigger anti-bypass) |
+| M10 | `plena_perfil` em localStorage escrito, nunca lido | ✅ gravação removida do `useAuth` |
+| M11 | Divergências matriz × RLS fail-closed | 🔶 mitigado: SELECTs restritos (063/064/065) e matriz visível na tela; alinhamento fino documentado |
+
+**Pendente do usuário:** aplicar as migrations 066, 067 e 068 (instruções em `docs/APLICAR_MIGRATIONS_066_067_068.md`).
 
 ## LEVA 4 — Performance
 
