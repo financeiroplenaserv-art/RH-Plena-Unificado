@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { LogoMarca } from '@/components/LogoMarca'
 import {
-  LayoutDashboard,
+  LayoutGrid,
   Users,
   Building2,
   Building,
@@ -18,13 +18,12 @@ import {
   ClipboardList,
   Shield,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   FolderOpen,
   CalendarClock,
   HeartPulse,
   ShieldCheck,
+  Menu,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
@@ -40,16 +39,14 @@ interface SidebarProps {
 interface MenuItem {
   path: string
   label: string
-  icon: React.ReactNode
-  color: string
+  icon: React.ElementType
   permissao: { recurso: string; acao: string }
 }
 
 interface MenuGroup {
   id: string
   label: string
-  icon: React.ReactNode
-  color: string
+  icon: React.ElementType
   items: MenuItem[]
 }
 
@@ -59,64 +56,59 @@ const groups: MenuGroup[] = [
   {
     id: 'cadastros',
     label: 'Cadastros',
-    icon: <FolderOpen className="w-5 h-5" />,
-    color: '#7C3AED',
+    icon: FolderOpen,
     items: [
-      { path: '/colaboradores', label: 'Colaboradores', icon: <Users className="w-4 h-4" />, color: '#059669', permissao: { recurso: 'menu', acao: 'colaboradores' } },
-      { path: '/departamentos', label: 'Departamentos', icon: <Building2 className="w-4 h-4" />, color: '#7C3AED', permissao: { recurso: 'menu', acao: 'departamentos' } },
-      { path: '/empresas', label: 'Empresas', icon: <Building className="w-4 h-4" />, color: '#4F46E5', permissao: { recurso: 'menu', acao: 'empresas' } },
+      { path: '/colaboradores', label: 'Colaboradores', icon: Users, permissao: { recurso: 'menu', acao: 'colaboradores' } },
+      { path: '/departamentos', label: 'Departamentos', icon: Building2, permissao: { recurso: 'menu', acao: 'departamentos' } },
+      { path: '/empresas', label: 'Empresas', icon: Building, permissao: { recurso: 'menu', acao: 'empresas' } },
     ],
   },
   {
     id: 'operacional',
     label: 'Operacional',
-    icon: <CalendarClock className="w-5 h-5" />,
-    color: '#EA580C',
+    icon: CalendarClock,
     items: [
-      { path: '/escalas', label: 'Escalas', icon: <CalendarDays className="w-4 h-4" />, color: '#EA580C', permissao: { recurso: 'menu', acao: 'escalas' } },
-      { path: '/extras', label: 'Extras', icon: <Banknote className="w-4 h-4" />, color: '#DC2626', permissao: { recurso: 'menu', acao: 'extras' } },
+      { path: '/escalas', label: 'Escalas', icon: CalendarDays, permissao: { recurso: 'menu', acao: 'escalas' } },
+      { path: '/extras', label: 'Extras', icon: Banknote, permissao: { recurso: 'menu', acao: 'extras' } },
     ],
   },
   {
     id: 'rh',
     label: 'RH',
-    icon: <HeartPulse className="w-5 h-5" />,
-    color: '#E11D48',
+    icon: HeartPulse,
     items: [
-      { path: '/ferias', label: 'Férias', icon: <Umbrella className="w-4 h-4" />, color: '#0891B2', permissao: { recurso: 'menu', acao: 'ferias' } },
-      { path: '/rh/ocorrencias', label: 'Ocorrências', icon: <FileWarning className="w-4 h-4" />, color: '#D97706', permissao: { recurso: 'menu', acao: 'rh' } },
+      { path: '/ferias', label: 'Férias', icon: Umbrella, permissao: { recurso: 'menu', acao: 'ferias' } },
+      { path: '/rh/ocorrencias', label: 'Ocorrências', icon: FileWarning, permissao: { recurso: 'menu', acao: 'rh' } },
     ],
   },
   {
     id: 'dp',
     label: 'DP',
-    icon: <Briefcase className="w-5 h-5" />,
-    color: '#0D9488',
+    icon: Briefcase,
     items: [
-      { path: '/adicionais', label: 'Adicionais', icon: <Briefcase className="w-4 h-4" />, color: '#475569', permissao: { recurso: 'menu', acao: 'adicionais' } },
-      { path: '/vr/projetos', label: 'Benefícios', icon: <Wallet className="w-4 h-4" />, color: '#10B981', permissao: { recurso: 'menu', acao: 'vr' } },
-      { path: '/ceu/movimentacoes', label: 'CEU', icon: <Package className="w-4 h-4" />, color: '#9333EA', permissao: { recurso: 'menu', acao: 'ceu' } },
+      { path: '/adicionais', label: 'Adicionais', icon: Briefcase, permissao: { recurso: 'menu', acao: 'adicionais' } },
+      { path: '/vr/projetos', label: 'Benefícios', icon: Wallet, permissao: { recurso: 'menu', acao: 'vr' } },
+      { path: '/ceu/movimentacoes', label: 'CEU', icon: Package, permissao: { recurso: 'menu', acao: 'ceu' } },
     ],
   },
   {
     id: 'gestao',
     label: 'Gestão',
-    icon: <ShieldCheck className="w-5 h-5" />,
-    color: '#9333EA',
+    icon: ShieldCheck,
     items: [
-      { path: '/auditoria', label: 'Auditoria', icon: <ClipboardList className="w-4 h-4" />, color: '#F97316', permissao: { recurso: 'menu', acao: 'auditoria' } },
-      { path: '/importar/econtador', label: 'e-Contador', icon: <Cloud className="w-4 h-4" />, color: '#0EA5E9', permissao: { recurso: 'menu', acao: 'econtador' } },
-      { path: '/permissoes', label: 'Permissões', icon: <Shield className="w-4 h-4" />, color: '#E11D48', permissao: { recurso: 'menu', acao: 'permissoes' } },
+      { path: '/auditoria', label: 'Auditoria', icon: ClipboardList, permissao: { recurso: 'menu', acao: 'auditoria' } },
+      { path: '/importar/econtador', label: 'e-Contador', icon: Cloud, permissao: { recurso: 'menu', acao: 'econtador' } },
+      { path: '/permissoes', label: 'Permissões', icon: Shield, permissao: { recurso: 'menu', acao: 'permissoes' } },
     ],
   },
 ]
 
 const topItems: MenuItem[] = [
-  { path: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, color: '#2563EB', permissao: { recurso: 'menu', acao: 'dashboard' } },
+  { path: '/', label: 'Dashboard', icon: LayoutGrid, permissao: { recurso: 'menu', acao: 'dashboard' } },
 ]
 
 const bottomItems: MenuItem[] = [
-  { path: '/relatorios', label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, color: '#2563EB', permissao: { recurso: 'menu', acao: 'relatorios' } },
+  { path: '/relatorios', label: 'Relatórios', icon: BarChart3, permissao: { recurso: 'menu', acao: 'relatorios' } },
 ]
 
 function getInitialExpandedState(): Record<string, boolean> {
@@ -127,7 +119,7 @@ function getInitialExpandedState(): Record<string, boolean> {
   } catch {
     // ignore
   }
-  return {}
+  return { cadastros: true }
 }
 
 export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
@@ -162,134 +154,76 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
     [podeVer]
   )
 
-  const visibleTop = useMemo(
-    () => topItems.filter((item) => podeVer(item.permissao)),
-    [podeVer]
-  )
+  const visibleTop = useMemo(() => topItems.filter((item) => podeVer(item.permissao)), [podeVer])
+  const visibleBottom = useMemo(() => bottomItems.filter((item) => podeVer(item.permissao)), [podeVer])
 
-  const visibleBottom = useMemo(
-    () => bottomItems.filter((item) => podeVer(item.permissao)),
-    [podeVer]
-  )
+  const navItemBase =
+    'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors'
+  const navItemInactive = 'text-sidebar-foreground/70 hover:bg-white/5 hover:text-white'
+  const navItemActive =
+    'bg-[#0F6CBD] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_4px_14px_-4px_rgba(15,108,189,0.7)]'
+  const iconBase = 'size-4 shrink-0 transition-colors'
+  const iconInactive = 'text-sidebar-foreground/50 group-hover:text-white'
+  const iconActive = 'text-white'
 
-  const handleGroupClick = (id: string) => {
-    if (!isOpen) {
-      onToggle()
-    }
-    toggleGroup(id)
-  }
-
-  return (
-    <aside
-      className={cn(
-        'fixed left-0 top-0 h-screen flex flex-col transition-all duration-300 z-50 bg-white border-r border-slate-200',
-        isOpen ? 'w-60' : 'w-16'
-      )}
-    >
-      <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
-        {isOpen ? (
-          <div className="flex items-center gap-3">
-            <LogoMarca size={36} alt="Plena" />
-            <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">CORH</h1>
-              <p className="text-[10px] text-slate-500 leading-tight">Controle Operacional e de RH</p>
-            </div>
-          </div>
-        ) : (
-          <LogoMarca size={32} alt="Plena" className="mx-auto" />
-        )}
-        <button
-          onClick={onToggle}
-          className={cn(
-            'p-1.5 rounded-md transition-colors',
-            isOpen ? 'hover:bg-slate-100 text-slate-500 hover:text-slate-900' : 'mx-auto text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          )}
-          title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-        >
-          {isOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
+  const sidebarContent = (
+    <>
+      <div className="flex items-center gap-3 px-5 pb-5 pt-6">
+        <div className="bg-brand-gradient-soft flex size-10 items-center justify-center rounded-xl shadow-lg shadow-black/30">
+          <LogoMarca size={28} alt="Plena" className="[&_svg]:size-6 [&_img]:size-6" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-[15px] font-bold tracking-tight text-white">CORH</p>
+          <p className="text-[10px] text-sidebar-foreground/60">Controle Operacional e de RH</p>
+        </div>
       </div>
 
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {/* Itens avulsos no topo (Dashboard) */}
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
         {visibleTop.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-              )
-            }
+            className={({ isActive }) => cn(navItemBase, isActive ? navItemActive : navItemInactive)}
           >
-            {() => (
+            {({ isActive }) => (
               <>
-                <span className="flex-shrink-0" style={{ color: item.color }}>
-                  {item.icon}
-                </span>
-                {isOpen && <span>{item.label}</span>}
+                <item.icon strokeWidth={1.8} className={cn(iconBase, isActive ? iconActive : iconInactive)} />
+                <span>{item.label}</span>
               </>
             )}
           </NavLink>
         ))}
 
-        {/* Grupos expansíveis */}
         {visibleGroups.map((group) => {
-          const isActive = isGroupActive(group)
-          const isExpanded = !!expanded[group.id] || isActive
+          const active = isGroupActive(group)
+          const isExpanded = !!expanded[group.id] || active
+          const GroupIcon = group.icon
 
           return (
-            <div key={group.id} className="mt-1">
+            <div key={group.id} className="mt-0.5">
               <button
                 type="button"
-                onClick={() => handleGroupClick(group.id)}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
-                  isActive
-                    ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                )}
-                title={group.label}
+                onClick={() => toggleGroup(group.id)}
+                className={cn(navItemBase, navItemInactive)}
               >
-                <span className="flex-shrink-0" style={{ color: group.color }}>
-                  {group.icon}
-                </span>
-                {isOpen && (
-                  <>
-                    <span className="flex-1 text-left">{group.label}</span>
-                    <ChevronDown
-                      className={cn(
-                        'w-4 h-4 transition-transform duration-200',
-                        isExpanded ? 'rotate-180' : 'rotate-0'
-                      )}
-                    />
-                  </>
-                )}
+                <GroupIcon strokeWidth={1.8} className={cn(iconBase, iconInactive)} />
+                <span className="flex-1 text-left">{group.label}</span>
+                <ChevronDown
+                  className={cn('ml-auto size-3.5 text-sidebar-foreground/40 transition-transform', !isExpanded && '-rotate-90')}
+                />
               </button>
 
-              {isOpen && isExpanded && (
-                <div className="ml-4 mt-1 space-y-1 border-l border-slate-200 pl-2">
+              {isExpanded && (
+                <div className="mt-0.5 space-y-0.5 pl-3">
                   {group.items.map((item) => (
                     <NavLink
                       key={item.path}
                       to={item.path}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-                          isActive
-                            ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
-                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                        )
-                      }
+                      className={({ isActive }) => cn(navItemBase, 'pl-9', isActive ? navItemActive : navItemInactive)}
                     >
-                      {() => (
+                      {({ isActive }) => (
                         <>
-                          <span className="flex-shrink-0" style={{ color: item.color }}>
-                            {item.icon}
-                          </span>
+                          <item.icon strokeWidth={1.8} className={cn(iconBase, isActive ? iconActive : iconInactive)} />
                           <span>{item.label}</span>
                         </>
                       )}
@@ -301,44 +235,100 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
           )
         })}
 
-        {/* Itens avulsos no final (Relatórios) */}
         {visibleBottom.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'text-[#0F5EDD] font-semibold bg-[#F0F7FF]'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-              )
-            }
+            className={({ isActive }) => cn(navItemBase, isActive ? navItemActive : navItemInactive)}
           >
-            {() => (
+            {({ isActive }) => (
               <>
-                <span className="flex-shrink-0" style={{ color: item.color }}>
-                  {item.icon}
-                </span>
-                {isOpen && <span>{item.label}</span>}
+                <item.icon strokeWidth={1.8} className={cn(iconBase, isActive ? iconActive : iconInactive)} />
+                <span>{item.label}</span>
               </>
             )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-2 border-t border-slate-200">
+      <div className="border-t border-sidebar-border p-3">
         <button
           onClick={onLogout}
           className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-100 w-full transition-colors',
-            !isOpen && 'justify-center'
+            navItemBase,
+            'text-sidebar-foreground/70 hover:bg-white/5 hover:text-white'
           )}
         >
-          <LogOut className="w-5 h-5" />
-          {isOpen && <span>Sair</span>}
+          <LogOut strokeWidth={1.8} className={cn(iconBase, iconInactive)} />
+          <span>Sair</span>
         </button>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Desktop */}
+      <aside
+        className={cn(
+          'fixed left-0 top-0 hidden h-screen shrink-0 flex-col bg-sidebar lg:flex',
+          isOpen ? 'w-60' : 'w-16'
+        )}
+      >
+        {isOpen ? (
+          sidebarContent
+        ) : (
+          <div className="flex h-full flex-col items-center py-4">
+            <button onClick={onToggle} className="mb-6 rounded-lg p-2 text-sidebar-foreground/50 hover:bg-white/5 hover:text-white">
+              <Menu className="size-5" />
+            </button>
+            <div className="flex-1 space-y-2 overflow-y-auto px-2">
+              {visibleTop.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex size-9 items-center justify-center rounded-lg transition-colors',
+                      isActive ? 'bg-[#0F6CBD] text-white' : 'text-sidebar-foreground/50 hover:bg-white/5 hover:text-white'
+                    )
+                  }
+                  title={item.label}
+                >
+                  <item.icon strokeWidth={1.8} className="size-4" />
+                </NavLink>
+              ))}
+              {visibleGroups.map((group) => (
+                <div key={group.id} className="space-y-1">
+                  <group.icon strokeWidth={1.8} className="mx-auto size-4 text-sidebar-foreground/40" />
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex size-9 items-center justify-center rounded-lg transition-colors',
+                          isActive ? 'bg-[#0F6CBD] text-white' : 'text-sidebar-foreground/50 hover:bg-white/5 hover:text-white'
+                        )
+                      }
+                      title={item.label}
+                    >
+                      <item.icon strokeWidth={1.8} className="size-4" />
+                    </NavLink>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={onLogout}
+              className="mt-auto rounded-lg p-2 text-sidebar-foreground/50 hover:bg-white/5 hover:text-white"
+              title="Sair"
+            >
+              <LogOut strokeWidth={1.8} className="size-4" />
+            </button>
+          </div>
+        )}
+      </aside>
+    </>
   )
 }

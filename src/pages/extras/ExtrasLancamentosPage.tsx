@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Trash2, Pencil } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
+import { Plus, Search, Trash2, Pencil, Banknote } from 'lucide-react'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { Filters } from '@/components/corh/Filters'
+import { DataTable } from '@/components/corh/DataTable'
+import { StatusBadge } from '@/components/corh/StatusBadge'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
+import { Button } from '@/components/corh/Button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -23,7 +28,6 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { ExtrasShell } from './ExtrasShell'
-import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { podeEditarExtra } from '@/lib/permissoes'
 import type { StatusExtra, CategoriaOcorrencia } from '@/types/extras'
 
@@ -62,6 +66,7 @@ export function ExtrasLancamentosPage() {
   const [statusFiltro, setStatusFiltro] = useState<string>('todos')
   const [colaboradorFiltro, setColaboradorFiltro] = useState<string>('todos')
   const [busca, setBusca] = useState('')
+  const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
 
   useEffect(() => {
     listarCategorias()
@@ -93,8 +98,8 @@ export function ExtrasLancamentosPage() {
   }, [extras, busca])
 
   const handleExcluir = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este registro?')) return
     await remover(id)
+    setConfirmarExclusao(null)
   }
 
   const totalPendente = useMemo(() =>
@@ -104,6 +109,17 @@ export function ExtrasLancamentosPage() {
     [extrasFiltrados]
   )
 
+  const limparFiltros = () => {
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+    const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
+    setDataInicio(`${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}-${String(inicio.getDate()).padStart(2, '0')}`)
+    setDataFim(`${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`)
+    setCategoriaFiltro('todas')
+    setStatusFiltro('todos')
+    setColaboradorFiltro('todos')
+    setBusca('')
+  }
+
   return (
     <ExtrasShell>
       <PageHeader
@@ -112,76 +128,89 @@ export function ExtrasLancamentosPage() {
         description="Controle de faltas, coberturas e pagamentos em cash"
       >
         {podeEditar && (
-          <ModuleButton onClick={() => navigate('/extras/novo')}>
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={() => navigate('/extras/novo')}>
+            <Plus className="size-4" />
             Novo extra
-          </ModuleButton>
+          </Button>
         )}
       </PageHeader>
 
-      <ModuleCard title="Filtros">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Data início</Label>
-            <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Data fim</Label>
-            <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} className="rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Categoria</Label>
-            <Select value={categoriaFiltro} onValueChange={setCategoriaFiltro}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Status</Label>
-            <Select value={statusFiltro} onValueChange={setStatusFiltro}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label style={{ color: '#1F2937' }}>Colaborador</Label>
-            <Select value={colaboradorFiltro} onValueChange={setColaboradorFiltro}>
-              <SelectTrigger className="rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {colaboradores.map(c => <SelectItem key={c.id} value={c.id}>{c.nome_completo}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label style={{ color: '#1F2937' }}>Buscar</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Posto, colaborador, motivo..."
-                value={busca}
-                onChange={e => setBusca(e.target.value)}
-                className="rounded-lg pl-9"
-              />
-            </div>
+      <Filters onApply={() => {}} onClear={limparFiltros} loading={loading}>
+        <div className="space-y-2">
+          <Label>Data início</Label>
+          <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Data fim</Label>
+          <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Categoria</Label>
+          <Select value={categoriaFiltro} onValueChange={setCategoriaFiltro}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select value={statusFiltro} onValueChange={setStatusFiltro}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label>Colaborador</Label>
+          <Select value={colaboradorFiltro} onValueChange={setColaboradorFiltro}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {colaboradores.map(c => <SelectItem key={c.id} value={c.id}>{c.nome_completo}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label>Buscar</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Posto, colaborador, motivo..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
-      </ModuleCard>
+      </Filters>
 
-      <ModuleCard title={`Resultados (${extrasFiltrados.length})`}>
-        <div className="overflow-x-auto">
+      <DataTable title="Resultados" count={extrasFiltrados.length}>
+        {loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : extrasFiltrados.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+              <Banknote className="size-6" strokeWidth={1.8} />
+            </div>
+            <p className="text-[13px] text-muted-foreground">Nenhum registro encontrado.</p>
+            {podeEditar && (
+              <Button onClick={() => navigate('/extras/novo')}>
+                <Plus className="size-4" />
+                Novo extra
+              </Button>
+            )}
+          </div>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -196,68 +225,72 @@ export function ExtrasLancamentosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">Carregando...</TableCell>
-                </TableRow>
-              ) : extrasFiltrados.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8" style={{ color: '#94A3B8' }}>
-                    <div className="flex flex-col items-center gap-3">
-                      <span>Nenhum registro encontrado</span>
+              {extrasFiltrados.map(extra => (
+                <TableRow key={extra.id}>
+                  <TableCell className="tabular-nums text-muted-foreground">{formatarDataBR(extra.data_ocorrencia)}</TableCell>
+                  <TableCell className="break-words">{extra.departamento_nome || '—'}</TableCell>
+                  <TableCell className="break-words">{extra.colaborador_ausente_nome || '—'}</TableCell>
+                  <TableCell className="break-words">{extra.substituto_nome || '—'}</TableCell>
+                  <TableCell className="break-words">{extra.motivo}</TableCell>
+                  <TableCell className="tabular-nums">{formatarMoeda(extra.valor)}</TableCell>
+                  <TableCell>
+                    <StatusBadge
+                      variant={
+                        extra.status === 'Pago' ? 'success' :
+                        extra.status === 'Cancelado' ? 'danger' : 'warning'
+                      }
+                    >
+                      {extra.status}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
                       {podeEditar && (
-                        <ModuleButton size="sm" onClick={() => navigate('/extras/novo')}>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Novo extra
-                        </ModuleButton>
+                        <>
+                          <button
+                            type="button"
+                            className="rounded-md p-1.5 text-foreground hover:bg-accent"
+                            onClick={() => navigate(`/extras/${extra.id}/editar`)}
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                            onClick={() => setConfirmarExclusao(extra.id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : (
-                extrasFiltrados.map(extra => (
-                  <TableRow key={extra.id}>
-                    <TableCell>{formatarDataBR(extra.data_ocorrencia)}</TableCell>
-                    <TableCell className="break-words">{extra.departamento_nome || '—'}</TableCell>
-                    <TableCell className="break-words">{extra.colaborador_ausente_nome || '—'}</TableCell>
-                    <TableCell className="break-words">{extra.substituto_nome || '—'}</TableCell>
-                    <TableCell className="break-words">{extra.motivo}</TableCell>
-                    <TableCell>{formatarMoeda(extra.valor)}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        extra.status === 'Pago' ? 'bg-green-100 text-green-800' :
-                        extra.status === 'Cancelado' ? 'bg-red-100 text-red-800' :
-                        'bg-amber-100 text-amber-800'
-                      }`}>
-                        {extra.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {podeEditar && (
-                          <>
-                            <ModuleButton variant="outline" size="sm" onClick={() => navigate(`/extras/${extra.id}/editar`)}>
-                              <Pencil className="w-3 h-3" />
-                            </ModuleButton>
-                            <ModuleButton variant="danger" size="sm" onClick={() => handleExcluir(extra.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </ModuleButton>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
-        </div>
+        )}
 
-        <div className="mt-4 pt-4 border-t flex justify-between items-center" style={{ borderColor: '#F1F5F9' }}>
-          <span className="text-sm" style={{ color: '#64748B' }}>Total pendente no período:</span>
-          <span className="text-lg font-bold" style={{ color: '#1F2937' }}>{formatarMoeda(totalPendente)}</span>
-        </div>
-      </ModuleCard>
+        {!loading && extrasFiltrados.length > 0 && (
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+            <span className="text-[13px] text-muted-foreground">Total pendente no período:</span>
+            <span className="text-lg font-bold tabular-nums">{formatarMoeda(totalPendente)}</span>
+          </div>
+        )}
+      </DataTable>
+
+      <ConfirmDialog
+        open={!!confirmarExclusao}
+        onOpenChange={() => setConfirmarExclusao(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Excluir extra?"
+        description="O registro será removido permanentemente. Esta ação não pode ser desfeita."
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={() => confirmarExclusao && handleExcluir(confirmarExclusao)}
+        destructive
+      />
     </ExtrasShell>
   )
 }

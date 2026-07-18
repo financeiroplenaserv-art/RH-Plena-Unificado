@@ -24,7 +24,7 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row">
       {/* Lado esquerdo — Branding / Hero */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#2563eb]">
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden bg-brand-gradient">
         <BrandHug />
 
         {/* Elementos decorativos sutis */}
@@ -145,7 +145,7 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
 
             <Button
               type="submit"
-              className="w-full h-11 text-sm font-medium bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] hover:from-[#1e40af] hover:to-[#3b82f6] text-white border-0"
+              className="w-full h-11 text-sm font-semibold bg-brand-gradient-soft text-white border-0 hover:opacity-95 hover:shadow"
               disabled={loading}
             >
               {loading ? (

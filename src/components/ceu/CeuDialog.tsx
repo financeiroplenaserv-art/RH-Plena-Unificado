@@ -30,10 +30,10 @@ export function CeuDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn('sm:max-w-sm overflow-hidden p-0', className)}>
-        <DialogHeader className="bg-gradient-to-r from-[#1E3A5F] to-[#3B82F6] p-6 pb-4">
-          <DialogTitle className="text-base text-white">{title}</DialogTitle>
+        <DialogHeader className="border-b border-border p-6 pb-4">
+          <DialogTitle className="text-base">{title}</DialogTitle>
           {description && (
-            <DialogDescription className="text-xs text-white/80">
+            <DialogDescription className="text-xs">
               {description}
             </DialogDescription>
           )}

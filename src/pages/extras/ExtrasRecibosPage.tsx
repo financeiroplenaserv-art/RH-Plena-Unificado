@@ -27,7 +27,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { AssinaturaCanvas, type AssinaturaCanvasRef } from '@/components/extras/AssinaturaCanvas'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
 import {
   podeGerenciarReciboExtra,
@@ -87,6 +88,8 @@ export function ExtrasRecibosPage() {
   const [modoPapel, setModoPapel] = useState(false)
   const [filtroNome, setFiltroNome] = useState('')
   const [ordemNome, setOrdemNome] = useState<'asc' | 'desc' | null>('asc')
+  const [reciboParaRemover, setReciboParaRemover] = useState<string | null>(null)
+  const [grupoParaPagar, setGrupoParaPagar] = useState<GrupoSubstituto | null>(null)
 
   const { extras, loading: loadingExtras, listar, atualizar } = useExtras()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
@@ -310,10 +313,14 @@ export function ExtrasRecibosPage() {
   }
 
   const handleRemoverRecibo = async (id: string) => {
-    const confirmar = window.confirm('Deseja remover este recibo?')
-    if (!confirmar) return
-    const ok = await remover(id)
+    setReciboParaRemover(id)
+  }
+
+  const confirmarRemoverRecibo = async () => {
+    if (!reciboParaRemover) return
+    const ok = await remover(reciboParaRemover)
     if (ok) listarRecibos({ dataInicio, dataFim })
+    setReciboParaRemover(null)
   }
 
   const marcarExtrasComoPago = async (grupo: GrupoSubstituto) => {
@@ -349,8 +356,12 @@ export function ExtrasRecibosPage() {
       return
     }
 
-    const confirmar = window.confirm(`Marcar ${pendentes.length} extra(s) de ${grupo.substituto_nome} como Pago?`)
-    if (!confirmar) return
+    setGrupoParaPagar(grupo)
+  }
+
+  const confirmarMarcarComoPago = async () => {
+    if (!grupoParaPagar) return
+    const pendentes = grupoParaPagar.extras.filter(e => e.status !== 'Pago')
 
     let sucessos = 0
     for (const extra of pendentes) {
@@ -363,6 +374,7 @@ export function ExtrasRecibosPage() {
       await listar({ dataInicio, dataFim })
       await listarRecibos({ dataInicio, dataFim })
     }
+    setGrupoParaPagar(null)
   }
 
   const totalGeral = useMemo(() => grupos.reduce((acc, g) => acc + g.valorTotal, 0), [grupos])
@@ -659,6 +671,35 @@ export function ExtrasRecibosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!reciboParaRemover}
+        onOpenChange={() => setReciboParaRemover(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Remover recibo?"
+        description="O recibo será removido permanentemente. Esta ação não pode ser desfeita."
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={confirmarRemoverRecibo}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={!!grupoParaPagar}
+        onOpenChange={() => setGrupoParaPagar(null)}
+        icon={<DollarSign className="size-6 text-primary" />}
+        iconClassName="bg-accent"
+        title="Marcar como pago?"
+        description={
+          grupoParaPagar
+            ? `Marcar ${grupoParaPagar.extras.filter(e => e.status !== 'Pago').length} extra(s) de ${grupoParaPagar.substituto_nome} como Pago?`
+            : ''
+        }
+        confirmLabel="Sim, marcar"
+        cancelLabel="Cancelar"
+        onConfirm={confirmarMarcarComoPago}
+      />
     </ExtrasShell>
   )
 }

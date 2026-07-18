@@ -810,7 +810,7 @@ export function MobileFaltaPage() {
 
         <div className="bg-white rounded-2xl p-5 shadow-sm relative">
           {carregando && (
-            <div className="absolute inset-0 bg-white/80 rounded-2xl flex flex-col items-center justify-center z-10">
+            <div className="absolute inset-0 bg-white rounded-2xl flex flex-col items-center justify-center z-10">
               <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
               <p className="mt-3 text-sm text-slate-600 font-medium">Carregando...</p>
             </div>

@@ -9,7 +9,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { formatarData, nomeDepartamento } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Extra } from '@/types/extras'
@@ -240,12 +240,11 @@ export function ExtrasBalancoPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <ModuleCard title="Data do balanço">
           <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Selecione a data</Label>
+            <Label>Selecione a data</Label>
             <Input
               type="date"
               value={dataSelecionada}
               onChange={e => setDataSelecionada(e.target.value)}
-              className="rounded-lg"
             />
           </div>
         </ModuleCard>
@@ -253,16 +252,16 @@ export function ExtrasBalancoPage() {
         <ModuleCard title="Resumo">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{totalOcorrencias}</div>
-              <div className="text-xs" style={{ color: '#94A3B8' }}>Ocorrências</div>
+              <div className="text-2xl font-bold">{totalOcorrencias}</div>
+              <div className="text-xs text-muted-foreground">Ocorrências</div>
             </div>
             <div>
-              <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{formatarMoeda(totalValor)}</div>
-              <div className="text-xs" style={{ color: '#94A3B8' }}>Valor total</div>
+              <div className="text-2xl font-bold">{formatarMoeda(totalValor)}</div>
+              <div className="text-xs text-muted-foreground">Valor total</div>
             </div>
             <div>
-              <div className="text-2xl font-bold" style={{ color: comunicacoesPendentes > 0 ? '#EF4444' : '#22C55E' }}>{comunicacoesPendentes}</div>
-              <div className="text-xs" style={{ color: '#94A3B8' }}>Sem comunicação</div>
+              <div className={`text-2xl font-bold ${comunicacoesPendentes > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{comunicacoesPendentes}</div>
+              <div className="text-xs text-muted-foreground">Sem comunicação</div>
             </div>
           </div>
         </ModuleCard>
@@ -287,16 +286,16 @@ export function ExtrasBalancoPage() {
 
       <ModuleCard title="Mensagem para o WhatsApp">
         {loading ? (
-          <p className="text-center py-8" style={{ color: '#94A3B8' }}>Carregando ocorrências...</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Carregando ocorrências...</p>
         ) : (
           <div className="space-y-4">
             <Textarea
               value={mensagemEditada}
               onChange={e => setMensagemEditada(e.target.value)}
               rows={20}
-              className="rounded-lg font-mono text-sm whitespace-pre-wrap"
+              className="font-mono text-sm whitespace-pre-wrap"
             />
-            <div className="flex justify-between items-center text-xs" style={{ color: '#94A3B8' }}>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{mensagemEditada.length} caracteres</span>
               <span>Você pode editar o texto antes de copiar</span>
             </div>

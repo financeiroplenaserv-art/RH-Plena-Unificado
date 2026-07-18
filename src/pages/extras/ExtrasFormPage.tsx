@@ -17,7 +17,7 @@ import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
@@ -218,7 +218,7 @@ export function ExtrasFormPage() {
         <ModuleCard>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Data da ocorrência</Label>
+              <Label>Data da ocorrência</Label>
               <Input
                 type="date"
                 value={form.data_ocorrencia}
@@ -229,7 +229,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Turno</Label>
+              <Label>Turno</Label>
               <Select value={form.turno} onValueChange={v => setField('turno', v as TurnoExtra)}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
@@ -241,7 +241,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Categoria</Label>
+              <Label>Categoria</Label>
               <Select value={form.categoria || 'null'} onValueChange={v => setField('categoria', v === 'null' ? '' as CategoriaOcorrencia : v as CategoriaOcorrencia)}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue placeholder="Selecione..." />
@@ -254,7 +254,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Departamento</Label>
+              <Label>Departamento</Label>
               <Select
                 value={form.departamento_id || 'null'}
                 onValueChange={v => {
@@ -286,13 +286,13 @@ export function ExtrasFormPage() {
 
             <div className="space-y-2 md:col-span-2">
               <div className="flex items-center justify-between">
-                <Label style={{ color: '#1F2937' }}>Colaborador ausente</Label>
-                <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#64748B' }}>
+                <Label>Colaborador ausente</Label>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={ausenteNaoAplica}
                     onChange={e => handleToggleAusenteNaoAplica(e.target.checked)}
-                    className="rounded border-slate-300"
+                    className="rounded border-input"
                   />
                   Não se aplica
                 </label>
@@ -306,14 +306,14 @@ export function ExtrasFormPage() {
                   permitirNovo
                 />
               ) : (
-                <div className="p-3 rounded-lg border border-dashed text-sm" style={{ borderColor: '#E2E8F0', color: '#94A3B8' }}>
+                <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
                   Não se aplica
                 </div>
               )}
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label style={{ color: '#1F2937' }}>Substituto</Label>
+              <Label>Substituto</Label>
               <AutocompleteColaborador
                 value={form.substituto_id || undefined}
                 onChange={handleSubstitutoChange}
@@ -322,7 +322,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Motivo</Label>
+              <Label>Motivo</Label>
               <Select value={form.motivo || 'null'} onValueChange={v => setField('motivo', v === 'null' ? '' as MotivoExtra : v as MotivoExtra)}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue placeholder="Selecione..." />
@@ -335,7 +335,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Categoria de valor</Label>
+              <Label>Categoria de valor</Label>
               <Select
                 value={form.categoria_valor_id || 'acordado'}
                 onValueChange={handleCategoriaValorChange}
@@ -351,7 +351,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Valor (R$)</Label>
+              <Label>Valor (R$)</Label>
               <Input
                 type="text"
                 inputMode="decimal"
@@ -374,18 +374,18 @@ export function ExtrasFormPage() {
                 id="extra_faturado"
                 checked={form.extra_faturado}
                 onChange={e => setField('extra_faturado', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300"
+                className="size-4 rounded border-input"
               />
-              <Label htmlFor="extra_faturado" style={{ color: '#1F2937' }}>Extra faturado</Label>
+              <Label htmlFor="extra_faturado">Extra faturado</Label>
             </div>
           </div>
         </ModuleCard>
 
         <ModuleCard className="mt-4">
-          <h3 className="text-base font-semibold mb-4" style={{ color: '#1F2937' }}>Comunicação com o cliente</h3>
+          <h3 className="mb-4 text-base font-semibold">Comunicação com o cliente</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Meio de comunicação</Label>
+              <Label>Meio de comunicação</Label>
               <Select value={form.comunicacao_tipo || 'Não se aplica'} onValueChange={v => setField('comunicacao_tipo', v as ComunicacaoTipo)}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
@@ -397,7 +397,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Data da comunicação</Label>
+              <Label>Data da comunicação</Label>
               <Input
                 type="date"
                 value={form.comunicacao_data || ''}
@@ -407,7 +407,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Hora da comunicação</Label>
+              <Label>Hora da comunicação</Label>
               <Input
                 type="time"
                 value={form.comunicacao_hora || ''}
@@ -417,7 +417,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2 md:col-span-3">
-              <Label style={{ color: '#1F2937' }}>Detalhes</Label>
+              <Label>Detalhes</Label>
               <Input
                 value={form.comunicacao_detalhes || ''}
                 onChange={e => setField('comunicacao_detalhes', e.target.value || null)}
@@ -431,7 +431,7 @@ export function ExtrasFormPage() {
         <ModuleCard className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Status</Label>
+              <Label>Status</Label>
               <Select value={form.status} onValueChange={v => setField('status', v as StatusExtra)}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
@@ -443,7 +443,7 @@ export function ExtrasFormPage() {
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Observações</Label>
+              <Label>Observações</Label>
               <Input
                 value={form.observacoes || ''}
                 onChange={e => setField('observacoes', e.target.value || null)}

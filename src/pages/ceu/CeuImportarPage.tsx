@@ -4,7 +4,7 @@ import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, Download } fro
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { CeuShell } from './CeuShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'

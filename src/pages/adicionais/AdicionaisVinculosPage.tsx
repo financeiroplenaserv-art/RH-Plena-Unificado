@@ -31,7 +31,7 @@ import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { podeEditarVinculoAdicional } from '@/lib/permissoes'
 import type { VinculoAdicional, AdicionalTipo } from '@/types/adicionais'
 

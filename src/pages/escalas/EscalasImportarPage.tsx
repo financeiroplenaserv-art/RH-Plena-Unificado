@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks/useEscalasDiario'
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import { parseExcelFlit, type DiaFlit } from '@/lib/escalas/importarFlit'
 import { Upload, AlertCircle, Calendar } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { EscalasShell } from './EscalasShell'
 
@@ -132,32 +140,32 @@ export function EscalasImportarPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Ano</Label>
-                  <input
+                  <Input
                     type="number"
                     value={ano}
                     onChange={(e) => setAno(Number(e.target.value))}
-                    className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
                   />
                 </div>
                 <div>
                   <Label>Mês base</Label>
-                  <select
-                    value={mes}
-                    onChange={(e) => setMes(Number(e.target.value))}
-                    className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                      <option key={m} value={m}>
-                        {m.toString().padStart(2, '0')}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                        <SelectItem key={m} value={String(m)}>
+                          {m.toString().padStart(2, '0')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-md flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
-                Competência selecionada: <strong>{competencia.label}</strong> ({competencia.inicio} a {competencia.fim})
+              <p className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-[13px] text-muted-foreground">
+                <Calendar className="size-4" />
+                Competência selecionada: <strong className="text-foreground">{competencia.label}</strong> ({competencia.inicio} a {competencia.fim})
               </p>
             </>
           )}

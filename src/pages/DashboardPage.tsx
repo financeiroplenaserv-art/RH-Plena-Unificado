@@ -270,36 +270,56 @@ export function DashboardPage() {
   const nomeUsuario = user?.nome?.split(' ')[0] || 'Usuário'
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-12">
-      {/* Header com saudação */}
-      <div className="bg-white border-b border-slate-200 px-6 py-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold text-slate-900">
-            {saudacao()}, {nomeUsuario} 👋
+    <div className="min-h-full pb-12">
+      {/* Hero */}
+      <div className="bg-brand-gradient px-4 py-8 text-white md:px-6">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="text-[24px] font-bold leading-tight lg:text-[28px]">
+            {saudacao()}, {nomeUsuario}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="mt-1 text-[13px] text-white/80">
             {formatarDataCompleta(new Date())}
             {totalAlertas > 0 && (
               <>
                 {' · '}
-                <span className="font-semibold text-slate-900">{totalAlertas} itens</span>
+                <span className="font-semibold text-white">{totalAlertas} itens</span>
                 {' precisam de atenção hoje'}
               </>
             )}
           </p>
 
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-white/70">Colaboradores ativos</p>
+              <p className="mt-1 text-2xl font-bold">{ativos}</p>
+              <p className="text-[11px] text-white/60">Total geral: {totalColaboradores}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-white/70">Ocorrências pendentes</p>
+              <p className="mt-1 text-2xl font-bold">{ocorrenciasPendentes}</p>
+              <p className="text-[11px] text-white/60">Aguardando análise</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-white/70">Contratos de experiência</p>
+              <p className="mt-1 text-2xl font-bold">{experiencia.length}</p>
+              <p className="text-[11px] text-white/60">Nos marcos de 30/60/90 dias</p>
+            </div>
+          </div>
+
           <Button
             size="sm"
             onClick={() => navigate('/rh/alertas')}
             className={cn(
-              'mt-4 gap-2 rounded-lg',
-              totalAlertas > 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+              'mt-6 gap-2 rounded-lg border',
+              totalAlertas > 0
+                ? 'border-white/20 bg-white text-red-600 hover:bg-white/90'
+                : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
             )}
           >
             <Bell className="h-4 w-4" />
             Central de Alertas
             {totalAlertas > 0 && (
-              <span className="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-white text-red-600 text-xs font-bold">
+              <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
                 {totalAlertas}
               </span>
             )}
@@ -307,97 +327,104 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Cards principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-6">
+        {/* KPIs */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card
-            className="rounded-2xl shadow-sm bg-white border-none cursor-pointer hover:shadow-md transition-shadow"
+            className="cursor-pointer rounded-2xl border-none shadow-sm transition-shadow hover:shadow-md"
             onClick={() => navigate('/colaboradores')}
           >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
-                <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
-                  <Users className="w-6 h-6" />
+                <div className="rounded-xl bg-blue-50 p-3 text-primary">
+                  <Users className="size-6" />
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-400" />
+                <ArrowRight className="size-5 text-muted-foreground" />
               </div>
               <div className="mt-4">
-                <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Colaboradores Ativos</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">{ativos}</p>
-                <p className="text-sm text-slate-400 mt-1">Total geral: {totalColaboradores}</p>
+                <p className="text-[13px] font-medium uppercase tracking-wide text-muted-foreground">Colaboradores Ativos</p>
+                <p className="mt-1 text-3xl font-bold text-foreground">{ativos}</p>
+                <p className="text-[13px] text-muted-foreground">Total geral: {totalColaboradores}</p>
               </div>
             </CardContent>
           </Card>
 
           <Card
-            className="rounded-2xl shadow-sm bg-white border-none cursor-pointer hover:shadow-md transition-shadow"
+            className="cursor-pointer rounded-2xl border-none shadow-sm transition-shadow hover:shadow-md"
             onClick={() => navigate('/rh/ocorrencias')}
           >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
-                <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
-                  <AlertCircle className="w-6 h-6" />
+                <div className="rounded-xl bg-amber-50 p-3 text-amber-600">
+                  <AlertCircle className="size-6" />
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-400" />
+                <ArrowRight className="size-5 text-muted-foreground" />
               </div>
               <div className="mt-4">
-                <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Ocorrências Pendentes</p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">{ocorrenciasPendentes}</p>
-                <p className="text-sm text-slate-400 mt-1">Aguardando análise</p>
+                <p className="text-[13px] font-medium uppercase tracking-wide text-muted-foreground">Ocorrências Pendentes</p>
+                <p className="mt-1 text-3xl font-bold text-foreground">{ocorrenciasPendentes}</p>
+                <p className="text-[13px] text-muted-foreground">Aguardando análise</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Seções de rolagem */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Contratos de experiência */}
-          <Card className="rounded-2xl shadow-sm bg-white border-none">
+          <Card className="rounded-2xl border-none shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
-                  <CalendarHeart className="w-5 h-5" />
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-lg bg-purple-50 p-2 text-purple-600">
+                  <CalendarHeart className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-slate-900">Contratos de experiência</h3>
-                  <p className="text-xs text-slate-500">Colaboradores próximos dos marcos de 30, 60 ou 90 dias</p>
+                  <h3 className="text-base font-semibold text-foreground">Contratos de experiência</h3>
+                  <p className="text-xs text-muted-foreground">Colaboradores próximos dos marcos de 30, 60 ou 90 dias</p>
                 </div>
               </div>
 
               {experiencia.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4">Nenhum contrato de experiência próximo do vencimento.</p>
+                <p className="py-4 text-[13px] text-muted-foreground">Nenhum contrato de experiência próximo do vencimento.</p>
               ) : (
-                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
                   {experiencia.map(({ colaborador: colab, marco, dias }) => (
                     <button
                       key={colab.id}
                       onClick={() => navigate(`/colaboradores/${colab.id}`)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 text-left transition-colors border border-transparent hover:border-slate-100"
+                      className="flex w-full items-center justify-between rounded-xl border border-transparent p-3 text-left transition-colors hover:border-border hover:bg-accent/40"
                     >
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold',
-                          marco === 30 && 'bg-purple-100 text-purple-700',
-                          marco === 60 && 'bg-blue-100 text-blue-700',
-                          marco === 90 && 'bg-emerald-100 text-emerald-700'
-                        )}>
+                        <div
+                          className={cn(
+                            'flex size-10 items-center justify-center rounded-full text-sm font-bold',
+                            marco === 30 && 'bg-purple-100 text-purple-700',
+                            marco === 60 && 'bg-blue-100 text-blue-700',
+                            marco === 90 && 'bg-emerald-100 text-emerald-700'
+                          )}
+                        >
                           {marco}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{colab.nome_completo}</p>
-                          <p className="text-xs text-slate-500">{colab.cargo || '—'} · {colab.departamento || '—'}</p>
+                          <p className="text-sm font-medium text-foreground">{colab.nome_completo}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {colab.cargo || '—'} · {colab.departamento || '—'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <Badge variant="outline" className={cn(
-                          'text-xs',
-                          marco === 30 && 'border-purple-200 text-purple-700 bg-purple-50',
-                          marco === 60 && 'border-blue-200 text-blue-700 bg-blue-50',
-                          marco === 90 && 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                        )}>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs',
+                            marco === 30 && 'border-purple-200 bg-purple-50 text-purple-700',
+                            marco === 60 && 'border-blue-200 bg-blue-50 text-blue-700',
+                            marco === 90 && 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          )}
+                        >
                           {dias} dias
                         </Badge>
-                        <p className="text-xs text-slate-400 mt-1">Adm. {formatarDiaMes(colab.data_admissao)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Adm. {formatarDiaMes(colab.data_admissao)}</p>
                       </div>
                     </button>
                   ))}
@@ -407,41 +434,45 @@ export function DashboardPage() {
           </Card>
 
           {/* Aniversariantes */}
-          <Card className="rounded-2xl shadow-sm bg-white border-none">
+          <Card className="rounded-2xl border-none shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-rose-50 text-rose-600">
-                  <Cake className="w-5 h-5" />
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-lg bg-rose-50 p-2 text-rose-600">
+                  <Cake className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-slate-900">Aniversariantes</h3>
-                  <p className="text-xs text-slate-500">Mês atual</p>
+                  <h3 className="text-base font-semibold text-foreground">Aniversariantes</h3>
+                  <p className="text-xs text-muted-foreground">Mês atual</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Aniversário de vida</p>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Aniversário de vida</p>
                   {aniversariantes.vida.length === 0 ? (
-                    <p className="text-sm text-slate-500 py-2">Nenhum aniversariante este mês.</p>
+                    <p className="py-2 text-[13px] text-muted-foreground">Nenhum aniversariante este mês.</p>
                   ) : (
-                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                    <div className="max-h-[140px] space-y-2 overflow-y-auto pr-1">
                       {aniversariantes.vida.map(({ colaborador: colab, data }) => (
                         <div
                           key={colab.id}
                           className={cn(
-                            'flex items-center justify-between p-2 rounded-lg',
-                            aniversariantes.destaqueHoje(data) ? 'bg-rose-50 border border-rose-100' : 'hover:bg-slate-50'
+                            'flex items-center justify-between rounded-lg p-2',
+                            aniversariantes.destaqueHoje(data) ? 'border border-rose-100 bg-rose-50' : 'hover:bg-accent/40'
                           )}
                         >
                           <div className="flex items-center gap-2">
-                            <CalendarDays className={cn('w-4 h-4', aniversariantes.destaqueHoje(data) ? 'text-rose-600' : 'text-slate-400')} />
-                            <span className="text-sm text-slate-900">{colab.nome_completo}</span>
+                            <CalendarDays
+                              className={cn('size-4', aniversariantes.destaqueHoje(data) ? 'text-rose-600' : 'text-muted-foreground')}
+                            />
+                            <span className="text-sm text-foreground">{colab.nome_completo}</span>
                           </div>
-                          <span className={cn(
-                            'text-xs font-medium',
-                            aniversariantes.destaqueHoje(data) ? 'text-rose-600' : 'text-slate-500'
-                          )}>
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              aniversariantes.destaqueHoje(data) ? 'text-rose-600' : 'text-muted-foreground'
+                            )}
+                          >
                             {formatarDiaMes(data)}
                             {aniversariantes.destaqueHoje(data) && ' · Hoje'}
                           </span>
@@ -451,12 +482,12 @@ export function DashboardPage() {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Aniversário de empresa</p>
+                <div className="border-t border-border pt-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Aniversário de empresa</p>
                   {aniversariantes.empresa.length === 0 ? (
-                    <p className="text-sm text-slate-500 py-2">Nenhum aniversário de empresa este mês.</p>
+                    <p className="py-2 text-[13px] text-muted-foreground">Nenhum aniversário de empresa este mês.</p>
                   ) : (
-                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                    <div className="max-h-[140px] space-y-2 overflow-y-auto pr-1">
                       {aniversariantes.empresa.map(({ colaborador: colab, data }) => {
                         const dAdm = normalizarData(data)!
                         const anos = new Date().getFullYear() - dAdm.getFullYear()
@@ -464,18 +495,22 @@ export function DashboardPage() {
                           <div
                             key={colab.id}
                             className={cn(
-                              'flex items-center justify-between p-2 rounded-lg',
-                              aniversariantes.destaqueHoje(data) ? 'bg-emerald-50 border border-emerald-100' : 'hover:bg-slate-50'
+                              'flex items-center justify-between rounded-lg p-2',
+                              aniversariantes.destaqueHoje(data) ? 'border border-emerald-100 bg-emerald-50' : 'hover:bg-accent/40'
                             )}
                           >
                             <div className="flex items-center gap-2">
-                              <UserCheck className={cn('w-4 h-4', aniversariantes.destaqueHoje(data) ? 'text-emerald-600' : 'text-slate-400')} />
-                              <span className="text-sm text-slate-900">{colab.nome_completo}</span>
+                              <UserCheck
+                                className={cn('size-4', aniversariantes.destaqueHoje(data) ? 'text-emerald-600' : 'text-muted-foreground')}
+                              />
+                              <span className="text-sm text-foreground">{colab.nome_completo}</span>
                             </div>
-                            <span className={cn(
-                              'text-xs font-medium',
-                              aniversariantes.destaqueHoje(data) ? 'text-emerald-600' : 'text-slate-500'
-                            )}>
+                            <span
+                              className={cn(
+                                'text-xs font-medium',
+                                aniversariantes.destaqueHoje(data) ? 'text-emerald-600' : 'text-muted-foreground'
+                              )}
+                            >
                               {formatarDiaMes(data)}
                               {aniversariantes.destaqueHoje(data) && ` · ${anos} anos`}
                             </span>
@@ -492,10 +527,10 @@ export function DashboardPage() {
 
         {/* Alertas dos módulos */}
         {alertas.length > 0 && (
-          <Card className="rounded-2xl shadow-sm bg-white border-none border-l-4 border-l-red-500">
+          <Card className="rounded-2xl border-none shadow-sm">
             <CardContent className="p-6">
-              <h3 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <Bell className="w-4 h-4 text-red-600" />
+              <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+                <Bell className="size-4 text-red-600" />
                 Alertas dos módulos
               </h3>
               <div className="space-y-2">
@@ -503,12 +538,12 @@ export function DashboardPage() {
                   <button
                     key={alerta.id}
                     onClick={() => navigate(alerta.link)}
-                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 text-left transition-colors"
+                    className="flex w-full items-center justify-between rounded-lg p-3 text-left transition-colors hover:bg-accent/40"
                   >
                     <div className="flex items-center gap-3">
                       <span
                         className={cn(
-                          'w-2 h-2 rounded-full',
+                          'size-2 rounded-full',
                           alerta.severidade === 'critica' && 'bg-red-600',
                           alerta.severidade === 'alta' && 'bg-orange-500',
                           alerta.severidade === 'media' && 'bg-amber-400',
@@ -516,13 +551,13 @@ export function DashboardPage() {
                         )}
                       />
                       <div>
-                        <p className="text-sm font-medium text-slate-900">
+                        <p className="text-sm font-medium text-foreground">
                           [{alerta.modulo}] {alerta.tipo}
                         </p>
-                        <p className="text-xs text-slate-500">{alerta.descricao}</p>
+                        <p className="text-xs text-muted-foreground">{alerta.descricao}</p>
                       </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-400" />
+                    <ArrowRight className="size-4 text-muted-foreground" />
                   </button>
                 ))}
               </div>

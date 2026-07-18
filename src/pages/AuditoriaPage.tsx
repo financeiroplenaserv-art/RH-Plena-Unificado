@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table'
 import { useAuditoria } from '@/hooks/useAuditoria'
 import { formatarData } from '@/lib/utils'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 
 const TABELAS = [
   { value: 'todas', label: 'Todas as tabelas' },

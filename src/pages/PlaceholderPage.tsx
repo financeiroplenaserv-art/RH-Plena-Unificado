@@ -1,5 +1,6 @@
 import { Construction } from 'lucide-react'
-import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/corh/EmptyState'
 
 interface PlaceholderPageProps {
   titulo: string
@@ -9,20 +10,20 @@ interface PlaceholderPageProps {
 export function PlaceholderPage({ titulo, descricao }: PlaceholderPageProps) {
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">{titulo}</h2>
-          <p className="text-sm text-slate-500">{descricao}</p>
+          <h2 className="text-[22px] font-bold tracking-tight text-foreground">{titulo}</h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">{descricao}</p>
         </div>
       </div>
 
       <Card>
-        <CardContent className="py-16 text-center">
-          <Construction className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-          <CardTitle className="text-lg mb-2">Módulo em construção</CardTitle>
-          <p className="text-slate-500 max-w-md mx-auto">
-            Este módulo será implementado na próxima fase. A estrutura base já está pronta para receber as funcionalidades.
-          </p>
+        <CardContent className="py-8">
+          <EmptyState
+            icon={<Construction className="size-6" strokeWidth={1.8} />}
+            title="Módulo em construção"
+            description="Este módulo será implementado na próxima fase. A estrutura base já está pronta para receber as funcionalidades."
+          />
         </CardContent>
       </Card>
     </div>

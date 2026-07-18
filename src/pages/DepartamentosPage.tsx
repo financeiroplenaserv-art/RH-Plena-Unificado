@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -28,8 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageHeader } from '@/components/PageHeader'
-import { ModuleButton } from '@/components/layout/ModuleShell'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { Filters } from '@/components/corh/Filters'
+import { DataTable } from '@/components/corh/DataTable'
+import { StatusBadge } from '@/components/corh/StatusBadge'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
+import { Button } from '@/components/corh/Button'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
 import * as XLSX from '@e965/xlsx'
@@ -41,12 +44,6 @@ import {
   podeImportarDepartamentos,
 } from '@/lib/permissoes'
 import type { Departamento } from '@/types/database'
-
-function getStatusBadge(status: string) {
-  return status === 'Ativo'
-    ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Ativo</Badge>
-    : <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">Inativo</Badge>
-}
 
 function exportarExcel(departamentos: Departamento[]) {
   const rows = departamentos.map(d => ({
@@ -279,442 +276,388 @@ export function DepartamentosPage() {
     }
   }
 
-  return (
-    <div className="min-h-full p-4 md:p-6" style={{ backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <PageHeader backTo="/" title="Departamentos" description="Gestão de condomínios, empresas e hospitais">
-          {podeEditar && (
-            <button
-              onClick={handleNovo}
-              className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium text-white transition-colors"
-              style={{ backgroundColor: '#1F2937' }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo departamento
-            </button>
-          )}
-        </PageHeader>
+  const limparFiltros = () => {
+    setBusca('')
+    setFiltroStatus('Ativo')
+  }
 
-        {/* Filtros */}
-        <div className="rounded-xl shadow-sm border-0 overflow-hidden" style={{ backgroundColor: '#FFFFFF' }}>
-          <div className="px-6 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-            <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>Filtros</h3>
+  const aplicarFiltros = () => {
+    // filtros são reativos; botão mantém padrão de UX
+  }
+
+  return (
+    <div className="min-h-full space-y-5">
+      <PageHeader backTo="/" title="Departamentos" description="Gestão de condomínios, empresas e hospitais">
+        {podeEditar && (
+          <Button onClick={handleNovo}>
+            <Plus className="size-4" />
+            Novo departamento
+          </Button>
+        )}
+      </PageHeader>
+
+      <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, contato..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={filtroStatus}
+          onValueChange={v => setFiltroStatus(v as 'todos' | 'Ativo' | 'Inativo')}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Ativo">Ativos</SelectItem>
+            <SelectItem value="Inativo">Inativos</SelectItem>
+            <SelectItem value="todos">Todos</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex flex-wrap gap-2 md:col-span-2">
+          <Button variant="outline" size="sm" onClick={() => exportarExcel(departamentosFiltrados)}>
+            <FileSpreadsheet className="size-4" />
+            Excel
+          </Button>
+          {podeImportar && (
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="size-4" />
+              CSV
+            </Button>
+          )}
+          {podeImportar && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={sincronizar}
+              disabled={sincronizando || departamentos.length === 0}
+            >
+              {sincronizando ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              Sync
+            </Button>
+          )}
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportarCSV} />
+        </div>
+      </Filters>
+
+      <DataTable title="Departamentos cadastrados" count={departamentosFiltrados.length}>
+        {departamentosFiltrados.length === 0 ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            Nenhum departamento encontrado.
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94A3B8' }} />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <button
+                    type="button"
+                    onClick={() => alternarOrdenacao('nome_curto')}
+                    className="flex items-center gap-1 font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Departamento
+                    {ordenacao.coluna === 'nome_curto' && ordenacao.direcao === 'asc' ? (
+                      <ArrowUp className="size-3" />
+                    ) : ordenacao.coluna === 'nome_curto' && ordenacao.direcao === 'desc' ? (
+                      <ArrowDown className="size-3" />
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/60" />
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    onClick={() => alternarOrdenacao('endereco')}
+                    className="flex items-center gap-1 font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Endereço
+                    {ordenacao.coluna === 'endereco' && ordenacao.direcao === 'asc' ? (
+                      <ArrowUp className="size-3" />
+                    ) : ordenacao.coluna === 'endereco' && ordenacao.direcao === 'desc' ? (
+                      <ArrowDown className="size-3" />
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/60" />
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">Contato portaria/adm</TableHead>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">Síndico / Administrador</TableHead>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">Início contrato</TableHead>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                <TableHead className="w-24"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {departamentosFiltrados.map(d => (
+                <TableRow key={d.id} className="hover:bg-accent/40">
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="size-4 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span>{d.nome_curto?.trim() || d.nome}</span>
+                        {d.nome_curto?.trim() && <span className="text-xs text-muted-foreground">{d.nome}</span>}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.endereco ? (
+                      <div className="flex flex-col">
+                        <span>{d.endereco}</span>
+                        <span className="text-xs text-muted-foreground/80">{[d.bairro, d.cidade].filter(Boolean).join(' - ')}</span>
+                      </div>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.contato_portaria || d.telefone_contato ? (
+                      <div className="flex flex-col">
+                        <span>{d.contato_portaria || '—'}</span>
+                        <span className="text-xs text-muted-foreground/80">{mascaraTelefone(d.telefone_contato) || '—'}</span>
+                      </div>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.nome_contato ? (
+                      <div className="flex flex-col">
+                        <span>{d.nome_contato}</span>
+                        <span className="text-xs text-muted-foreground/80">{mascaraTelefone(d.telefone_contato) || '—'}</span>
+                      </div>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.data_inicio_contrato ? (
+                      <span>{new Date(d.data_inicio_contrato + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge variant={d.status === 'Ativo' ? 'success' : 'neutral'}>
+                      {d.status}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {podeEditar && (
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-foreground hover:bg-accent"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditar(d)
+                          }}
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                      )}
+                      {podeExcluir && (
+                        <button
+                          className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                          onClick={() => setConfirmarExclusao(d.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DataTable>
+
+      <Dialog open={mostrarForm} onOpenChange={setMostrarForm}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editandoId ? 'Editar departamento' : 'Novo departamento'}</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do departamento. Os campos com * são obrigatórios.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Nome *</Label>
                 <Input
-                  placeholder="Buscar por nome, contato..."
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                  className="pl-10 rounded-lg"
+                  placeholder="Ex: Condomínio Solar da Praia"
+                  value={form.nome || ''}
+                  onChange={e => setForm(prev => ({ ...prev, nome: e.target.value }))}
                 />
               </div>
-              <div>
+              <div className="space-y-2">
+                <Label>Nome curto *</Label>
+                <Input
+                  placeholder="Ex: Solar"
+                  value={form.nome_curto || ''}
+                  onChange={e => setForm(prev => ({ ...prev, nome_curto: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Contato portaria/adm</Label>
+                <Input
+                  placeholder="Ex: João - Porteiro"
+                  value={form.contato_portaria || ''}
+                  onChange={e => setForm(prev => ({ ...prev, contato_portaria: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              <div className="space-y-2 md:col-span-4">
+                <Label>Endereço</Label>
+                <Input
+                  placeholder="Endereço completo"
+                  value={form.endereco || ''}
+                  onChange={e => setForm(prev => ({ ...prev, endereco: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-3">
+                <Label>Bairro</Label>
+                <Input
+                  placeholder="Bairro"
+                  value={form.bairro || ''}
+                  onChange={e => setForm(prev => ({ ...prev, bairro: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-3">
+                <Label>Cidade</Label>
+                <Input
+                  placeholder="Cidade"
+                  value={form.cidade || ''}
+                  onChange={e => setForm(prev => ({ ...prev, cidade: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <Label>Estado</Label>
+                <Input
+                  placeholder="UF"
+                  maxLength={2}
+                  value={form.estado || ''}
+                  onChange={e => setForm(prev => ({ ...prev, estado: e.target.value.toUpperCase() }))}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <Label>CEP</Label>
+                <Input
+                  placeholder="00000-000"
+                  value={mascaraCEP(form.cep || '')}
+                  onChange={e => setForm(prev => ({ ...prev, cep: mascaraCEP(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Nome do síndico/administrador</Label>
+                <Input
+                  placeholder="Nome do contato"
+                  value={form.nome_contato || ''}
+                  onChange={e => setForm(prev => ({ ...prev, nome_contato: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input
+                  placeholder="(00) 00000-0000"
+                  value={mascaraTelefone(form.telefone_contato || '')}
+                  onChange={e => setForm(prev => ({ ...prev, telefone_contato: mascaraTelefone(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={form.email_contato || ''}
+                  onChange={e => setForm(prev => ({ ...prev, email_contato: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Nome do 2º contato</Label>
+                <Input
+                  placeholder="Nome do segundo contato"
+                  value={form.nome_contato_2 || ''}
+                  onChange={e => setForm(prev => ({ ...prev, nome_contato_2: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone 2</Label>
+                <Input
+                  placeholder="(00) 00000-0000"
+                  value={mascaraTelefone(form.telefone_contato_2 || '')}
+                  onChange={e => setForm(prev => ({ ...prev, telefone_contato_2: mascaraTelefone(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail 2</Label>
+                <Input
+                  type="email"
+                  placeholder="email2@exemplo.com"
+                  value={form.email_contato_2 || ''}
+                  onChange={e => setForm(prev => ({ ...prev, email_contato_2: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Status</Label>
                 <Select
-                  value={filtroStatus}
-                  onValueChange={v => setFiltroStatus(v as 'todos' | 'Ativo' | 'Inativo')}
+                  value={form.status || 'Ativo'}
+                  onValueChange={v => setForm(prev => ({ ...prev, status: v as 'Ativo' | 'Inativo' }))}
                 >
-                  <SelectTrigger className="rounded-lg">
-                    <SelectValue placeholder="Status" />
+                  <SelectTrigger>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Ativo">Ativos</SelectItem>
-                    <SelectItem value="Inativo">Inativos</SelectItem>
-                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => exportarExcel(departamentosFiltrados)}
-                  className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors"
-                  style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-                >
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  Excel
-                </button>
-                {podeImportar && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors"
-                    style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    CSV
-                  </button>
-                )}
-                {podeImportar && (
-                  <button
-                    onClick={sincronizar}
-                    disabled={sincronizando || departamentos.length === 0}
-                    className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
-                    style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-                  >
-                    {sincronizando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                    Sync
-                  </button>
-                )}
-                <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportarCSV} />
+              <div className="space-y-2">
+                <Label>Data de início do contrato</Label>
+                <Input
+                  type="date"
+                  value={form.data_inicio_contrato || ''}
+                  onChange={e => setForm(prev => ({ ...prev, data_inicio_contrato: e.target.value }))}
+                />
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Formulário */}
-        {podeEditar && mostrarForm && (
-          <div className="rounded-xl shadow-sm border-0 overflow-hidden" style={{ backgroundColor: '#FFFFFF' }}>
-            <div className="px-6 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-              <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>{editandoId ? 'Editar departamento' : 'Novo departamento'}</h3>
-            </div>
-            <div className="p-6 space-y-4">
-              {/* Linha 1: Nome | Nome Curto | Contato portaria/adm */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Nome *</Label>
-                  <Input
-                    placeholder="Ex: Condomínio Solar da Praia"
-                    value={form.nome || ''}
-                    onChange={e => setForm(prev => ({ ...prev, nome: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Nome curto *</Label>
-                  <Input
-                    placeholder="Ex: Solar"
-                    value={form.nome_curto || ''}
-                    onChange={e => setForm(prev => ({ ...prev, nome_curto: e.target.value }))}
-                    className="rounded-lg"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Contato portaria/adm</Label>
-                  <Input
-                    placeholder="Ex: João - Porteiro"
-                    value={form.contato_portaria || ''}
-                    onChange={e => setForm(prev => ({ ...prev, contato_portaria: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-              </div>
-
-              {/* Linha 2: Endereço | Bairro | Cidade | Estado | CEP */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="space-y-2 md:col-span-4">
-                  <Label style={{ color: '#1F2937' }}>Endereço</Label>
-                  <Input
-                    placeholder="Endereço completo"
-                    value={form.endereco || ''}
-                    onChange={e => setForm(prev => ({ ...prev, endereco: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-3">
-                  <Label style={{ color: '#1F2937' }}>Bairro</Label>
-                  <Input
-                    placeholder="Bairro"
-                    value={form.bairro || ''}
-                    onChange={e => setForm(prev => ({ ...prev, bairro: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-3">
-                  <Label style={{ color: '#1F2937' }}>Cidade</Label>
-                  <Input
-                    placeholder="Cidade"
-                    value={form.cidade || ''}
-                    onChange={e => setForm(prev => ({ ...prev, cidade: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-1">
-                  <Label style={{ color: '#1F2937' }}>Estado</Label>
-                  <Input
-                    placeholder="UF"
-                    maxLength={2}
-                    value={form.estado || ''}
-                    onChange={e => setForm(prev => ({ ...prev, estado: e.target.value.toUpperCase() }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-1">
-                  <Label style={{ color: '#1F2937' }}>CEP</Label>
-                  <Input
-                    placeholder="00000-000"
-                    value={mascaraCEP(form.cep || '')}
-                    onChange={e => setForm(prev => ({ ...prev, cep: mascaraCEP(e.target.value) }))}
-                    className="rounded-lg"
-                  />
-                </div>
-              </div>
-
-              {/* Linha 3: Nome do síndico | Telefone | E-mail */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Nome do síndico/administrador</Label>
-                  <Input
-                    placeholder="Nome do contato"
-                    value={form.nome_contato || ''}
-                    onChange={e => setForm(prev => ({ ...prev, nome_contato: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Telefone</Label>
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    value={mascaraTelefone(form.telefone_contato || '')}
-                    onChange={e => setForm(prev => ({ ...prev, telefone_contato: mascaraTelefone(e.target.value) }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>E-mail</Label>
-                  <Input
-                    type="email"
-                    placeholder="email@exemplo.com"
-                    value={form.email_contato || ''}
-                    onChange={e => setForm(prev => ({ ...prev, email_contato: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-              </div>
-
-              {/* Linha 4: Nome do 2º contato | Telefone 2 | E-mail 2 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Nome do 2º contato</Label>
-                  <Input
-                    placeholder="Nome do segundo contato"
-                    value={form.nome_contato_2 || ''}
-                    onChange={e => setForm(prev => ({ ...prev, nome_contato_2: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Telefone 2</Label>
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    value={mascaraTelefone(form.telefone_contato_2 || '')}
-                    onChange={e => setForm(prev => ({ ...prev, telefone_contato_2: mascaraTelefone(e.target.value) }))}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>E-mail 2</Label>
-                  <Input
-                    type="email"
-                    placeholder="email2@exemplo.com"
-                    value={form.email_contato_2 || ''}
-                    onChange={e => setForm(prev => ({ ...prev, email_contato_2: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-              </div>
-
-              {/* Linha 5: Status | Data início contrato */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Status</Label>
-                  <Select
-                    value={form.status || 'Ativo'}
-                    onValueChange={v => setForm(prev => ({ ...prev, status: v as 'Ativo' | 'Inativo' }))}
-                  >
-                    <SelectTrigger className="rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Ativo">Ativo</SelectItem>
-                      <SelectItem value="Inativo">Inativo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label style={{ color: '#1F2937' }}>Data de início do contrato</Label>
-                  <Input
-                    type="date"
-                    value={form.data_inicio_contrato || ''}
-                    onChange={e => setForm(prev => ({ ...prev, data_inicio_contrato: e.target.value }))}
-                    className="rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={handleSalvar}
-                  disabled={!form.nome?.trim() || loading}
-                  className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium text-white transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: '#1F2937' }}
-                >
-                  {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  {editandoId ? 'Atualizar' : 'Salvar'}
-                </button>
-                <button
-                  onClick={handleCancelar}
-                  className="inline-flex items-center justify-center rounded-lg h-10 px-4 text-sm font-medium bg-white hover:bg-slate-50 transition-colors"
-                  style={{ borderColor: '#1F2937', color: '#1F2937', borderWidth: '1px' }}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Lista */}
-        <div className="rounded-xl shadow-sm border-0 overflow-hidden" style={{ backgroundColor: '#FFFFFF' }}>
-          <div className="px-6 py-4 border-b" style={{ borderColor: '#F1F5F9' }}>
-            <h3 className="text-base font-semibold" style={{ color: '#1F2937' }}>
-              Departamentos cadastrados ({departamentosFiltrados.length})
-            </h3>
-          </div>
-          <div className="p-6">
-            {departamentosFiltrados.length === 0 ? (
-              <p className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhum departamento encontrado.</p>
-            ) : (
-              <div className="border rounded-xl overflow-hidden" style={{ borderColor: '#F1F5F9' }}>
-                <Table>
-                  <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
-                    <TableRow>
-                      <TableHead style={{ color: '#1F2937' }}>
-                        <button
-                          type="button"
-                          onClick={() => alternarOrdenacao('nome_curto')}
-                          className="flex items-center font-semibold"
-                        >
-                          Departamento
-                          {ordenacao.coluna === 'nome_curto' && ordenacao.direcao === 'asc' ? (
-                            <ArrowUp className="w-3 h-3 ml-1" />
-                          ) : ordenacao.coluna === 'nome_curto' && ordenacao.direcao === 'desc' ? (
-                            <ArrowDown className="w-3 h-3 ml-1" />
-                          ) : (
-                            <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>
-                        <button
-                          type="button"
-                          onClick={() => alternarOrdenacao('endereco')}
-                          className="flex items-center font-semibold"
-                        >
-                          Endereço
-                          {ordenacao.coluna === 'endereco' && ordenacao.direcao === 'asc' ? (
-                            <ArrowUp className="w-3 h-3 ml-1" />
-                          ) : ordenacao.coluna === 'endereco' && ordenacao.direcao === 'desc' ? (
-                            <ArrowDown className="w-3 h-3 ml-1" />
-                          ) : (
-                            <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>Contato portaria/adm</TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>Síndico / Administrador</TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>Início contrato</TableHead>
-                      <TableHead style={{ color: '#1F2937' }}>Status</TableHead>
-                      <TableHead className="w-24"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {departamentosFiltrados.map(d => (
-                      <TableRow key={d.id} className="hover:bg-slate-50">
-                        <TableCell className="font-medium" style={{ color: '#1F2937' }}>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4" style={{ color: '#94A3B8' }} />
-                            <div className="flex flex-col">
-                              <span>{d.nome_curto?.trim() || d.nome}</span>
-                              {d.nome_curto?.trim() && <span className="text-xs" style={{ color: '#94A3B8' }}>{d.nome}</span>}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell style={{ color: '#64748B' }}>
-                          {d.endereco ? (
-                            <div className="flex flex-col">
-                              <span>{d.endereco}</span>
-                              <span className="text-xs" style={{ color: '#94A3B8' }}>{[d.bairro, d.cidade].filter(Boolean).join(' - ')}</span>
-                            </div>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell style={{ color: '#64748B' }}>
-                          {d.contato_portaria || d.telefone_contato ? (
-                            <div className="flex flex-col">
-                              <span>{d.contato_portaria || '—'}</span>
-                              <span className="text-xs" style={{ color: '#94A3B8' }}>{mascaraTelefone(d.telefone_contato) || '—'}</span>
-                            </div>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell style={{ color: '#64748B' }}>
-                          {d.nome_contato ? (
-                            <div className="flex flex-col">
-                              <span>{d.nome_contato}</span>
-                              <span className="text-xs" style={{ color: '#94A3B8' }}>{mascaraTelefone(d.telefone_contato) || '—'}</span>
-                            </div>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell style={{ color: '#64748B' }}>
-                          {d.data_inicio_contrato ? (
-                            <span>{new Date(d.data_inicio_contrato + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(d.status)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {podeEditar && (
-                              <button
-                                type="button"
-                                className="p-1.5 rounded-md hover:bg-slate-100"
-                                style={{ color: '#1F2937' }}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleEditar(d)
-                                }}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                            )}
-                            {podeExcluir && (
-                              <button
-                                className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
-                                onClick={() => setConfirmarExclusao(d.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <Dialog open={!!confirmarExclusao} onOpenChange={() => setConfirmarExclusao(null)}>
-        <DialogContent className="sm:max-w-sm bg-white text-slate-900 border border-slate-200 shadow-xl rounded-xl">
-          <DialogHeader>
-            <DialogTitle className="text-base text-slate-900">Excluir departamento?</DialogTitle>
-            <DialogDescription className="text-xs text-slate-600">
-              Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
           <DialogFooter className="gap-2">
-            <ModuleButton variant="outline" size="sm" onClick={() => setConfirmarExclusao(null)}>
+            <Button variant="outline" onClick={handleCancelar}>
+              <X className="size-4" />
               Cancelar
-            </ModuleButton>
-            <ModuleButton variant="danger" size="sm" onClick={() => confirmarExclusao && handleExcluir(confirmarExclusao)}>
-              Excluir
-            </ModuleButton>
+            </Button>
+            <Button onClick={handleSalvar} disabled={!form.nome?.trim() || loading} loading={loading}>
+              <Save className="size-4" />
+              {editandoId ? 'Atualizar' : 'Salvar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!confirmarExclusao}
+        onOpenChange={() => setConfirmarExclusao(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Excluir departamento?"
+        description="Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        onConfirm={() => confirmarExclusao && handleExcluir(confirmarExclusao)}
+        destructive
+      />
     </div>
   )
 }

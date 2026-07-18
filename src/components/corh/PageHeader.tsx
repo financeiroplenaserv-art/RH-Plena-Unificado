@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Button } from './Button'
 
 interface PageHeaderProps {
   title: string
@@ -13,7 +13,15 @@ interface PageHeaderProps {
   onBack?: () => boolean | void
 }
 
-export function PageHeader({ title, description, children, className, showBackButton = true, backTo, onBack }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  children,
+  className,
+  showBackButton = true,
+  backTo,
+  onBack,
+}: PageHeaderProps) {
   const navigate = useNavigate()
 
   const handleBack = () => {
@@ -29,8 +37,8 @@ export function PageHeader({ title, description, children, className, showBackBu
   }
 
   return (
-    <div className={cn('mb-4', className)}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className={cn('mb-5', className)}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           {showBackButton && (
             <Button
@@ -41,12 +49,12 @@ export function PageHeader({ title, description, children, className, showBackBu
               title="Voltar"
               className="flex-shrink-0"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="size-4" />
             </Button>
           )}
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">{title}</h1>
-            {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
+            <h1 className="text-[22px] font-bold tracking-tight text-foreground">{title}</h1>
+            {description && <p className="text-[13px] text-muted-foreground mt-0.5">{description}</p>}
           </div>
         </div>
         {children && <div className="flex items-center gap-2">{children}</div>}

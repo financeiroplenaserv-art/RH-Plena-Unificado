@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, BarChart3 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -12,7 +12,10 @@ import {
 } from '@/components/ui/table'
 import { useExtras } from '@/hooks/useExtras'
 
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { Filters } from '@/components/corh/Filters'
+import { DataTable } from '@/components/corh/DataTable'
+import { StatusBadge } from '@/components/corh/StatusBadge'
 import { ModuleCard } from '@/components/layout/ModuleShell'
 import { ExtrasShell } from './ExtrasShell'
 
@@ -75,45 +78,52 @@ export function ExtrasRelatorioPage() {
     <ExtrasShell>
       <PageHeader backTo="/extras/lancamentos" title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos" />
 
-      <ModuleCard title="Filtros">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Data início</Label>
-            <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Data fim</Label>
-            <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} className="rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Label style={{ color: '#1F2937' }}>Buscar</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Colaborador, departamento, motivo..."
-                value={busca}
-                onChange={e => setBusca(e.target.value)}
-                className="rounded-lg pl-9"
-              />
-            </div>
+      <Filters onApply={() => {}} onClear={() => setBusca('')} loading={loading}>
+        <div className="space-y-2">
+          <Label>Data início</Label>
+          <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Data fim</Label>
+          <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Buscar</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Colaborador, departamento, motivo..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
-      </ModuleCard>
+      </Filters>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <ModuleCard title="Total geral">
-          <div className="text-2xl font-bold" style={{ color: '#1F2937' }}>{formatarMoeda(totalGeral)}</div>
+          <div className="text-2xl font-bold tabular-nums">{formatarMoeda(totalGeral)}</div>
         </ModuleCard>
         <ModuleCard title="Extra faturado">
-          <div className="text-2xl font-bold" style={{ color: '#22C55E' }}>{formatarMoeda(totalFaturado)}</div>
+          <div className="text-2xl font-bold tabular-nums text-emerald-600">{formatarMoeda(totalFaturado)}</div>
         </ModuleCard>
         <ModuleCard title="Não faturado">
-          <div className="text-2xl font-bold" style={{ color: '#64748B' }}>{formatarMoeda(totalNaoFaturado)}</div>
+          <div className="text-2xl font-bold tabular-nums text-muted-foreground">{formatarMoeda(totalNaoFaturado)}</div>
         </ModuleCard>
       </div>
 
-      <ModuleCard title={`Resultados (${extrasFiltrados.length})`}>
-        <div className="overflow-x-auto">
+      <DataTable title="Resultados" count={extrasFiltrados.length}>
+        {loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : extrasFiltrados.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+              <BarChart3 className="size-6" strokeWidth={1.8} />
+            </div>
+            <p className="text-[13px] text-muted-foreground">Nenhum registro encontrado.</p>
+          </div>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -128,46 +138,35 @@ export function ExtrasRelatorioPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">Carregando...</TableCell>
+              {extrasFiltrados.map(extra => (
+                <TableRow key={extra.id}>
+                  <TableCell className="tabular-nums text-muted-foreground">{formatarDataBR(extra.data_ocorrencia)}</TableCell>
+                  <TableCell>{extra.departamento_nome || '—'}</TableCell>
+                  <TableCell>{extra.colaborador_ausente_nome || '—'}</TableCell>
+                  <TableCell>{extra.substituto_nome || '—'}</TableCell>
+                  <TableCell>{extra.motivo}</TableCell>
+                  <TableCell className="tabular-nums">{formatarMoeda(extra.valor)}</TableCell>
+                  <TableCell>
+                    <StatusBadge variant={extra.extra_faturado ? 'success' : 'neutral'} dot={false}>
+                      {extra.extra_faturado ? 'Sim' : 'Não'}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge
+                      variant={
+                        extra.status === 'Pago' ? 'success' :
+                        extra.status === 'Cancelado' ? 'danger' : 'warning'
+                      }
+                    >
+                      {extra.status}
+                    </StatusBadge>
+                  </TableCell>
                 </TableRow>
-              ) : extrasFiltrados.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhum registro encontrado</TableCell>
-                </TableRow>
-              ) : (
-                extrasFiltrados.map(extra => (
-                  <TableRow key={extra.id}>
-                    <TableCell>{formatarDataBR(extra.data_ocorrencia)}</TableCell>
-                    <TableCell>{extra.departamento_nome || '—'}</TableCell>
-                    <TableCell>{extra.colaborador_ausente_nome || '—'}</TableCell>
-                    <TableCell>{extra.substituto_nome || '—'}</TableCell>
-                    <TableCell>{extra.motivo}</TableCell>
-                    <TableCell>{formatarMoeda(extra.valor)}</TableCell>
-                    <TableCell>
-                      {extra.extra_faturado ? (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Sim</span>
-                      ) : (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">Não</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        extra.status === 'Pago' ? 'bg-green-100 text-green-800' :
-                        extra.status === 'Cancelado' ? 'bg-red-100 text-red-800' :
-                        'bg-amber-100 text-amber-800'
-                      }`}>
-                        {extra.status}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
-        </div>
-      </ModuleCard>
+        )}
+      </DataTable>
     </ExtrasShell>
   )
 }

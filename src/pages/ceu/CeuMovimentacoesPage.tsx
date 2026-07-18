@@ -23,7 +23,7 @@ import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { CeuShell } from './CeuShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
@@ -393,7 +393,7 @@ export function CeuMovimentacoesPage() {
               placeholder="Data final"
             />
             <Select value={filtroItem} onValueChange={setFiltroItem}>
-              <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
+              <SelectTrigger>
                 <SelectValue placeholder="Item" />
               </SelectTrigger>
               <SelectContent>
@@ -410,7 +410,7 @@ export function CeuMovimentacoesPage() {
               placeholder="Departamento..."
             />
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}>
-              <SelectTrigger className="border-[#3B82F6]/30 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20">
+              <SelectTrigger>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -426,11 +426,18 @@ export function CeuMovimentacoesPage() {
             </ModuleButton>
             <ModuleButton size="sm" onClick={aplicarFiltros}>
               <Search className="w-3.5 h-3.5 mr-1.5" />
-              Filtrar
+              Aplicar
             </ModuleButton>
           </div>
         </ModuleCard>
       )}
+
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2.5 text-[12px] text-muted-foreground shadow-sm">
+        <span className="font-semibold text-foreground">Legenda:</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-orange-500" /> EPI</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-green-500" /> Uniforme</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-yellow-500" /> Crachá</span>
+      </div>
 
       <ModuleCard title={`Lista de movimentações (${paginacao?.total ?? movimentacoesAgrupadas.length})`}>
         {loading ? (

@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { LocalTrabalho } from '@/types/database'
 import { Plus, Trash2, Building2 } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { EscalasShell } from './EscalasShell'
 
@@ -128,7 +128,7 @@ export function EscalasLocaisPage() {
                         <ModuleButton size="sm" variant="outline" onClick={() => setEditando(local)}>
                           Editar
                         </ModuleButton>
-                        <ModuleButton size="sm" variant="danger" onClick={() => remover(local.id)}>
+                        <ModuleButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => remover(local.id)}>
                           <Trash2 className="h-4 w-4" />
                         </ModuleButton>
                       </>

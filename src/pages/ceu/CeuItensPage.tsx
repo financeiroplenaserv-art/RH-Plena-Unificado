@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { Input } from '@/components/ui/input'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuDialog } from '@/components/ceu/CeuDialog'

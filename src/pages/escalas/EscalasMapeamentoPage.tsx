@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import type { MapeamentoFlitLocalTrabalho } from '@/types/database'
 import { Plus, Trash2 } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { EscalasShell } from './EscalasShell'
 
@@ -49,32 +56,33 @@ export function EscalasMapeamentoPage() {
           <form onSubmit={handleCriar} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
               <Label>Local de Trabalho</Label>
-              <select
-                value={localId}
-                onChange={(e) => setLocalId(e.target.value)}
-                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-              >
-                <option value="">Selecione</option>
-                {locais.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nome}
-                  </option>
-                ))}
-              </select>
+              <Select value={localId} onValueChange={setLocalId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locais.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Tipo</Label>
-              <select
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as MapeamentoFlitLocalTrabalho['tipo_match'])}
-                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-              >
-                {TIPOS_MATCH.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={tipo} onValueChange={(v) => setTipo(v as MapeamentoFlitLocalTrabalho['tipo_match'])}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIPOS_MATCH.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="valor">Valor no Flit</Label>
@@ -109,7 +117,7 @@ export function EscalasMapeamentoPage() {
                       {TIPOS_MATCH.find((t) => t.value === m.tipo_match)?.label} → "{m.valor_flit}"
                     </p>
                   </div>
-                  <ModuleButton size="sm" variant="danger" onClick={() => remover(m.id)}>
+                  <ModuleButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => remover(m.id)}>
                     <Trash2 className="h-4 w-4" />
                   </ModuleButton>
                 </div>

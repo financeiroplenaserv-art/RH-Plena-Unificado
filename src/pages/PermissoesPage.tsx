@@ -23,7 +23,7 @@ import { toast } from 'sonner'
 import type { NivelAcesso, PermissaoPerfil } from '@/types/database'
 import { Loader2, RotateCcw } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell, ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 
 const PERFIS: { valor: NivelAcesso; label: string }[] = [

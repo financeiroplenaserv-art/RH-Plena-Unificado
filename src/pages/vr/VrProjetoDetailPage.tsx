@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useParams } from 'react-router-dom'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import {
   ArrowLeft, Calculator, Download, FileSpreadsheet, FileText, Trash2, Upload, Save,
   ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, FileDown, Search, Receipt,

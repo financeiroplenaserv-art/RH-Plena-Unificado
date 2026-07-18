@@ -1,5 +1,5 @@
 import { ModuleShell, ModuleCard } from '@/components/layout/ModuleShell'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { Settings } from 'lucide-react'
 
 export function ConfiguracoesPage() {

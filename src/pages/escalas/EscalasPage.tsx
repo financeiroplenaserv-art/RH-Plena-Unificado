@@ -1,4 +1,4 @@
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { EscalasShell } from './EscalasShell'
 import { AbaEscalasDiario } from './AbaEscalasDiario'
 

@@ -1,9 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useNavigate } from 'react-router-dom'
+import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Filters } from '@/components/corh/Filters'
+import { DataTable } from '@/components/corh/DataTable'
+import { Button } from '@/components/corh/Button'
 import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks/useEscalasDiario'
 import XLSX from '@e965/xlsx'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
@@ -12,15 +37,14 @@ import { nomeCurtoLocal, removerAcentos } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { LocalTrabalhoDiario } from '@/types/database'
 import {
-  MapPin,
   CheckSquare,
   AlertCircle,
-  Search,
   FileSpreadsheet,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   FileDown,
+  CalendarRange,
 } from 'lucide-react'
 import { FONTES_INFO } from './escalas.constants'
 
@@ -47,6 +71,7 @@ const filtroInicial: FiltroEscalas = {
 }
 
 export function AbaEscalasDiario() {
+  const navigate = useNavigate()
   const { dias, loading, listar, listarTodos, confirmarManual, aplicarEmLote, buscarHistoricoColaborador } = useEscalasDiario()
   const { locais, listar: listarLocais } = useEscalasLocais()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
@@ -205,6 +230,11 @@ export function AbaEscalasDiario() {
 
   const aplicarFiltros = () => setAplicado(input)
 
+  const limparFiltros = () => {
+    setInput(filtroInicial)
+    setAplicado(filtroInicial)
+  }
+
   const pendentes = useMemo(() => dias.filter((d) => !d.local_trabalho_id).length, [dias])
 
   const locaisRecentes = useMemo(() => {
@@ -313,253 +343,250 @@ export function AbaEscalasDiario() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={input.modoPeriodo === 'competencia'}
-                onChange={() => setInput((v) => ({ ...v, modoPeriodo: 'competencia' }))}
-              />
-              Competência (20 a 19)
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={input.modoPeriodo === 'livre'}
-                onChange={() => setInput((v) => ({ ...v, modoPeriodo: 'livre' }))}
-              />
-              Período livre
-            </label>
-          </div>
+    <div className="space-y-5">
+      <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading} className="space-y-4">
+        <div className="flex items-center gap-4 md:col-span-2 lg:col-span-4">
+          <label className="flex items-center gap-2 text-[13px]">
+            <input
+              type="radio"
+              checked={input.modoPeriodo === 'competencia'}
+              onChange={() => setInput((v) => ({ ...v, modoPeriodo: 'competencia' }))}
+            />
+            Competência (20 a 19)
+          </label>
+          <label className="flex items-center gap-2 text-[13px]">
+            <input
+              type="radio"
+              checked={input.modoPeriodo === 'livre'}
+              onChange={() => setInput((v) => ({ ...v, modoPeriodo: 'livre' }))}
+            />
+            Período livre
+          </label>
+        </div>
 
-          {input.modoPeriodo === 'competencia' ? (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
-                <Label>Ano</Label>
-                <Input type="number" value={input.ano} onChange={(e) => setInput((v) => ({ ...v, ano: Number(e.target.value) }))} />
-              </div>
-              <div>
-                <Label>Mês</Label>
-                <select
-                  value={input.mes}
-                  onChange={(e) => setInput((v) => ({ ...v, mes: Number(e.target.value) }))}
-                  className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-                >
+        {input.modoPeriodo === 'competencia' ? (
+          <>
+            <div>
+              <Label>Ano</Label>
+              <Input type="number" value={input.ano} onChange={(e) => setInput((v) => ({ ...v, ano: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <Label>Mês</Label>
+              <Select value={String(input.mes)} onValueChange={(v) => setInput((s) => ({ ...s, mes: Number(v) }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                    <SelectItem key={m} value={String(m)}>{m.toString().padStart(2, '0')}</SelectItem>
                   ))}
-                </select>
-              </div>
-              <div className="md:col-span-3 flex items-end">
-                <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded-md w-full">
-                  Competência: <strong>{competencia.label}</strong> ({competencia.inicio} a {competencia.fim})
-                </p>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Data início</Label>
-                <Input type="date" value={input.dataInicio} onChange={(e) => setInput((v) => ({ ...v, dataInicio: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Data fim</Label>
-                <Input type="date" value={input.dataFim} onChange={(e) => setInput((v) => ({ ...v, dataFim: e.target.value }))} />
-              </div>
+            <div className="md:col-span-2 flex items-end">
+              <p className="w-full rounded-lg bg-muted/50 p-2.5 text-[13px] text-muted-foreground">
+                Competência: <strong className="text-foreground">{competencia.label}</strong> ({competencia.inicio} a {competencia.fim})
+              </p>
             </div>
-          )}
+          </>
+        ) : (
+          <>
+            <div>
+              <Label>Data início</Label>
+              <Input type="date" value={input.dataInicio} onChange={(e) => setInput((v) => ({ ...v, dataInicio: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Data fim</Label>
+              <Input type="date" value={input.dataFim} onChange={(e) => setInput((v) => ({ ...v, dataFim: e.target.value }))} />
+            </div>
+          </>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>Colaborador</Label>
-              <select
-                value={input.colaboradorId}
-                onChange={(e) => setInput((v) => ({ ...v, colaboradorId: e.target.value }))}
-                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-              >
-                <option value="">Todos</option>
-                {colaboradores.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nome_completo} ({c.matricula})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label>Local</Label>
-              <select
-                value={input.localId}
-                onChange={(e) => setInput((v) => ({ ...v, localId: e.target.value }))}
-                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-              >
-                <option value="">Todos</option>
-                {locais.map((l) => (
-                  <option key={l.id} value={l.id}>{nomeCurtoLocal(l)}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <select
-                value={input.status}
-                onChange={(e) => setInput((v) => ({ ...v, status: e.target.value as FiltroEscalas['status'] }))}
-                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-              >
-                <option value="todos">Todos</option>
-                <option value="identificados">Identificados</option>
-                <option value="pendentes">Não identificados</option>
-              </select>
-            </div>
-          </div>
+        <div>
+          <Label>Colaborador</Label>
+          <Select value={input.colaboradorId || 'todos'} onValueChange={(v) => setInput((s) => ({ ...s, colaboradorId: v === 'todos' ? '' : v }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {colaboradores.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.nome_completo} ({c.matricula})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Local</Label>
+          <Select value={input.localId || 'todos'} onValueChange={(v) => setInput((s) => ({ ...s, localId: v === 'todos' ? '' : v }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {locais.map((l) => (
+                <SelectItem key={l.id} value={l.id}>{nomeCurtoLocal(l)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Status</Label>
+          <Select value={input.status} onValueChange={(v) => setInput((s) => ({ ...s, status: v as FiltroEscalas['status'] }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="identificados">Identificados</SelectItem>
+              <SelectItem value="pendentes">Não identificados</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button onClick={aplicarFiltros} className="flex items-center gap-2">
-              <Search className="h-4 w-4" /> Filtrar
-            </Button>
-            <Button variant="outline" onClick={exportarExcel} className="flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4" /> Exportar Excel
-            </Button>
-            <Button variant="outline" onClick={exportarPDF} className="flex items-center gap-2">
-              <FileDown className="h-4 w-4" /> Exportar PDF
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="flex flex-wrap gap-2 md:col-span-2 lg:col-span-4">
+          <Button variant="outline" size="sm" onClick={exportarExcel}>
+            <FileSpreadsheet className="size-4" /> Exportar Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportarPDF}>
+            <FileDown className="size-4" /> Exportar PDF
+          </Button>
+        </div>
+      </Filters>
 
       {pendentes > 0 && (
-        <div className="flex items-center gap-2 text-amber-700 bg-amber-50 p-3 rounded-md">
-          <AlertCircle className="h-5 w-5" />
+        <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-[13px] text-amber-700">
+          <AlertCircle className="size-4" />
           <span>{pendentes} dia(s) aguardando confirmação manual.</span>
         </div>
       )}
 
       {selecionados.size > 0 && (
-        <Card>
-          <CardContent className="pt-6 flex flex-wrap items-end gap-4">
+        <Card className="border-border shadow-sm">
+          <CardContent className="flex flex-wrap items-end gap-4 pt-5">
             <div>
               <Label>Aplicar local em {selecionados.size} dia(s)</Label>
-              <select
-                value={localLote}
-                onChange={(e) => setLocalLote(e.target.value)}
-                className="w-64 h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
-              >
-                <option value="">Selecione o local</option>
-                {locais.map((l) => (
-                  <option key={l.id} value={l.id}>{nomeCurtoLocal(l)}</option>
-                ))}
-              </select>
+              <Select value={localLote} onValueChange={setLocalLote}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Selecione o local" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locais.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{nomeCurtoLocal(l)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="min-w-[200px] flex-1">
               <Label>Observação</Label>
               <Input value={observacaoLote} onChange={(e) => setObservacaoLote(e.target.value)} placeholder="Ex: Confirmado via geolocalização no Flit" />
             </div>
-            <Button onClick={handleConfirmarLote} disabled={!localLote} className="flex items-center gap-2">
-              <CheckSquare className="h-4 w-4" /> Confirmar em lote
+            <Button onClick={handleConfirmarLote} disabled={!localLote}>
+              <CheckSquare className="size-4" /> Confirmar em lote
             </Button>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <MapPin className="h-4 w-4" /> Local de trabalho por dia
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-slate-500">Carregando...</p>
-          ) : dias.length === 0 ? (
-            <p className="text-slate-500">Nenhum registro encontrado para os filtros selecionados.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="py-2 px-3 text-left">
-                      <Checkbox checked={selecionados.size === dias.length && dias.length > 0} onCheckedChange={toggleTodos} />
-                    </th>
-                    <th className="py-2 px-3 text-left cursor-pointer select-none" onClick={() => toggleOrdenacao('data')}>
-                      <div className="flex items-center gap-1">
-                        Dia
-                        {ordenacao.coluna === 'data' ? (
-                          ordenacao.direcao === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                        ) : (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                      </div>
-                    </th>
-                    <th className="py-2 px-3 text-left cursor-pointer select-none" onClick={() => toggleOrdenacao('colaborador')}>
-                      <div className="flex items-center gap-1">
-                        Colaborador
-                        {ordenacao.coluna === 'colaborador' ? (
-                          ordenacao.direcao === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                        ) : (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                      </div>
-                    </th>
-                    <th className="py-2 px-3 text-left">Local de Trabalho</th>
-                    <th className="py-2 px-3 text-left">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {diasOrdenados.map((dia) => (
-                    <tr key={dia.id} className="border-b hover:bg-slate-50">
-                      <td className="py-2 px-3">
-                        <Checkbox checked={selecionados.has(dia.id)} onCheckedChange={() => toggleSelecao(dia.id)} />
-                      </td>
-                      <td className="py-2 px-3 whitespace-nowrap">{new Date(dia.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                      <td className="py-2 px-3">
-                        {dia.colaborador?.nome_completo} <span className="text-slate-400">({dia.colaborador?.matricula})</span>
-                      </td>
-                      <td className="py-2 px-3">
-                        {dia.local_trabalho ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs border bg-slate-100 text-slate-800 border-slate-200">
-                            {nomeCurtoLocal(dia.local_trabalho)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 italic">Não identificado</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3">
-                        <Button size="sm" variant="outline" onClick={() => abrirModal(dia)}>
-                          {dia.local_trabalho_id ? 'Alterar' : 'Confirmar'}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <DataTable title="Local de trabalho por dia" count={dias.length}>
+        {loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : dias.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+              <CalendarRange className="size-6" strokeWidth={1.8} />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="text-[13px] text-muted-foreground">Nenhum registro para os filtros selecionados.</p>
+            <Button onClick={() => navigate('/escalas/importar')}>
+              Importar escala
+            </Button>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox checked={selecionados.size === dias.length && dias.length > 0} onCheckedChange={toggleTodos} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleOrdenacao('data')}>
+                  <div className="flex items-center gap-1">
+                    Dia
+                    {ordenacao.coluna === 'data' ? (
+                      ordenacao.direcao === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/60" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleOrdenacao('colaborador')}>
+                  <div className="flex items-center gap-1">
+                    Colaborador
+                    {ordenacao.coluna === 'colaborador' ? (
+                      ordenacao.direcao === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/60" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead>Local de Trabalho</TableHead>
+                <TableHead>Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {diasOrdenados.map((dia) => (
+                <TableRow key={dia.id}>
+                  <TableCell>
+                    <Checkbox checked={selecionados.has(dia.id)} onCheckedChange={() => toggleSelecao(dia.id)} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">
+                    {new Date(dia.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {dia.colaborador?.nome_completo} <span className="text-muted-foreground/70">({dia.colaborador?.matricula})</span>
+                  </TableCell>
+                  <TableCell>
+                    {dia.local_trabalho ? (
+                      <span className="inline-flex items-center rounded-lg border border-border bg-muted/50 px-2 py-1 text-xs text-foreground">
+                        {nomeCurtoLocal(dia.local_trabalho)}
+                      </span>
+                    ) : (
+                      <span className="italic text-muted-foreground">Não identificado</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="outline" onClick={() => abrirModal(dia)}>
+                      {dia.local_trabalho_id ? 'Alterar' : 'Confirmar'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DataTable>
 
-      {diaEditando && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg bg-white">
-            <CardHeader>
-              <CardTitle className="text-base">{diaEditando.local_trabalho_id ? 'Alterar local' : 'Confirmar local'}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-slate-700 font-medium">
-                {diaEditando.colaborador?.nome_completo} <span className="text-slate-400">({diaEditando.colaborador?.matricula})</span> — {new Date(diaEditando.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+      <Dialog open={!!diaEditando} onOpenChange={(open) => !open && fecharModal()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{diaEditando?.local_trabalho_id ? 'Alterar local' : 'Confirmar local'}</DialogTitle>
+          </DialogHeader>
+          {diaEditando && (
+            <div className="space-y-4 py-2">
+              <p className="text-[13px] font-medium">
+                {diaEditando.colaborador?.nome_completo} <span className="text-muted-foreground">({diaEditando.colaborador?.matricula})</span> — {new Date(diaEditando.data + 'T12:00:00').toLocaleDateString('pt-BR')}
               </p>
 
               {locaisRecentes.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-slate-700">Locais usados recentemente por este colaborador</Label>
+                  <Label>Locais usados recentemente por este colaborador</Label>
                   <div className="flex flex-wrap gap-2">
                     {locaisRecentes.map((local) => (
                       <Button
                         key={local.id}
                         type="button"
                         size="sm"
-                        variant={localLote === local.id ? 'default' : 'outline'}
+                        variant={localLote === local.id ? 'primary' : 'outline'}
                         onClick={() => setLocalLote(local.id)}
-                        className="text-xs"
                       >
                         {nomeCurtoLocal(local)} ({local.count}x)
                       </Button>
@@ -568,36 +595,35 @@ export function AbaEscalasDiario() {
                 </div>
               )}
 
-              <div>
-                <Label className="text-slate-700">Local de Trabalho</Label>
-                <select
-                  value={localLote}
-                  onChange={(e) => setLocalLote(e.target.value)}
-                  className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800"
-                >
-                  <option value="">Selecione</option>
-                  {locais.map((l) => (
-                    <option key={l.id} value={l.id}>{nomeCurtoLocal(l)}</option>
-                  ))}
-                </select>
+              <div className="space-y-2">
+                <Label>Local de Trabalho</Label>
+                <Select value={localLote} onValueChange={setLocalLote}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locais.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>{nomeCurtoLocal(l)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <Label className="text-slate-700">Observação</Label>
+              <div className="space-y-2">
+                <Label>Observação</Label>
                 <Input
                   value={observacaoManual}
                   onChange={(e) => setObservacaoManual(e.target.value)}
                   placeholder="Ex: Confirmado via geolocalização no Flit"
-                  className="bg-white text-slate-800"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={fecharModal}>Cancelar</Button>
-                <Button onClick={handleConfirmarManual} disabled={!localLote}>Salvar</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={fecharModal}>Cancelar</Button>
+            <Button onClick={handleConfirmarManual} disabled={!localLote}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

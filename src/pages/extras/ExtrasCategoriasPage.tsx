@@ -14,8 +14,12 @@ import { toast } from 'sonner'
 import { useExtras } from '@/hooks/useExtras'
 import { useAuth } from '@/hooks/useAuth'
 import { ExtrasShell } from './ExtrasShell'
-import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { PageHeader } from '@/components/PageHeader'
+import { ModuleCard } from '@/components/layout/ModuleShell'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { DataTable } from '@/components/corh/DataTable'
+import { StatusBadge } from '@/components/corh/StatusBadge'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
+import { Button } from '@/components/corh/Button'
 import { mascaraMoeda, parseMoeda, mascaraMoedaInput } from '@/lib/utils'
 import { podeEditarCategoriaExtra, podeExcluirCategoriaExtra } from '@/lib/permissoes'
 import type { CategoriaExtra } from '@/types/extras'
@@ -42,6 +46,7 @@ export function ExtrasCategoriasPage() {
   const [editando, setEditando] = useState<string | null>(null)
   const [form, setForm] = useState<FormCategoria>(categoriaVazia())
   const [valorInput, setValorInput] = useState(mascaraMoedaInput(String(form.valor_padrao)))
+  const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
 
   useEffect(() => {
     listarCategorias()
@@ -93,39 +98,34 @@ export function ExtrasCategoriasPage() {
   }
 
   const handleExcluir = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return
     await removerCategoria(id)
+    setConfirmarExclusao(null)
   }
 
   return (
     <ExtrasShell>
-      <PageHeader backTo="/extras/lancamentos" title="Categorias de valor" description="Gerencie os valores padrão para pagamento de extras" />
-
-      <ModuleCard>
-        {podeEditar && (
-          <div className="flex justify-end mb-4">
-            {editando !== 'novo' && (
-              <ModuleButton onClick={handleNovo}>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova categoria
-              </ModuleButton>
-            )}
-          </div>
+      <PageHeader backTo="/extras/lancamentos" title="Categorias de valor" description="Gerencie os valores padrão para pagamento de extras">
+        {podeEditar && editando !== 'novo' && (
+          <Button onClick={handleNovo}>
+            <Plus className="size-4" />
+            Nova categoria
+          </Button>
         )}
+      </PageHeader>
 
-        {podeEditar && editando && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 rounded-lg" style={{ backgroundColor: '#F8FAFC' }}>
+      {podeEditar && editando && (
+        <ModuleCard title={editando === 'novo' ? 'Nova categoria' : 'Editar categoria'}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div className="space-y-2 md:col-span-2">
-              <Label style={{ color: '#1F2937' }}>Nome</Label>
+              <Label>Nome</Label>
               <Input
                 value={form.nome}
                 onChange={e => setForm(prev => ({ ...prev, nome: e.target.value }))}
                 placeholder="Ex: ASG 7:20 hs"
-                className="rounded-lg"
               />
             </div>
             <div className="space-y-2">
-              <Label style={{ color: '#1F2937' }}>Valor padrão (R$)</Label>
+              <Label>Valor padrão (R$)</Label>
               <Input
                 type="text"
                 inputMode="decimal"
@@ -137,34 +137,39 @@ export function ExtrasCategoriasPage() {
                 }}
                 onBlur={() => setValorInput(mascaraMoedaInput(valorInput))}
                 placeholder="R$ 0,00"
-                className="rounded-lg"
               />
             </div>
             <div className="flex items-end gap-2">
-              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1F2937' }}>
+              <label className="flex cursor-pointer items-center gap-2 text-[13px]">
                 <input
                   type="checkbox"
                   checked={form.ativo}
                   onChange={e => setForm(prev => ({ ...prev, ativo: e.target.checked }))}
-                  className="rounded border-slate-300"
+                  className="rounded border-input"
                 />
                 Ativa
               </label>
             </div>
             <div className="flex items-end gap-2 md:col-span-4">
-              <ModuleButton onClick={handleSalvar}>
-                <Save className="w-4 h-4 mr-2" />
+              <Button onClick={handleSalvar}>
+                <Save className="size-4" />
                 Salvar
-              </ModuleButton>
-              <ModuleButton variant="outline" onClick={handleCancelar}>
-                <X className="w-4 h-4 mr-2" />
+              </Button>
+              <Button variant="ghost" onClick={handleCancelar}>
+                <X className="size-4" />
                 Cancelar
-              </ModuleButton>
+              </Button>
             </div>
           </div>
-        )}
+        </ModuleCard>
+      )}
 
-        <div className="overflow-x-auto">
+      <DataTable title="Categorias cadastradas" count={categorias.length}>
+        {loading ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : categorias.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma categoria cadastrada.</p>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -175,47 +180,56 @@ export function ExtrasCategoriasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">Carregando...</TableCell>
+              {categorias.map(categoria => (
+                <TableRow key={categoria.id}>
+                  <TableCell className="font-medium">{categoria.nome}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{mascaraMoeda(categoria.valor_padrao)}</TableCell>
+                  <TableCell>
+                    <StatusBadge variant={categoria.ativo ? 'success' : 'neutral'}>
+                      {categoria.ativo ? 'Ativa' : 'Inativa'}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {podeEditar && (
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-foreground hover:bg-accent"
+                          onClick={() => handleEditar(categoria)}
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                      )}
+                      {podeExcluir && (
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                          onClick={() => setConfirmarExclusao(categoria.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
-              ) : categorias.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhuma categoria cadastrada</TableCell>
-                </TableRow>
-              ) : (
-                categorias.map(categoria => (
-                  <TableRow key={categoria.id}>
-                    <TableCell>{categoria.nome}</TableCell>
-                    <TableCell>{mascaraMoeda(categoria.valor_padrao)}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        categoria.ativo ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'
-                      }`}>
-                        {categoria.ativo ? 'Ativa' : 'Inativa'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {podeEditar && (
-                          <ModuleButton variant="outline" size="sm" onClick={() => handleEditar(categoria)}>
-                            <Pencil className="w-3 h-3" />
-                          </ModuleButton>
-                        )}
-                        {podeExcluir && (
-                          <ModuleButton variant="danger" size="sm" onClick={() => handleExcluir(categoria.id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </ModuleButton>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
-        </div>
-      </ModuleCard>
+        )}
+      </DataTable>
+
+      <ConfirmDialog
+        open={!!confirmarExclusao}
+        onOpenChange={() => setConfirmarExclusao(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Excluir categoria?"
+        description="A categoria será removida permanentemente. Esta ação não pode ser desfeita."
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={() => confirmarExclusao && handleExcluir(confirmarExclusao)}
+        destructive
+      />
     </ExtrasShell>
   )
 }

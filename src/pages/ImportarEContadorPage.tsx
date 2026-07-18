@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
 import { cn, formatarCPF, mascararCPF } from '@/lib/utils'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
 import { toast } from 'sonner'
 import * as XLSX from '@e965/xlsx'

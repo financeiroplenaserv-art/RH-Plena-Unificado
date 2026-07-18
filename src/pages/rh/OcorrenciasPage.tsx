@@ -1,9 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -19,26 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Search, Plus, Trash2, Eye, Calendar, SlidersHorizontal, Info, SquarePen, X } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
-import { BadgeStatus } from '@/components/BadgeStatus'
+import { Search, Plus, Trash2, Eye, Calendar, HelpCircle, SquarePen, X, FileWarning } from 'lucide-react'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { Filters } from '@/components/corh/Filters'
+import { DataTable } from '@/components/corh/DataTable'
+import { StatusBadge } from '@/components/corh/StatusBadge'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
+import { Button } from '@/components/corh/Button'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { Paginacao } from '@/components/Paginacao'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ModuleButton } from '@/components/layout/ModuleShell'
 import { RhShell } from './RhShell'
 import { useOcorrencias } from '@/hooks/useOcorrencias'
 import { useAuth } from '@/hooks/useAuth'
-import { formatarData } from '@/lib/utils'
+import { cn, formatarData } from '@/lib/utils'
 import {
   podeCriarOcorrencia,
   podeVerDetalhesOcorrencia,
@@ -58,6 +51,16 @@ const MACRO_GRUPOS = [
   '9. Registro do RH',
 ]
 
+function statusVariant(status: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  switch (status) {
+    case 'Resolvida': return 'success'
+    case 'Pendente': return 'warning'
+    case 'Ativa': return 'info'
+    case 'Cancelada': return 'neutral'
+    default: return 'neutral'
+  }
+}
+
 export function OcorrenciasPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -69,6 +72,7 @@ export function OcorrenciasPage() {
 
   const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
   const [pagina, setPagina] = useState(0)
+  const [modoBusca, setModoBusca] = useState<'cadastrados' | 'historicos'>('cadastrados')
   const [busca, setBusca] = useState('')
   const [filtroTipos, setFiltroTipos] = useState<string[]>([])
   const [inputTipo, setInputTipo] = useState('')
@@ -100,13 +104,13 @@ export function OcorrenciasPage() {
     status: filtroStatus !== 'todos' ? filtroStatus.trim() : undefined,
     empresa_id: filtroEmpresa !== 'todos' ? filtroEmpresa.trim() : undefined,
     macro_grupo: filtroMacroGrupo !== 'todos' ? filtroMacroGrupo.trim() : undefined,
-    colaborador_id: filtroColaboradorId,
+    colaborador_id: modoBusca === 'cadastrados' ? filtroColaboradorId : undefined,
     data_inicio: filtroDataInicio || undefined,
     data_fim: filtroDataFim || undefined,
-    busca: busca.trim() || undefined,
+    busca: modoBusca === 'historicos' ? busca.trim() || undefined : undefined,
     incluir_nao_identificados: incluirNaoIdentificados,
     status_colaborador: filtroStatusColaborador,
-  }), [busca, filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador])
+  }), [busca, modoBusca, filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador])
 
   const loadOcorrencias = useCallback(async (paginaAtual = pagina) => {
     await listarPaginado(buildFiltros(), { pagina: paginaAtual, tamanho: 50 })
@@ -143,7 +147,7 @@ export function OcorrenciasPage() {
     setPagina(0)
     loadOcorrencias(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador])
+  }, [filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador, modoBusca])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -191,341 +195,329 @@ export function OcorrenciasPage() {
         description={`${paginacao?.total ?? ocorrencias.length} registros${pendentesCount > 0 ? ` (${pendentesCount} pendentes)` : ''}`}
       >
         {podeCriar && (
-          <ModuleButton onClick={() => navigate('/rh/ocorrencias/novo')}>
-            <Plus className="h-4 w-4 mr-2" /> Nova Ocorrência
-          </ModuleButton>
+          <Button onClick={() => navigate('/rh/ocorrencias/novo')}>
+            <Plus className="size-4" /> Nova Ocorrência
+          </Button>
         )}
       </PageHeader>
 
-      <Card className="bg-white rounded-[12px] shadow-sm border-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2 text-[#1F2937]">
-            <SlidersHorizontal className="h-4 w-4" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <AutocompleteColaborador
-              value={filtroColaboradorId}
-              onChange={(c) => setFiltroColaboradorId(c?.id)}
-              placeholder="Filtrar por colaborador cadastrado..."
-            />
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-600" />
-              <Input
-                placeholder="Procurar ocorrências de colaboradores não cadastrados no CORH"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadOcorrencias()}
-                className="pl-9 bg-amber-50 border-amber-300 rounded-[8px] text-[#1F2937] placeholder:text-amber-700/70 focus-visible:ring-amber-400"
-              />
+      <Filters
+        onApply={() => {
+          setPagina(0)
+          loadOcorrencias(0)
+        }}
+        onClear={limparFiltros}
+        loading={loading}
+      >
+        <div className="md:col-span-2 lg:col-span-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex rounded-lg border border-input p-0.5" role="group" aria-label="Modo de busca">
+              {(['cadastrados', 'historicos'] as const).map((modo) => (
+                <button
+                  key={modo}
+                  type="button"
+                  onClick={() => setModoBusca(modo)}
+                  className={cn(
+                    'rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                    modoBusca === modo
+                      ? 'bg-accent text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {modo === 'cadastrados' ? 'Cadastrados' : 'Históricos'}
+                </button>
+              ))}
             </div>
-          </div>
-
-          <div className="flex items-start gap-2 rounded-[8px] bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
-            <Info className="h-4 w-4 flex-shrink-0 mt-0.5 text-slate-400" />
-            <div>
-              <p className="font-medium text-slate-700">Dica para encontrar ocorrências</p>
-              <p className="text-slate-500 mt-0.5">
-                Use o campo ao lado esquerdo para filtrar apenas por colaboradores cadastrados. Use o campo <strong>amarelo</strong> para buscar ocorrências históricas de colaboradores não cadastrados no CORH (pesquisa por nome original e descrição).
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Select value={filtroStatusColaborador} onValueChange={(v) => setFiltroStatusColaborador(v as 'todos' | 'ativo' | 'inativo')}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Colaborador" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ativo">Colaboradores ativos</SelectItem>
-                <SelectItem value="inativo">Colaboradores inativos</SelectItem>
-                <SelectItem value="todos">Todos os colaboradores</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Empresa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as empresas</SelectItem>
-                {empresas.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                <SelectItem value="Pendente">Pendente</SelectItem>
-                <SelectItem value="Ativa">Ativa</SelectItem>
-                <SelectItem value="Resolvida">Resolvida</SelectItem>
-                <SelectItem value="Cancelada">Cancelada</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroMacroGrupo} onValueChange={setFiltroMacroGrupo}>
-              <SelectTrigger className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]">
-                <SelectValue placeholder="Macro grupo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os grupos</SelectItem>
-                {MACRO_GRUPOS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="space-y-2">
-              <div className="relative">
-                <Input
-                  list="tipos-ocorrencia"
-                  placeholder="Digite e pressione Enter para filtrar tipo"
-                  value={inputTipo}
-                  onChange={(e) => setInputTipo(e.target.value)}
-                  onKeyDown={handleKeyDownTipo}
-                  onBlur={() => {
-                    if (inputTipo.trim() && todosTiposUnicos.includes(inputTipo.trim())) {
-                      adicionarTipo(inputTipo)
-                    }
-                  }}
-                  className="bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937] text-sm"
+            <div className="flex-1">
+              {modoBusca === 'cadastrados' ? (
+                <AutocompleteColaborador
+                  value={filtroColaboradorId}
+                  onChange={(c) => setFiltroColaboradorId(c?.id)}
+                  placeholder="Buscar por colaborador cadastrado..."
                 />
-                <datalist id="tipos-ocorrencia">
-                  {todosTiposUnicos.map((t) => (
-                    <option key={t} value={t} />
-                  ))}
-                </datalist>
-              </div>
-              {filtroTipos.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {filtroTipos.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-800 text-xs border border-amber-200"
-                    >
-                      {t}
-                      <button
-                        type="button"
-                        onClick={() => removerTipo(t)}
-                        className="hover:text-amber-600"
-                        title="Remover"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
+              ) : (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome original ou descrição (históricos)..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && loadOcorrencias()}
+                    className="pl-9"
+                  />
                 </div>
               )}
             </div>
+            <span
+              title="Use &quot;Cadastrados&quot; para filtrar por colaboradores do CORH. Use &quot;Históricos&quot; para buscar ocorrências de colaboradores não cadastrados, por nome original e descrição."
+              className="self-center text-muted-foreground"
+            >
+              <HelpCircle className="size-4" />
+            </span>
           </div>
+        </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-[#E2E8F0]">
-            <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-              <Calendar className="h-4 w-4" />
-              <span>Período:</span>
-            </div>
-            <div className="flex flex-col sm:flex-row items-center gap-2">
-              <Input
-                type="date"
-                value={filtroDataInicio}
-                onChange={(e) => setFiltroDataInicio(e.target.value)}
-                className="w-auto bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]"
-              />
-              <span className="text-[#94A3B8]">até</span>
-              <Input
-                type="date"
-                value={filtroDataFim}
-                onChange={(e) => setFiltroDataFim(e.target.value)}
-                className="w-auto bg-white border-[#E2E8F0] rounded-[8px] text-[#1F2937]"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="incluir-nao-identificados"
-                checked={incluirNaoIdentificados}
-                onCheckedChange={(checked) => setIncluirNaoIdentificados(Boolean(checked))}
-              />
-              <label
-                htmlFor="incluir-nao-identificados"
-                className="text-sm text-[#1F2937] cursor-pointer select-none"
-              >
-                Incluir colaboradores não identificados
-              </label>
-            </div>
-            <Button
-              onClick={() => {
-                setPagina(0)
-                loadOcorrencias(0)
+        <Select value={filtroStatusColaborador} onValueChange={(v) => setFiltroStatusColaborador(v as 'todos' | 'ativo' | 'inativo')}>
+          <SelectTrigger>
+            <SelectValue placeholder="Colaborador" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ativo">Colaboradores ativos</SelectItem>
+            <SelectItem value="inativo">Colaboradores inativos</SelectItem>
+            <SelectItem value="todos">Todos os colaboradores</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+          <SelectTrigger>
+            <SelectValue placeholder="Empresa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas as empresas</SelectItem>
+            {empresas.map((e) => (
+              <SelectItem key={e.id} value={e.id}>
+                {e.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+          <SelectTrigger>
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os status</SelectItem>
+            <SelectItem value="Pendente">Pendente</SelectItem>
+            <SelectItem value="Ativa">Ativa</SelectItem>
+            <SelectItem value="Resolvida">Resolvida</SelectItem>
+            <SelectItem value="Cancelada">Cancelada</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroMacroGrupo} onValueChange={setFiltroMacroGrupo}>
+          <SelectTrigger>
+            <SelectValue placeholder="Macro grupo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os grupos</SelectItem>
+            {MACRO_GRUPOS.map((g) => (
+              <SelectItem key={g} value={g}>
+                {g}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="space-y-2 md:col-span-2 lg:col-span-2">
+          <div className="relative">
+            <Input
+              list="tipos-ocorrencia"
+              placeholder="Digite e pressione Enter para filtrar tipo"
+              value={inputTipo}
+              onChange={(e) => setInputTipo(e.target.value)}
+              onKeyDown={handleKeyDownTipo}
+              onBlur={() => {
+                if (inputTipo.trim() && todosTiposUnicos.includes(inputTipo.trim())) {
+                  adicionarTipo(inputTipo)
+                }
               }}
-              disabled={loading}
-              className="bg-[#1F2937] hover:bg-slate-800 text-white rounded-[8px]"
-            >
-              Aplicar
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={limparFiltros}
-              disabled={loading}
-              className="rounded-[8px] border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              Limpar
-            </Button>
+            />
+            <datalist id="tipos-ocorrencia">
+              {todosTiposUnicos.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white rounded-[12px] shadow-sm border-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base text-[#1F2937]">Lista de ocorrências</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <LoadingScreen className="h-64" />
-          ) : (
-            <div className="border border-slate-200 rounded-lg overflow-hidden overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-[#94A3B8]">Data</TableHead>
-                    <TableHead className="text-[#94A3B8]">Colaborador</TableHead>
-                    <TableHead className="hidden lg:table-cell text-[#94A3B8]">Grupo</TableHead>
-                    <TableHead className="text-[#94A3B8]">Tipo</TableHead>
-                    <TableHead className="hidden md:table-cell text-[#94A3B8]">Título</TableHead>
-                    <TableHead className="text-[#94A3B8]">Status</TableHead>
-                    <TableHead className="text-right"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ocorrencias.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-[#94A3B8]">
-                        Nenhuma ocorrência encontrada.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    ocorrencias.map((o) => (
-                      <TableRow
-                        key={o.id}
-                        className={o.status === 'Pendente' ? 'bg-slate-50/50' : ''}
-                      >
-                        <TableCell className="text-xs text-[#94A3B8]">
-                          {formatarData(o.data_ocorrencia)}
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium text-[#1F2937] break-words">
-                            {o.colaborador?.nome_completo || o.colaborador_nome || 'N/A'}
-                          </p>
-                          <p className="text-xs text-[#94A3B8]">
-                            {o.colaborador?.matricula || (o.colaborador_nome ? 'Colaborador inativo/não cadastrado' : '')}
-                          </p>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-xs text-[#94A3B8] break-words">
-                          {o.macro_grupo || '—'}
-                        </TableCell>
-                        <TableCell className="text-[#1F2937] break-words">{o.tipo_ocorrencia}</TableCell>
-                        <TableCell className="hidden md:table-cell max-w-[12rem] lg:max-w-xs break-words text-[#1F2937]">
-                          {o.titulo || <span className="text-[#94A3B8] italic">Sem título</span>}
-                        </TableCell>
-                        <TableCell>
-                          <BadgeStatus status={o.status} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {podeVerDetalhes && (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => navigate(`/rh/ocorrencias/${o.id}`)}
-                                className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white h-8 w-8"
-                                title="Ver detalhes"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {podeEditar && o.status !== 'Cancelada' && (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => navigate(`/rh/ocorrencias/${o.id}/editar`)}
-                                className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white h-8 w-8"
-                                title="Editar ocorrência"
-                              >
-                                <SquarePen className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {o.status !== 'Cancelada' && podeCancelar && (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setOcorrenciaParaExcluir(o.id)}
-                                className="border-[#1F2937] text-[#1F2937] hover:bg-[#1F2937] hover:text-white h-8 w-8"
-                                title="Cancelar ocorrência"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              {paginacao && paginacao.totalPaginas > 1 && (
-                <Paginacao
-                  pagina={pagina}
-                  totalPaginas={paginacao.totalPaginas}
-                  totalRegistros={paginacao.total}
-                  tamanho={paginacao.tamanho}
-                  onPaginaAnterior={() => {
-                    const nova = pagina - 1
-                    setPagina(nova)
-                    loadOcorrencias(nova)
-                  }}
-                  onPaginaProxima={() => {
-                    const nova = pagina + 1
-                    setPagina(nova)
-                    loadOcorrencias(nova)
-                  }}
-                  carregando={loading}
-                />
-              )}
+          {filtroTipos.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {filtroTipos.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-full border border-border bg-accent px-2 py-1 text-xs text-primary"
+                >
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => removerTipo(t)}
+                    className="hover:text-foreground"
+                    title="Remover"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      <Dialog open={!!ocorrenciaParaExcluir} onOpenChange={(open) => !open && setOcorrenciaParaExcluir(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base text-[#1F2937]">Remover ocorrência?</DialogTitle>
-            <DialogDescription className="text-xs text-[#94A3B8]">
-              Esta ação excluirá permanentemente o registro. Deseja continuar?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <ModuleButton variant="outline" size="sm" onClick={() => setOcorrenciaParaExcluir(null)}>
-              Cancelar
-            </ModuleButton>
-            <ModuleButton variant="danger" size="sm" onClick={() => ocorrenciaParaExcluir && handleDelete(ocorrenciaParaExcluir)}>
-              Excluir
-            </ModuleButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <Calendar className="size-4" />
+          <span>Período:</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            value={filtroDataInicio}
+            onChange={(e) => setFiltroDataInicio(e.target.value)}
+          />
+          <span className="text-muted-foreground">até</span>
+          <Input
+            type="date"
+            value={filtroDataFim}
+            onChange={(e) => setFiltroDataFim(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="incluir-nao-identificados"
+            checked={incluirNaoIdentificados}
+            onCheckedChange={(checked) => setIncluirNaoIdentificados(Boolean(checked))}
+          />
+          <label
+            htmlFor="incluir-nao-identificados"
+            className="cursor-pointer select-none text-[13px]"
+          >
+            Incluir colaboradores não identificados
+          </label>
+        </div>
+      </Filters>
+
+      <DataTable title="Lista de ocorrências" count={paginacao?.total ?? ocorrencias.length}>
+        {loading ? (
+          <LoadingScreen className="h-64" />
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Colaborador</TableHead>
+                  <TableHead className="hidden lg:table-cell">Grupo</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="hidden md:table-cell">Título</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ocorrencias.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <div className="flex flex-col items-center gap-3 py-12 text-center">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
+                          <FileWarning className="size-6" strokeWidth={1.8} />
+                        </div>
+                        <p className="text-[13px] text-muted-foreground">Nenhuma ocorrência encontrada.</p>
+                        {podeCriar && (
+                          <Button onClick={() => navigate('/rh/ocorrencias/novo')}>
+                            <Plus className="size-4" /> Nova Ocorrência
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  ocorrencias.map((o) => (
+                    <TableRow
+                      key={o.id}
+                      className={cn('group', o.status === 'Pendente' && 'bg-muted/40')}
+                    >
+                      <TableCell className="text-xs tabular-nums text-muted-foreground">
+                        {formatarData(o.data_ocorrencia)}
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium break-words">
+                          {o.colaborador?.nome_completo || o.colaborador_nome || 'N/A'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {o.colaborador?.matricula || (o.colaborador_nome ? 'Colaborador inativo/não cadastrado' : '')}
+                        </p>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground break-words">
+                        {o.macro_grupo || '—'}
+                      </TableCell>
+                      <TableCell className="break-words">{o.tipo_ocorrencia}</TableCell>
+                      <TableCell className="hidden md:table-cell max-w-[12rem] lg:max-w-xs break-words">
+                        {o.titulo || <span className="italic text-muted-foreground">Sem título</span>}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge variant={statusVariant(o.status)}>{o.status}</StatusBadge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-60 transition group-hover:opacity-100">
+                          {podeVerDetalhes && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/rh/ocorrencias/${o.id}`)}
+                              className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-white hover:text-primary hover:shadow-sm"
+                              title="Ver detalhes"
+                            >
+                              <Eye className="size-4" />
+                            </button>
+                          )}
+                          {podeEditar && o.status !== 'Cancelada' && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/rh/ocorrencias/${o.id}/editar`)}
+                              className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-white hover:text-primary hover:shadow-sm"
+                              title="Editar ocorrência"
+                            >
+                              <SquarePen className="size-4" />
+                            </button>
+                          )}
+                          {o.status !== 'Cancelada' && podeCancelar && (
+                            <button
+                              type="button"
+                              onClick={() => setOcorrenciaParaExcluir(o.id)}
+                              className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                              title="Cancelar ocorrência"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            {paginacao && paginacao.totalPaginas > 1 && (
+              <Paginacao
+                pagina={pagina}
+                totalPaginas={paginacao.totalPaginas}
+                totalRegistros={paginacao.total}
+                tamanho={paginacao.tamanho}
+                onPaginaAnterior={() => {
+                  const nova = pagina - 1
+                  setPagina(nova)
+                  loadOcorrencias(nova)
+                }}
+                onPaginaProxima={() => {
+                  const nova = pagina + 1
+                  setPagina(nova)
+                  loadOcorrencias(nova)
+                }}
+                carregando={loading}
+              />
+            )}
+          </>
+        )}
+      </DataTable>
+
+      <ConfirmDialog
+        open={!!ocorrenciaParaExcluir}
+        onOpenChange={() => setOcorrenciaParaExcluir(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Remover ocorrência?"
+        description="Esta ação excluirá permanentemente o registro. Deseja continuar?"
+        confirmLabel="Sim, excluir"
+        cancelLabel="Cancelar"
+        onConfirm={() => ocorrenciaParaExcluir && handleDelete(ocorrenciaParaExcluir)}
+        destructive
+      />
     </RhShell>
   )
 }

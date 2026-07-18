@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { podeGerenciarModelosOcorrencia } from '@/lib/permissoes'

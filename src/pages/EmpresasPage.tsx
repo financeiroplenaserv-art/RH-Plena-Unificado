@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Building2, Edit, Plus, Search, Trash2 } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
+import { Building2, Edit, Plus, Search, Trash2, X } from 'lucide-react'
+import { PageHeader } from '@/components/corh/PageHeader'
+import { Filters } from '@/components/corh/Filters'
+import { DataTable } from '@/components/corh/DataTable'
+import { Button } from '@/components/corh/Button'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ModuleShell, ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import {
   Table,
   TableBody,
@@ -44,6 +47,7 @@ export function EmpresasPage() {
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState(emptyForm)
   const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [mostrarForm, setMostrarForm] = useState(false)
   const [removerId, setRemoverId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,8 +63,13 @@ export function EmpresasPage() {
     )
   })
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault()
+  const handleNovo = () => {
+    setEditandoId(null)
+    setForm(emptyForm)
+    setMostrarForm(true)
+  }
+
+  const handleSubmit = async () => {
     if (!form.nome.trim()) return
 
     const payload = {
@@ -77,6 +86,7 @@ export function EmpresasPage() {
       }
       setForm(emptyForm)
       setEditandoId(null)
+      setMostrarForm(false)
     } catch (err) {
       console.error('Erro ao salvar empresa:', err)
       toast.error('Erro ao salvar empresa. Tente novamente.')
@@ -90,11 +100,13 @@ export function EmpresasPage() {
       cnpj: empresa.cnpj || '',
       codigo_alterdata: empresa.codigo_alterdata || '',
     })
+    setMostrarForm(true)
   }
 
   const handleCancelar = () => {
     setForm(emptyForm)
     setEditandoId(null)
+    setMostrarForm(false)
   }
 
   const handleRemover = async (id: string) => {
@@ -103,22 +115,98 @@ export function EmpresasPage() {
   }
 
   return (
-    <ModuleShell>
-      <PageHeader backTo="/" title="Empresas" description="Cadastro global de empresas do sistema" />
+    <div className="min-h-full space-y-5">
+      <PageHeader backTo="/" title="Empresas" description="Cadastro global de empresas do sistema">
+        {podeEditar && (
+          <Button onClick={handleNovo}>
+            <Plus className="size-4" />
+            Cadastrar
+          </Button>
+        )}
+      </PageHeader>
 
-      {podeEditar && (
-      <ModuleCard title={editandoId ? 'Editar empresa' : 'Nova empresa'} icon={<Building2 className="w-4 h-4" />}>
-        <div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
+      <Filters onApply={() => {}} onClear={() => setBusca('')} loading={loading}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, CNPJ ou código..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </Filters>
+
+      <DataTable title="Lista de empresas" count={empresasFiltradas.length}>
+        {loading ? (
+          <LoadingScreen className="h-64" />
+        ) : empresasFiltradas.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground">
+            <Building2 className="mb-2 size-8 text-muted-foreground/40" />
+            Nenhuma empresa encontrada.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">Nome</TableHead>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">CNPJ</TableHead>
+                <TableHead className="font-semibold uppercase tracking-wider text-muted-foreground">Código Alterdata</TableHead>
+                <TableHead className="w-24"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {empresasFiltradas.map((empresa) => (
+                <TableRow key={empresa.id} className="hover:bg-accent/40">
+                  <TableCell className="font-medium">{empresa.nome}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatarCNPJ(empresa.cnpj) || '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{empresa.codigo_alterdata || '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {podeEditar && (
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-foreground hover:bg-accent"
+                          onClick={() => handleEditar(empresa)}
+                        >
+                          <Edit className="size-4" />
+                        </button>
+                      )}
+                      {podeExcluir && (
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                          onClick={() => setRemoverId(empresa.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DataTable>
+
+      <Dialog open={mostrarForm} onOpenChange={setMostrarForm}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editandoId ? 'Editar empresa' : 'Nova empresa'}</DialogTitle>
+            <DialogDescription>
+              Preencha os dados da empresa. O nome é obrigatório.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="nome">Razão social / Nome *</Label>
                 <Input
                   id="nome"
                   value={form.nome}
                   onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
                   placeholder="Nome da empresa"
-                  className="rounded-lg border-slate-300"
                 />
               </div>
               <div className="space-y-2">
@@ -128,7 +216,6 @@ export function EmpresasPage() {
                   value={form.cnpj}
                   onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))}
                   placeholder="00.000.000/0000-00"
-                  className="rounded-lg border-slate-300"
                 />
               </div>
               <div className="space-y-2">
@@ -138,134 +225,35 @@ export function EmpresasPage() {
                   value={form.codigo_alterdata}
                   onChange={(e) => setForm((f) => ({ ...f, codigo_alterdata: e.target.value }))}
                   placeholder="Código no Alterdata"
-                  className="rounded-lg border-slate-300"
                 />
               </div>
             </div>
-            <div className="flex gap-2">
-              <ModuleButton
-                type="submit"
-                disabled={!form.nome.trim()}
-                onClick={handleSubmit}
-              >
-                {editandoId ? (
-                  <>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Atualizar
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Cadastrar
-                  </>
-                )}
-              </ModuleButton>
-              {editandoId && (
-                <ModuleButton type="button" variant="outline" onClick={handleCancelar}>
-                  Cancelar
-                </ModuleButton>
-              )}
-            </div>
-          </form>
-        </div>
-      </ModuleCard>
-      )}
-
-      <ModuleCard title={`Lista de empresas (${empresasFiltradas.length})`} icon={<Building2 className="w-4 h-4" />}>
-        <div className="mb-4">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Buscar por nome, CNPJ ou código..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="pl-9 rounded-lg border-slate-300"
-            />
           </div>
-        </div>
-        <div>
-          {loading ? (
-            <LoadingScreen className="h-64" />
-          ) : (
-            <div className="border rounded-lg overflow-hidden border-slate-200">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 hover:bg-slate-50">
-                    <TableHead>Nome</TableHead>
-                    <TableHead>CNPJ</TableHead>
-                    <TableHead>Código Alterdata</TableHead>
-                    <TableHead className="w-24"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {empresasFiltradas.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-slate-500">
-                        <Building2 className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                        Nenhuma empresa encontrada.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    empresasFiltradas.map((empresa) => (
-                      <TableRow key={empresa.id}>
-                        <TableCell className="font-medium text-[#1F2937]">{empresa.nome}</TableCell>
-                        <TableCell>{formatarCNPJ(empresa.cnpj) || '—'}</TableCell>
-                        <TableCell>{empresa.codigo_alterdata || '—'}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-1">
-                            {podeEditar && (
-                              <ModuleButton
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditar(empresa)}
-                                className="h-8 w-8 text-slate-500 hover:text-[#1F2937]"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </ModuleButton>
-                            )}
-                            {podeExcluir && (
-                              <ModuleButton
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setRemoverId(empresa.id)}
-                                className="h-8 w-8 text-slate-400 hover:text-red-600"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </ModuleButton>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-      </ModuleCard>
-
-      <Dialog open={!!removerId} onOpenChange={(open) => !open && setRemoverId(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Remover empresa?</DialogTitle>
-            <DialogDescription>
-              Esta ação não pode ser desfeita. A empresa será removida permanentemente.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <ModuleButton variant="outline" onClick={() => setRemoverId(null)}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelar}>
+              <X className="size-4" />
               Cancelar
-            </ModuleButton>
-            <ModuleButton
-              variant="danger"
-              onClick={() => removerId && handleRemover(removerId)}
-            >
-              Excluir
-            </ModuleButton>
+            </Button>
+            <Button onClick={handleSubmit} disabled={!form.nome.trim()} loading={loading}>
+              <Edit className="size-4" />
+              {editandoId ? 'Atualizar' : 'Cadastrar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </ModuleShell>
+
+      <ConfirmDialog
+        open={!!removerId}
+        onOpenChange={() => setRemoverId(null)}
+        icon={<Trash2 className="size-6 text-red-600" />}
+        iconClassName="bg-red-50"
+        title="Remover empresa?"
+        description="Esta ação não pode ser desfeita. A empresa será removida permanentemente."
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        onConfirm={() => removerId && handleRemover(removerId)}
+        destructive
+      />
+    </div>
   )
 }

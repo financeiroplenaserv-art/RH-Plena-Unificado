@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { formatarData } from '@/lib/utils'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { VrShell } from './VrShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 
@@ -215,17 +215,16 @@ export function VrProjetosPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </ModuleButton>
-                          <ModuleButton
-                            variant="danger"
-                            size="sm"
+                          <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation()
                               setExcluirId(projeto.id)
                             }}
-                            className="h-8 w-8 p-0"
+                            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </ModuleButton>
+                          </button>
                         </div>
                       </TableCell>
                     </TableRow>

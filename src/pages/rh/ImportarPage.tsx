@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/corh/PageHeader'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { toast } from 'sonner'
 import type { Colaborador } from '@/types/database'
