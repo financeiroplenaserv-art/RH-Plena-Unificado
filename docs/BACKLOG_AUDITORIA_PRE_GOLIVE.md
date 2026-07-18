@@ -53,17 +53,17 @@
 
 **Pendente do usuário:** aplicar as migrations 066, 067 e 068 (instruções em `docs/APLICAR_MIGRATIONS_066_067_068.md`).
 
-## LEVA 4 — Performance
+## LEVA 4 — Performance (FEITA nesta rodada)
 
-| # | Item | Origem |
+| # | Item | Status |
 |---|------|--------|
-| P1 | Service worker precacheia 5,2 MB (chunks lazy + imagens de marketing) — restringir `globPatterns`/`globIgnores` | Perf #1 |
-| P2 | `AbaEscalasDiario` sem paginação — trunca no limite de 1000 linhas do PostgREST | Perf #2 |
-| P3 | `useColaboradores.listar` (32 colunas, sem paginação) usado em 14 telas só para dropdown — criar `listarResumido()` | Perf #3 |
-| P4 | OcorrenciasPage dispara listagem 3× no mount; Dashboard baixa tabelas inteiras para 4 números | Perf #4/#5 |
-| P5 | Perfil+permissões carregados 2× no boot (getSession + INITIAL_SESSION) | Perf #7 |
-| P6 | Geração de alertas varre o banco no cliente; writes sequenciais em loop (CEU entrega, ImportarPonto) | Perf #8/#9 |
-| P7 | Logo 131 KB na tela de login (redimensionar/WebP) | Perf #11 |
+| P1 | Service worker precacheia 5,2 MB | ✅ precache restrito por whitelist: **5.234 KB → 1.154 KB** (135 → 24 entries) |
+| P2 | `AbaEscalasDiario` truncava no limite de 1000 do PostgREST | ✅ `listar` passa a paginar via `listarTodos`; console.logs de debug removidos |
+| P3 | `useColaboradores.listar` (32 colunas) em 14 telas de dropdown | ✅ `listarResumido` (10 colunas) aplicado nas 14 telas; MobileFalta filtra `Ativo` no servidor |
+| P4 | OcorrenciasPage disparava listagem 3× no mount | ✅ debounce/limpar pulam o mount (1ª carga única); Dashboard filtra itens CEU no servidor |
+| P5 | Perfil+permissões carregados 2× no boot (getSession + INITIAL_SESSION) | ✅ getSession removido; só `onAuthStateChange` (INITIAL_SESSION) |
+| P6 | Geração de alertas varre o banco no cliente | 🔶 mantido: ação manual sob demanda; otimização real exige RPC agendada (projeto futuro) |
+| P7 | Logo de 131 KB na tela de login | ✅ redimensionada 512→256px: **131 KB → 46 KB** |
 
 ## Baixos registrados (sem urgência)
 

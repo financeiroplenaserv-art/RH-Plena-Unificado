@@ -40,6 +40,10 @@ function criarQueryBuilder(retorno: unknown[] = []) {
       chamadas.push({ metodo: 'order', args })
       return chain
     }),
+    range: vi.fn().mockImplementation((...args: unknown[]) => {
+      chamadas.push({ metodo: 'range', args })
+      return chain
+    }),
     eq: vi.fn().mockImplementation((...args: unknown[]) => {
       chamadas.push({ metodo: 'eq', args })
       return chain

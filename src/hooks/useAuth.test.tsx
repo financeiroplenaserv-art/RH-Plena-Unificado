@@ -76,12 +76,22 @@ function mockarPerfilExistente(perfil: Perfil) {
   return { select, eq, single }
 }
 
+// O useAuth usa apenas onAuthStateChange (INITIAL_SESSION) para a sessão
+// inicial. Este helper faz o mock disparar o callback com a sessão dada.
+function mockarSessaoInicial(session: { user?: { id: string; email?: string | null } } | null) {
+  mockOnAuthStateChange.mockImplementation((cb: (event: string, sessao: unknown) => void) => {
+    queueMicrotask(() => cb('INITIAL_SESSION', session))
+    return { data: { subscription: { unsubscribe: mockUnsubscribe } } }
+  })
+}
+
 describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
     mockOnAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: mockUnsubscribe } } })
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
+    mockarSessaoInicial(null)
   })
 
   afterEach(() => {
@@ -96,10 +106,7 @@ describe('useAuth', () => {
 
   it('inicializa com sessão ativa e carrega perfil', async () => {
     const perfil = criarPerfil('rh')
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'auth-1', email: 'usuario@exemplo.com' } } },
-      error: null,
-    })
+    mockarSessaoInicial({ user: { id: 'auth-1', email: 'usuario@exemplo.com' } })
     mockarPerfilExistente(perfil)
 
     const { result, unmount } = renderHook(() => useAuth())
@@ -175,10 +182,7 @@ describe('useAuth', () => {
 
   it('logout limpa estado e localStorage', async () => {
     const perfil = criarPerfil('rh')
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'auth-1', email: 'usuario@exemplo.com' } } },
-      error: null,
-    })
+    mockarSessaoInicial({ user: { id: 'auth-1', email: 'usuario@exemplo.com' } })
     mockarPerfilExistente(perfil)
 
     const { result } = renderHook(() => useAuth())
@@ -196,10 +200,7 @@ describe('useAuth', () => {
 
   it('temAcesso retorna true para perfil autorizado e false para não autorizado', async () => {
     const perfil = criarPerfil('rh')
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'auth-1', email: 'usuario@exemplo.com' } } },
-      error: null,
-    })
+    mockarSessaoInicial({ user: { id: 'auth-1', email: 'usuario@exemplo.com' } })
     mockarPerfilExistente(perfil)
 
     const { result } = renderHook(() => useAuth())
@@ -213,10 +214,7 @@ describe('useAuth', () => {
 
   it('ehAdmin e ehEditor retornam corretamente por perfil', async () => {
     const perfil = criarPerfil('admin')
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'auth-1', email: 'usuario@exemplo.com' } } },
-      error: null,
-    })
+    mockarSessaoInicial({ user: { id: 'auth-1', email: 'usuario@exemplo.com' } })
     mockarPerfilExistente(perfil)
 
     const { result } = renderHook(() => useAuth())
@@ -228,10 +226,7 @@ describe('useAuth', () => {
 
   it('visualizador não é admin nem editor', async () => {
     const perfil = criarPerfil('visualizador')
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'auth-1', email: 'usuario@exemplo.com' } } },
-      error: null,
-    })
+    mockarSessaoInicial({ user: { id: 'auth-1', email: 'usuario@exemplo.com' } })
     mockarPerfilExistente(perfil)
 
     const { result } = renderHook(() => useAuth())

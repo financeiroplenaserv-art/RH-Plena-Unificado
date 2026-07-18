@@ -188,7 +188,7 @@ export function AdicionaisRelatorioPage() {
     listarVinculos,
     listarCalendario,
   } = useAdicionaisContratuais()
-  const { colaboradores, loading: loadingColaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, loading: loadingColaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, loading: loadingDepartamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const hoje = new Date()

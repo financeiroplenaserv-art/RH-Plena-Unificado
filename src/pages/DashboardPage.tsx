@@ -116,7 +116,10 @@ export function DashboardPage() {
             .select('id', { count: 'exact', head: true })
             .eq('status', 'ativo')
             .in('severidade', ['critica', 'alta']),
-          supabase.from('itens').select('estoque, estoque_minimo, ca, validade'),
+          supabase
+            .from('itens')
+            .select('estoque, estoque_minimo, ca, validade')
+            .or('estoque_minimo.gt.0,ca.not.is.null'),
           supabase
             .from('colaboradores')
             .select('id, nome_completo, data_admissao, data_nascimento, cargo, departamento')

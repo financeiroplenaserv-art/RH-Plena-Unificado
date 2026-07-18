@@ -77,35 +77,6 @@ export function useEscalasDiario() {
     return query
   }, [])
 
-  const listar = useCallback(async (
-    competencia: Competencia,
-    filtros: FiltrosEscalasDiario = {}
-  ) => {
-    setLoading(true)
-    try {
-      const query = criarQuery(competencia, filtros)
-      const { data, error, count } = await query
-      if (error) throw error
-
-      // Log de debug para rastrear divergências entre tabela e exportação.
-      console.log('[useEscalasDiario.listar]', {
-        competencia: `${competencia.inicio} a ${competencia.fim}`,
-        filtros,
-        retornados: (data || []).length,
-        count,
-      })
-
-      setDias((data || []) as unknown as LocalTrabalhoDiario[])
-      return (data || []) as unknown as LocalTrabalhoDiario[]
-    } catch (err: unknown) {
-      console.error('Erro ao carregar escalas:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar escalas')
-      return []
-    } finally {
-      setLoading(false)
-    }
-  }, [criarQuery])
-
   const listarTodos = useCallback(async (
     competencia: Competencia,
     filtros: FiltrosEscalasDiario = {}
@@ -127,14 +98,28 @@ export function useEscalasDiario() {
       start += PAGE_SIZE
     }
 
-    console.log('[useEscalasDiario.listarTodos]', {
-      competencia: `${competencia.inicio} a ${competencia.fim}`,
-      filtros,
-      total: todos.length,
-    })
-
     return todos
   }, [criarQuery])
+
+  const listar = useCallback(async (
+    competencia: Competencia,
+    filtros: FiltrosEscalasDiario = {}
+  ) => {
+    setLoading(true)
+    try {
+      // Usa a paginação completa: sem isso, o PostgREST trunca no limite de
+      // 1000 linhas e a tabela mostra dados incompletos (diverge da exportação).
+      const todos = await listarTodos(competencia, filtros)
+      setDias(todos)
+      return todos
+    } catch (err: unknown) {
+      console.error('Erro ao carregar escalas:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar escalas')
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [listarTodos])
 
   const confirmarManual = useCallback(async (
     diaId: string,

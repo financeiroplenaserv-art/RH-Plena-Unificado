@@ -74,7 +74,7 @@ export function AbaEscalasDiario() {
   const navigate = useNavigate()
   const { dias, loading, listar, listarTodos, confirmarManual, aplicarEmLote, buscarHistoricoColaborador } = useEscalasDiario()
   const { locais, listar: listarLocais } = useEscalasLocais()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
   const [input, setInput] = useState<FiltroEscalas>(filtroInicial)
   const [aplicado, setAplicado] = useState<FiltroEscalas>(filtroInicial)

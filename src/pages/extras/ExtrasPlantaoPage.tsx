@@ -56,7 +56,7 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
 export function ExtrasPlantaoPage() {
   const navigate = useNavigate()
   const { categorias, listar, listarCategorias, criar } = useExtras()
-  const { listar: listarColaboradores } = useColaboradores()
+  const { listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const departamentosUnicos = useMemo(() => {

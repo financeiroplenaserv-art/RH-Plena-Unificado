@@ -16,12 +16,32 @@ interface FiltrosColaborador {
 
 const COLUNAS_LISTAGEM = 'id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at'
 
+// Subconjunto leve para dropdowns/autocompletes (sem documentos, contato,
+// endereço e tamanhos — ~70% menos bytes por linha).
+const COLUNAS_RESUMIDO = 'id, matricula, nome_completo, status, cargo, departamento, departamento_id, empresa_id, cpf, data_admissao'
+
 const TAMANHO_PADRAO = 50
 
 export function useColaboradores() {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([])
   const [loading, setLoading] = useState(false)
   const [paginacao, setPaginacao] = useState<ResultadoPaginado<Colaborador> | null>(null)
+
+  /** Lista resumida para selects/autocompletes. Use `listar`/`listarPaginado` quando precisar da ficha completa. */
+  const listarResumido = useCallback(async (filtros?: { status?: StatusColaborador }) => {
+    setLoading(true)
+    let query = supabase.from('colaboradores').select(COLUNAS_RESUMIDO).order('nome_completo')
+    if (filtros?.status) query = query.eq('status', filtros.status)
+    const { data, error } = await query
+    if (error) {
+      toast.error('Erro ao carregar colaboradores: ' + error.message)
+      setLoading(false)
+      return []
+    }
+    setColaboradores((data || []) as Colaborador[])
+    setLoading(false)
+    return (data || []) as Colaborador[]
+  }, [])
 
   const montarQuery = useCallback(async (filtros?: FiltrosColaborador) => {
     // Se houver filtro por ID de departamento, usa diretamente.
@@ -285,6 +305,7 @@ export function useColaboradores() {
     loading,
     paginacao,
     listar,
+    listarResumido,
     listarPaginado,
     atualizar,
     upsertPorMatricula,

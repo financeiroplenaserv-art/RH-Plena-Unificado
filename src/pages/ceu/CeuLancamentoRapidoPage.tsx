@@ -64,7 +64,7 @@ function normalizarCodigo(codigo: string) {
 
 export function CeuLancamentoRapidoPage() {
   const navigate = useNavigate()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { itens, listar: listarItens } = useCEUItens()
   const { criar } = useCEUEntregas()
   const [linhas, setLinhas] = useState<LinhaLancamento[]>(() => Array.from({ length: 5 }, criarLinhaVazia))

@@ -40,7 +40,7 @@ export function CeuEntregaFormPage() {
   const navigate = useNavigate()
   const { criarLote, listar: listarEntregas } = useCEUEntregas()
   const { itens, loading: carregandoItens, listar: listarItens } = useCEUItens()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
   const [passo, setPasso] = useState(1)
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)

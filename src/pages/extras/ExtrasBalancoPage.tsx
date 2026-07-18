@@ -54,7 +54,7 @@ export function ExtrasBalancoPage() {
   const [mensagemEditada, setMensagemEditada] = useState('')
 
   const { extras, loading, listar } = useExtras()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   useEffect(() => {

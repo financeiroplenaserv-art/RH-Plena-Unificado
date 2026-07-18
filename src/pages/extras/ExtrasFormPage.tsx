@@ -58,7 +58,7 @@ export function ExtrasFormPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { categorias, loading, listar, listarCategorias, buscarPorId, criar, atualizar, verificarDuplicado } = useExtras()
-  const { listar: listarColaboradores } = useColaboradores()
+  const { listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const departamentosUnicos = useMemo(() => {

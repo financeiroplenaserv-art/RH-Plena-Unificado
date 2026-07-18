@@ -44,7 +44,7 @@ const STATUS_LABELS: Record<StatusDiaAdicional, string> = {
 
 export function ImportarPontoPage() {
   const { contratos, vinculos, calendario, listarVinculos, listarCalendario, salvarDiaCalendario, excluirDiaCalendario, criarVinculo } = useAdicionaisContratuais()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [processando, setProcessando] = useState(false)

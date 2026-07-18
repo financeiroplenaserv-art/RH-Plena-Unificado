@@ -217,7 +217,7 @@ export function MobileFaltaPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { categorias, listarCategorias, criar, verificarDuplicado, loading: loadingExtras } = useExtras()
-  const { colaboradores, listar: listarColaboradores, loading: loadingColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores, loading: loadingColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos, loading: loadingDepartamentos } = useDepartamentos()
 
   const [passo, setPasso] = useState(1)
@@ -245,7 +245,7 @@ export function MobileFaltaPage() {
 
   useEffect(() => {
     listarCategorias()
-    listarColaboradores()
+    listarColaboradores({ status: 'Ativo' })
     listarDepartamentos()
   }, [listarCategorias, listarColaboradores, listarDepartamentos])
 

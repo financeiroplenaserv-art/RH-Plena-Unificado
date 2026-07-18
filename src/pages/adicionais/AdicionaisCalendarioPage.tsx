@@ -131,7 +131,7 @@ export function AdicionaisCalendarioPage() {
     excluirDiaCalendario,
     diaIntrajornada,
   } = useAdicionaisContratuais()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const hoje = new Date()

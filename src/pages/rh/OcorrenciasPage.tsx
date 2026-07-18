@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
@@ -149,7 +149,13 @@ export function OcorrenciasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroTipos, filtroStatus, filtroEmpresa, filtroMacroGrupo, filtroColaboradorId, filtroDataInicio, filtroDataFim, incluirNaoIdentificados, filtroStatusColaborador, modoBusca])
 
+  const primeiraCargaBusca = useRef(true)
   useEffect(() => {
+    // Pula o mount: o efeito de filtros já carrega a primeira página.
+    if (primeiraCargaBusca.current) {
+      primeiraCargaBusca.current = false
+      return
+    }
     const timeout = setTimeout(() => {
       setPagina(0)
       loadOcorrencias(0)
@@ -158,8 +164,13 @@ export function OcorrenciasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca])
 
-  // Dispara busca após limpar filtros
+  const primeiraCargaLimpar = useRef(true)
+  // Dispara busca após limpar filtros (mesmo quando os valores já eram o padrão)
   useEffect(() => {
+    if (primeiraCargaLimpar.current) {
+      primeiraCargaLimpar.current = false
+      return
+    }
     loadOcorrencias(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limparFiltros])

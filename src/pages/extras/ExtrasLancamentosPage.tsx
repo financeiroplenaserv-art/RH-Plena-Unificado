@@ -51,7 +51,7 @@ export function ExtrasLancamentosPage() {
   const podeEditar = perfil ? podeEditarExtra(perfil) : false
 
   const { extras, loading, listar, listarCategorias, remover } = useExtras()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
   const hoje = new Date()
   const [dataInicio, setDataInicio] = useState(() => {

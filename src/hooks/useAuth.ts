@@ -99,10 +99,10 @@ export function useAuth() {
   }, [carregarPermissoesDoPerfil])
 
   useEffect(() => {
-    let ignore = false
-
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: { user?: { id: string; email?: string | null } } | null } }) => {
-      if (ignore) return
+    // onAuthStateChange dispara INITIAL_SESSION imediatamente ao registrar,
+    // com a sessão atual — o getSession separado carregava o perfil duas vezes
+    // no boot (perfil + permissões em duplicidade).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user?: { id: string; email?: string | null } } | null) => {
       if (session?.user) {
         carregarPerfil(session.user)
       } else {
@@ -112,28 +112,9 @@ export function useAuth() {
         localStorage.removeItem(PERFIL_STORAGE_KEY)
         setLoading(false)
       }
-    }).catch((err) => {
-      if (ignore) return
-      console.error('Erro ao verificar sessao:', err)
-      setUser(null)
-      setPermissoesCache([])
-      localStorage.removeItem(PERFIL_STORAGE_KEY)
-      setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user?: { id: string; email?: string | null } } | null) => {
-      if (session?.user) {
-        carregarPerfil(session.user)
-      } else {
-        setUser(null)
-        setPermissoesCache([])
-        localStorage.removeItem(PERFIL_STORAGE_KEY)
-        setLoading(false)
-      }
     })
 
     return () => {
-      ignore = true
       subscription.unsubscribe()
     }
   }, [carregarPerfil])

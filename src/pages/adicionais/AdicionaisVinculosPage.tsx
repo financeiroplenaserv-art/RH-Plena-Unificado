@@ -51,7 +51,7 @@ export function AdicionaisVinculosPage() {
     corrigirVinculosExistentes,
     removerVinculo,
   } = useAdicionaisContratuais()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
   const [colaboradorId, setColaboradorId] = useState('')
   const [contratoId, setContratoId] = useState('')

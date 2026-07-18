@@ -36,7 +36,7 @@ function calcularCompetenciaOntem(): Competencia {
 export function EscalasImportarPage() {
   const { importando, importarExcelFlit } = useEscalasDiario()
   const { mapeamentos, listar: listarMapeamentos } = useEscalasMapeamento()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { locais, listar: listarLocais } = useEscalasLocais()
 
   const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')

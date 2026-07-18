@@ -92,7 +92,7 @@ export function ExtrasRecibosPage() {
   const [grupoParaPagar, setGrupoParaPagar] = useState<GrupoSubstituto | null>(null)
 
   const { extras, loading: loadingExtras, listar, atualizar } = useExtras()
-  const { colaboradores, listar: listarColaboradores } = useColaboradores()
+  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { empresas, listar: listarEmpresas } = useEmpresas()
   const { recibos, listar: listarRecibos, criar, assinar, remover } = useExtrasRecibos()
   const assinaturaRef = useRef<AssinaturaCanvasRef>(null)

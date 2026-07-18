@@ -56,8 +56,27 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff2}'],
+        // Precache enxuto: só o essencial para a shell abrir rápido.
+        // Chunks lazy (xlsx, jspdf, pdfjs, html2canvas) e imagens de marketing
+        // ficam fora — o navegador os baixa sob demanda (HTTP cache).
+        maximumFileSizeToCacheInBytes: 1024 * 1024,
+        globPatterns: [
+          'index.html',
+          'registerSW.js',
+          'manifest.webmanifest',
+          'assets/index-*.js',
+          'assets/index-*.css',
+          'assets/supabase-*.js',
+          'assets/utils-*.js',
+          'favicon*',
+          'icons.svg',
+          'apple-touch-icon.png',
+          'corh_icone_app_*.png',
+          'corh_coracao_icone_*.svg',
+          'corh_coracao_icone_*_512.png',
+          'logo_plena_30anos_redonda.png',
+          'corh_abraco_final.svg',
+        ],
       },
     }),
   ],
