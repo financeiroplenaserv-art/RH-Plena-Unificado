@@ -23,6 +23,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_count integer := 0;
 BEGIN
   IF NOT (public.is_admin() OR public.is_editor()) THEN
     RAISE EXCEPTION 'Sem permissão para salvar resultados VR';
