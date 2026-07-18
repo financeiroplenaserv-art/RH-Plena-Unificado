@@ -117,7 +117,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'rh', label: 'Ver menu Ocorrências', grupo: 'Menus' },
   { recurso: 'menu', acao: 'extras', label: 'Ver menu Extras', grupo: 'Menus' },
   { recurso: 'menu', acao: 'vr', label: 'Ver menu Benefícios (VR)', grupo: 'Menus' },
-  { recurso: 'menu', acao: 'ceu', label: 'Ver menu Uniformes (CEU)', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'ceu', label: 'Ver menu CEU', grupo: 'Menus' },
   { recurso: 'menu', acao: 'adicionais', label: 'Ver menu Adicionais', grupo: 'Menus' },
   { recurso: 'menu', acao: 'alertas', label: 'Ver menu Alertas', grupo: 'Menus' },
   { recurso: 'menu', acao: 'auditoria', label: 'Ver menu Auditoria', grupo: 'Menus' },
