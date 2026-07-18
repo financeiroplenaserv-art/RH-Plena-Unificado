@@ -442,12 +442,21 @@ export const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
   },
   {
     macroGrupo: '9. Registro do RH',
-    tipo: 'Outro Registro Positivo',
-    gravidade: 'Positiva',
+    tipo: 'Anotações sobre Demissão',
+    gravidade: 'Leve',
+    baseLegal: 'Registro interno de acompanhamento do processo de desligamento.',
+    exigeAnexo: false,
+    texto:
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistramos as seguintes anotações referentes ao processo de demissão do(a) colaborador(a):\n\n[DESCREVER AS ANOTAÇÕES — ACORDOS REALIZADOS, ENTREGA DE EQUIPAMENTOS/UNIFORMES, DESLIGAMENTO DE ACESSOS, AVISO PRÉVIO, EXAME DEMISSIONAL, PENDÊNCIAS E PROVIDÊNCIAS]\n\nEste registro será mantido no prontuário do colaborador para fins de acompanhamento e controle do processo de desligamento.',
+  },
+  {
+    macroGrupo: '9. Registro do RH',
+    tipo: 'Registro Negativo',
+    gravidade: 'Leve',
     baseLegal: 'Registro interno diversos.',
     exigeAnexo: false,
     texto:
-      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistramos a seguinte ocorrência positiva referente ao(a) colaborador(a) em ___/___/_____:\n\n[DESCREVER A OCORRÊNCIA — QUALQUER FATO POSITIVO QUE NÃO SE ENCAIXE NOS TIPOS ANTERIORES: ANIVERSÁRIO DE EMPRESA, TEMPO DE CASA, PREMIAÇÃO, MENÇÃO HONROSA, ETC.]\n\nEste registro será mantido no prontuário do colaborador para fins de histórico e avaliação.',
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nRegistramos a seguinte ocorrência negativa referente ao(a) colaborador(a) em ___/___/_____:\n\n[DESCREVER A OCORRÊNCIA — QUALQUER FATO NEGATIVO QUE NÃO SE ENCAIXE NOS TIPOS ANTERIORES: DESCUMPRIMENTO DE ORIENTAÇÕES, COMPORTAMENTO INADEQUADO, FALHA OPERACIONAL, ETC.]\n\nEste registro será mantido no prontuário do colaborador para fins de histórico e avaliação.',
   },
   {
     macroGrupo: '9. Registro do RH',
