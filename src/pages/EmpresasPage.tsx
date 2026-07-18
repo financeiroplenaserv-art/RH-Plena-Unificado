@@ -28,7 +28,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { formatarCNPJ } from '@/lib/utils'
 import { podeEditarEmpresa, podeExcluirEmpresa } from '@/lib/permissoes'
-import { toast } from 'sonner'
 import type { Empresa } from '@/types/database'
 
 const emptyForm = {
@@ -78,18 +77,14 @@ export function EmpresasPage() {
       codigo_alterdata: form.codigo_alterdata.trim() || null,
     }
 
-    try {
-      if (editandoId) {
-        await atualizar(editandoId, payload)
-      } else {
-        await criar(payload)
-      }
+    const sucesso = editandoId
+      ? await atualizar(editandoId, payload)
+      : await criar(payload)
+
+    if (sucesso) {
       setForm(emptyForm)
       setEditandoId(null)
       setMostrarForm(false)
-    } catch (err) {
-      console.error('Erro ao salvar empresa:', err)
-      toast.error('Erro ao salvar empresa. Tente novamente.')
     }
   }
 

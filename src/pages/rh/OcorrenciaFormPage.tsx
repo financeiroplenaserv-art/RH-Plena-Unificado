@@ -246,7 +246,14 @@ export function OcorrenciaFormPage() {
     } else {
       toast.success(isEdicao ? 'Ocorrência atualizada com sucesso.' : (precisaDocumento ? 'Ocorrência registrada como PENDENTE. Anexe documentos comprobatórios para ativar.' : 'Ocorrência registrada como ATIVA.'))
       if (colabSelecionado && data) {
-        await gerarPDFOcorrencia(colabSelecionado, data as Ocorrencia, undefined, undefined, empresaSelecionada)
+        // Falha no PDF não pode travar a tela nem impedir a navegação —
+        // a ocorrência já está salva e o PDF pode ser gerado depois.
+        try {
+          await gerarPDFOcorrencia(colabSelecionado, data as Ocorrencia, undefined, undefined, empresaSelecionada)
+        } catch (pdfErr) {
+          console.error('Erro ao gerar PDF da ocorrência:', pdfErr)
+          toast.warning('Ocorrência salva, mas o PDF não pôde ser gerado agora. Você pode gerá-lo na tela de detalhes.')
+        }
       }
       navigate(`/rh/ocorrencias/${(data as Ocorrencia).id}`)
     }

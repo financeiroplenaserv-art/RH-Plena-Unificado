@@ -194,14 +194,14 @@ export function DepartamentosPage() {
       return
     }
     const payload = { ...form }
-    if (editandoId) {
-      await atualizar(editandoId, payload)
+    const sucesso = editandoId
+      ? await atualizar(editandoId, payload)
+      : await criar(payload as Omit<Departamento, 'id' | 'created_at'>)
+    if (sucesso) {
       setEditandoId(null)
-    } else {
-      await criar(payload as Omit<Departamento, 'id' | 'created_at'>)
+      setForm(formVazio)
+      setMostrarForm(false)
     }
-    setForm(formVazio)
-    setMostrarForm(false)
   }
 
   const handleEditar = (d: Departamento) => {

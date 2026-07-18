@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { LoadingScreen } from '@/components/LoadingScreen'
-import { parseMoedaParaCentavos } from '@/lib/utils'
+import { parseMoedaParaCentavos, mascaraMoedaInput } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const TIPOS = ['Crachá', 'Uniforme', 'EPI']
 
@@ -78,7 +79,7 @@ export function CeuItemFormPage() {
           tipo: item.tipo || '',
           subgrupo: item.subgrupo || '',
           nome: item.nome || '',
-          valor: item.valor ? String((item.valor / 100).toFixed(2)).replace('.', ',') : '',
+          valor: item.valor != null ? mascaraMoedaInput((item.valor / 100).toFixed(2).replace('.', ',')) : '',
           ca: item.ca || '',
           validade: item.validade || '',
           fornecedor_id: item.fornecedor_id || '',
@@ -96,7 +97,10 @@ export function CeuItemFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.nome || !form.tipo) return
+    if (!form.nome || !form.tipo) {
+      toast.error('Preencha nome e tipo do item')
+      return
+    }
 
     setSalvando(true)
     const payload = {
@@ -115,13 +119,13 @@ export function CeuItemFormPage() {
       situacao: form.situacao?.trim() || 'A',
     }
 
-    if (id) {
-      await atualizar(id, payload)
-    } else {
-      await criar(payload)
-    }
+    const sucesso = id
+      ? await atualizar(id, payload)
+      : await criar(payload)
     setSalvando(false)
-    navigate('/ceu/itens')
+    if (sucesso) {
+      navigate('/ceu/itens')
+    }
   }
 
   if (loading) return <LoadingScreen mensagem="Carregando item..." />
@@ -214,11 +218,10 @@ export function CeuItemFormPage() {
                   <Label htmlFor="valor">Valor unitário (R$)</Label>
                   <Input
                     id="valor"
-                    type="number"
-                    min={0}
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={form.valor}
-                    onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
+                    onChange={(e) => setForm((f) => ({ ...f, valor: mascaraMoedaInput(e.target.value) }))}
                     placeholder="0,00"
                   />
                 </div>

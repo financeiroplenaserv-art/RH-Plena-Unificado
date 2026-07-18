@@ -38,7 +38,7 @@ function badgeType(tipo: string) {
 
 export function CeuEntregaFormPage() {
   const navigate = useNavigate()
-  const { criar, listar: listarEntregas } = useCEUEntregas()
+  const { criarLote, listar: listarEntregas } = useCEUEntregas()
   const { itens, loading: carregandoItens, listar: listarItens } = useCEUItens()
   const { colaboradores, listar: listarColaboradores } = useColaboradores()
 
@@ -181,24 +181,29 @@ export function CeuEntregaFormPage() {
 
     setSalvando(true)
     try {
-      for (const { item, quantidade } of selecionadosArray) {
-        await criar({
-          colaborador_id: colaborador.id,
-          item_id: item.id,
-          data_entrega: dataEntrega,
-          quantidade,
-          observacao: observacao || null,
-          snapshot_item: {
-            nome: item.nome,
-            codigo: item.codigo || '',
-            tipo: item.tipo,
-            ca: item.ca || '',
-            valor: item.valor || null,
-            prazo_uso_dias: item.prazo_uso_dias || null,
-          },
-        })
+      const payloads = selecionadosArray.map(({ item, quantidade }) => ({
+        colaborador_id: colaborador.id,
+        item_id: item.id,
+        data_entrega: dataEntrega,
+        quantidade,
+        observacao: observacao || null,
+        snapshot_item: {
+          nome: item.nome,
+          codigo: item.codigo || '',
+          tipo: item.tipo,
+          ca: item.ca || '',
+          valor: item.valor || null,
+          prazo_uso_dias: item.prazo_uso_dias || null,
+        },
+      }))
+
+      const resultado = await criarLote(payloads)
+      if (!resultado) {
+        toast.error('Não foi possível registrar as entregas. Nada foi salvo — verifique e tente novamente.')
+        return
       }
-      toast.success('Entregas registradas com sucesso')
+
+      toast.success(`${resultado.length} entrega(s) registrada(s) com sucesso`)
       setConcluido(true)
       setPasso(4)
     } catch (err) {

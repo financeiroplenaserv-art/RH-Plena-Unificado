@@ -14,7 +14,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Save } from 'lucide-react'
-import { mascaraTelefone } from '@/lib/utils'
+import { mascaraTelefone, validarCPF } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { podeEditarColaboradorBasico, podeCadastrarColaborador } from '@/lib/permissoes'
 import type { Colaborador } from '@/types/database'
 
 function limparPayload(data: Record<string, string>): Partial<Colaborador> {
@@ -31,6 +33,20 @@ export function ColaboradorFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = !!id
+  const { user } = useAuth()
+
+  const temPermissao = user
+    ? isEdit
+      ? podeEditarColaboradorBasico(user.nivel_acesso)
+      : podeCadastrarColaborador(user.nivel_acesso)
+    : false
+
+  useEffect(() => {
+    if (user && !temPermissao) {
+      toast.error('Você não tem permissão para acessar esta página')
+      navigate('/colaboradores')
+    }
+  }, [user, temPermissao, navigate])
 
   const [form, setForm] = useState<Record<string, string>>({
     matricula: '',
@@ -100,6 +116,11 @@ export function ColaboradorFormPage() {
 
     if (!form.matricula.trim() || !form.nome_completo.trim()) {
       toast.error('Matrícula e Nome Completo são obrigatórios')
+      return
+    }
+
+    if (form.cpf.trim() && !validarCPF(form.cpf)) {
+      toast.error('CPF inválido. Verifique os dígitos.')
       return
     }
 

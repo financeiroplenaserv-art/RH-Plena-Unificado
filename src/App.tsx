@@ -296,7 +296,7 @@ function App() {
               <Route
                 path="/rh/importar"
                 element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ocorrencias' }}>
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'colaboradores' }}>
                     <ImportarRhPage />
                   </ProtectedRoute>
                 }

@@ -1,4 +1,5 @@
 import type { Colaborador } from '@/types/database'
+import { validarCPF } from '@/lib/utils'
 
 async function getXLSX() {
   return import('@e965/xlsx')
@@ -26,6 +27,64 @@ async function getDate(row: Record<string, unknown>, ...keys: string[]): Promise
     return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0]
   }
   return null
+}
+
+export interface RegistroLimpo {
+  payload: Record<string, unknown>
+  cpfInvalido: boolean
+}
+
+const CAMPOS_OPCIONAIS: (keyof Colaborador)[] = [
+  'cpf',
+  'rg',
+  'ctps',
+  'pis_pasep',
+  'data_nascimento',
+  'email',
+  'telefone',
+  'celular',
+  'endereco',
+  'cidade',
+  'estado',
+  'cep',
+  'data_admissao',
+  'data_demissao',
+  'cargo',
+  'departamento',
+]
+
+/**
+ * Monta o payload de upsert sem campos vazios, para não zerar dados já
+ * cadastrados quando a planilha não traz a informação. Linhas sem matrícula
+ * ou sem nome retornam null (inválidas). CPF com dígitos inválidos não é
+ * persistido (sinalizado em cpfInvalido).
+ */
+export function limparRegistroParaUpsert(registro: Partial<Colaborador>): RegistroLimpo | null {
+  const matricula = (registro.matricula || '').trim()
+  const nome = (registro.nome_completo || '').trim()
+  if (!matricula || !nome) return null
+
+  const payload: Record<string, unknown> = {
+    matricula,
+    nome_completo: nome,
+    status: registro.status || 'Ativo',
+    tipo_contrato: registro.tipo_contrato || 'CLT',
+  }
+
+  for (const campo of CAMPOS_OPCIONAIS) {
+    const valor = registro[campo]
+    if (typeof valor === 'string' && valor.trim() !== '') {
+      payload[campo] = valor.trim()
+    }
+  }
+
+  let cpfInvalido = false
+  if (typeof payload.cpf === 'string' && !validarCPF(payload.cpf)) {
+    delete payload.cpf
+    cpfInvalido = true
+  }
+
+  return { payload, cpfInvalido }
 }
 
 export async function parseExcelColaboradores(file: File): Promise<Partial<Colaborador>[]> {

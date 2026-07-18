@@ -204,6 +204,26 @@ export function useCEUEntregas() {
     return data as EntregaCEU
   }, [])
 
+  /** Insere várias entregas em uma única chamada. Retorna null em caso de erro. */
+  const criarLote = useCallback(async (entregasLote: Partial<EntregaCEU>[]) => {
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) {
+      toast.error('Usuário não autenticado')
+      return null
+    }
+
+    const payloads = entregasLote.map((e) => ({ ...e, usuario_id: userData.user.id }))
+    const { data, error } = await supabase
+      .from('entregas')
+      .insert(payloads)
+      .select(COLUNAS_ENTREGA)
+    if (error) {
+      toast.error('Erro ao registrar entregas: ' + error.message)
+      return null
+    }
+    return data as EntregaCEU[]
+  }, [])
+
   const devolver = useCallback(async (id: string, dataDevolucao: string) => {
     const { error } = await supabase
       .from('entregas')
@@ -252,5 +272,5 @@ export function useCEUEntregas() {
     return true
   }, [])
 
-  return { entregas, loading, paginacao, listar, listarPaginado, criar, devolver, marcarReciboEmitido, marcarLoteReciboEmitido, remover }
+  return { entregas, loading, paginacao, listar, listarPaginado, criar, criarLote, devolver, marcarReciboEmitido, marcarLoteReciboEmitido, remover }
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { parseExcelColaboradores } from '@/lib/importar'
+import { parseExcelColaboradores, limparRegistroParaUpsert } from '@/lib/importar'
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, X } from 'lucide-react'
 import {
   Table,
@@ -17,8 +17,22 @@ import { toast } from 'sonner'
 import type { Colaborador } from '@/types/database'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { RhShell } from './RhShell'
+import { useAuth } from '@/hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { podeImportarColaboradores } from '@/lib/permissoes'
 
 export function ImportarPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user && !podeImportarColaboradores(user.nivel_acesso)) {
+      toast.error('Você não tem permissão para importar colaboradores')
+      navigate('/colaboradores')
+    }
+  }, [user, navigate])
+
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<Partial<Colaborador>[]>([])
   const [importing, setImporting] = useState(false)
@@ -51,17 +65,40 @@ export function ImportarPage() {
 
     try {
       const data = await parseExcelColaboradores(file)
+
+      const payloads: Record<string, unknown>[] = []
+      let ignoradas = 0
+      let cpfsInvalidos = 0
+      for (const registro of data) {
+        const limpo = limparRegistroParaUpsert(registro)
+        if (!limpo) {
+          ignoradas++
+          continue
+        }
+        if (limpo.cpfInvalido) cpfsInvalidos++
+        payloads.push(limpo.payload)
+      }
+
+      if (ignoradas > 0) {
+        toast.warning(`${ignoradas} linha(s) ignorada(s) por falta de matrícula ou nome`)
+      }
+      if (cpfsInvalidos > 0) {
+        toast.warning(`${cpfsInvalidos} CPF(s) inválido(s) não foram salvos (demais dados importados)`)
+      }
+
       const batchSize = 100
       let total = 0
+      let lotesComErro = 0
 
-      for (let i = 0; i < data.length; i += batchSize) {
-        const batch = data.slice(i, i + batchSize)
+      for (let i = 0; i < payloads.length; i += batchSize) {
+        const batch = payloads.slice(i, i + batchSize)
         const { error } = await supabase.from('colaboradores').upsert(batch, {
           onConflict: 'matricula',
           ignoreDuplicates: false,
         })
 
         if (error) {
+          lotesComErro++
           toast.error(`Erro no lote ${i / batchSize + 1}: ${error.message}`)
         } else {
           total += batch.length
@@ -69,9 +106,11 @@ export function ImportarPage() {
         }
       }
 
-      toast.success(`${total} colaboradores importados com sucesso!`)
-      setFile(null)
-      setPreview([])
+      if (lotesComErro === 0) {
+        toast.success(`${total} colaboradores importados com sucesso!`)
+        setFile(null)
+        setPreview([])
+      }
     } catch (error: unknown) {
       console.error('Erro na importação de colaboradores:', error)
       toast.error('Erro na importação: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
