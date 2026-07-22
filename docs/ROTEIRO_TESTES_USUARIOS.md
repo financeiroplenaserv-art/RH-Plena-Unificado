@@ -8,7 +8,7 @@
 
 ## 1. Acesso
 
-- **Endereço:** `_________________________` (preencher com a URL do sistema)
+- **Endereço:** https://plena-corh.netlify.app/
 - **Seu usuário:** o e-mail e a senha que você recebeu.
 - **Primeiro acesso:** ao entrar pela primeira vez, o sistema pede o **consentimento LGPD**. Leia e clique em aceitar — sem isso não é possível usar o sistema.
 
