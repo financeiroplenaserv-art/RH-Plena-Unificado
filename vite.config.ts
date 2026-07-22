@@ -34,6 +34,21 @@ export default defineConfig({
         start_url: '/',
         lang: 'pt-BR',
         dir: 'ltr',
+        shortcuts: [
+          {
+            name: 'Lançar falta',
+            short_name: 'Falta',
+            description: 'Registrar falta/substituição pelo celular (plantão)',
+            url: '/mobile/falta',
+            icons: [
+              {
+                src: '/corh_icone_app_192.png',
+                sizes: '192x192',
+                type: 'image/png',
+              },
+            ],
+          },
+        ],
         icons: [
           {
             src: '/corh_icone_app_192.png',

@@ -24,6 +24,7 @@ import {
   HeartPulse,
   ShieldCheck,
   Menu,
+  Smartphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
@@ -72,6 +73,7 @@ const groups: MenuGroup[] = [
     items: [
       { path: '/escalas', label: 'Escalas', icon: CalendarDays, permissao: { recurso: 'menu', acao: 'escalas' } },
       { path: '/extras', label: 'Extras', icon: Banknote, permissao: { recurso: 'menu', acao: 'extras' } },
+      { path: '/mobile/falta', label: 'Lançar Falta', icon: Smartphone, permissao: { recurso: 'rota', acao: 'mobile_falta' } },
     ],
   },
   {
