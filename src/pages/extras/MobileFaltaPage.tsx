@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save, X, ChevronLeft, ChevronRight, Check, House } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
@@ -216,7 +217,7 @@ function BuscaColaborador({
 export function MobileFaltaPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { categorias, listarCategorias, criar, verificarDuplicado, loading: loadingExtras } = useExtras()
+  const { categorias, listarCategorias, loading: loadingExtras } = useExtras()
   const { colaboradores, listarResumido: listarColaboradores, loading: loadingColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos, loading: loadingDepartamentos } = useDepartamentos()
 
@@ -405,26 +406,29 @@ export function MobileFaltaPage() {
 
     setSalvando(true)
 
-    const duplicado = await verificarDuplicado(
-      payload.data_ocorrencia,
-      payload.departamento_id,
-      payload.colaborador_ausente_id,
-      payload.colaborador_ausente_nome
-    )
+    // A RPC valida permissão, checa duplicidade e insere de forma atômica.
+    // Não usamos verificarDuplicado + criar aqui porque a inspetoria não tem
+    // SELECT em extras (regra de negócio), o que fazia o insert gravar mas a
+    // tela mostrar erro — risco de lançamentos duplicados.
+    const { data: novoId, error: erroRpc } = await supabase.rpc('registrar_extra_plantao', {
+      p_payload: payload as unknown as Record<string, unknown>,
+    })
+    setSalvando(false)
 
-    if (duplicado) {
-      setSalvando(false)
-      toast.error(
-        `Já existe um extra lançado para ${payload.colaborador_ausente_nome || 'este colaborador'} no departamento ${payload.departamento_nome || ''} em ${formatarData(payload.data_ocorrencia)}. Verifique os lançamentos.`,
-        { duration: 6000 }
-      )
+    if (erroRpc) {
+      if (erroRpc.message.includes('Já existe um extra')) {
+        toast.error(
+          `Já existe um extra lançado para ${payload.colaborador_ausente_nome || 'este colaborador'} no departamento ${payload.departamento_nome || ''} em ${formatarData(payload.data_ocorrencia)}. Verifique os lançamentos.`,
+          { duration: 6000 }
+        )
+      } else {
+        console.error('Erro ao registrar extra pelo plantão:', erroRpc)
+        toast.error(erroRpc.message)
+      }
       return
     }
 
-    const sucesso = await criar(payload)
-    setSalvando(false)
-
-    if (sucesso) {
+    if (novoId) {
       setSucesso(true)
       toast.success('Registro salvo')
     }

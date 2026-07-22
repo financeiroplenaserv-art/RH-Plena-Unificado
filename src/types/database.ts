@@ -612,6 +612,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      registrar_extra_plantao: {
+        Args: {
+          p_payload: Record<string, unknown>
+        }
+        Returns: string
+      }
     }
   }
 }
