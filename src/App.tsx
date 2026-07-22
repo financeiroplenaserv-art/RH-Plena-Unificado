@@ -74,7 +74,7 @@ function SidebarWrapper({ user, isOpen, onToggle, onLogout, mobileOpen, setMobil
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-60 bg-sidebar p-0">
           <div className="flex h-full flex-col">
-            <Sidebar user={user} isOpen={true} onToggle={() => setMobileOpen(false)} onLogout={onLogout} />
+            <Sidebar user={user} isOpen={true} onToggle={() => setMobileOpen(false)} onLogout={onLogout} mobile />
           </div>
         </SheetContent>
       </Sheet>

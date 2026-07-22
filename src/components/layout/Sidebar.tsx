@@ -34,6 +34,8 @@ interface SidebarProps {
   isOpen: boolean
   onToggle: () => void
   onLogout: () => void
+  /** Quando true, renderiza para o drawer mobile (sem fixed/hidden, ocupa o container) */
+  mobile?: boolean
 }
 
 interface MenuItem {
@@ -122,7 +124,7 @@ function getInitialExpandedState(): Record<string, boolean> {
   return { cadastros: true }
 }
 
-export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
+export function Sidebar({ user, isOpen, onToggle, onLogout, mobile = false }: SidebarProps) {
   const location = useLocation()
   const podeVer = useCallback(
     (permissao: { recurso: string; acao: string }) =>
@@ -263,6 +265,14 @@ export function Sidebar({ user, isOpen, onToggle, onLogout }: SidebarProps) {
       </div>
     </>
   )
+
+  if (mobile) {
+    return (
+      <aside className="flex h-full w-full flex-col bg-sidebar">
+        {sidebarContent}
+      </aside>
+    )
+  }
 
   return (
     <>
