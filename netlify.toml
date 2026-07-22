@@ -1,0 +1,32 @@
+# Configuração de deploy do CORH no Netlify
+# O backend (Auth, banco, storage, Edge Functions) continua no Supabase;
+# o Netlify serve apenas os arquivos estáticos gerados em dist/.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Fallback SPA: todas as rotas do React Router caem no index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers de segurança (alinhados com docs/DEPLOY.md)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache imutável para assets fingerprintados do Vite
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# CSP: deixar desabilitada no piloto. O sistema exibe anexos (imagens, PDFs,
+# áudio/vídeo) vindos do Supabase Storage e usa workers do pdfjs; uma CSP
+# restritiva mal ajustada quebraria esses recursos. Avaliar endurecimento
+# antes do go-live definitivo.
