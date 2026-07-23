@@ -18,6 +18,12 @@
 - **Edge Function e-Contador**: `/funcionarios` restrito às empresas permitidas (cache 5 min) + encoding dos parâmetros. ✅ **Re-deploy feito em 23/07/2026.**
 - Relatório completo: `docs/HANDOFF_23-07-2026_NOITE.md`.
 
+### Cabeçalho do PDF de ocorrência (23/07/2026 — noite, complemento)
+- Logo trocada para `logo_plena_30anos_redonda.png` e cabeçalho passou a exibir nome + CNPJ reais da empresa.
+- `gerarPDFOcorrencia` resolve a empresa em cadeia: ocorrência → colaborador → departamento (id ou nome) → fallback Plena EA (`src/lib/pdf.ts`).
+- **Correção de dados via SQL Editor (sem migration):** 5.092 ocorrências de colaboradores da **Plena Tech** estavam com `empresa_id` da Plena EA ou nulo (importação histórica); alinhadas ao `empresa_id` do colaborador em 23/07/2026. Históricos de ex-colaboradores de outras empresas **não** foram alterados (decisão da gestão).
+- Atenção: o app é PWA — após deploy, orientar Ctrl+Shift+R (ou unregister do service worker) para o navegador largar o JS antigo.
+
 ### Módulo Férias (23/07/2026)
 - **Rota `/ferias`** saiu do placeholder e ganhou 3 abas (padrão `ModuleShell`): Visão geral, Importar e Notificações.
 - **Migration 070** (`ferias_periodos`): períodos por colaborador — tipos `gozo` (histórico), `agendado` (confirmado via Flit) e `previsto` (planejamento do RH); origem `flit`/`manual`. RLS padrão + auditoria.
