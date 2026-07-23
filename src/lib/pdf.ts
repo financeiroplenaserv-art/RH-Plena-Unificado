@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase'
 import type { Colaborador, Ocorrencia, OcorrenciaAnexo, OcorrenciaTestemunha } from '@/types/database'
 import type jsPDF from 'jspdf'
 
@@ -20,7 +21,7 @@ let logoCache: string | null | undefined
 async function carregarLogoDataUrl(): Promise<string | null> {
   if (logoCache !== undefined) return logoCache
   try {
-    const resposta = await fetch('/corh_coracao_icone_azul_512.png')
+    const resposta = await fetch('/logo_plena_30anos_redonda.png')
     if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`)
     const blob = await resposta.blob()
     logoCache = await new Promise<string>((resolve, reject) => {
@@ -33,6 +34,22 @@ async function carregarLogoDataUrl(): Promise<string | null> {
     logoCache = null
   }
   return logoCache
+}
+
+// Quando a tela não informa a empresa, busca pelo vínculo da ocorrência/colaborador.
+// Sem isso o cabeçalho saía com os placeholders [EMPRESA]/[CNPJ].
+async function buscarEmpresaDoRegistro(
+  colaborador: Colaborador,
+  ocorrencia: Ocorrencia
+): Promise<{ nome: string; cnpj: string } | null> {
+  const empresaId = ocorrencia.empresa_id || colaborador.empresa_id
+  if (!empresaId) return null
+  const { data } = await supabase
+    .from('empresas')
+    .select('nome, cnpj')
+    .eq('id', empresaId)
+    .single()
+  return (data as { nome: string; cnpj: string } | null) ?? null
 }
 
 export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorrencia[]) {
@@ -123,8 +140,9 @@ export async function gerarPDFOcorrencia(
 
   doc.setFontSize(12)
   doc.setTextColor(30, 30, 30)
-  const nomeEmpresa = empresa?.nome || '[EMPRESA]'
-  const cnpjEmpresa = empresa?.cnpj || '[CNPJ]'
+  const empresaResolvida = empresa ?? (await buscarEmpresaDoRegistro(colaborador, ocorrencia))
+  const nomeEmpresa = empresaResolvida?.nome || '[EMPRESA]'
+  const cnpjEmpresa = empresaResolvida?.cnpj || '[CNPJ]'
   doc.text(nomeEmpresa, w / 2, 14, { align: 'center' })
 
   doc.setFontSize(8)
