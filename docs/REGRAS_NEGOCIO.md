@@ -18,6 +18,7 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 ### e-Contador / Importação Alterdata
 - Apenas perfis: **adm, dp1, dp2**.
 - A usuária administradora é a única com acesso direto ao Supabase.
+- Gestão do token (salvar/remover via Edge Function): **admin, adm, dp1 e dp2** — decisão confirmada em 2026-07-23 (achado M2 da auditoria de segurança); o DP opera a integração no dia a dia.
 
 ### Extras (lançamentos, recibos, categorias)
 - Visualização: **adm, mesa, financeiro, dp1**.
@@ -28,6 +29,7 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 - Visualização: **adm, gestor, dp1, dp2, mesa, inspetor**.
 - Edição: mantida pela função `is_editor()`.
 - Exclusão: apenas **adm**.
+- Após gerar o PDF, registra-se **como o documento foi assinado** (`forma_assinatura`: papel ou Youk — opcional) e o impresso assinado pode ser anexado como **"Documento assinado"** (`tipo_documento` no anexo). Decisão de 2026-07-23.
 
 ---
 

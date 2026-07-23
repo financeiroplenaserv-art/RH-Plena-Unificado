@@ -1,7 +1,7 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 23/07/2026 — módulo Férias implementado (importação Flit, previsão manual do RH, notificações e painel CLT)
-> **Relatório completo:** `docs/HANDOFF_23-07-2026.md`  
+> **Último trabalho:** 23/07/2026 (noite) — assinatura de ocorrências (migration 072) + hardening da Edge Function e-Contador
+> **Relatório completo:** `docs/HANDOFF_23-07-2026_NOITE.md` (anterior: `docs/HANDOFF_23-07-2026.md` — módulo Férias)  
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`  
 > **Perfis/Permissões:** `docs/PERFIL_ACOES_MODELO.md`  
 > **Regras de negócio:** `docs/REGRAS_NEGOCIO.md`  
@@ -9,6 +9,14 @@
 ---
 
 ## ✅ Estado atual
+
+### Assinatura de ocorrências (23/07/2026 — noite)
+- **Migration 072** (`072_ocorrencia_assinatura.sql`): `ocorrencias.forma_assinatura` (`papel`/`youk`, opcional) e `ocorrencia_anexos.tipo_documento` (`comprovante`/`documento_assinado`). **Aplicar no SQL Editor** — guia em `docs/APLICAR_MIGRATION_072.md`.
+- Detalhes da ocorrência: campo "Assinatura" no card de dados e tipo "Documento assinado" no upload de anexos (selo verde "Assinado").
+- Formulário de nova ocorrência reordenado: **Macro Grupo → Tipo → Título** (título agora é o item 4, depois do tipo).
+- PDF da ocorrência com logo institucional e CNPJ no cabeçalho; forma de assinatura e anexos assinados refletidos no documento.
+- **Edge Function e-Contador**: `/funcionarios` restrito às empresas permitidas (cache 5 min) + encoding dos parâmetros. **Re-deploy pendente**: `supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb`.
+- Relatório completo: `docs/HANDOFF_23-07-2026_NOITE.md`.
 
 ### Módulo Férias (23/07/2026)
 - **Rota `/ferias`** saiu do placeholder e ganhou 3 abas (padrão `ModuleShell`): Visão geral, Importar e Notificações.
@@ -117,17 +125,19 @@
 ## 🎯 Próximos passos pendentes (priorizados)
 
 ### 🟠 Alto
-1. **Revisar/associar mais ocorrências do placeholder** usando `dados-locais/revisao_496_nomes.xlsx`.
-2. **Revisar os 9 casos de múltiplos matches** da importação histórica.
-3. **Verificar no sistema** se a busca e os detalhes das ocorrências históricas funcionam corretamente.
-4. **Aplicar mais importações** conforme arquivos novos disponibilizados (ocorrências, colaboradores, departamentos, etc.).
-5. **Testes manuais de login/perfis** — verificar menus e rotas para cada perfil de teste.
-6. **Testes manuais de storage** — upload/visualização de anexos de ocorrências e arquivos VR.
-7. **Testes manuais do fluxo de extras** — cálculo, pagamento e auditoria.
-8. **Testes manuais do módulo Escalas** — importação Flit, confirmação de local e exportações.
-9. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
-10. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
-11. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
+1. **Aplicar migration 072** no SQL Editor e validar (guia: `docs/APLICAR_MIGRATION_072.md`).
+2. **Re-deploy da Edge Function e-Contador** (`supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb`).
+3. **Revisar/associar mais ocorrências do placeholder** usando `dados-locais/revisao_496_nomes.xlsx`.
+4. **Revisar os 9 casos de múltiplos matches** da importação histórica.
+5. **Verificar no sistema** se a busca e os detalhes das ocorrências históricas funcionam corretamente.
+6. **Aplicar mais importações** conforme arquivos novos disponibilizados (ocorrências, colaboradores, departamentos, etc.).
+7. **Testes manuais de login/perfis** — verificar menus e rotas para cada perfil de teste.
+8. **Testes manuais de storage** — upload/visualização de anexos de ocorrências e arquivos VR.
+9. **Testes manuais do fluxo de extras** — cálculo, pagamento e auditoria.
+10. **Testes manuais do módulo Escalas** — importação Flit, confirmação de local e exportações.
+11. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
+12. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
+13. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
 
 ### 🟡 Médio / após auditoria
 12. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
