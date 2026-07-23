@@ -36,28 +36,61 @@ async function carregarLogoDataUrl(): Promise<string | null> {
   return logoCache
 }
 
-// Quando a tela não informa a empresa, busca pelo vínculo da ocorrência/colaborador.
-// Sem isso o cabeçalho saía com os placeholders [EMPRESA]/[CNPJ].
-// Registros históricos importados podem estar sem empresa_id; nesse caso cai no
-// fallback da Plena EA (decisão de negócio: ~95% dos colaboradores são dela).
+async function empresaPorId(id: string): Promise<{ nome: string; cnpj: string } | null> {
+  const { data } = await supabase
+    .from('empresas')
+    .select('nome, cnpj')
+    .eq('id', id)
+    .maybeSingle()
+  return (data as { nome: string; cnpj: string } | null) ?? null
+}
+
+// Quando a tela não informa a empresa, resolve pelo vínculo do registro.
+// Ordem: empresa da ocorrência/colaborador → departamento vinculado →
+// departamento pelo nome (cadastros históricos sem departamento_id) →
+// fallback Plena EA (decisão de negócio: ~95% dos colaboradores são dela).
+// Sem isso o cabeçalho saía com os placeholders [EMPRESA]/[CNPJ] ou com a
+// empresa errada (ex.: colaborador da Plena Tech saindo como Plena EA).
 async function buscarEmpresaDoRegistro(
   colaborador: Colaborador,
   ocorrencia: Ocorrencia
 ): Promise<{ nome: string; cnpj: string } | null> {
   const empresaId = ocorrencia.empresa_id || colaborador.empresa_id
   if (empresaId) {
-    const { data } = await supabase
-      .from('empresas')
-      .select('nome, cnpj')
-      .eq('id', empresaId)
+    const empresa = await empresaPorId(empresaId)
+    if (empresa) return empresa
+  }
+
+  if (colaborador.departamento_id) {
+    const { data: dep } = await supabase
+      .from('departamentos')
+      .select('empresa_id')
+      .eq('id', colaborador.departamento_id)
       .maybeSingle()
-    if (data) return data as { nome: string; cnpj: string }
+    if (dep?.empresa_id) {
+      const empresa = await empresaPorId(dep.empresa_id)
+      if (empresa) return empresa
+    }
+  }
+
+  if (colaborador.departamento) {
+    const { data: dep } = await supabase
+      .from('departamentos')
+      .select('empresa_id')
+      .ilike('nome', colaborador.departamento)
+      .not('empresa_id', 'is', null)
+      .limit(1)
+      .maybeSingle()
+    if (dep?.empresa_id) {
+      const empresa = await empresaPorId(dep.empresa_id)
+      if (empresa) return empresa
+    }
   }
 
   const { data: plena } = await supabase
     .from('empresas')
     .select('nome, cnpj')
-    .ilike('nome', '%plena%')
+    .ilike('nome', '%plena ea%')
     .order('nome')
     .limit(1)
     .maybeSingle()
