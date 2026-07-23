@@ -1,6 +1,7 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 23/07/2026 (noite) — assinatura de ocorrências (migration 072) + hardening da Edge Function e-Contador
+> **Último trabalho:** 23/07/2026 (noite) — assinatura de ocorrências (migration 072) + hardening da Edge Function e-Contador + correção do cabeçalho do PDF (logo/empresa)
+> **⚠️ EM ABERTO:** PDF de ocorrência ainda sai "Plena EA" no navegador da usuária mesmo com o código corrigido — provável PWA/JS antigo. **Retomar por `docs/HANDOFF_23-07-2026_PDF_EMPRESA.md`.**
 > **Relatório completo:** `docs/HANDOFF_23-07-2026_NOITE.md` (anterior: `docs/HANDOFF_23-07-2026.md` — módulo Férias)  
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`  
 > **Perfis/Permissões:** `docs/PERFIL_ACOES_MODELO.md`  
