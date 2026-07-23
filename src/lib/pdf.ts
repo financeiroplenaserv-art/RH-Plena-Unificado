@@ -46,16 +46,29 @@ async function empresaPorId(id: string): Promise<{ nome: string; cnpj: string } 
 }
 
 // Quando a tela não informa a empresa, resolve pelo vínculo do registro.
-// Ordem: empresa da ocorrência/colaborador → departamento vinculado →
-// departamento pelo nome (cadastros históricos sem departamento_id) →
-// fallback Plena EA (decisão de negócio: ~95% dos colaboradores são dela).
-// Sem isso o cabeçalho saía com os placeholders [EMPRESA]/[CNPJ] ou com a
-// empresa errada (ex.: colaborador da Plena Tech saindo como Plena EA).
+// Ordem: empresa da ocorrência/colaborador → cadastro do colaborador no banco
+// (telas que passam o objeto sem empresa_id, ex.: autocomplete do formulário) →
+// departamento vinculado → departamento pelo nome → fallback Plena EA
+// (decisão de negócio: ~95% dos colaboradores são dela).
 async function buscarEmpresaDoRegistro(
   colaborador: Colaborador,
   ocorrencia: Ocorrencia
 ): Promise<{ nome: string; cnpj: string } | null> {
-  const empresaId = ocorrencia.empresa_id || colaborador.empresa_id
+  let empresaId = ocorrencia.empresa_id || colaborador.empresa_id
+
+  if (!empresaId && colaborador.id) {
+    const { data: colab } = await supabase
+      .from('colaboradores')
+      .select('empresa_id, departamento_id, departamento')
+      .eq('id', colaborador.id)
+      .maybeSingle()
+    if (colab) {
+      empresaId = colab.empresa_id
+      colaborador.departamento_id = colaborador.departamento_id || colab.departamento_id
+      colaborador.departamento = colaborador.departamento || colab.departamento
+    }
+  }
+
   if (empresaId) {
     const empresa = await empresaPorId(empresaId)
     if (empresa) return empresa
