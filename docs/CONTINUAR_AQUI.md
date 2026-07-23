@@ -21,7 +21,9 @@
 ### Cabeçalho do PDF de ocorrência (23/07/2026 — noite, complemento)
 - Logo trocada para `logo_plena_30anos_redonda.png` e cabeçalho passou a exibir nome + CNPJ reais da empresa.
 - `gerarPDFOcorrencia` resolve a empresa em cadeia: ocorrência → colaborador → departamento (id ou nome) → fallback Plena EA (`src/lib/pdf.ts`).
-- **Correção de dados via SQL Editor (sem migration):** 5.092 ocorrências de colaboradores da **Plena Tech** estavam com `empresa_id` da Plena EA ou nulo (importação histórica); alinhadas ao `empresa_id` do colaborador em 23/07/2026. Históricos de ex-colaboradores de outras empresas **não** foram alterados (decisão da gestão).
+- **Correção de dados via SQL Editor (sem migration):** 58 ocorrências dos colaboradores reais da **Plena Tech** estavam com `empresa_id` divergente (Plena EA/nulo) e foram alinhadas ao `empresa_id` do colaborador.
+- **Acidente revertido:** a primeira versão do UPDATE moveu também as ~5.033 históricas do placeholder "OCORRENCIAS HISTORICAS – NAO IDENTIFICADO" (matrícula `999999`) para Plena Tech; revertidas para Plena EA (estado da importação) na mesma sessão. O placeholder teve `empresa_id` zerado — ele não pertence a empresa nenhuma; **nunca usar empresa de colaborador como fonte para UPDATE em lote sem excluir a matrícula 999999**.
+- Históricas de ex-colaboradores de empresas que não existem mais ficam como estão (só histórico — decisão da gestão). Retrato final: Plena EA 9.175 / Plena Tech 58 ocorrências.
 - Atenção: o app é PWA — após deploy, orientar Ctrl+Shift+R (ou unregister do service worker) para o navegador largar o JS antigo.
 
 ### Módulo Férias (23/07/2026)
