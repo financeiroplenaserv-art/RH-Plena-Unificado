@@ -24,6 +24,7 @@
 - **Correção de dados via SQL Editor (sem migration):** 58 ocorrências dos colaboradores reais da **Plena Tech** estavam com `empresa_id` divergente (Plena EA/nulo) e foram alinhadas ao `empresa_id` do colaborador.
 - **Acidente revertido:** a primeira versão do UPDATE moveu também as ~5.033 históricas do placeholder "OCORRENCIAS HISTORICAS – NAO IDENTIFICADO" (matrícula `999999`) para Plena Tech; revertidas para Plena EA (estado da importação) na mesma sessão. O placeholder teve `empresa_id` zerado — ele não pertence a empresa nenhuma; **nunca usar empresa de colaborador como fonte para UPDATE em lote sem excluir a matrícula 999999**.
 - Históricas de ex-colaboradores de empresas que não existem mais ficam como estão (só histórico — decisão da gestão). Retrato final: Plena EA 9.175 / Plena Tech 58 ocorrências.
+- **Causa raiz do "PDF sai Plena EA":** `COLUNAS_AUTOCOMPLETE` (`src/components/AutocompleteColaborador.tsx`) não incluía `empresa_id` — ocorrências criadas pelo formulário ("Nova ocorrência") salvavam `empresa_id` NULL e o PDF caía no fallback. Corrigido; `buscarEmpresaDoRegistro` também consulta o cadastro do colaborador no banco quando o objeto vem incompleto.
 - Atenção: o app é PWA — após deploy, orientar Ctrl+Shift+R (ou unregister do service worker) para o navegador largar o JS antigo.
 
 ### Módulo Férias (23/07/2026)
