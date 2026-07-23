@@ -12,7 +12,7 @@ export function TituloSection({ value, onChange }: TituloSectionProps) {
     <Card className="border-slate-100 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-2">
-          <FileText className="h-3.5 w-3.5" /> 3. Título da Ocorrência
+          <FileText className="h-3.5 w-3.5" /> 4. Título da Ocorrência
         </CardTitle>
       </CardHeader>
       <CardContent>

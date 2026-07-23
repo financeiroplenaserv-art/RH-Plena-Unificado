@@ -20,6 +20,10 @@ export type NivelAcesso =
 export type StatusColaborador = 'Ativo' | 'Inativo' | 'Afastado'
 export type StatusOcorrencia = 'Pendente' | 'Ativa' | 'Resolvida' | 'Cancelada'
 
+export type FormaAssinaturaOcorrencia = 'papel' | 'youk'
+
+export type TipoDocumentoAnexo = 'comprovante' | 'documento_assinado'
+
 export interface Empresa {
   id: string
   nome: string
@@ -237,6 +241,7 @@ export interface Ocorrencia {
   testemunha_1_cargo: string | null
   testemunha_2_nome: string | null
   testemunha_2_cargo: string | null
+  forma_assinatura: FormaAssinaturaOcorrencia | null
   usuario_id: string | null
   created_at?: string
   updated_at?: string
@@ -255,6 +260,7 @@ export interface OcorrenciaAnexo {
   tipo_arquivo: string
   tamanho_bytes: number
   descricao: string | null
+  tipo_documento: TipoDocumentoAnexo
   caminho_storage: string
   url_publica: string | null
   usuario_id: string | null

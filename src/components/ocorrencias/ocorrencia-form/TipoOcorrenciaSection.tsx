@@ -33,7 +33,7 @@ export function TipoOcorrenciaSection({
     <Card className="border-slate-100 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-2">
-          <ClipboardCheck className="h-3.5 w-3.5" /> 4. Tipo de Ocorrência
+          <ClipboardCheck className="h-3.5 w-3.5" /> 3. Tipo de Ocorrência
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

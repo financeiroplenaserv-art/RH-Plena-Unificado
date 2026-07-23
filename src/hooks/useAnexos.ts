@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import type { OcorrenciaAnexo } from '@/types/database'
+import type { OcorrenciaAnexo, TipoDocumentoAnexo } from '@/types/database'
 
-const COLUNAS_ANEXO = 'id, ocorrencia_id, nome_arquivo, tipo_arquivo, tamanho_bytes, descricao, caminho_storage, url_publica, usuario_id, created_at'
+const COLUNAS_ANEXO = 'id, ocorrencia_id, nome_arquivo, tipo_arquivo, tamanho_bytes, descricao, tipo_documento, caminho_storage, url_publica, usuario_id, created_at'
 
 const BUCKET_NAME = 'ocorrencia-anexos'
 
@@ -28,7 +28,7 @@ export function useAnexos() {
   }, [])
 
   const uploadAnexo = useCallback(
-    async (ocorrenciaId: string, file: File, descricao?: string) => {
+    async (ocorrenciaId: string, file: File, descricao?: string, tipoDocumento?: TipoDocumentoAnexo) => {
       const ext = file.name.split('.').pop() || ''
       const path = `${ocorrenciaId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${ext}`
 
@@ -49,6 +49,7 @@ export function useAnexos() {
           tipo_arquivo: file.type || 'application/octet-stream',
           tamanho_bytes: file.size,
           descricao: descricao || null,
+          tipo_documento: tipoDocumento || 'comprovante',
           caminho_storage: path,
           url_publica: null,
         })

@@ -13,6 +13,28 @@ async function getJsPDF() {
   return { jsPDF, autoTable }
 }
 
+// Logo institucional carregado uma única vez (asset estático de public/).
+// Se o fetch falhar, o PDF é gerado sem logo — nunca bloqueia a emissão.
+let logoCache: string | null | undefined
+
+async function carregarLogoDataUrl(): Promise<string | null> {
+  if (logoCache !== undefined) return logoCache
+  try {
+    const resposta = await fetch('/corh_coracao_icone_azul_512.png')
+    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`)
+    const blob = await resposta.blob()
+    logoCache = await new Promise<string>((resolve, reject) => {
+      const leitor = new FileReader()
+      leitor.onload = () => resolve(leitor.result as string)
+      leitor.onerror = () => reject(leitor.error)
+      leitor.readAsDataURL(blob)
+    })
+  } catch {
+    logoCache = null
+  }
+  return logoCache
+}
+
 export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorrencia[]) {
   const { jsPDF, autoTable } = await getJsPDF()
   const doc = new jsPDF()
@@ -94,6 +116,11 @@ export async function gerarPDFOcorrencia(
   const w = doc.internal.pageSize.getWidth()
   const h = doc.internal.pageSize.getHeight()
 
+  const logo = await carregarLogoDataUrl()
+  if (logo) {
+    doc.addImage(logo, 'PNG', 14, 7, 14, 14)
+  }
+
   doc.setFontSize(12)
   doc.setTextColor(30, 30, 30)
   const nomeEmpresa = empresa?.nome || '[EMPRESA]'
@@ -152,6 +179,12 @@ export async function gerarPDFOcorrencia(
   if (ocorrencia.base_legal) {
     dadosOcor.push(['Base Legal', ocorrencia.base_legal])
   }
+  if (ocorrencia.forma_assinatura) {
+    dadosOcor.push([
+      'Assinatura',
+      ocorrencia.forma_assinatura === 'papel' ? 'Assinou em papel' : 'Enviado via Youk',
+    ])
+  }
 
   autoTable(doc, {
     startY: y2 + 14,
@@ -191,11 +224,12 @@ export async function gerarPDFOcorrencia(
     doc.text('Documentos Anexados', 14, yCurrent)
 
     const anexosRows = anexos.map((a) => {
-      const tipo = a.tipo_arquivo?.startsWith('video/')
+      const base = a.tipo_arquivo?.startsWith('video/')
         ? 'Vídeo'
         : a.tipo_arquivo?.startsWith('audio/')
           ? 'Áudio'
           : 'Documento'
+      const tipo = a.tipo_documento === 'documento_assinado' ? `${base} (assinado)` : base
       return [a.nome_arquivo, tipo]
     })
 

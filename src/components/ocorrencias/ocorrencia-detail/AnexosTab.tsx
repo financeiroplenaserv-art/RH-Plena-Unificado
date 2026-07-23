@@ -7,11 +7,12 @@ import {
   Trash2,
   Eye,
   FileText,
+  FileSignature,
   Video,
   Headphones,
   Loader2,
 } from 'lucide-react'
-import type { OcorrenciaAnexo } from '@/types/database'
+import type { OcorrenciaAnexo, TipoDocumentoAnexo } from '@/types/database'
 
 interface AnexosTabProps {
   anexos: OcorrenciaAnexo[]
@@ -21,8 +22,10 @@ interface AnexosTabProps {
   isPendente: boolean
   isCancelada: boolean
   descricaoUpload: string
+  tipoDocumentoUpload: TipoDocumentoAnexo
   fileInputRef: React.RefObject<HTMLInputElement>
   onDescricaoUploadChange: (value: string) => void
+  onTipoDocumentoUploadChange: (value: TipoDocumentoAnexo) => void
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
   onRemoverAnexo: (anexo: OcorrenciaAnexo) => void
 }
@@ -39,8 +42,10 @@ export function AnexosTab({
   isPendente,
   isCancelada,
   descricaoUpload,
+  tipoDocumentoUpload,
   fileInputRef,
   onDescricaoUploadChange,
+  onTipoDocumentoUploadChange,
   onFileSelect,
   onRemoverAnexo,
 }: AnexosTabProps) {
@@ -60,8 +65,31 @@ export function AnexosTab({
             </div>
             <p className="text-xs text-slate-500">
               Anexe fotos, vídeos, áudios, PDFs, atestados, prints ou qualquer arquivo que
-              comprove a ocorrência.
+              comprove a ocorrência. Se for o registro assinado pelo colaborador, marque como
+              "Documento assinado".
             </p>
+            <div className="flex items-center gap-4 text-xs text-slate-600">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="tipo-documento-upload"
+                  checked={tipoDocumentoUpload === 'comprovante'}
+                  onChange={() => onTipoDocumentoUploadChange('comprovante')}
+                  className="accent-amber-600"
+                />
+                Comprovante
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="tipo-documento-upload"
+                  checked={tipoDocumentoUpload === 'documento_assinado'}
+                  onChange={() => onTipoDocumentoUploadChange('documento_assinado')}
+                  className="accent-amber-600"
+                />
+                Documento assinado
+              </label>
+            </div>
             <div className="flex gap-2">
               <Input
                 placeholder="Descrição do documento (opcional)"
@@ -107,6 +135,7 @@ export function AnexosTab({
             {anexos.map((a) => {
               const isVideo = a.tipo_arquivo?.startsWith('video/')
               const isAudio = a.tipo_arquivo?.startsWith('audio/')
+              const isAssinado = a.tipo_documento === 'documento_assinado'
               return (
                 <div
                   key={a.id}
@@ -130,12 +159,19 @@ export function AnexosTab({
                         <Video className="h-4 w-4 text-purple-500 flex-shrink-0" />
                       ) : isAudio ? (
                         <Headphones className="h-4 w-4 text-pink-500 flex-shrink-0" />
+                      ) : isAssinado ? (
+                        <FileSignature className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                       ) : (
                         <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
                       )}
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-700 truncate">
                           {a.nome_arquivo}
+                          {isAssinado && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 align-middle">
+                              Assinado
+                            </span>
+                          )}
                         </p>
                         {a.descricao && <p className="text-xs text-slate-500">{a.descricao}</p>}
                         <p className="text-xs text-slate-400">

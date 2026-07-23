@@ -1,9 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Ocorrencia } from '@/types/database'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { FormaAssinaturaOcorrencia, Ocorrencia } from '@/types/database'
 
 interface DadosOcorrenciaCardProps {
   ocorrencia: Ocorrencia
   empresa: { nome: string; cnpj: string | null } | null
+  podeEditarAssinatura?: boolean
+  salvandoAssinatura?: boolean
+  onFormaAssinaturaChange?: (value: FormaAssinaturaOcorrencia | null) => void
+}
+
+const ROTULOS_ASSINATURA: Record<FormaAssinaturaOcorrencia, string> = {
+  papel: 'Assinou em papel',
+  youk: 'Enviado via Youk',
 }
 
 function fmtDate(d: string) {
@@ -14,7 +29,13 @@ function fmtDateTime(d: string) {
   return new Date(d).toLocaleString('pt-BR')
 }
 
-export function DadosOcorrenciaCard({ ocorrencia, empresa }: DadosOcorrenciaCardProps) {
+export function DadosOcorrenciaCard({
+  ocorrencia,
+  empresa,
+  podeEditarAssinatura = false,
+  salvandoAssinatura = false,
+  onFormaAssinaturaChange,
+}: DadosOcorrenciaCardProps) {
   return (
     <Card className="border-slate-100">
       <CardHeader className="pb-2">
@@ -47,6 +68,41 @@ export function DadosOcorrenciaCard({ ocorrencia, empresa }: DadosOcorrenciaCard
         <div className="flex justify-between">
           <span className="text-slate-500 text-xs">Status</span>
           <span className="text-slate-800">{ocorrencia.status}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-slate-500 text-xs">Assinatura</span>
+          {podeEditarAssinatura && onFormaAssinaturaChange ? (
+            <Select
+              value={ocorrencia.forma_assinatura || 'nao_informado'}
+              onValueChange={(v) =>
+                onFormaAssinaturaChange(
+                  v === 'nao_informado' ? null : (v as FormaAssinaturaOcorrencia)
+                )
+              }
+              disabled={salvandoAssinatura}
+            >
+              <SelectTrigger className="h-7 w-44 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nao_informado" className="text-xs">
+                  Não informado
+                </SelectItem>
+                <SelectItem value="papel" className="text-xs">
+                  {ROTULOS_ASSINATURA.papel}
+                </SelectItem>
+                <SelectItem value="youk" className="text-xs">
+                  {ROTULOS_ASSINATURA.youk}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-slate-800">
+              {ocorrencia.forma_assinatura
+                ? ROTULOS_ASSINATURA[ocorrencia.forma_assinatura]
+                : '—'}
+            </span>
+          )}
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500 text-xs">Registro</span>

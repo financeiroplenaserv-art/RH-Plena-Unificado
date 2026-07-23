@@ -36,7 +36,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import type { Ocorrencia, Colaborador, OcorrenciaAnexo } from '@/types/database'
+import type { Ocorrencia, Colaborador, OcorrenciaAnexo, FormaAssinaturaOcorrencia, TipoDocumentoAnexo } from '@/types/database'
 import { DetailHeader } from '@/components/ocorrencias/ocorrencia-detail/DetailHeader'
 import { StatusBanner } from '@/components/ocorrencias/ocorrencia-detail/StatusBanner'
 import { ColaboradorCard } from '@/components/ocorrencias/ocorrencia-detail/ColaboradorCard'
@@ -67,6 +67,8 @@ export function OcorrenciaDetailPage() {
   const [ativando, setAtivando] = useState(false)
 
   const [descricaoUpload, setDescricaoUpload] = useState('')
+  const [tipoDocumentoUpload, setTipoDocumentoUpload] = useState<TipoDocumentoAnexo>('comprovante')
+  const [salvandoAssinatura, setSalvandoAssinatura] = useState(false)
 
   const { anexos, loading: loadingAnexos, loadAnexos, uploadAnexo, removerAnexo } = useAnexos()
   const [urlsAssinadas, setUrlsAssinadas] = useState<Record<string, string>>({})
@@ -105,7 +107,7 @@ export function OcorrenciaDetailPage() {
     if (!id) return
     setLoading(true)
 
-    const COLUNAS_OCORRENCIA_DETALHE = `id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, macro_grupo, titulo, data_ocorrencia, descricao, status, tipo_penalidade, base_legal, gravidade, data_hora_ocorrido, local_ocorrido, defesa_funcionario, medida_corretiva, prazo_acompanhamento, testemunha_1_nome, testemunha_1_cargo, testemunha_2_nome, testemunha_2_cargo, usuario_id, created_at, updated_at`
+    const COLUNAS_OCORRENCIA_DETALHE = `id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, macro_grupo, titulo, data_ocorrencia, descricao, status, tipo_penalidade, base_legal, gravidade, data_hora_ocorrido, local_ocorrido, defesa_funcionario, medida_corretiva, prazo_acompanhamento, testemunha_1_nome, testemunha_1_cargo, testemunha_2_nome, testemunha_2_cargo, forma_assinatura, usuario_id, created_at, updated_at`
 
     const { data: ocorData } = await supabase
       .from('ocorrencias')
@@ -223,10 +225,29 @@ export function OcorrenciaDetailPage() {
       return
     }
 
-    await uploadAnexo(id, file, descricaoUpload || undefined)
+    await uploadAnexo(id, file, descricaoUpload || undefined, tipoDocumentoUpload)
     setDescricaoUpload('')
+    setTipoDocumentoUpload('comprovante')
     if (fileInputRef.current) fileInputRef.current.value = ''
     loadData()
+  }
+
+  const handleFormaAssinaturaChange = async (forma: FormaAssinaturaOcorrencia | null) => {
+    if (!id || !ocorrencia) return
+
+    setSalvandoAssinatura(true)
+    const { error } = await supabase
+      .from('ocorrencias')
+      .update({ forma_assinatura: forma })
+      .eq('id', id)
+
+    if (error) {
+      toast.error('Erro ao salvar forma de assinatura: ' + error.message)
+    } else {
+      setOcorrencia((prev) => (prev ? { ...prev, forma_assinatura: forma } : null))
+      toast.success('Forma de assinatura registrada')
+    }
+    setSalvandoAssinatura(false)
   }
 
   const handleAtivar = async () => {
@@ -328,7 +349,13 @@ export function OcorrenciaDetailPage() {
             colaborador={colaborador}
             colaboradorNomeFallback={ocorrencia.colaborador_nome}
           />
-          <DadosOcorrenciaCard ocorrencia={ocorrencia} empresa={empresa} />
+          <DadosOcorrenciaCard
+            ocorrencia={ocorrencia}
+            empresa={empresa}
+            podeEditarAssinatura={podeEditar && !isCancelada}
+            salvandoAssinatura={salvandoAssinatura}
+            onFormaAssinaturaChange={handleFormaAssinaturaChange}
+          />
         </div>
 
         <div className="lg:col-span-2">
@@ -359,8 +386,10 @@ export function OcorrenciaDetailPage() {
                 isPendente={isPendente}
                 isCancelada={isCancelada}
                 descricaoUpload={descricaoUpload}
+                tipoDocumentoUpload={tipoDocumentoUpload}
                 fileInputRef={fileInputRef}
                 onDescricaoUploadChange={setDescricaoUpload}
+                onTipoDocumentoUploadChange={setTipoDocumentoUpload}
                 onFileSelect={handleFileSelect}
                 onRemoverAnexo={setAnexoParaRemover}
               />

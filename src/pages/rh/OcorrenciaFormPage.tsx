@@ -281,12 +281,12 @@ export function OcorrenciaFormPage() {
             onChange={handleMacroGrupoChange}
             macroGrupos={MACRO_GRUPOS}
           />
-          <TituloSection value={form.titulo} onChange={handleChange} />
           <TipoOcorrenciaSection
             form={form}
             tiposFiltrados={tiposFiltrados}
             onTipoChange={handleTipoPenalidadeChange}
           />
+          <TituloSection value={form.titulo} onChange={handleChange} />
           <DadosOcorridoSection
             form={form}
             onChange={handleChange}
