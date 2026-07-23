@@ -32,7 +32,7 @@ Depois que o RH gera o PDF da ocorrência, o documento precisa ser assinado pelo
 - **`/funcionarios` agora só aceita empresas permitidas** (lista `PERMITIDAS`) — minimização LGPD. Os IDs das empresas permitidas são resolvidos via `/empresas` da Alterdata e **cacheados por 5 min** no isolate (`idsEmpresasPermitidas`).
 - `encodeURIComponent` nos parâmetros `empresaId` e `status` da query da Alterdata.
 - Gestão do token (salvar/remover): perfis **admin, adm, dp1, dp2** — decisão confirmada em 2026-07-23 e registrada em `docs/REGRAS_NEGOCIO.md`.
-- **PENDENTE: re-deploy** — `supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb`.
+- ✅ **Re-deploy feito em 23/07/2026** (`supabase functions deploy econtador`).
 
 ## 3. Script novo
 
@@ -47,5 +47,5 @@ Depois que o RH gera o PDF da ocorrência, o documento precisa ser assinado pelo
 ## 5. Pendências imediatas
 
 1. ~~**Aplicar migration 072** no SQL Editor~~ — ✅ aplicada em 23/07/2026.
-2. **Re-deploy da Edge Function e-Contador** (comando acima).
+2. ~~**Re-deploy da Edge Function e-Contador**~~ — ✅ feito em 23/07/2026.
 3. Demais pendências de dados e melhorias continuam as de `docs/CONTINUAR_AQUI.md` (ocorrências do placeholder, testes manuais, etc.).

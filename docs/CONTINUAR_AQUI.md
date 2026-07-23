@@ -15,7 +15,7 @@
 - Detalhes da ocorrência: campo "Assinatura" no card de dados e tipo "Documento assinado" no upload de anexos (selo verde "Assinado").
 - Formulário de nova ocorrência reordenado: **Macro Grupo → Tipo → Título** (título agora é o item 4, depois do tipo).
 - PDF da ocorrência com logo institucional e CNPJ no cabeçalho; forma de assinatura e anexos assinados refletidos no documento.
-- **Edge Function e-Contador**: `/funcionarios` restrito às empresas permitidas (cache 5 min) + encoding dos parâmetros. **Re-deploy pendente**: `supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb`.
+- **Edge Function e-Contador**: `/funcionarios` restrito às empresas permitidas (cache 5 min) + encoding dos parâmetros. ✅ **Re-deploy feito em 23/07/2026.**
 - Relatório completo: `docs/HANDOFF_23-07-2026_NOITE.md`.
 
 ### Módulo Férias (23/07/2026)
@@ -126,7 +126,7 @@
 
 ### 🟠 Alto
 1. ~~**Aplicar migration 072** no SQL Editor e validar~~ — ✅ aplicada em 23/07/2026.
-2. **Re-deploy da Edge Function e-Contador** (`supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb`).
+2. ~~**Re-deploy da Edge Function e-Contador**~~ — ✅ feito em 23/07/2026.
 3. **Revisar/associar mais ocorrências do placeholder** usando `dados-locais/revisao_496_nomes.xlsx`.
 4. **Revisar os 9 casos de múltiplos matches** da importação histórica.
 5. **Verificar no sistema** se a busca e os detalhes das ocorrências históricas funcionam corretamente.
