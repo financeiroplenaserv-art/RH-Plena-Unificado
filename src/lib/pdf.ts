@@ -38,18 +38,30 @@ async function carregarLogoDataUrl(): Promise<string | null> {
 
 // Quando a tela não informa a empresa, busca pelo vínculo da ocorrência/colaborador.
 // Sem isso o cabeçalho saía com os placeholders [EMPRESA]/[CNPJ].
+// Registros históricos importados podem estar sem empresa_id; nesse caso cai no
+// fallback da Plena EA (decisão de negócio: ~95% dos colaboradores são dela).
 async function buscarEmpresaDoRegistro(
   colaborador: Colaborador,
   ocorrencia: Ocorrencia
 ): Promise<{ nome: string; cnpj: string } | null> {
   const empresaId = ocorrencia.empresa_id || colaborador.empresa_id
-  if (!empresaId) return null
-  const { data } = await supabase
+  if (empresaId) {
+    const { data } = await supabase
+      .from('empresas')
+      .select('nome, cnpj')
+      .eq('id', empresaId)
+      .maybeSingle()
+    if (data) return data as { nome: string; cnpj: string }
+  }
+
+  const { data: plena } = await supabase
     .from('empresas')
     .select('nome, cnpj')
-    .eq('id', empresaId)
-    .single()
-  return (data as { nome: string; cnpj: string } | null) ?? null
+    .ilike('nome', '%plena%')
+    .order('nome')
+    .limit(1)
+    .maybeSingle()
+  return (plena as { nome: string; cnpj: string } | null) ?? null
 }
 
 export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorrencia[]) {
