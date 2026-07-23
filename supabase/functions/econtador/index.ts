@@ -314,6 +314,31 @@ async function removerToken(): Promise<Response> {
   return new Response(JSON.stringify({ ok: true }), { status: 200 })
 }
 
+// Cache em memória dos IDs das empresas permitidas (por instância do isolate).
+// Evita uma chamada extra à Alterdata a cada requisição de /funcionarios.
+let cacheEmpresasPermitidas: { ids: Set<string>; expiraEm: number } | null = null
+const CACHE_EMPRESAS_TTL_MS = 5 * 60_000
+
+async function idsEmpresasPermitidas(token: string): Promise<Set<string>> {
+  const agora = Date.now()
+  if (cacheEmpresasPermitidas && agora < cacheEmpresasPermitidas.expiraEm) {
+    return cacheEmpresasPermitidas.ids
+  }
+
+  const data = await fetchAlterdata('/empresas?page[limit]=25&page[offset]=0', token) as { data?: EContadorResponseItem[] }
+  const ids = new Set(
+    (data.data || [])
+      .filter((e) => {
+        const nome = (e.attributes?.nome || '').toLowerCase()
+        return PERMITIDAS.some((p) => nome.includes(p))
+      })
+      .map((e) => String(e.id || '')),
+  )
+
+  cacheEmpresasPermitidas = { ids, expiraEm: agora + CACHE_EMPRESAS_TTL_MS }
+  return ids
+}
+
 async function listarFuncionarios(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const empresaId = url.searchParams.get('empresaId')
@@ -328,14 +353,20 @@ async function listarFuncionarios(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'Token do e-Contador não configurado' }), { status: 400 })
   }
 
+  // Só permite consultar funcionários das empresas em PERMITIDAS (minimização LGPD).
+  const permitidas = await idsEmpresasPermitidas(token)
+  if (!permitidas.has(empresaId)) {
+    return new Response(JSON.stringify({ error: 'Empresa não permitida' }), { status: 403 })
+  }
+
   const todos: Record<string, unknown>[] = []
   let offset = 0
   const limit = 100
   let hasMore = true
 
   while (hasMore) {
-    let path = `/funcionarios?filter[funcionarios][empresa.id][EQ]=${empresaId}&page[limit]=${limit}&page[offset]=${offset}&include=departamento`
-    if (status) path += `&filter[funcionarios][status][EQ]=${status}`
+    let path = `/funcionarios?filter[funcionarios][empresa.id][EQ]=${encodeURIComponent(empresaId)}&page[limit]=${limit}&page[offset]=${offset}&include=departamento`
+    if (status) path += `&filter[funcionarios][status][EQ]=${encodeURIComponent(status)}`
 
     const data = await fetchAlterdata(path, token) as {
       data?: FuncionarioItem[]
