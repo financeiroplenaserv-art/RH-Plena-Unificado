@@ -1,5 +1,5 @@
-import { Bell, ChevronRight, Search, Menu } from 'lucide-react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Bell, ChevronRight, Menu } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import type { Perfil } from '@/types/database'
 
@@ -85,7 +85,6 @@ function buildBreadcrumb(pathname: string): string[] {
 
 export function Header({ user, onMenuToggle }: HeaderProps) {
   const location = useLocation()
-  const navigate = useNavigate()
   const breadcrumb = buildBreadcrumb(location.pathname)
   const displayName = user.nome || user.email || 'Usuário'
   const perfil = user.nivel_acesso?.toUpperCase() || 'VISUALIZADOR'
@@ -112,20 +111,6 @@ export function Header({ user, onMenuToggle }: HeaderProps) {
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
-        <div className="relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            placeholder="Buscar colaborador, ocorrência…"
-            className="h-9 w-72 rounded-full border border-input bg-background pl-9 pr-4 text-[13px] text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                const termo = (e.target as HTMLInputElement).value.trim()
-                if (termo) navigate(`/colaboradores?busca=${encodeURIComponent(termo)}`)
-              }
-            }}
-          />
-        </div>
-
         <button className="relative flex size-9 items-center justify-center rounded-full border border-input bg-white text-muted-foreground transition hover:border-primary/40 hover:text-primary">
           <Bell className="size-4" />
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-red-500" />

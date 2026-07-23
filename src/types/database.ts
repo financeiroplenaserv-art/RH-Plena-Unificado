@@ -166,6 +166,36 @@ export interface HistoricoLocalTrabalhoDiario {
   created_at?: string
 }
 
+export type TipoPeriodoFerias = 'gozo' | 'agendado' | 'previsto'
+export type OrigemPeriodoFerias = 'flit' | 'manual'
+
+export interface FeriasPeriodo {
+  id: string
+  colaborador_id: string
+  data_inicio: string
+  data_fim: string
+  tipo: TipoPeriodoFerias
+  descricao: string | null
+  origem: OrigemPeriodoFerias
+  created_at?: string
+  updated_at?: string
+  colaborador?: Pick<Colaborador, 'id' | 'nome_completo' | 'matricula' | 'departamento' | 'data_admissao' | 'status'> | null
+}
+
+export type DestinatarioNotificacaoFerias = 'colaborador' | 'responsavel_contrato'
+
+export interface FeriasNotificacao {
+  id: string
+  colaborador_id: string
+  ferias_periodo_id: string | null
+  destinatario: DestinatarioNotificacaoFerias
+  data_notificacao: string
+  observacao: string | null
+  usuario_id: string | null
+  created_at?: string
+  colaborador?: Pick<Colaborador, 'id' | 'nome_completo' | 'matricula' | 'departamento'> | null
+}
+
 export interface TermoLGPD {
   id: string
   versao: string
@@ -475,6 +505,18 @@ export type Database = {
         Row: ProjetoVR & Record<string, unknown>
         Insert: Partial<ProjetoVR> & Record<string, unknown>
         Update: Partial<ProjetoVR> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_periodos: {
+        Row: FeriasPeriodo & Record<string, unknown>
+        Insert: Partial<FeriasPeriodo> & Record<string, unknown>
+        Update: Partial<FeriasPeriodo> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_notificacoes: {
+        Row: FeriasNotificacao & Record<string, unknown>
+        Insert: Partial<FeriasNotificacao> & Record<string, unknown>
+        Update: Partial<FeriasNotificacao> & Record<string, unknown>
         Relationships: []
       }
       resultados_vr: {

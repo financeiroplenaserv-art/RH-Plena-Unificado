@@ -55,6 +55,11 @@ export const EscalasImportarPage = lazyNamed(() => import('@/pages/escalas/Escal
 export const EscalasLocaisPage = lazyNamed(() => import('@/pages/escalas/EscalasLocaisPage'), 'EscalasLocaisPage')
 export const EscalasMapeamentoPage = lazyNamed(() => import('@/pages/escalas/EscalasMapeamentoPage'), 'EscalasMapeamentoPage')
 
+// Férias
+export const FeriasPage = lazyNamed(() => import('@/pages/ferias/FeriasPage'), 'FeriasPage')
+export const FeriasImportarPage = lazyNamed(() => import('@/pages/ferias/FeriasImportarPage'), 'FeriasImportarPage')
+export const FeriasNotificacoesPage = lazyNamed(() => import('@/pages/ferias/FeriasNotificacoesPage'), 'FeriasNotificacoesPage')
+
 // Outros
 export const DepartamentosPage = lazyNamed(() => import('@/pages/DepartamentosPage'), 'DepartamentosPage')
 export const EmpresasPage = lazyNamed(() => import('@/pages/EmpresasPage'), 'EmpresasPage')

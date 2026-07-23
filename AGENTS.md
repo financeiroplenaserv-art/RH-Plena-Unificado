@@ -72,6 +72,7 @@ src/
 │   ├── adicionais/       # Módulo Adicionais
 │   ├── extras/           # Módulo Extras
 │   ├── escalas/          # Módulo Escalas
+│   ├── ferias/           # Módulo Férias (visão geral, importação Flit, notificações)
 │   └── *.tsx             # Páginas transversais (Dashboard, Login, Permissoes, etc.)
 ├── routes/
 │   └── lazyPages.ts      # Lazy loading de todas as páginas
@@ -87,6 +88,7 @@ src/
 │   ├── adicionais/       # Cálculos e importação de ponto para adicionais
 │   ├── ceuRecibos.ts     # Lógica de recibos do CEU
 │   ├── escalas/          # Importação de escala FLIT e inferência de local
+│   ├── ferias/           # Parser da planilha de férias do Flit e cálculo CLT
 │   ├── ocorrencias/      # Tipos e classificação de ocorrências
 │   └── vr/               # Cálculo de VR, parsers PDF/Excel, comprovantes e storage
 ├── services/
@@ -174,7 +176,7 @@ npm run test:adicionais
 
 - `npm run lint` — **passa**.
 - `npm run build` — **passa** (gera `dist/` com PWA e service worker).
-- `npm test` — **125 testes passam, 1 falha esperada por ambiente**:
+- `npm test` — **151 testes passam, 1 falha esperada por ambiente**:
   - `src/lib/rls.test.ts` executa um validador Python para verificar conflitos de RLS nas migrations. **Esse teste falha porque o Python não está instalado no ambiente atual** (erro 9009). Ele não indica falha de RLS real; o validador não consegue rodar.
   - Todos os demais testes de lógica (utils, permissões, departamentos, VR, escalas, adicionais, hooks, componentes, smoke) passam.
 
@@ -260,7 +262,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **69 migrations** em `supabase/migrations/` (numeradas `001_*` a `069_*`).
+- Existem **71 migrations** em `supabase/migrations/` (numeradas `001_*` a `071_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -274,6 +276,8 @@ npx vitest
   - `067_rpcs_transacionais_vr_recibos.sql`
   - `068_consentimento_lgpd_rpc.sql`
   - `069_acesso_mobile_falta_inspetoria.sql`
+  - `070_ferias_periodos.sql`
+  - `071_ferias_notificacoes.sql`
 
 ### Edge Function `econtador`
 

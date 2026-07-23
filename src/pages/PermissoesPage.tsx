@@ -120,6 +120,11 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'ceu', acao: 'importar', label: 'Importar planilha', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'ver_relatorios', label: 'Ver relatórios', grupo: 'CEU' },
 
+  // Férias
+  { recurso: 'ferias', acao: 'importar', label: 'Importar planilha do Flit', grupo: 'Férias' },
+  { recurso: 'ferias', acao: 'exportar', label: 'Exportar visão geral para Excel', grupo: 'Férias' },
+  { recurso: 'ferias', acao: 'gerenciar', label: 'Lançar previsões e registrar notificações', grupo: 'Férias' },
+
   // Menus
   { recurso: 'menu', acao: 'dashboard', label: 'Ver menu Dashboard', grupo: 'Menus' },
   { recurso: 'menu', acao: 'colaboradores', label: 'Ver menu Colaboradores', grupo: 'Menus' },

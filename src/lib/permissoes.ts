@@ -98,6 +98,11 @@ const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, NivelAces
     importar: ['gestor', 'dp1', 'dp2'],
     ver_relatorios: ['gestor', 'dp1', 'dp2', 'mesa', 'inspetoria'],
   },
+  ferias: {
+    importar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
+    exportar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
+    gerenciar: ['gestor', 'rh', 'dp1', 'dp2'],
+  },
 }
 
 function temPermissaoDinamica(perfil: NivelAcesso, recurso: string, acao: string): boolean | null {
@@ -286,6 +291,17 @@ export const podeVerRelatorioAdicionais = (p: NivelAcesso) => temPermissaoComPad
 
 /** Quem pode visualizar e gerenciar alertas (4.1, 4.2, 4.3) */
 export const podeGerenciarAlertas = (p: NivelAcesso) => temPermissaoComPadrao(p, 'alertas', 'gerenciar')
+
+// ================= FÉRIAS =================
+
+/** Quem pode importar a planilha de férias do Flit */
+export const podeImportarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ferias', 'importar')
+
+/** Quem pode exportar a visão geral de férias para Excel */
+export const podeExportarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ferias', 'exportar')
+
+/** Quem pode lançar previsões de férias do RH e registrar notificações */
+export const podeGerenciarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ferias', 'gerenciar')
 
 // ================= CONFIGURAÇÕES =================
 

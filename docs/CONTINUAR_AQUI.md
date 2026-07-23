@@ -1,7 +1,7 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 16/07/2026 — importação de faltas, ajuste de exibição de colaboradores inativos/não cadastrados na tela de Ocorrências e backup manual do banco  
-> **Relatório completo:** `docs/HANDOFF_PROXIMO_AGENTE_2026_07_16.md`  
+> **Último trabalho:** 23/07/2026 — módulo Férias implementado (importação Flit, previsão manual do RH, notificações e painel CLT)
+> **Relatório completo:** `docs/HANDOFF_23-07-2026.md`  
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`  
 > **Perfis/Permissões:** `docs/PERFIL_ACOES_MODELO.md`  
 > **Regras de negócio:** `docs/REGRAS_NEGOCIO.md`  
@@ -9,6 +9,19 @@
 ---
 
 ## ✅ Estado atual
+
+### Módulo Férias (23/07/2026)
+- **Rota `/ferias`** saiu do placeholder e ganhou 3 abas (padrão `ModuleShell`): Visão geral, Importar e Notificações.
+- **Migration 070** (`ferias_periodos`): períodos por colaborador — tipos `gozo` (histórico), `agendado` (confirmado via Flit) e `previsto` (planejamento do RH); origem `flit`/`manual`. RLS padrão + auditoria.
+- **Migration 071** (`ferias_notificacoes`): controle de notificações ao colaborador e ao responsável pelo contrato; DELETE de períodos manuais liberado para editores (Flit continua só admin).
+- **Docs de aplicação:** `docs/APLICAR_MIGRATION_070.md` e `docs/APLICAR_MIGRATION_071.md` — **aplicar as duas no SQL Editor, em ordem**.
+- **Importação Flit** (`/ferias/importar`): lê a planilha de férias do Flit (ex.: `dados-locais/Férias_23-07-2026.xlsx`), casa colaboradores por nome normalizado, mostra preview e grava de forma idempotente (delete+insert dos períodos `flit` do colaborador).
+- **Previsão manual do RH** (botão "Nova previsão"): lança período `previsto`/`manual`. Quando o período confirmado chega do Flit cobrindo as mesmas datas, a previsão é **baixada automaticamente** na importação.
+- **Notificações**: registro por colaborador (destinatário: colaborador ou responsável pelo contrato), com data, observação e usuário registrante.
+- **Painel CLT**: situação por colaborador ativo — Em gozo, Agendado, Previsto, A vencer (≤60 dias do limite concessivo), Vencido, Em dia, Sem dados — calculada em `src/lib/ferias/calculoFerias.ts`. Cards, filtros e exportação Excel (respeita filtros aplicados).
+- **Permissões**: `ferias.importar`, `ferias.exportar`, `ferias.gerenciar` no `PERMISSOES_PADRAO` e na tela Permissões.
+- Arquivos: `src/lib/ferias/` (parser + cálculo + 26 testes), `src/hooks/useFerias.ts`, `src/pages/ferias/`.
+- **Visão futura** (não implementada): saldos por período aquisitivo, alocação de feristas — ver `docs/agentes/arquitetura_modulo_ferias.md`.
 
 ### Ocorrências históricas e da inspetoria
 - **961 ocorrências históricas** importadas do sistema antigo (`public/Ocorrências de advertência e suspensão para CORH em sem cpf 15jul26.xlsx`).
