@@ -11,7 +11,7 @@
 ## ✅ Estado atual
 
 ### Assinatura de ocorrências (23/07/2026 — noite)
-- **Migration 072** (`072_ocorrencia_assinatura.sql`): `ocorrencias.forma_assinatura` (`papel`/`youk`, opcional) e `ocorrencia_anexos.tipo_documento` (`comprovante`/`documento_assinado`). **Aplicar no SQL Editor** — guia em `docs/APLICAR_MIGRATION_072.md`.
+- **Migration 072** (`072_ocorrencia_assinatura.sql`): `ocorrencias.forma_assinatura` (`papel`/`youk`, opcional) e `ocorrencia_anexos.tipo_documento` (`comprovante`/`documento_assinado`). ✅ **Aplicada no SQL Editor em 23/07/2026.**
 - Detalhes da ocorrência: campo "Assinatura" no card de dados e tipo "Documento assinado" no upload de anexos (selo verde "Assinado").
 - Formulário de nova ocorrência reordenado: **Macro Grupo → Tipo → Título** (título agora é o item 4, depois do tipo).
 - PDF da ocorrência com logo institucional e CNPJ no cabeçalho; forma de assinatura e anexos assinados refletidos no documento.
@@ -125,7 +125,7 @@
 ## 🎯 Próximos passos pendentes (priorizados)
 
 ### 🟠 Alto
-1. **Aplicar migration 072** no SQL Editor e validar (guia: `docs/APLICAR_MIGRATION_072.md`).
+1. ~~**Aplicar migration 072** no SQL Editor e validar~~ — ✅ aplicada em 23/07/2026.
 2. **Re-deploy da Edge Function e-Contador** (`supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb`).
 3. **Revisar/associar mais ocorrências do placeholder** usando `dados-locais/revisao_496_nomes.xlsx`.
 4. **Revisar os 9 casos de múltiplos matches** da importação histórica.

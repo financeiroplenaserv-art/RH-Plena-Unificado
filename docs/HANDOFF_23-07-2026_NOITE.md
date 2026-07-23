@@ -12,7 +12,7 @@ Depois que o RH gera o PDF da ocorrência, o documento precisa ser assinado pelo
 - `ocorrencias.forma_assinatura` — `TEXT` opcional, `CHECK` em `'papel' | 'youk'` (`NULL` = não informado).
 - `ocorrencia_anexos.tipo_documento` — `TEXT NOT NULL DEFAULT 'comprovante'`, `CHECK` em `'comprovante' | 'documento_assinado'`.
 - Idempotente (`ADD COLUMN IF NOT EXISTS`). Sem policies novas — herda o RLS consolidado (058/059).
-- **PENDENTE: aplicar no SQL Editor do Supabase** — passo a passo em `docs/APLICAR_MIGRATION_072.md` (inclui roteiro de validação manual).
+- ✅ **Aplicada no SQL Editor do Supabase em 23/07/2026.** (Guia com roteiro de validação: `docs/APLICAR_MIGRATION_072.md`.)
 
 ### Frontend
 - `src/types/database.ts` — tipos `FormaAssinaturaOcorrencia`, `TipoDocumentoAnexo` e campos novos em `Ocorrencia`/`OcorrenciaAnexo`.
@@ -46,6 +46,6 @@ Depois que o RH gera o PDF da ocorrência, o documento precisa ser assinado pelo
 
 ## 5. Pendências imediatas
 
-1. **Aplicar migration 072** no SQL Editor (guia: `docs/APLICAR_MIGRATION_072.md`) e validar os 4 passos do roteiro.
+1. ~~**Aplicar migration 072** no SQL Editor~~ — ✅ aplicada em 23/07/2026.
 2. **Re-deploy da Edge Function e-Contador** (comando acima).
 3. Demais pendências de dados e melhorias continuam as de `docs/CONTINUAR_AQUI.md` (ocorrências do placeholder, testes manuais, etc.).
