@@ -236,6 +236,8 @@ export function MobileFaltaPage() {
   const [categoriaValorId, setCategoriaValorId] = useState<string>('acordado')
   const [valorInput, setValorInput] = useState('')
   const [extraFaturado, setExtraFaturado] = useState(false)
+  const [geraExtra, setGeraExtra] = useState(true)
+  const [reforcoContratual, setReforcoContratual] = useState(false)
   const [meioComunicacao, setMeioComunicacao] = useState<ComunicacaoTipo>('Não se aplica')
   const [comunicacaoData, setComunicacaoData] = useState('')
   const [comunicacaoHora, setComunicacaoHora] = useState('')
@@ -297,6 +299,19 @@ export function MobileFaltaPage() {
     }
   }
 
+  // "Não gera extra" = falta de controle interno: trava categoria Faltista
+  // (única que permite R$ 0,00), zera o valor e desmarca o faturado.
+  const handleGeraExtra = (gera: boolean) => {
+    setGeraExtra(gera)
+    if (!gera) {
+      const faltista = categorias.find(c => c.nome.toLowerCase() === 'faltista')
+      if (faltista) setCategoriaValorId(faltista.id)
+      setValorInput('R$ 0,00')
+      setExtraFaturado(false)
+      if (erros.valor) setErros(prev => ({ ...prev, valor: '' }))
+    }
+  }
+
   const limpar = () => {
     setPasso(1)
     setData(new Date().toISOString().split('T')[0])
@@ -309,6 +324,8 @@ export function MobileFaltaPage() {
     setCategoriaValorId('acordado')
     setValorInput('')
     setExtraFaturado(false)
+    setGeraExtra(true)
+    setReforcoContratual(false)
     setMeioComunicacao('Não se aplica')
     setComunicacaoData('')
     setComunicacaoHora('')
@@ -329,7 +346,9 @@ export function MobileFaltaPage() {
       if (!substitutoId) novosErros.substituto = 'Selecione o substituto'
     }
     if (p === 3) {
-      if (!valorInput || parseMoeda(valorInput) <= 0) novosErros.valor = 'Informe o valor a pagar'
+      // Valor obrigatório só quando gera extra; falta de controle interno
+      // (categoria Faltista) fica com R$ 0,00.
+      if (geraExtra && (!valorInput || parseMoeda(valorInput) <= 0)) novosErros.valor = 'Informe o valor a pagar'
     }
     return novosErros
   }
@@ -391,8 +410,8 @@ export function MobileFaltaPage() {
       substituto_nome: substituto?.nome_completo || null,
       motivo,
       extra_faturado: extraFaturado,
-      gera_extra: true,
-      reforco_contratual: false,
+      gera_extra: geraExtra,
+      reforco_contratual: reforcoContratual,
       valor: parseMoeda(valorInput),
       categoria_valor_id: catValor?.id || null,
       categoria_valor_nome: catValor?.nome || null,
@@ -593,11 +612,34 @@ export function MobileFaltaPage() {
         return (
           <div className="space-y-6">
             <div>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Gera extra para pagamento?</label>
+              <div className="grid grid-cols-2 gap-3">
+                <BotaoOpcao
+                  label="Sim"
+                  selecionado={geraExtra}
+                  onClick={() => handleGeraExtra(true)}
+                />
+                <BotaoOpcao
+                  label="Não — controle interno"
+                  selecionado={!geraExtra}
+                  onClick={() => handleGeraExtra(false)}
+                />
+              </div>
+              {!geraExtra && (
+                <p className="text-sm text-slate-500 mt-2">
+                  Controle interno: aparece no relatório diário de WhatsApp, mas não entra no balanço de pagamento.
+                  Categoria "Faltista" e valor R$ 0,00 aplicados.
+                </p>
+              )}
+            </div>
+
+            <div>
               <label className="block text-base font-semibold text-slate-800 mb-2">Categoria de valor</label>
               <select
                 value={categoriaValorId}
                 onChange={e => handleCategoriaValorChange(e.target.value)}
-                className="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
+                disabled={!geraExtra}
+                className="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white disabled:bg-slate-100 disabled:text-slate-500"
               >
                 <option value="acordado">Valor acordado</option>
                 {categorias.map(c => (
@@ -612,29 +654,48 @@ export function MobileFaltaPage() {
                 type="text"
                 inputMode="decimal"
                 value={valorInput}
+                disabled={!geraExtra}
                 onChange={e => {
                   setValorInput(mascaraMoedaInput(e.target.value))
                   if (erros.valor) setErros(prev => ({ ...prev, valor: '' }))
                 }}
                 placeholder="R$ 0,00"
-                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 ${erros.valor ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
+                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500 ${erros.valor ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
                 required
               />
               <ErroCampo mensagem={erros.valor} />
             </div>
 
+            {geraExtra && (
+              <div>
+                <label className="block text-base font-semibold text-slate-800 mb-2">Tipo</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <BotaoOpcao
+                    label="Extra normal"
+                    selecionado={!extraFaturado}
+                    onClick={() => setExtraFaturado(false)}
+                  />
+                  <BotaoOpcao
+                    label="Extra faturado"
+                    selecionado={extraFaturado}
+                    onClick={() => setExtraFaturado(true)}
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
-              <label className="block text-base font-semibold text-slate-800 mb-2">Tipo</label>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Reforço Contratual?</label>
               <div className="grid grid-cols-2 gap-3">
                 <BotaoOpcao
-                  label="Extra normal"
-                  selecionado={!extraFaturado}
-                  onClick={() => setExtraFaturado(false)}
+                  label="Não"
+                  selecionado={!reforcoContratual}
+                  onClick={() => setReforcoContratual(false)}
                 />
                 <BotaoOpcao
-                  label="Extra faturado"
-                  selecionado={extraFaturado}
-                  onClick={() => setExtraFaturado(true)}
+                  label="Sim 🪙"
+                  selecionado={reforcoContratual}
+                  onClick={() => setReforcoContratual(true)}
                 />
               </div>
             </div>
@@ -741,6 +802,12 @@ export function MobileFaltaPage() {
                 <span className="font-medium text-slate-800 break-words">{getColaborador(substitutoId)?.nome_completo || '—'}</span>
               </div>
               <hr className="border-slate-200" />
+              <div>
+                <span className="text-sm text-slate-500 block">Registro</span>
+                <span className="font-medium text-slate-800">
+                  {geraExtra ? 'Extra (com pagamento)' : 'Falta — controle interno (sem pagamento)'}
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <span className="text-sm text-slate-500 block">Valor</span>
@@ -748,8 +815,12 @@ export function MobileFaltaPage() {
                 </div>
                 <div>
                   <span className="text-sm text-slate-500 block">Faturado</span>
-                  <span className="font-medium text-slate-800">{extraFaturado ? 'Sim' : 'Não'}</span>
+                  <span className="font-medium text-slate-800">{geraExtra ? (extraFaturado ? 'Sim' : 'Não') : '—'}</span>
                 </div>
+              </div>
+              <div>
+                <span className="text-sm text-slate-500 block">Reforço Contratual</span>
+                <span className="font-medium text-slate-800">{reforcoContratual ? 'Sim 🪙' : 'Não'}</span>
               </div>
               <hr className="border-slate-200" />
               <div>

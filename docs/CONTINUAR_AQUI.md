@@ -16,7 +16,8 @@
 - Formulário de extra pergunta **"Gera extra para pagamento?"** no topo: "Não — falta (controle interno)" trava categoria **Faltista** (única que aceita R$ 0,00 — cadastrada no banco em 24/07) e zera o valor.
 - Faltas de controle interno **aparecem no relatório diário de WhatsApp** (Balanço Operacional), mas ficam **fora do balanço/recibos de pagamento** (filtro `gera_extra !== false` em `ExtrasRecibosPage`).
 - Checkbox **Reforço Contratual** ao lado de "Extra faturado" — independente de `gera_extra` (faltista pode fazer reforço contratual sem receber extra). No WhatsApp sai como `🪙 *REFORÇO CONTRATUAL*` (💰 continua sendo do faturado).
-- Mobile (`/mobile/falta`) e Plantão seguem com `gera_extra=true` fixo (fluxo inalterado).
+- **Mobile (`/mobile/falta`) com paridade completa** (24/07/2026): pergunta "Gera extra para pagamento?" no passo Valor, Reforço Contratual Sim/Não e revisão exibindo o tipo de registro. **Migration 075** recria a RPC `registrar_extra_plantao` gravando `gera_extra`/`reforco_contratual` (a RPC tinha lista fixa de colunas e ignoraria os campos novos). ✅ **Aplicada no SQL Editor em 24/07/2026.**
+- Plantão web (`ExtrasPlantaoPage`) segue com `gera_extra=true` fixo (fluxo inalterado).
 
 ### Recibos CEU — empresa, CA, situação e número sequencial (24/07/2026)
 - **Migration 073** (`073_ceu_recibo_sequencial_situacao.sql`): colunas `entregas.numero_recibo` e `entregas.situacao` + sequência `ceu_recibo_seq` e função `proximo_numero_recibo()` (`REC-AAAA-NNNNN`). ✅ **Aplicada no SQL Editor em 24/07/2026.**
