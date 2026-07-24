@@ -32,9 +32,12 @@ A página é um assistente de **5 passos**. Toque em **Avançar** para ir ao pr�
 
 1. **Ocorrência** — informe a **data**, o **turno**, o **departamento/posto** e o **motivo** (atestado, falta, folga, férias etc.).
 2. **Pessoas** — selecione **quem faltou** (ou marque "Não se aplica" se for só um reforço) e **quem está substituindo**.
-3. **Valor** — informe o **valor a pagar** ao substituto e marque se é **extra faturado**.
+3. **Valor** — primeiro responda **"Gera extra para pagamento?"**:
+   - **Sim** → informe o **valor a pagar** ao substituto e marque se é **extra faturado**.
+   - **Não — controle interno** → a falta fica só registrada para controle (valor R$ 0,00, categoria Faltista automática). Use para faltas que **não** geram pagamento.
+   - Depois responda **"Reforço Contratual?"** — marque **Sim 🪙** quando a cobertura for um reforço previsto em contrato (vai marcado no relatório diário, mesmo sem pagamento de extra).
 4. **Comunicação** — informe se o cliente foi avisado (WhatsApp, e-mail ou "Não se aplica"), com data e hora.
-5. **Revisar** — confira tudo e toque em **Salvar**.
+5. **Revisar** — confira tudo (inclusive se está "Extra (com pagamento)" ou "Falta — controle interno") e toque em **Salvar**.
 
 **Tela verde com ✓ = deu certo.** O registro já está no sistema para o DP/financeiro tratar.
 
@@ -44,7 +47,7 @@ A página é um assistente de **5 passos**. Toque em **Avançar** para ir ao pr�
 
 - **Não lance o mesmo registro duas vezes.** Se você tentar repetir o mesmo colaborador + departamento + data, o sistema avisa que já existe — nesse caso, não insista, fale com a mesa de operações.
 - Se aparecer mensagem de erro, **não tente de novo várias vezes** — anote o que aconteceu e avise a responsável (o registro pode ter sido salvo mesmo assim).
-- Só lance o que realmente aconteceu: cada registro gera **pagamento** para o substituto.
+- Só lance o que realmente aconteceu: registros com **"Gera extra = Sim"** geram **pagamento** para o substituto. Se a falta não gera pagamento, marque **"Não — controle interno"** no passo Valor.
 - Precisa de internet para salvar. Se estiver sem sinal, anote e lance quando tiver conexão.
 
 ---
@@ -58,4 +61,4 @@ Ao reportar, diga: o que você fez, o que apareceu na tela e, se possível, mand
 
 ---
 
-*CORH — Controle Operacional e de RH · Guia do inspetor · Versão 1.0 — julho/2026*
+*CORH — Controle Operacional e de RH · Guia do inspetor · Versão 1.1 — julho/2026 (atualizado com "gera extra?" e Reforço Contratual)*
