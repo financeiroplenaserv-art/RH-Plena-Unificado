@@ -28,6 +28,9 @@ import { supabase } from '@/lib/supabase'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Input } from '@/components/ui/input'
+import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
+import { prepararGruposRecibo, gerarRecibosLoteHTML } from '@/lib/ceu/emissaoRecibos'
+import { toast } from 'sonner'
 import type { Colaborador } from '@/types/database'
 import * as XLSX from '@e965/xlsx'
 import { diasAte, downloadFile, formatarData } from './relatorios/relatorios.utils'
@@ -49,7 +52,11 @@ type AbaId = (typeof ABAS)[number]['id']
 
 export function CeuRelatoriosPage() {
   const { itens, loading: loadingItens, listar: listarItens } = useCEUItens()
-  const { entregas, loading: loadingEntregas, listar: listarEntregas } = useCEUEntregas()
+  const { entregas, loading: loadingEntregas, listar: listarEntregas, proximoNumeroRecibo, registrarEmissaoRecibo } = useCEUEntregas()
+
+  const [modalRecibo, setModalRecibo] = useState(false)
+  const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | DadosEntrega[] | null>(null)
+  const [gerandoRecibo, setGerandoRecibo] = useState(false)
 
   const [abaAtiva, setAbaAtiva] = useState<AbaId>('colaborador')
   const [filtroDataInicio, setFiltroDataInicio] = useState('')
@@ -221,6 +228,7 @@ export function CeuRelatoriosPage() {
           Quantidade: e.quantidade,
           'Data entrega': formatarData(e.data_entrega),
           'Data devolução': formatarData(e.data_devolucao),
+          Situação: e.situacao || 'Novo',
           Status: e.data_devolucao ? 'Devolvido' : 'Em aberto',
           Observação: e.observacao || '—',
         }))
@@ -280,6 +288,38 @@ export function CeuRelatoriosPage() {
     }
   }
 
+  const handleGerarRecibo = async (colaboradorId: string) => {
+    const entregasDoColab = entregasFiltradas.filter((e) => e.colaborador_id === colaboradorId)
+    if (entregasDoColab.length === 0) return
+    setGerandoRecibo(true)
+    try {
+      const grupos = await prepararGruposRecibo(entregasDoColab, { proximoNumeroRecibo, registrarEmissaoRecibo })
+      setDadosRecibo(grupos.length === 1 ? grupos[0] : grupos)
+      setModalRecibo(true)
+    } finally {
+      setGerandoRecibo(false)
+    }
+  }
+
+  const handleRelatorioLote = async () => {
+    if (entregasFiltradas.length === 0) {
+      toast.error('Nenhuma entrega nos filtros aplicados')
+      return
+    }
+    setGerandoRecibo(true)
+    try {
+      const { html, total } = await gerarRecibosLoteHTML(entregasFiltradas, { proximoNumeroRecibo, registrarEmissaoRecibo })
+      if (total === 0) {
+        toast.error('Nenhum recibo pôde ser gerado')
+        return
+      }
+      downloadFile(html, `recibos_lote_${new Date().toISOString().split('T')[0]}.html`, 'text/html;charset=utf-8')
+      toast.success(`${total} recibo(s) gerado(s)`)
+    } finally {
+      setGerandoRecibo(false)
+    }
+  }
+
   const renderConteudoAba = () => {
     if (abaAtiva === 'colaborador') {
       return (
@@ -287,6 +327,9 @@ export function CeuRelatoriosPage() {
           colaboradoresUnicos={colaboradoresUnicos}
           entregasFiltradas={entregasFiltradas}
           exportarExcel={exportarExcel}
+          onGerarRecibo={handleGerarRecibo}
+          onRelatorioLote={handleRelatorioLote}
+          processando={gerandoRecibo}
         />
       )
     }
@@ -459,6 +502,8 @@ export function CeuRelatoriosPage() {
             renderConteudoAba()
           )}
         </ModuleCard>
+
+        <CeuReciboModal isOpen={modalRecibo} onClose={() => setModalRecibo(false)} dadosEntrega={dadosRecibo} />
       </div>
     </CeuShell>
   )

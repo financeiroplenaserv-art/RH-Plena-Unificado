@@ -18,6 +18,8 @@ function coresSituacao(situacao: string): { bg: string; fg: string } {
       return { bg: '#3B82F620', fg: '#2563EB' }
     case 'Extravio/Perda':
       return { bg: '#DC262620', fg: '#DC2626' }
+    case 'Devolvido':
+      return { bg: '#64748B20', fg: '#475569' }
     default:
       return { bg: '#64748B20', fg: '#475569' }
   }

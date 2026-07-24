@@ -19,6 +19,7 @@
 - **Número sequencial e único** gravado na entrega na 1ª emissão; **reemissão reutiliza o mesmo número** (wizard, individual e lote).
 - **Brecha fechada:** o wizard "Nova entrega" agora marca `recibo_emitido` ao emitir (a regra "não excluir após recibo emitido" só valia nas Movimentações).
 - Correção extra: join de colaborador nas Movimentações passou a trazer `cpf`, `data_admissao` e `empresa_id` (recibos reemitidos saíam com CPF zerado).
+- **Emissão unificada em `src/lib/ceu/emissaoRecibos.ts`** (24/07/2026): Movimentações (individual/lote) e Relatórios usam o mesmo módulo. Lote passou a buscar **todas** as entregas do período no banco (antes filtrava só a página de 50 em memória). Botões "Gerar Recibo" e "Relatório em Lote" da aba Relatórios (estavam sem ação) ligados, respeitando os filtros da tela. Relatório "Por colaborador" separa **Situação** (entrega) de **Status** (Em aberto/Devolvido); item devolvido sai como "Devolvido" no recibo.
 
 ### Assinatura de ocorrências (23/07/2026 — noite)
 - **Migration 072** (`072_ocorrencia_assinatura.sql`): `ocorrencias.forma_assinatura` (`papel`/`youk`, opcional) e `ocorrencia_anexos.tipo_documento` (`comprovante`/`documento_assinado`). ✅ **Aplicada no SQL Editor em 23/07/2026.**

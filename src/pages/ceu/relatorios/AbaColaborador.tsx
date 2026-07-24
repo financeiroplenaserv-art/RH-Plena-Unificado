@@ -9,9 +9,12 @@ type AbaColaboradorProps = {
   colaboradoresUnicos: Colaborador[]
   entregasFiltradas: EntregaComSnapshot[]
   exportarExcel: () => void
+  onGerarRecibo: (colaboradorId: string) => void
+  onRelatorioLote: () => void
+  processando?: boolean
 }
 
-export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exportarExcel }: AbaColaboradorProps) {
+export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exportarExcel, onGerarRecibo, onRelatorioLote, processando }: AbaColaboradorProps) {
   const porColaborador = colaboradoresUnicos
     .map((c) => ({
       colaborador: c,
@@ -24,9 +27,9 @@ export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exporta
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-base font-semibold text-slate-900">Itens por Colaborador</h3>
         <div className="flex flex-wrap gap-2">
-          <ModuleButton variant="outline" size="sm">
+          <ModuleButton variant="outline" size="sm" onClick={onRelatorioLote} disabled={processando}>
             <FileText className="w-3.5 h-3.5 mr-1.5" />
-            Relatório em Lote
+            {processando ? 'Gerando...' : 'Relatório em Lote'}
           </ModuleButton>
           <ModuleButton variant="outline" size="sm" onClick={exportarExcel}>
             <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
@@ -48,7 +51,7 @@ export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exporta
                     {colaborador.matricula} — {colaborador.departamento || '—'}
                   </p>
                 </div>
-                <ModuleButton variant="outline" size="sm">
+                <ModuleButton variant="outline" size="sm" onClick={() => onGerarRecibo(colaborador.id)} disabled={processando}>
                   <FileText className="w-3.5 h-3.5 mr-1.5" />
                   Gerar Recibo
                 </ModuleButton>
@@ -62,6 +65,7 @@ export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exporta
                   <th className="text-left px-4 py-2 font-medium text-slate-700">Grupo</th>
                   <th className="text-left px-4 py-2 font-medium text-slate-700">Qtd</th>
                   <th className="text-left px-4 py-2 font-medium text-slate-700">Situação</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-700">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -77,9 +81,10 @@ export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exporta
                         </CeuBadge>
                       </td>
                       <td className="px-4 py-2">{e.quantidade}</td>
+                      <td className="px-4 py-2">{e.situacao || 'Novo'}</td>
                       <td className="px-4 py-2">
                         <CeuBadge type={e.data_devolucao ? 'equipamento' : 'uniforme'}>
-                          {e.data_devolucao ? 'Devolvido' : 'Novo'}
+                          {e.data_devolucao ? 'Devolvido' : 'Em aberto'}
                         </CeuBadge>
                       </td>
                     </tr>
