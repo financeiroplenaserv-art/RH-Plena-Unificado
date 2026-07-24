@@ -229,13 +229,6 @@ export function AutocompleteColaborador({
                 buscarPorDepartamento()
               }
             }}
-            onBlur={(e) => {
-              const relatedTarget = e.relatedTarget as Node | null
-              const focoFoiParaDentro = relatedTarget && containerRef.current?.contains(relatedTarget)
-              if (permitirNovo && !selecionado && busca.trim() && !focoFoiParaDentro) {
-                handleSelecionarNovo(busca.trim())
-              }
-            }}
             className="text-sm pl-9"
             autoComplete="off"
           />
@@ -259,24 +252,38 @@ export function AutocompleteColaborador({
                   <div className="p-3 text-xs text-slate-400 text-center">Nenhum colaborador encontrado</div>
                 )
               ) : (
-                colaboradores.map((c) => (
-                  <div
-                    key={c.id}
-                    className="p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-0"
-                    onClick={() => handleSelecionar(c)}
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-700 break-words">{c.nome_completo}</p>
-                      <p className="text-xs text-slate-500">
-                        {c.matricula} — {c.cargo || '—'} — {c.departamento || '—'}
-                        {departamentoId && c.departamento_id === departamentoId && (
-                          <span className="ml-1 text-green-600 font-medium">(deste dept.)</span>
-                        )}
-                      </p>
+                <>
+                  {colaboradores.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-0"
+                      onClick={() => handleSelecionar(c)}
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 break-words">{c.nome_completo}</p>
+                        <p className="text-xs text-slate-500">
+                          {c.matricula} — {c.cargo || '—'} — {c.departamento || '—'}
+                          {departamentoId && c.departamento_id === departamentoId && (
+                            <span className="ml-1 text-green-600 font-medium">(deste dept.)</span>
+                          )}
+                        </p>
+                      </div>
+                      <BadgeStatus status={c.status} />
                     </div>
-                    <BadgeStatus status={c.status} />
-                  </div>
-                ))
+                  ))}
+                  {/* Texto livre só entra por escolha explícita aqui — nunca
+                      automaticamente ao sair do campo (causava "nome" sem
+                      matrícula quando a pessoa digitava e clicava fora). */}
+                  {permitirNovo && busca.trim() && (
+                    <div
+                      className="p-2.5 hover:bg-slate-50 cursor-pointer border-t border-slate-100"
+                      onClick={() => handleSelecionarNovo(busca.trim())}
+                    >
+                      <p className="text-sm font-medium text-slate-700">+ Usar &quot;{busca.trim()}&quot;</p>
+                      <p className="text-xs text-slate-500">Colaborador não cadastrado</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
