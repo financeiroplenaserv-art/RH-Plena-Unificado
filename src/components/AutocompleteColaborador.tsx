@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import type { Colaborador } from '@/types/database'
 import { BadgeStatus } from './BadgeStatus'
 
-const COLUNAS_AUTOCOMPLETE = 'id, nome_completo, matricula, cargo, departamento, departamento_id, empresa_id, status'
+const COLUNAS_AUTOCOMPLETE = 'id, nome_completo, matricula, cpf, cargo, departamento, departamento_id, empresa_id, status'
 
 interface AutocompleteColaboradorProps {
   value?: string

@@ -1,7 +1,7 @@
 # HANDOFF — PDF de ocorrência com empresa errada (Plena EA x Plena Tech)
 
 > **Data:** 23/07/2026 (noite, fim de sessão)
-> **Status:** código corrigido e no GitHub, **mas o PDF continua saindo "Plena EA" no navegador da usuária**. Causa mais provável: PWA/service worker servindo JS antigo. Ver "Próximos passos".
+> **Status:** ✅ **RESOLVIDO em 24/07/2026.** Confirmado: era o service worker do PWA servindo JS antigo. Adicionado `skipWaiting()` em `src/sw.ts` (ativações futuras são automáticas) e marcador de build no rodapé do PDF (`build 2026-07-24`). Também corrigido o CPF do colaborador que não saía no PDF gerado após "Nova ocorrência" (`COLUNAS_AUTOCOMPLETE` sem a coluna `cpf`). Validado pela usuária em produção: logo, nome/CNPJ da empresa (Plena EA e Plena Tech) e CPF corretos.
 > **Usuária:** cansada, parou no fim do dia. Retomar com calma e sem pedir muitos SQLs de uma vez.
 
 ---

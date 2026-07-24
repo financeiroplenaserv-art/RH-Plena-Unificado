@@ -418,7 +418,7 @@ export async function gerarPDFOcorrencia(
     doc.setFontSize(7)
     doc.setTextColor(150, 150, 150)
     doc.text(
-      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema CORH`,
+      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema CORH · build 2026-07-24`,
       w / 2,
       h - 8,
       { align: 'center' }

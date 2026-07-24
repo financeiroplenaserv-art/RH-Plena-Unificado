@@ -1,13 +1,18 @@
 /// <reference lib="WebWorker" />
 /// <reference types="vite-plugin-pwa/client" />
 
-import { clientsClaim } from 'workbox-core'
+import { clientsClaim, skipWaiting } from 'workbox-core'
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, CacheFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 
 declare const self: ServiceWorkerGlobalScope
+
+// Ativa o SW novo imediatamente (sem esperar todas as abas fecharem)
+// e assume o controle das abas abertas. Sem isso, usuários ficam
+// presos em builds antigos do app (foi a causa do bug do PDF da ocorrência).
+skipWaiting()
 
 // Claim clients immediately
 clientsClaim()
