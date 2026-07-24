@@ -407,6 +407,8 @@ export interface EntregaCEU {
   usuario_id: string
   snapshot_item: Record<string, unknown>
   recibo_emitido?: boolean
+  numero_recibo?: string | null
+  situacao?: string | null
   created_at?: string
 
   // Relações
@@ -659,6 +661,10 @@ export type Database = {
           p_finalidades?: string[]
         }
         Returns: boolean
+      }
+      proximo_numero_recibo: {
+        Args: Record<string, never>
+        Returns: string
       }
       registrar_extra_plantao: {
         Args: {

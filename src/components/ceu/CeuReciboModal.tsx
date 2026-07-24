@@ -3,12 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gerarReciboEPIColorido, gerarReciboEPIPB, gerarReciboUniformeColorido, gerarReciboUniformePB, gerarNumeroRecibo } from '@/lib/ceuRecibos'
+import { buscarEmpresaPorId, EMPRESA_PADRAO, type EmpresaDocumento } from '@/lib/empresas'
 import { Download, HardHat, Shirt } from 'lucide-react'
 
 export interface DadosEntrega {
-  colaborador: { nome: string; matricula: string; cargo: string; departamento: string; cpf: string; data_admissao?: string | null }
-  itens: Array<{ nome: string; grupo: string; subgrupo: string; quantidade: number }>
+  colaborador: { nome: string; matricula: string; cargo: string; departamento: string; cpf: string; data_admissao?: string | null; empresa_id?: string | null }
+  itens: Array<{ nome: string; grupo: string; subgrupo: string; quantidade: number; ca?: string | null; situacao?: string }>
   dataEntrega: string
+  /** Número sequencial gravado na emissão (migration 073). Se ausente, usa fallback aleatório. */
+  numeroRecibo?: string
 }
 
 interface Props {
@@ -41,12 +44,16 @@ function detectarTipoEPI(itens: DadosEntrega['itens']): boolean {
 export function CeuReciboModal({ isOpen, onClose, dadosEntrega }: Props) {
   const [modo, setModo] = useState<Modo>('colorido')
   const [abaAtiva, setAbaAtiva] = useState(0)
-  const [numeroRecibo] = useState(() => gerarNumeroRecibo())
+  const [empresa, setEmpresa] = useState<EmpresaDocumento>(EMPRESA_PADRAO)
 
   const grupos = useMemo(() => {
     if (!dadosEntrega) return []
     return Array.isArray(dadosEntrega) ? dadosEntrega : [dadosEntrega]
   }, [dadosEntrega])
+
+  // Fallback por aba para grupos sem número gravado (ex.: migration 073
+  // ainda não aplicada). Cada recibo recebe um número distinto.
+  const numerosFallback = useMemo(() => grupos.map(() => gerarNumeroRecibo()), [grupos])
 
   useEffect(() => {
     if (isOpen) {
@@ -54,6 +61,23 @@ export function CeuReciboModal({ isOpen, onClose, dadosEntrega }: Props) {
       setAbaAtiva(0)
     }
   }, [isOpen])
+
+  const dadosAbaAtiva = grupos[abaAtiva]
+
+  // Resolve a empresa real do colaborador (evita recibo com empresa fixa).
+  useEffect(() => {
+    let ativo = true
+    buscarEmpresaPorId(dadosAbaAtiva?.colaborador?.empresa_id).then((e) => {
+      if (ativo) setEmpresa(e)
+    })
+    return () => {
+      ativo = false
+    }
+  }, [dadosAbaAtiva?.colaborador?.empresa_id])
+
+  const isEPI = dadosAbaAtiva ? detectarTipoEPI(dadosAbaAtiva.itens) : false
+  const tipoLabel = isEPI ? 'EPI' : 'Uniforme/Crachá'
+  const numeroRecibo = dadosAbaAtiva?.numeroRecibo || numerosFallback[abaAtiva] || gerarNumeroRecibo()
 
   const montarReciboData = useCallback(
     (grupo: DadosEntrega) => {
@@ -69,25 +93,21 @@ export function CeuReciboModal({ isOpen, onClose, dadosEntrega }: Props) {
         entregas: grupo.itens.map((i) => ({
           item: {
             descricao: i.nome,
-            numero_ca: null,
+            numero_ca: i.ca || null,
             grupo_macro: i.grupo,
             subgrupo: i.subgrupo || '—',
           },
           quantidade: i.quantidade,
-          situacao: 'Novo',
+          situacao: i.situacao || 'Novo',
         })),
         dataEntrega: grupo.dataEntrega,
         numeroRecibo,
-        nomeEmpresa: 'PLENA EA SERVICOS COMERCIAIS LTDA',
-        cnpjEmpresa: '00.378.476/0001-60',
+        nomeEmpresa: empresa.nome,
+        cnpjEmpresa: empresa.cnpj,
       }
     },
-    [numeroRecibo]
+    [numeroRecibo, empresa]
   )
-
-  const dadosAbaAtiva = grupos[abaAtiva]
-  const isEPI = dadosAbaAtiva ? detectarTipoEPI(dadosAbaAtiva.itens) : false
-  const tipoLabel = isEPI ? 'EPI' : 'Uniforme/Crachá'
 
   const html = useMemo(() => {
     if (!dadosAbaAtiva) return ''

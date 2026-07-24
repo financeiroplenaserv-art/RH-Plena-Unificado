@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { CeuShell } from './CeuShell'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
+import { SITUACOES_ENTREGA } from '@/lib/ceuRecibos'
 import type { Colaborador, ItemCEU, EntregaCEU } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -38,7 +39,7 @@ function badgeType(tipo: string) {
 
 export function CeuEntregaFormPage() {
   const navigate = useNavigate()
-  const { criarLote, listar: listarEntregas } = useCEUEntregas()
+  const { criarLote, listar: listarEntregas, proximoNumeroRecibo, registrarEmissaoRecibo } = useCEUEntregas()
   const { itens, loading: carregandoItens, listar: listarItens } = useCEUItens()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
@@ -47,7 +48,7 @@ export function CeuEntregaFormPage() {
   const [colabInput, setColabInput] = useState('')
   const [dropdownAberto, setDropdownAberto] = useState(false)
   const inputColabRef = useRef<HTMLInputElement>(null)
-  const [itensSelecionados, setItensSelecionados] = useState<Record<string, { item: ItemCEU; quantidade: number }>>({})
+  const [itensSelecionados, setItensSelecionados] = useState<Record<string, { item: ItemCEU; quantidade: number; situacao: string }>>({})
   const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split('T')[0])
   const [observacao, setObservacao] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -56,7 +57,8 @@ export function CeuEntregaFormPage() {
   const [filtroSubgrupo, setFiltroSubgrupo] = useState('')
   const [buscaItem, setBuscaItem] = useState('')
   const [modalRecibo, setModalRecibo] = useState(false)
-  const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | null>(null)
+  const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | DadosEntrega[] | null>(null)
+  const [entregasCriadas, setEntregasCriadas] = useState<EntregaCEU[]>([])
   const [historicoEntregas, setHistoricoEntregas] = useState<EntregaCEU[]>([])
   const [carregandoHistorico, setCarregandoHistorico] = useState(false)
 
@@ -145,7 +147,7 @@ export function CeuEntregaFormPage() {
       if (next[item.id]) {
         delete next[item.id]
       } else {
-        next[item.id] = { item, quantidade: 1 }
+        next[item.id] = { item, quantidade: 1, situacao: 'Novo' }
       }
       return next
     })
@@ -157,6 +159,16 @@ export function CeuEntregaFormPage() {
       return {
         ...prev,
         [itemId]: { ...prev[itemId], quantidade: Math.max(1, quantidade) },
+      }
+    })
+  }
+
+  const setSituacao = (itemId: string, situacao: string) => {
+    setItensSelecionados((prev) => {
+      if (!prev[itemId]) return prev
+      return {
+        ...prev,
+        [itemId]: { ...prev[itemId], situacao },
       }
     })
   }
@@ -181,11 +193,12 @@ export function CeuEntregaFormPage() {
 
     setSalvando(true)
     try {
-      const payloads = selecionadosArray.map(({ item, quantidade }) => ({
+      const payloads = selecionadosArray.map(({ item, quantidade, situacao }) => ({
         colaborador_id: colaborador.id,
         item_id: item.id,
         data_entrega: dataEntrega,
         quantidade,
+        situacao,
         observacao: observacao || null,
         snapshot_item: {
           nome: item.nome,
@@ -203,6 +216,7 @@ export function CeuEntregaFormPage() {
         return
       }
 
+      setEntregasCriadas(resultado)
       toast.success(`${resultado.length} entrega(s) registrada(s) com sucesso`)
       setConcluido(true)
       setPasso(4)
@@ -214,26 +228,49 @@ export function CeuEntregaFormPage() {
     }
   }
 
-  const abrirRecibo = () => {
+  const abrirRecibo = async () => {
     if (!colaborador) return
-    const dados: DadosEntrega = {
-      colaborador: {
-        nome: colaborador.nome_completo || '—',
-        matricula: colaborador.matricula || '—',
-        cargo: colaborador.cargo || '—',
-        departamento: colaborador.departamento || '—',
-        cpf: colaborador.cpf || '00000000000',
-        data_admissao: colaborador.data_admissao,
-      },
-      itens: selecionadosArray.map(({ item, quantidade }) => ({
-        nome: item.nome || '—',
-        grupo: item.tipo || 'Uniforme',
-        subgrupo: item.subgrupo || '—',
-        quantidade,
-      })),
-      dataEntrega,
+
+    // Separa em dois recibos (EPI e Uniforme/Crachá), como na tela de
+    // Movimentações, e grava um número sequencial por recibo.
+    const eEPI = (tipo: string | undefined) => (tipo || '').toUpperCase().includes('EPI')
+    const gruposSelecionados = [
+      selecionadosArray.filter(({ item }) => eEPI(item.tipo)),
+      selecionadosArray.filter(({ item }) => !eEPI(item.tipo)),
+    ].filter((g) => g.length > 0)
+
+    const grupos: DadosEntrega[] = []
+    for (const grupoItens of gruposSelecionados) {
+      const numero = await proximoNumeroRecibo()
+      const idsDoGrupo = entregasCriadas
+        .filter((e) => grupoItens.some(({ item }) => item.id === e.item_id))
+        .map((e) => e.id)
+      await registrarEmissaoRecibo(idsDoGrupo, numero)
+
+      grupos.push({
+        colaborador: {
+          nome: colaborador.nome_completo || '—',
+          matricula: colaborador.matricula || '—',
+          cargo: colaborador.cargo || '—',
+          departamento: colaborador.departamento || '—',
+          cpf: colaborador.cpf || '00000000000',
+          data_admissao: colaborador.data_admissao,
+          empresa_id: colaborador.empresa_id,
+        },
+        itens: grupoItens.map(({ item, quantidade, situacao }) => ({
+          nome: item.nome || '—',
+          grupo: item.tipo || 'Uniforme',
+          subgrupo: item.subgrupo || '—',
+          quantidade,
+          ca: item.ca || null,
+          situacao,
+        })),
+        dataEntrega,
+        numeroRecibo: numero,
+      })
     }
-    setDadosRecibo(dados)
+
+    setDadosRecibo(grupos.length === 1 ? grupos[0] : grupos)
     setModalRecibo(true)
   }
 
@@ -510,7 +547,7 @@ export function CeuEntregaFormPage() {
                           onChange={() => toggleItem(item)}
                           className="mt-1 w-4 h-4 accent-[#3B82F6]"
                         />
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
                           <div className="md:col-span-2">
                             <p className="text-sm font-medium text-slate-900">{item.nome}</p>
                             <div className="flex items-center gap-2 mt-1">
@@ -553,6 +590,25 @@ export function CeuEntregaFormPage() {
                               onChange={(e) => setQuantidade(item.id, parseInt(e.target.value) || 1)}
                               className="w-24"
                             />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Situação</p>
+                            <Select
+                              disabled={!selecionado}
+                              value={selecionado?.situacao || 'Novo'}
+                              onValueChange={(v) => setSituacao(item.id, v)}
+                            >
+                              <SelectTrigger className="bg-white border-slate-300 w-36">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SITUACOES_ENTREGA.map((s) => (
+                                  <SelectItem key={s} value={s}>
+                                    {s}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       </div>
@@ -608,17 +664,19 @@ export function CeuEntregaFormPage() {
                         <th className="text-left px-4 py-2 font-medium text-slate-700">Item</th>
                         <th className="text-left px-4 py-2 font-medium text-slate-700">Tipo</th>
                         <th className="text-left px-4 py-2 font-medium text-slate-700">CA</th>
+                        <th className="text-left px-4 py-2 font-medium text-slate-700">Situação</th>
                         <th className="text-right px-4 py-2 font-medium text-slate-700">Qtd</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {selecionadosArray.map(({ item, quantidade }) => (
+                      {selecionadosArray.map(({ item, quantidade, situacao }) => (
                         <tr key={item.id} className="border-t border-slate-100">
                           <td className="px-4 py-2 font-medium text-slate-900">{item.nome}</td>
                           <td className="px-4 py-2">
                             <CeuBadge type={badgeType(item.tipo)}>{item.tipo}</CeuBadge>
                           </td>
                           <td className="px-4 py-2 text-slate-500">{item.ca || '—'}</td>
+                          <td className="px-4 py-2 text-slate-500">{situacao}</td>
                           <td className="px-4 py-2 text-right font-semibold">{quantidade}</td>
                         </tr>
                       ))}

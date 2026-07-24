@@ -11,6 +11,15 @@
 
 ## ✅ Estado atual
 
+### Recibos CEU — empresa, CA, situação e número sequencial (24/07/2026)
+- **Migration 073** (`073_ceu_recibo_sequencial_situacao.sql`): colunas `entregas.numero_recibo` e `entregas.situacao` + sequência `ceu_recibo_seq` e função `proximo_numero_recibo()` (`REC-AAAA-NNNNN`). ✅ **Aplicada no SQL Editor em 24/07/2026.**
+- **Empresa real do colaborador no recibo** (antes: Plena EA fixa no código) — helper `src/lib/empresas.ts` com fallback Plena EA, mesma regra do PDF de ocorrências.
+- **CA sempre no recibo**, vindo do `snapshot_item` da entrega: trocar o CA no cadastro do item (novo lote) **não altera recibos já emitidos**.
+- **Situação por item** (Novo, Substituição, Troca, Extravio/Perda) — seletor no wizard de entrega, gravada na entrega e exibida colorida no recibo.
+- **Número sequencial e único** gravado na entrega na 1ª emissão; **reemissão reutiliza o mesmo número** (wizard, individual e lote).
+- **Brecha fechada:** o wizard "Nova entrega" agora marca `recibo_emitido` ao emitir (a regra "não excluir após recibo emitido" só valia nas Movimentações).
+- Correção extra: join de colaborador nas Movimentações passou a trazer `cpf`, `data_admissao` e `empresa_id` (recibos reemitidos saíam com CPF zerado).
+
 ### Assinatura de ocorrências (23/07/2026 — noite)
 - **Migration 072** (`072_ocorrencia_assinatura.sql`): `ocorrencias.forma_assinatura` (`papel`/`youk`, opcional) e `ocorrencia_anexos.tipo_documento` (`comprovante`/`documento_assinado`). ✅ **Aplicada no SQL Editor em 23/07/2026.**
 - Detalhes da ocorrência: campo "Assinatura" no card de dados e tipo "Documento assinado" no upload de anexos (selo verde "Assinado").

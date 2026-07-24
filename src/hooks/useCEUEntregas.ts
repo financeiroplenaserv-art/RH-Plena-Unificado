@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { gerarNumeroRecibo } from '@/lib/ceuRecibos'
 import type { EntregaCEU } from '@/types/database'
 import type { Paginacao, ResultadoPaginado } from '@/types'
 
@@ -17,8 +18,8 @@ export interface FiltrosEntrega {
 
 const TAMANHO_PADRAO = 50
 
-const COLUNAS_ENTREGA = 'id, colaborador_id, item_id, data_entrega, data_devolucao, quantidade, observacao, usuario_id, snapshot_item, recibo_emitido, created_at'
-const COLUNAS_COLABORADOR_CEU = 'id, nome_completo, matricula, departamento, cargo'
+const COLUNAS_ENTREGA = 'id, colaborador_id, item_id, data_entrega, data_devolucao, quantidade, observacao, usuario_id, snapshot_item, recibo_emitido, numero_recibo, situacao, created_at'
+const COLUNAS_COLABORADOR_CEU = 'id, nome_completo, matricula, departamento, cargo, cpf, data_admissao, empresa_id'
 const COLUNAS_ITEM_CEU_RESUMIDO = 'id, nome, tipo, ca, subgrupo, prazo_uso_dias'
 
 export function useCEUEntregas() {
@@ -262,6 +263,37 @@ export function useCEUEntregas() {
     return true
   }, [])
 
+  /**
+   * Próximo número de recibo sequencial (REC-AAAA-NNNNN) via função do banco
+   * (migration 073). Se a migration ainda não foi aplicada, cai no formato
+   * aleatório antigo para não travar a emissão.
+   */
+  const proximoNumeroRecibo = useCallback(async (): Promise<string> => {
+    const { data, error } = await supabase.rpc('proximo_numero_recibo')
+    if (error || !data) {
+      console.warn('proximo_numero_recibo indisponível (migration 073 aplicada?) — usando número aleatório.', error)
+      return gerarNumeroRecibo()
+    }
+    return data as string
+  }, [])
+
+  /**
+   * Registra a emissão de um recibo: grava o número nas entregas e as marca
+   * como recibo_emitido (o que bloqueia a exclusão — regra de negócio).
+   */
+  const registrarEmissaoRecibo = useCallback(async (ids: string[], numeroRecibo: string) => {
+    if (ids.length === 0) return true
+    const { error } = await supabase
+      .from('entregas')
+      .update({ recibo_emitido: true, numero_recibo: numeroRecibo })
+      .in('id', ids)
+    if (error) {
+      toast.error('Erro ao registrar número do recibo: ' + error.message)
+      return false
+    }
+    return true
+  }, [])
+
   const remover = useCallback(async (id: string) => {
     const { error } = await supabase.from('entregas').delete().eq('id', id)
     if (error) {
@@ -272,5 +304,5 @@ export function useCEUEntregas() {
     return true
   }, [])
 
-  return { entregas, loading, paginacao, listar, listarPaginado, criar, criarLote, devolver, marcarReciboEmitido, marcarLoteReciboEmitido, remover }
+  return { entregas, loading, paginacao, listar, listarPaginado, criar, criarLote, devolver, marcarReciboEmitido, marcarLoteReciboEmitido, proximoNumeroRecibo, registrarEmissaoRecibo, remover }
 }

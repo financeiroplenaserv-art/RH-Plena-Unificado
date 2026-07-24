@@ -37,10 +37,10 @@ import {
   podeImportarCEU,
 } from '@/lib/permissoes'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
+import { buscarEmpresaPorId } from '@/lib/empresas'
 import {
   gerarReciboEPIColorido,
   gerarReciboUniformeColorido,
-  gerarNumeroRecibo,
   type ReciboData,
 } from '@/lib/ceuRecibos'
 import type { EntregaCEU } from '@/types/database'
@@ -71,7 +71,7 @@ export function CeuMovimentacoesPage() {
   const podeExcluir = perfil ? podeExcluirEntregaCEU(perfil) : false
   const podeRecibo = perfil ? podeEmitirReciboCEU(perfil) : false
   const podeImportar = perfil ? podeImportarCEU(perfil) : false
-  const { entregas, loading, paginacao, listar, listarPaginado, devolver, remover, marcarReciboEmitido, marcarLoteReciboEmitido } = useCEUEntregas()
+  const { entregas, loading, paginacao, listar, listarPaginado, devolver, remover, proximoNumeroRecibo, registrarEmissaoRecibo } = useCEUEntregas()
   const { itens, listar: listarItens } = useCEUItens()
   const [busca, setBusca] = useState('')
   const [filtroItem, setFiltroItem] = useState('todos')
@@ -205,7 +205,7 @@ export function CeuMovimentacoesPage() {
     listar()
   }
 
-  const handleEmitirRecibo = (entregasDoGrupo: EntregaCEU[]) => {
+  const handleEmitirRecibo = async (entregasDoGrupo: EntregaCEU[]) => {
     const entregaBase = entregasDoGrupo[0]
     const colab = entregaBase.colaborador
 
@@ -218,30 +218,49 @@ export function CeuMovimentacoesPage() {
       return tipo !== 'EPI'
     })
 
-    const montarGrupo = (lista: EntregaCEU[]): DadosEntrega => ({
-      colaborador: {
-        nome: colab?.nome_completo || '—',
-        matricula: colab?.matricula || '—',
-        cargo: colab?.cargo || '—',
-        departamento: colab?.departamento || '—',
-        cpf: colab?.cpf || '00000000000',
-        data_admissao: colab?.data_admissao,
-      },
-      itens: lista.map((e) => ({
-        nome: e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—',
-        grupo: e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || 'Uniforme',
-        subgrupo: e.item?.subgrupo || (e.snapshot_item as { subgrupo?: string })?.subgrupo || '—',
-        quantidade: e.quantidade || 1,
-      })),
-      dataEntrega: entregaBase.data_entrega || new Date().toISOString(),
-    })
-
     const grupos: DadosEntrega[] = []
-    if (entregasEPI.length > 0) grupos.push(montarGrupo(entregasEPI))
-    if (entregasNaoEPI.length > 0) grupos.push(montarGrupo(entregasNaoEPI))
+    for (const lista of [entregasEPI, entregasNaoEPI]) {
+      if (lista.length === 0) continue
+
+      // Reemissão reutiliza o número gravado; primeira emissão recebe o
+      // próximo sequencial e o número fica gravado nas entregas.
+      let numero = lista.find((e) => e.numero_recibo)?.numero_recibo || null
+      if (!numero) {
+        numero = await proximoNumeroRecibo()
+        await registrarEmissaoRecibo(lista.map((e) => e.id), numero)
+      } else {
+        // Garante a marcação de recibo_emitido nas entregas sem número
+        // (entregas antigas, anteriores à migration 073).
+        const semNumero = lista.filter((e) => !e.numero_recibo).map((e) => e.id)
+        if (semNumero.length > 0) await registrarEmissaoRecibo(semNumero, numero)
+      }
+
+      grupos.push({
+        colaborador: {
+          nome: colab?.nome_completo || '—',
+          matricula: colab?.matricula || '—',
+          cargo: colab?.cargo || '—',
+          departamento: colab?.departamento || '—',
+          cpf: colab?.cpf || '00000000000',
+          data_admissao: colab?.data_admissao,
+          empresa_id: colab?.empresa_id,
+        },
+        itens: lista.map((e) => ({
+          nome: e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—',
+          grupo: e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || 'Uniforme',
+          subgrupo: e.item?.subgrupo || (e.snapshot_item as { subgrupo?: string })?.subgrupo || '—',
+          quantidade: e.quantidade || 1,
+          // CA da época da entrega (snapshot) — trocar o CA no cadastro do
+          // item não altera recibos já emitidos.
+          ca: e.item?.ca || (e.snapshot_item as { ca?: string })?.ca || null,
+          situacao: e.situacao || 'Novo',
+        })),
+        dataEntrega: lista[0].data_entrega || new Date().toISOString(),
+        numeroRecibo: numero,
+      })
+    }
 
     setDadosRecibo(grupos.length === 1 ? grupos[0] : grupos)
-    entregasDoGrupo.forEach((e) => marcarReciboEmitido(e.id))
     setModalRecibo(true)
   }
 
@@ -272,19 +291,25 @@ export function CeuMovimentacoesPage() {
       grupos.get(e.colaborador_id)!.entregas.push(e)
     })
 
-    const nomeEmpresa = 'PLENA EA SERVICOS COMERCIAIS LTDA'
-    const cnpjEmpresa = '00.378.476/0001-60'
-
     const recibosHTML: string[] = []
-    const idsProcessados: string[] = []
 
-    grupos.forEach(({ colaborador, entregas }) => {
-      if (!colaborador) return
+    for (const { colaborador, entregas } of grupos.values()) {
+      if (!colaborador) continue
 
       const isEPI = entregas.some((e) => {
         const tipo = e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo
         return tipo === 'EPI'
       })
+
+      // Empresa real do colaborador (sem valor fixo no código).
+      const empresa = await buscarEmpresaPorId(colaborador.empresa_id)
+
+      // Reutiliza o número já gravado; se não houver, pega o próximo
+      // sequencial e grava nas entregas ainda sem número (migration 073).
+      let numeroRecibo = entregas.find((e) => e.numero_recibo)?.numero_recibo || null
+      if (!numeroRecibo) numeroRecibo = await proximoNumeroRecibo()
+      const semNumero = entregas.filter((e) => !e.numero_recibo).map((e) => e.id)
+      if (semNumero.length > 0) await registrarEmissaoRecibo(semNumero, numeroRecibo)
 
       const data: ReciboData = {
         colaborador: {
@@ -300,24 +325,25 @@ export function CeuMovimentacoesPage() {
           return {
             item: {
               descricao: e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—',
+              // CA da época da entrega (snapshot) — recibos antigos não
+              // mudam quando o CA do item é atualizado no cadastro.
               numero_ca: e.item?.ca || (e.snapshot_item as { ca?: string })?.ca || null,
               grupo_macro: tipo,
               subgrupo: e.item?.subgrupo || (e.snapshot_item as { subgrupo?: string })?.subgrupo || '—',
             },
             quantidade: e.quantidade,
-            situacao: 'Novo',
+            situacao: e.situacao || 'Novo',
           }
         }),
         dataEntrega: entregas[0].data_entrega,
-        numeroRecibo: gerarNumeroRecibo(),
-        nomeEmpresa,
-        cnpjEmpresa,
+        numeroRecibo,
+        nomeEmpresa: empresa.nome,
+        cnpjEmpresa: empresa.cnpj,
       }
 
       const html = isEPI ? gerarReciboEPIColorido(data) : gerarReciboUniformeColorido(data)
       recibosHTML.push(`<div class="recibo-page">${html}</div>`)
-      idsProcessados.push(...entregas.map((e) => e.id))
-    })
+    }
 
     if (recibosHTML.length === 0) {
       toast.error('Nenhum recibo pôde ser gerado')
@@ -353,7 +379,6 @@ export function CeuMovimentacoesPage() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    await marcarLoteReciboEmitido(idsProcessados)
     listar()
 
     toast.success(`${recibosHTML.length} recibo(s) gerado(s)`)

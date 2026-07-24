@@ -5,6 +5,24 @@ import { escapeHtml } from '@/lib/utils'
    Colorido (digital) + Preto e Branco (impressão)
    ============================================================ */
 
+// Situações permitidas na entrega (regra de negócio validada em 24/07/2026).
+export const SITUACOES_ENTREGA = ['Novo', 'Substituição', 'Troca', 'Extravio/Perda'] as const
+
+function coresSituacao(situacao: string): { bg: string; fg: string } {
+  switch (situacao) {
+    case 'Novo':
+      return { bg: '#16A34A20', fg: '#16A34A' }
+    case 'Substituição':
+      return { bg: '#F9731620', fg: '#EA580C' }
+    case 'Troca':
+      return { bg: '#3B82F620', fg: '#2563EB' }
+    case 'Extravio/Perda':
+      return { bg: '#DC262620', fg: '#DC2626' }
+    default:
+      return { bg: '#64748B20', fg: '#475569' }
+  }
+}
+
 function formatarData(dataStr: string | null): string {
   if (!dataStr) return '—'
   return new Date(dataStr).toLocaleDateString('pt-BR')
@@ -68,8 +86,8 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
       </td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; font-size: 10pt;">${e.quantidade}</td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-size: 9pt;">
-        <span style="background: ${e.situacao === 'Novo' ? '#16A34A20' : e.situacao === 'Substituição' ? '#F9731620' : '#3B82F620'};
-                     color: ${e.situacao === 'Novo' ? '#16A34A' : e.situacao === 'Substituição' ? '#EA580C' : '#2563EB'};
+        <span style="background: ${coresSituacao(e.situacao).bg};
+                     color: ${coresSituacao(e.situacao).fg};
                      padding: 3px 8px; border-radius: 12px; font-weight: 500;">
           ${escapeHtml(e.situacao)}
         </span>
@@ -584,8 +602,8 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
       </td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; font-size: 10pt;">${e.quantidade}</td>
       <td style="padding: 8px 6px; border: 1px solid #e2e8f0; text-align: center; font-size: 9pt;">
-        <span style="background: ${e.situacao === 'Novo' ? '#16A34A20' : e.situacao === 'Substituição' ? '#F9731620' : '#3B82F620'};
-                     color: ${e.situacao === 'Novo' ? '#16A34A' : e.situacao === 'Substituição' ? '#EA580C' : '#2563EB'};
+        <span style="background: ${coresSituacao(e.situacao).bg};
+                     color: ${coresSituacao(e.situacao).fg};
                      padding: 3px 8px; border-radius: 12px; font-weight: 500;">
           ${escapeHtml(e.situacao)}
         </span>

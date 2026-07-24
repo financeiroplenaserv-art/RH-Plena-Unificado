@@ -31,6 +31,8 @@ vi.mock('@/hooks/useCEUEntregas', () => ({
     remover: vi.fn(),
     marcarReciboEmitido: vi.fn(),
     marcarLoteReciboEmitido: vi.fn(),
+    proximoNumeroRecibo: vi.fn().mockResolvedValue('REC-2026-00001'),
+    registrarEmissaoRecibo: vi.fn().mockResolvedValue(true),
   }),
 }))
 
