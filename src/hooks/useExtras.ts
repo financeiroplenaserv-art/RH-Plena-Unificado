@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import type { Extra, CategoriaExtra, ExtrasFiltros } from '@/types/extras'
 
-const COLUNAS_EXTRAS = 'id, data_ocorrencia, turno, categoria, posto, departamento_id, departamento_nome, colaborador_ausente_id, colaborador_ausente_nome, substituto_id, substituto_nome, motivo, extra_faturado, valor, categoria_valor_id, categoria_valor_nome, comunicacao_tipo, comunicacao_data, comunicacao_hora, comunicacao_detalhes, observacoes, status, usuario_id, empresa_id, created_at, updated_at'
+const COLUNAS_EXTRAS = 'id, data_ocorrencia, turno, categoria, posto, departamento_id, departamento_nome, colaborador_ausente_id, colaborador_ausente_nome, substituto_id, substituto_nome, motivo, extra_faturado, gera_extra, reforco_contratual, valor, categoria_valor_id, categoria_valor_nome, comunicacao_tipo, comunicacao_data, comunicacao_hora, comunicacao_detalhes, observacoes, status, usuario_id, empresa_id, created_at, updated_at'
 
 const COLUNAS_CATEGORIA_EXTRA = 'id, nome, valor_padrao, ativo, created_at, updated_at'
 

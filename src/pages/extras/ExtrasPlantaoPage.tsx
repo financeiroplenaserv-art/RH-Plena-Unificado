@@ -40,6 +40,8 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
   substituto_nome: null,
   motivo: '' as MotivoExtra,
   extra_faturado: false,
+  gera_extra: true,
+  reforco_contratual: false,
   valor: 0,
   categoria_valor_id: null,
   categoria_valor_nome: null,

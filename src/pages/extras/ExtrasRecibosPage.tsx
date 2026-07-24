@@ -130,7 +130,9 @@ export function ExtrasRecibosPage() {
   const grupos = useMemo<GrupoSubstituto[]>(() => {
     const mapa = new Map<string, GrupoSubstituto>()
     extras
-      .filter(e => e.status !== 'Cancelado')
+      // Faltas de controle interno (gera_extra=false) não entram no
+      // balanço/recibos de pagamento — só aparecem no relatório diário.
+      .filter(e => e.status !== 'Cancelado' && e.gera_extra !== false)
       .forEach(extra => {
         const chave = extra.substituto_id || extra.substituto_nome || 'nao_informado'
         if (!mapa.has(chave)) {

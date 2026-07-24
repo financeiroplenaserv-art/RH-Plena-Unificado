@@ -41,6 +41,8 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
   substituto_nome: null,
   motivo: '' as MotivoExtra,
   extra_faturado: false,
+  gera_extra: true,
+  reforco_contratual: false,
   valor: 0,
   categoria_valor_id: null,
   categoria_valor_nome: null,
@@ -108,6 +110,8 @@ export function ExtrasFormPage() {
             substituto_nome: extra.substituto_nome,
             motivo: extra.motivo,
             extra_faturado: extra.extra_faturado,
+            gera_extra: extra.gera_extra ?? true,
+            reforco_contratual: extra.reforco_contratual ?? false,
             valor: extra.valor,
             categoria_valor_id: extra.categoria_valor_id,
             categoria_valor_nome: extra.categoria_valor_nome,
@@ -139,6 +143,23 @@ export function ExtrasFormPage() {
       categoria_valor_nome: cat?.nome || null,
       valor: cat?.valor_padrao ?? prev.valor,
     }))
+  }
+
+  // "Não gera extra" = falta de controle interno: trava categoria Faltista
+  // (única que permite R$ 0,00), zera o valor e desmarca o faturado.
+  const handleGeraExtra = (gera: boolean) => {
+    setForm(prev => {
+      if (gera) return { ...prev, gera_extra: true }
+      const faltista = categorias.find(c => c.nome.toLowerCase() === 'faltista')
+      return {
+        ...prev,
+        gera_extra: false,
+        categoria_valor_id: faltista?.id || prev.categoria_valor_id,
+        categoria_valor_nome: faltista?.nome || prev.categoria_valor_nome,
+        valor: 0,
+        extra_faturado: false,
+      }
+    })
   }
 
   const handleAusenteChange = (colaborador: Colaborador | null) => {
@@ -183,7 +204,10 @@ export function ExtrasFormPage() {
       toast.error('Selecione o motivo')
       return
     }
-    if (!form.valor || form.valor <= 0) {
+    // Valor obrigatório > 0, exceto para a categoria "Faltista"
+    // (controle interno — única que permite R$ 0,00).
+    const ehFaltista = (form.categoria_valor_nome || '').toLowerCase() === 'faltista'
+    if (!ehFaltista && (!form.valor || form.valor <= 0)) {
       toast.error('Informe um valor maior que zero')
       return
     }
@@ -225,6 +249,40 @@ export function ExtrasFormPage() {
       <form onSubmit={handleSubmit}>
         <ModuleCard>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div className="space-y-2 md:col-span-2 lg:col-span-3">
+              <Label>Gera extra para pagamento?</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleGeraExtra(true)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                    form.gera_extra
+                      ? 'border-[#3B82F6] bg-blue-50 text-[#1E40AF]'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  Sim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGeraExtra(false)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                    !form.gera_extra
+                      ? 'border-[#3B82F6] bg-blue-50 text-[#1E40AF]'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  Não — falta (controle interno)
+                </button>
+              </div>
+              {!form.gera_extra && (
+                <p className="text-xs text-slate-500">
+                  Controle interno: aparece no relatório diário de WhatsApp, mas não entra no balanço de pagamento.
+                  Categoria "Faltista" e valor R$ 0,00 aplicados automaticamente.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>Data da ocorrência</Label>
               <Input
@@ -347,6 +405,7 @@ export function ExtrasFormPage() {
               <Select
                 value={form.categoria_valor_id || 'acordado'}
                 onValueChange={handleCategoriaValorChange}
+                disabled={!form.gera_extra}
               >
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
@@ -364,6 +423,7 @@ export function ExtrasFormPage() {
                 type="text"
                 inputMode="decimal"
                 value={valorInput}
+                disabled={!form.gera_extra}
                 onChange={e => {
                   const formatado = mascaraMoedaInput(e.target.value)
                   setValorInput(formatado)
@@ -376,15 +436,28 @@ export function ExtrasFormPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2 md:col-span-3">
-              <input
-                type="checkbox"
-                id="extra_faturado"
-                checked={form.extra_faturado}
-                onChange={e => setField('extra_faturado', e.target.checked)}
-                className="size-4 rounded border-input"
-              />
-              <Label htmlFor="extra_faturado">Extra faturado</Label>
+            <div className="flex items-center gap-6 md:col-span-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="extra_faturado"
+                  checked={form.extra_faturado}
+                  disabled={!form.gera_extra}
+                  onChange={e => setField('extra_faturado', e.target.checked)}
+                  className="size-4 rounded border-input"
+                />
+                <Label htmlFor="extra_faturado">Extra faturado</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="reforco_contratual"
+                  checked={form.reforco_contratual}
+                  onChange={e => setField('reforco_contratual', e.target.checked)}
+                  className="size-4 rounded border-input"
+                />
+                <Label htmlFor="reforco_contratual">Reforço Contratual</Label>
+              </div>
             </div>
           </div>
         </ModuleCard>

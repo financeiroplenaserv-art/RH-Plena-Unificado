@@ -391,6 +391,8 @@ export function MobileFaltaPage() {
       substituto_nome: substituto?.nome_completo || null,
       motivo,
       extra_faturado: extraFaturado,
+      gera_extra: true,
+      reforco_contratual: false,
       valor: parseMoeda(valorInput),
       categoria_valor_id: catValor?.id || null,
       categoria_valor_nome: catValor?.nome || null,

@@ -124,7 +124,8 @@ export function ExtrasBalancoPage() {
           const substituto = extra.substituto_nome || 'Não informado'
           const comunicacao = formatarComunicacao(extra)
           const faturado = extra.extra_faturado ? ' 💰 *FATURADO*' : ''
-          texto += `• *Ausente:* ${ausente}${faturado}\n`
+          const reforco = extra.reforco_contratual ? ' 🪙 *REFORÇO CONTRATUAL*' : ''
+          texto += `• *Ausente:* ${ausente}${faturado}${reforco}\n`
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
           texto += `  *Cliente:* ${comunicacao}\n\n`
@@ -149,7 +150,8 @@ export function ExtrasBalancoPage() {
           const substituto = extra.substituto_nome || 'Não informado'
           const comunicacao = formatarComunicacao(extra)
           const faturado = extra.extra_faturado ? ' 💰 *FATURADO*' : ''
-          texto += `• *Ausente:* ${ausente}${faturado}\n`
+          const reforco = extra.reforco_contratual ? ' 🪙 *REFORÇO CONTRATUAL*' : ''
+          texto += `• *Ausente:* ${ausente}${faturado}${reforco}\n`
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
           texto += `  *Cliente:* ${comunicacao}\n\n`

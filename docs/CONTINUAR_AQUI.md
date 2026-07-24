@@ -11,6 +11,13 @@
 
 ## ✅ Estado atual
 
+### Extras — falta sem extra (controle interno) + Reforço Contratual (24/07/2026)
+- **Migration 074** (`074_extras_falta_sem_extra_reforco.sql`): `extras.gera_extra` (default true) e `extras.reforco_contratual` (default false). ✅ **Aplicada no SQL Editor em 24/07/2026.**
+- Formulário de extra pergunta **"Gera extra para pagamento?"** no topo: "Não — falta (controle interno)" trava categoria **Faltista** (única que aceita R$ 0,00 — cadastrada no banco em 24/07) e zera o valor.
+- Faltas de controle interno **aparecem no relatório diário de WhatsApp** (Balanço Operacional), mas ficam **fora do balanço/recibos de pagamento** (filtro `gera_extra !== false` em `ExtrasRecibosPage`).
+- Checkbox **Reforço Contratual** ao lado de "Extra faturado" — independente de `gera_extra` (faltista pode fazer reforço contratual sem receber extra). No WhatsApp sai como `🪙 *REFORÇO CONTRATUAL*` (💰 continua sendo do faturado).
+- Mobile (`/mobile/falta`) e Plantão seguem com `gera_extra=true` fixo (fluxo inalterado).
+
 ### Recibos CEU — empresa, CA, situação e número sequencial (24/07/2026)
 - **Migration 073** (`073_ceu_recibo_sequencial_situacao.sql`): colunas `entregas.numero_recibo` e `entregas.situacao` + sequência `ceu_recibo_seq` e função `proximo_numero_recibo()` (`REC-AAAA-NNNNN`). ✅ **Aplicada no SQL Editor em 24/07/2026.**
 - **Empresa real do colaborador no recibo** (antes: Plena EA fixa no código) — helper `src/lib/empresas.ts` com fallback Plena EA, mesma regra do PDF de ocorrências.

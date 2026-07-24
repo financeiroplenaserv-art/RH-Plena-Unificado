@@ -55,6 +55,10 @@ export interface Extra {
   substituto_nome: string | null
   motivo: MotivoExtra
   extra_faturado: boolean
+  /** false = falta de controle interno: aparece no relatório diário, mas não entra no balanço/recibos de pagamento (migration 074) */
+  gera_extra: boolean
+  /** Marcador exibido no relatório diário de WhatsApp com 🪙 (migration 074) */
+  reforco_contratual: boolean
   valor: number
   categoria_valor_id: string | null
   categoria_valor_nome: string | null
