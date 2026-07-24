@@ -1,6 +1,8 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 23/07/2026 (noite) — assinatura de ocorrências (migration 072) + hardening da Edge Function e-Contador + correção do cabeçalho do PDF (logo/empresa)
+> **Último trabalho:** 24/07/2026 (dia inteiro) — Netlify (deploy manual), PDF ocorrência resolvido, recibos CEU completos, Extras (falta sem extra + Reforço Contratual + mobile), Férias (125 gozos importados)
+> **⚠️ URGENTE (25/07):** créditos do Netlify acabaram mesmo após otimizações — problema é BANDA, não build. Ver `docs/HANDOFF_24-07-2026.md` §1.
+> **Relatório completo do dia:** `docs/HANDOFF_24-07-2026.md`
 > **✅ RESOLVIDO em 24/07/2026:** PDF saindo "Plena EA" era o **service worker do PWA segurando JS antigo** no navegador. Solução: `skipWaiting()` em `src/sw.ts` (próximas atualizações ativam sozinhas) + marcador de build no rodapé do PDF para diagnóstico. No mesmo pacote: CPF do colaborador passou a sair no PDF (`COLUNAS_AUTOCOMPLETE` não trazia a coluna `cpf`). Validado pela usuária em produção (Plena EA e Plena Tech). Detalhes: `docs/HANDOFF_23-07-2026_PDF_EMPRESA.md`.
 > **Relatório completo:** `docs/HANDOFF_23-07-2026_NOITE.md` (anterior: `docs/HANDOFF_23-07-2026.md` — módulo Férias)  
 > **Checklist:** `docs/CHECKLIST_IMPLANTACAO.md`  
