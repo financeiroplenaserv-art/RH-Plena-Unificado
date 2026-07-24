@@ -1,7 +1,7 @@
 # Design System — CORH
 
 > Versão: 2.0 — Julho/2026
-> Implementação da especificação `public/CORH — Design System (para Kimi Code).md`.
+> Implementação da especificação `docs/CORH — Design System (para Kimi Code).md`.
 
 ## Identidade visual
 
@@ -76,4 +76,4 @@ Proibido degradê em formulários, tabelas, cards comuns, sidebar e modais.
 - `src/components/corh/` — componentes do Design System
 - `src/components/layout/` — Sidebar, Header (Topbar), ModuleShell
 - `src/lib/button-variants.ts` — variantes do botão base
-- Especificação completa: `public/CORH — Design System (para Kimi Code).md`
+- Especificação completa: `docs/CORH — Design System (para Kimi Code).md`

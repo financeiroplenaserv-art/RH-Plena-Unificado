@@ -19,7 +19,7 @@ const H = {
   Prefer: 'return=representation',
 }
 
-const ARQUIVO = 'public/Planilha com todos os adicionais para importar para corh.xlsx'
+const ARQUIVO = 'dados-locais/Planilha com todos os adicionais para importar para corh.xlsx'
 
 // Exceções: nome na planilha -> id do departamento no banco (match manual,
 // pois o nome_curto cadastrado difere do usado na planilha).

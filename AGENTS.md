@@ -212,7 +212,7 @@ import type { Perfil } from '@/types/database'
 
 ### Design System
 
-- Consulte `docs/DESIGN_SYSTEM.md` e a especificação em `public/CORH — Design System (para Kimi Code).md`.
+- Consulte `docs/DESIGN_SYSTEM.md` e a especificação em `docs/CORH — Design System (para Kimi Code).md`.
 - Tokens de cor em `src/index.css` (Tailwind v4 com `@theme inline`).
 - Paleta principal: azul `#0F6CBD` (Microsoft/Edge). Sidebar: `#0C1730`.
 - Degradês permitidos em apenas 3 lugares: painel do login, cartão de boas-vindas do dashboard e botões primários (`.bg-brand-gradient-soft`).
@@ -384,7 +384,7 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 - `docs/REGRAS_NEGOCIO.md` — decisões de negócio validadas.
 - `docs/AGENTES_RH_PLENA.md` — prompts para agentes de avaliação (atenção: contém informações parcialmente desatualizadas, como React 18).
 - `src/pages/ceu/AGENTS.md` — exceção específica do módulo CEU sobre datas de recibo.
-- `public/CORH — Design System (para Kimi Code).md` — especificação visual completa.
+- `docs/CORH — Design System (para Kimi Code).md` — especificação visual completa.
 
 ---
 

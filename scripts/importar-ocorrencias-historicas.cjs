@@ -108,7 +108,7 @@ async function main() {
   }
 
   // ---- lê a planilha ----
-  const wb = XLSX.readFile('public/OCC todas 180726 (tratado).xlsx')
+  const wb = XLSX.readFile('dados-locais/OCC todas 180726 (tratado).xlsx')
   const ABAS = wb.SheetNames
   const payloads = []
   const stats = { porAba: {}, casamento: { 'pdf-cpf': 0, nome: 0, placeholder: 0 } }
