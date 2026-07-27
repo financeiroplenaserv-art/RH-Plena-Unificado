@@ -47,3 +47,6 @@ supabase/.temp
 
 # Estado local do Netlify CLI
 .netlify/
+
+# Arquivos de lock do Office (~$*)
+~$*
