@@ -8,16 +8,12 @@
 - A função `supabase/functions/suporte/index.ts` valida o JWT, aplica rate limit (5 msg/min por usuário) e envia o e-mail via **Resend** (https://resend.com).
 - O e-mail sai de `CORH Suporte <onboarding@resend.dev>` (remetente de teste do Resend, funciona sem verificar domínio) e chega em `financeiroplenaserv@gmail.com`, com `reply_to` no e-mail do usuário (basta responder o e-mail para falar com ele).
 
-## Setup (uma vez só)
+## Setup (uma vez só) — ✅ CONCLUÍDO em 27/07/2026
 
-1. Criar conta grátis no **Resend** (https://resend.com) — plano free: 100 e-mails/dia.
-2. Em **API Keys**, criar uma chave e copiá-la.
-3. No dashboard do Supabase (projeto `jmdjdogskvybsdjtmpmb`):
-   - **Edge Functions → Secrets** (ou Project Settings → Edge Functions): adicionar o secret `RESEND_API_KEY` com a chave copiada.
-4. Deploy da função:
-   ```bash
-   supabase functions deploy suporte --project-ref jmdjdogskvybsdjtmpmb
-   ```
+1. ~~Criar conta grátis no **Resend** (https://resend.com)~~ — feito pela usuária.
+2. ~~Em **API Keys**, criar uma chave e copiá-la.~~
+3. ~~Adicionar o secret `RESEND_API_KEY`~~ — feito via CLI: `supabase secrets set RESEND_API_KEY=<chave> --project-ref jmdjdogskvybsdjtmpmb`.
+4. ~~Deploy da função~~ — feito: `supabase functions deploy suporte --project-ref jmdjdogskvybsdjtmpmb`.
 
 ## Teste
 
