@@ -454,7 +454,7 @@ export function CeuRelatoriosPage() {
               <Filter className="w-3.5 h-3.5 mr-1.5" />
               Filtrar
             </ModuleButton>
-            <ModuleButton variant="outline" size="sm" onClick={limparFiltros}>
+            <ModuleButton size="sm" onClick={limparFiltros}>
               <X className="w-3.5 h-3.5 mr-1.5" />
               Limpar
             </ModuleButton>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, CalendarDays, CalendarPlus, Download, Trash2, User } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Bell, CalendarDays, CalendarPlus, Download, Trash2, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
@@ -52,6 +52,23 @@ interface LinhaFerias {
   previsaoPeriodo: FeriasPeriodo | null
   /** Linha do próximo período confirmado (agendado), para vincular notificação */
   agendadoPeriodo: FeriasPeriodo | null
+}
+
+/** Colunas da tabela com ordenação crescente/decrescente (setinha no cabeçalho) */
+type ColunaOrdenacao = 'ultimoGozo' | 'previsao' | 'agendado' | 'limite'
+
+/** Data ISO (YYYY-MM-DD) usada como chave de ordenação da coluna; null = sem dados */
+function valorOrdenacao(linha: LinhaFerias, coluna: ColunaOrdenacao): string | null {
+  switch (coluna) {
+    case 'ultimoGozo':
+      return linha.resumo.ultimoGozo?.inicio ?? null
+    case 'previsao':
+      return linha.resumo.proximaPrevisao?.inicio ?? null
+    case 'agendado':
+      return linha.resumo.proximoAgendado?.inicio ?? null
+    case 'limite':
+      return linha.resumo.limiteConcessivo
+  }
 }
 
 const SITUACOES: SituacaoFerias[] = ['Em gozo', 'Agendado', 'Previsto', 'A vencer', 'Vencido', 'Em dia', 'Sem dados']
@@ -188,6 +205,47 @@ export function FeriasPage() {
     })
   }, [linhas, aplicado])
 
+  const [ordenacao, setOrdenacao] = useState<{ coluna: ColunaOrdenacao; direcao: 'asc' | 'desc' } | null>(null)
+
+  // Linhas ordenadas pela coluna clicada; linhas sem data ficam sempre por último
+  const linhasOrdenadas = useMemo(() => {
+    if (!ordenacao) return linhasFiltradas
+    const fator = ordenacao.direcao === 'asc' ? 1 : -1
+    return [...linhasFiltradas].sort((a, b) => {
+      const va = valorOrdenacao(a, ordenacao.coluna)
+      const vb = valorOrdenacao(b, ordenacao.coluna)
+      if (va === null && vb === null) return 0
+      if (va === null) return 1
+      if (vb === null) return -1
+      return va.localeCompare(vb) * fator
+    })
+  }, [linhasFiltradas, ordenacao])
+
+  const alternarOrdenacao = (coluna: ColunaOrdenacao) => {
+    setOrdenacao((atual) => {
+      if (!atual || atual.coluna !== coluna) return { coluna, direcao: 'asc' }
+      return { coluna, direcao: atual.direcao === 'asc' ? 'desc' : 'asc' }
+    })
+  }
+
+  const cabecalhoOrdenavel = (coluna: ColunaOrdenacao, rotulo: string) => {
+    const ativa = ordenacao?.coluna === coluna
+    const Icone = !ativa ? ArrowUpDown : ordenacao.direcao === 'asc' ? ArrowUp : ArrowDown
+    return (
+      <TableHead>
+        <button
+          type="button"
+          onClick={() => alternarOrdenacao(coluna)}
+          title={`Ordenar por ${rotulo}`}
+          className={`flex items-center gap-1 uppercase tracking-wide hover:text-foreground ${ativa ? 'text-foreground' : ''}`}
+        >
+          {rotulo}
+          <Icone className="size-3.5" />
+        </button>
+      </TableHead>
+    )
+  }
+
   const aplicarFiltros = () => setAplicado(input)
   const limparFiltros = () => {
     const vazio = { busca: '', departamento: 'todos', situacao: 'todas' }
@@ -211,7 +269,7 @@ export function FeriasPage() {
     }
     try {
       const XLSX = await import('@e965/xlsx')
-      const dados = linhasFiltradas.map((linha) => ({
+      const dados = linhasOrdenadas.map((linha) => ({
         Colaborador: linha.colaborador.nome_completo,
         Matrícula: linha.colaborador.matricula,
         Departamento: linha.departamentoExibido,
@@ -334,16 +392,16 @@ export function FeriasPage() {
                 <TableHead>Colaborador</TableHead>
                 <TableHead>Departamento</TableHead>
                 <TableHead>Admissão</TableHead>
-                <TableHead>Último gozo</TableHead>
-                <TableHead>Previsão RH</TableHead>
-                <TableHead>Próximo agendado</TableHead>
-                <TableHead>Limite concessivo</TableHead>
+                {cabecalhoOrdenavel('ultimoGozo', 'Último gozo')}
+                {cabecalhoOrdenavel('previsao', 'Previsão RH')}
+                {cabecalhoOrdenavel('agendado', 'Próximo agendado')}
+                {cabecalhoOrdenavel('limite', 'Limite concessivo')}
                 <TableHead>Situação</TableHead>
                 {podeGerenciar && <TableHead className="w-24"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {linhasFiltradas.map((linha) => (
+              {linhasOrdenadas.map((linha) => (
                 <TableRow key={linha.colaborador.id}>
                   <TableCell className="font-medium text-foreground">
                     <div className="flex items-center gap-3">

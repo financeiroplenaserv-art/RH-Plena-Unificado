@@ -157,7 +157,7 @@ export function CeuItensPage() {
             <Filter className="w-4 h-4 mr-2" />
             Filtrar
           </ModuleButton>
-          <ModuleButton variant="outline" onClick={handleLimpar}>
+          <ModuleButton onClick={handleLimpar}>
             <X className="w-4 h-4 mr-2" />
             Limpar
           </ModuleButton>

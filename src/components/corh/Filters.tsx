@@ -16,7 +16,7 @@ export function Filters({ children, onApply, onClear, loading = false, className
         {children}
       </div>
       <div className="flex justify-end gap-2 pt-3 border-t border-border mt-3">
-        <Button variant="ghost" size="sm" onClick={onClear} disabled={loading}>
+        <Button variant="primary" size="sm" onClick={onClear} disabled={loading}>
           Limpar
         </Button>
         <Button variant="primary" size="sm" onClick={onApply} disabled={loading}>

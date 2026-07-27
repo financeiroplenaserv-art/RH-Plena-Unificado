@@ -331,7 +331,7 @@ export function CeuMovimentacoesPage() {
             </Select>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
-            <ModuleButton variant="outline" size="sm" onClick={limparFiltros}>
+            <ModuleButton size="sm" onClick={limparFiltros}>
               Limpar
             </ModuleButton>
             <ModuleButton size="sm" onClick={aplicarFiltros}>

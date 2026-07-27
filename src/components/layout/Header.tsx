@@ -1,6 +1,17 @@
-import { Bell, ChevronRight, Menu } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, ChevronRight, LifeBuoy, Menu, ShieldCheck } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { TermoLGPDDialog } from '@/components/layout/TermoLGPDDialog'
+import { SuporteDialog } from '@/components/layout/SuporteDialog'
 import type { Perfil } from '@/types/database'
 
 interface HeaderProps {
@@ -88,6 +99,8 @@ export function Header({ user, onMenuToggle }: HeaderProps) {
   const breadcrumb = buildBreadcrumb(location.pathname)
   const displayName = user.nome || user.email || 'Usuário'
   const perfil = user.nivel_acesso?.toUpperCase() || 'VISUALIZADOR'
+  const [termoAberto, setTermoAberto] = useState(false)
+  const [suporteAberto, setSuporteAberto] = useState(false)
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b border-border bg-card px-4 md:px-6">
@@ -111,21 +124,55 @@ export function Header({ user, onMenuToggle }: HeaderProps) {
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setSuporteAberto(true)}
+          title="Ajuda e suporte"
+          className="flex size-9 items-center justify-center rounded-full border border-input bg-white text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+        >
+          <LifeBuoy className="size-4" />
+        </button>
+
         <button className="relative flex size-9 items-center justify-center rounded-full border border-input bg-white text-muted-foreground transition hover:border-primary/40 hover:text-primary">
           <Bell className="size-4" />
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-red-500" />
         </button>
 
-        <div className="flex items-center gap-2.5 rounded-full border border-input bg-white py-1 pl-1 pr-3">
-          <div className="bg-brand-gradient-soft flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white">
-            {iniciais(displayName)}
-          </div>
-          <div className="hidden leading-tight md:block">
-            <p className="text-[12px] font-semibold text-foreground">{displayName}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary">{perfil}</p>
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2.5 rounded-full border border-input bg-white py-1 pl-1 pr-3 transition hover:border-primary/40"
+            >
+              <div className="bg-brand-gradient-soft flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white">
+                {iniciais(displayName)}
+              </div>
+              <div className="hidden leading-tight md:block text-left">
+                <p className="text-[12px] font-semibold text-foreground">{displayName}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-primary">{perfil}</p>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="leading-tight">
+              <p className="text-sm font-semibold">{displayName}</p>
+              {user.email && <p className="text-xs font-normal text-muted-foreground">{user.email}</p>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setTermoAberto(true)} className="cursor-pointer">
+              <ShieldCheck className="size-4 text-emerald-600" />
+              Termo de privacidade (LGPD)
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setSuporteAberto(true)} className="cursor-pointer">
+              <LifeBuoy className="size-4 text-primary" />
+              Ajuda e suporte
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      <TermoLGPDDialog open={termoAberto} onOpenChange={setTermoAberto} />
+      <SuporteDialog open={suporteAberto} onOpenChange={setSuporteAberto} user={user} />
     </header>
   )
 }

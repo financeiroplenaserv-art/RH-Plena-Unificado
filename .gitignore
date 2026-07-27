@@ -44,3 +44,6 @@ supabase/.temp
 *.njsproj
 *.sln
 *.sw?
+
+# Estado local do Netlify CLI
+.netlify/

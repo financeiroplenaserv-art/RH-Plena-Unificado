@@ -26,6 +26,36 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# Cache longo (7 dias) para o worker do pdfjs (1,2 MB) — não é fingerprintado;
+# 7 dias reduz banda sem risco de versão velha ficar presa por um ano.
+[[headers]]
+  for = "/pdf.worker.min.mjs"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# Cache de 7 dias para imagens/ícones estáticos da raiz (nomes estáveis)
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# Service worker e manifest NUNCA cacheados — o bug do PDF "Plena EA" (23/07)
+# era o SW antigo preso no navegador.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+
 # CSP: deixar desabilitada no piloto. O sistema exibe anexos (imagens, PDFs,
 # áudio/vídeo) vindos do Supabase Storage e usa workers do pdfjs; uma CSP
 # restritiva mal ajustada quebraria esses recursos. Avaliar endurecimento
