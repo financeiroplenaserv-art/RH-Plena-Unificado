@@ -1,6 +1,7 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 27/07/2026 — Netlify resolvido + LGPD/header/botões Limpar + ordenação Férias (DEPLOY FEITO)
+> **Último trabalho:** 27/07/2026 — Netlify resolvido + LGPD/header/botões Limpar + ordenação Férias (DEPLOY FEITO) + fix tela LGPD travada
+> **🐛 27/07/2026 — usuários travados na tela de consentimento LGPD:** a RPC `registrar_consentimento_lgpd` (migration 068) recebia `p_finalidades` como `jsonb` e atribuía direto na coluna `TEXT[]` (migration 036) — erro de tipo no UPDATE, usuário preso na tela. Bug oculto desde 068 porque todos os consentimentos anteriores foram gravados antes dela existir. **Correção: migration 076** (`supabase/migrations/076_fix_consentimento_lgpd_rpc.sql`) — ⚠️ **APLICAR NO SQL EDITOR** (passo a passo em `docs/APLICAR_MIGRATION_076.md`) e validar logando com um usuário teste.
 > **✅ 27/07/2026 (tarde) — LGPD, suporte, botões Limpar e ordenação em Férias (deploy em produção):**
 > - **LGPD não aparecia para usuários teste:** eles foram criados em 26/06 já com `consentimento_lgpd=true`. Resetado para `false` (script `scripts/resetar-consentimento-lgpd-testes.mjs`) — no próximo login cada um vê a tela de consentimento.
 > - **Header novo:** dropdown no chip do usuário (nome, e-mail, "Termo de privacidade (LGPD)" — `TermoLGPDDialog`) e botão de **ajuda/suporte** (ícone de bóia ao lado do sininho — `SuporteDialog`). Suporte envia e-mail via **Edge Function `suporte`** (Resend; endereço oculto no backend). ⚠️ **Pendente:** criar conta no Resend, configurar secret `RESEND_API_KEY` e rodar `supabase functions deploy suporte` — passo a passo em `docs/CONFIGURAR_FUNCAO_SUPORTE.md`. Sem isso o dialog abre mas avisa "Serviço de e-mail não configurado".
