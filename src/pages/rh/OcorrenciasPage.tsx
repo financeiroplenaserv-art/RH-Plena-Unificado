@@ -245,6 +245,10 @@ export function OcorrenciasPage() {
                   value={filtroColaboradorId}
                   onChange={(c) => setFiltroColaboradorId(c?.id)}
                   placeholder="Buscar por colaborador cadastrado..."
+                  // Busca em todos (ativos e inativos): o filtro "Colaborador"
+                  // ao lado é quem restringe por status; aqui o selo de status
+                  // já aparece em cada opção do dropdown.
+                  somenteAtivos={false}
                 />
               ) : (
                 <div className="relative">
