@@ -1,10 +1,10 @@
-import { ClipboardList, Upload, FileStack, Bell } from 'lucide-react'
+import { ClipboardList, FileUp, FileStack, Bell } from 'lucide-react'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import type { ModuleTab } from '@/components/layout/ModuleShell'
 
 const TABS: ModuleTab[] = [
   { path: '/rh/ocorrencias', label: 'Ocorrências', icon: ClipboardList },
-  { path: '/rh/importar', label: 'Importar', icon: Upload },
+  { path: '/rh/ocorrencias/importar-ponto', label: 'Importar Ponto', icon: FileUp },
   { path: '/rh/modelos', label: 'Modelos', icon: FileStack },
   { path: '/rh/alertas', label: 'Alertas', icon: Bell },
 ]
