@@ -262,7 +262,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **72 migrations** em `supabase/migrations/` (numeradas `001_*` a `072_*`).
+- Existem **77 migrations** em `supabase/migrations/` (numeradas `001_*` a `077_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -279,6 +279,11 @@ npx vitest
   - `070_ferias_periodos.sql`
   - `071_ferias_notificacoes.sql`
   - `072_ocorrencia_assinatura.sql`
+  - `073_ceu_recibo_sequencial_situacao.sql`
+  - `074_extras_falta_sem_extra_reforco.sql`
+  - `075_rpc_extra_plantao_gera_extra_reforco.sql`
+  - `076_fix_consentimento_lgpd_rpc.sql`
+  - `077_rpc_extra_plantao_duplicidade_nao_se_aplica.sql`
 
 ### Edge Function `econtador`
 

@@ -11,7 +11,6 @@ function lazyNamed<T extends Record<string, ComponentType<unknown>>>(
 export const OcorrenciasPage = lazyNamed(() => import('@/pages/rh/OcorrenciasPage'), 'OcorrenciasPage')
 export const OcorrenciaFormPage = lazyNamed(() => import('@/pages/rh/OcorrenciaFormPage'), 'OcorrenciaFormPage')
 export const OcorrenciaDetailPage = lazyNamed(() => import('@/pages/rh/OcorrenciaDetailPage'), 'OcorrenciaDetailPage')
-export const ImportarPontoOcorrenciasPage = lazyNamed(() => import('@/pages/rh/ImportarPontoOcorrenciasPage'), 'ImportarPontoOcorrenciasPage')
 export const ColaboradorDetailPage = lazyNamed(() => import('@/pages/rh/ColaboradorDetailPage'), 'ColaboradorDetailPage')
 export const ColaboradorFormPage = lazyNamed(() => import('@/pages/rh/ColaboradorFormPage'), 'ColaboradorFormPage')
 export const ImportarRhPage = lazyNamed(() => import('@/pages/rh/ImportarPage'), 'ImportarPage')

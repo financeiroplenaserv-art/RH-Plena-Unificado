@@ -15,14 +15,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { supabase } from '@/lib/supabase'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
+import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
-import { parsePontoPDF, calcularPeriodoPDF, resumoPonto, normalizarMatricula, type PontoColaborador } from '@/lib/adicionais/importarPonto'
+import { extrairPaginasPosicionais } from '@/lib/pdfPosicional'
+import {
+  parsePaginasEspelho,
+  casarColaborador,
+  planejarOcorrencias,
+  marcarDuplicadas,
+  montarPayloadInsert,
+  formatarDataBR,
+  type ColaboradorResumo,
+  type EspelhoColaborador,
+  type OcorrenciaExistente,
+  type StatusMatch,
+} from '@/lib/ocorrencias/importacaoPonto'
+import {
+  espelhoParaPonto,
+  periodoDosEspelhos,
+  resumoPontoEspelho,
+  type PontoEspelho,
+} from '@/lib/adicionais/importarEspelho'
+import { podeCriarOcorrencia } from '@/lib/permissoes'
+import { mascararCPF } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { StatusDiaAdicional } from '@/types/adicionais'
+import type { Ocorrencia } from '@/types/database'
 
 const EMOJI_STATUS: Record<StatusDiaAdicional, string> = {
   trabalhou: '✅',
@@ -42,94 +65,99 @@ const STATUS_LABELS: Record<StatusDiaAdicional, string> = {
   folga_substituicao: 'FS Folga com substituição',
 }
 
+const TAMANHO_LOTE_OCORRENCIAS = 100
+const TAMANHO_LOTE_IDS = 50
+
+/** Espelho processado: dados do PDF + match do cadastro + estrutura editável da prévia. */
+interface EspelhoProcessado {
+  espelho: EspelhoColaborador
+  ponto: PontoEspelho
+  colaborador: ColaboradorResumo | null
+  match: StatusMatch
+}
+
+/**
+ * Reflete as edições manuais de status da prévia na classificação usada no
+ * planejamento das ocorrências (o parser original não é alterado).
+ */
+function espelhoComEdicoes(proc: EspelhoProcessado): EspelhoColaborador {
+  return {
+    ...proc.espelho,
+    dias: proc.espelho.dias.map((dia, i) => {
+      const editado = proc.ponto.dias[i]
+      if (!editado) return dia
+      if (editado.status === 'falta' && dia.classificacao !== 'falta') {
+        return { ...dia, classificacao: 'falta' as const, categoria: 'Falta' }
+      }
+      // 'afastado' manual vira atestado apenas quando o dia não era afastamento real
+      if (editado.status === 'afastado' && dia.classificacao !== 'atestado' && dia.categoria !== 'Afastado') {
+        return { ...dia, classificacao: 'atestado' as const, categoria: 'Atestado' }
+      }
+      // Dia que era falta/atestado e foi alterado para outro status não gera ocorrência
+      if (
+        (dia.classificacao === 'falta' || dia.classificacao === 'atestado') &&
+        editado.status !== 'falta' &&
+        editado.status !== 'afastado'
+      ) {
+        return { ...dia, classificacao: 'outro' as const }
+      }
+      return dia
+    }),
+  }
+}
+
 export function ImportarPontoPage() {
-  const { contratos, vinculos, calendario, listarVinculos, listarCalendario, salvarDiaCalendario, excluirDiaCalendario, criarVinculo } = useAdicionaisContratuais()
-  const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
+  const { user } = useAuth()
+  const podeLancarOcorrencias = user ? podeCriarOcorrencia(user.nivel_acesso) : false
+  const { vinculos, listarVinculos, listarCalendario, salvarDiaCalendario, excluirDiaCalendario } = useAdicionaisContratuais()
+  const { listarResumido: listarColaboradores } = useColaboradores()
 
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [processando, setProcessando] = useState(false)
-  const [dados, setDados] = useState<PontoColaborador[]>([])
+  const [dados, setDados] = useState<EspelhoProcessado[]>([])
   const [colaboradorExpandido, setColaboradorExpandido] = useState<string | null>(null)
-  const [lancarOcorrencias, setLancarOcorrencias] = useState(false)
+  const [lancarOcorrencias, setLancarOcorrencias] = useState(true)
   const [importando, setImportando] = useState(false)
-  const [resumoImportacao, setResumoImportacao] = useState<{ nome: string; matricula: string; encontrado: boolean }[] | null>(null)
+  const [resumoImportacao, setResumoImportacao] = useState<{ nome: string; cpf: string; matricula: string; encontrado: boolean; diverge: boolean }[] | null>(null)
+  const [existentesOcorrencias, setExistentesOcorrencias] = useState<OcorrenciaExistente[]>([])
+  const [desmarcadasOcorrencias, setDesmarcadasOcorrencias] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /** Chave única da ocorrência planejada (colaborador + início + tipo). */
+  const chavePlanejada = (p: { colaborador: ColaboradorResumo | null; dataInicio: string; tipo: string }) =>
+    `${p.colaborador?.id}|${p.dataInicio}|${p.tipo}`
+
+  // Ocorrências planejadas: recalculadas a partir da prévia, então edições
+  // manuais de status (ex.: falta → trabalhou) suprimem/criam ocorrências.
+  const planejadas = useMemo(() => {
+    const lista = dados.flatMap((p) => planejarOcorrencias(espelhoComEdicoes(p), p.colaborador, p.match))
+    marcarDuplicadas(lista, existentesOcorrencias)
+    return lista
+  }, [dados, existentesOcorrencias])
 
   useEffect(() => {
     listarVinculos()
-    listarColaboradores()
-  }, [listarVinculos, listarColaboradores])
+  }, [listarVinculos])
 
-  const mapColaboradorPorMatricula = useMemo(() => {
-    const m = new Map<string, typeof colaboradores[0]>()
-    ;(colaboradores || []).forEach(c => {
-      const normalizada = normalizarMatricula(c.matricula)
-      if (normalizada) m.set(normalizada, c)
-    })
-    return m
-  }, [colaboradores])
-
-  const mapColaboradorPorNome = useMemo(() => {
-    const m = new Map<string, typeof colaboradores[0]>()
-    ;(colaboradores || []).forEach(c => {
-      m.set(c.nome_completo.toLowerCase().trim(), c)
-    })
-    return m
-  }, [colaboradores])
-
-  const encontrarColaborador = (colaborador: PontoColaborador) => {
-    const matriculaNormalizada = normalizarMatricula(colaborador.matricula)
-    if (matriculaNormalizada) {
-      const porMatricula = mapColaboradorPorMatricula.get(matriculaNormalizada)
-      if (porMatricula) return porMatricula
-    }
-    return mapColaboradorPorNome.get(colaborador.nome.toLowerCase().trim()) || null
-  }
-
-  const encontrarVinculo = (colaboradorId: string, data: string) => {
-    if (!Array.isArray(vinculos)) return null
-    return vinculos.find(v =>
+  /** Todos os vínculos do colaborador que cobrem a data (um colab pode ter 2+ adicionais). */
+  const encontrarVinculos = (colaboradorId: string, data: string) => {
+    if (!Array.isArray(vinculos)) return []
+    return vinculos.filter(v =>
       v.colaborador_id === colaboradorId &&
       v.data_inicio <= data &&
       v.data_fim >= data
-    ) || null
+    )
   }
 
-  const garantirVinculo = async (
-    colaboradorId: string,
-    data: string,
-    periodo: { inicio: string; fim: string } | null,
-    cacheVinculos: Map<string, typeof vinculos[0]>
-  ) => {
-    const cacheado = cacheVinculos.get(colaboradorId)
-    if (cacheado) return cacheado
-
-    const existente = encontrarVinculo(colaboradorId, data)
-    if (existente) return existente
-
-    if (!contratos || contratos.length === 0) {
-      toast.error('Nenhum contrato cadastrado. Cadastre um contrato antes de importar.')
-      return null
-    }
-
-    // Usa o primeiro contrato como padrão para vínculos criados automaticamente
-    const contratoPadrao = contratos[0]
-    const inicio = periodo?.inicio || '2026-01-01'
-    const fim = periodo?.fim || '2026-12-31'
-
-    const novo = await criarVinculo({
-      contrato_id: contratoPadrao.id,
-      colaborador_id: colaboradorId,
-      data_inicio: inicio,
-      data_fim: fim,
-    })
-
-    if (novo) {
-      cacheVinculos.set(colaboradorId, novo)
-      await listarVinculos()
-      return novo
-    }
-    return null
+  /** Badge da prévia: o colaborador tem algum vínculo cobrindo o período do espelho? */
+  const temVinculoNoEspelho = (proc: EspelhoProcessado): boolean => {
+    if (!proc.colaborador || !Array.isArray(vinculos) || proc.ponto.dias.length === 0) return false
+    const datas = proc.ponto.dias.map((d) => d.data)
+    const inicio = datas.reduce((a, b) => (b < a ? b : a))
+    const fim = datas.reduce((a, b) => (b > a ? b : a))
+    return vinculos.some(
+      (v) => v.colaborador_id === proc.colaborador!.id && v.data_inicio <= fim && v.data_fim >= inicio
+    )
   }
 
   const handleSelecionarArquivo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,6 +166,9 @@ export function ImportarPontoPage() {
       setArquivo(file)
       setDados([])
       setResumoImportacao(null)
+      setExistentesOcorrencias([])
+      setDesmarcadasOcorrencias(new Set())
+      setDesmarcadasOcorrencias(new Set())
     }
   }
 
@@ -145,25 +176,59 @@ export function ImportarPontoPage() {
     if (!arquivo) return
     setProcessando(true)
     try {
-      const resultado = await parsePontoPDF(arquivo)
-      setDados(resultado)
-      if (resultado.length === 0) {
-        toast.warning('Nenhum dado de ponto encontrado no PDF')
+      const paginas = await extrairPaginasPosicionais(arquivo)
+      const espelhos = parsePaginasEspelho(paginas).filter((e) => e.dias.length > 0)
+      if (espelhos.length === 0) {
+        toast.warning('Nenhum espelho de ponto reconhecido neste PDF. Confira se é o relatório “CORH - Adicionais e Ocorrências” exportado do Flit.')
+        setDados([])
         setResumoImportacao([])
-      } else {
-        const resumo = resultado.map(c => {
-          const col = encontrarColaborador(c)
-          return { nome: c.nome, matricula: c.matricula, encontrado: !!col }
-        })
-        setResumoImportacao(resumo)
-        resumo.forEach(r => {
-          if (r.encontrado) {
-            toast.success(`Colaborador encontrado: ${r.nome} (Matrícula: ${r.matricula || '—'})`)
-          } else {
-            toast.error(`Colaborador NÃO encontrado: ${r.nome} (Matrícula: ${r.matricula || '—'}) - Verificar cadastro`)
-          }
-        })
+        return
       }
+
+      const colaboradores = await listarColaboradores()
+
+      const processados: EspelhoProcessado[] = espelhos.map((espelho) => {
+        const { colaborador, match } = casarColaborador(espelho, colaboradores)
+        return { espelho, colaborador, match, ponto: espelhoParaPonto(espelho, colaborador) }
+      })
+      setDados(processados)
+
+      // Deduplicação das ocorrências contra o banco (as planejadas são
+      // recalculadas por memo a partir de `dados` + esta lista de existentes)
+      const periodo = periodoDosEspelhos(espelhos)
+      const ids = [...new Set(processados.map((p) => p.colaborador?.id).filter(Boolean))] as string[]
+      let existentes: OcorrenciaExistente[] = []
+      if (ids.length > 0 && periodo) {
+        for (let i = 0; i < ids.length; i += TAMANHO_LOTE_IDS) {
+          const { data, error } = await supabase
+            .from('ocorrencias')
+            .select('colaborador_id, data_ocorrencia, tipo_ocorrencia')
+            .in('colaborador_id', ids.slice(i, i + TAMANHO_LOTE_IDS))
+            .gte('data_ocorrencia', periodo.inicio)
+            .lte('data_ocorrencia', periodo.fim)
+          if (error) throw new Error('Erro ao verificar duplicidades: ' + error.message)
+          existentes = existentes.concat((data as OcorrenciaExistente[]) || [])
+        }
+      }
+      setExistentesOcorrencias(existentes)
+
+      const resumo = processados.map((p) => ({
+        nome: p.ponto.nome,
+        cpf: p.espelho.cpfPdf,
+        matricula: p.ponto.matricula,
+        encontrado: !!p.colaborador,
+        diverge: p.match === 'NOME_DIVERGE',
+      }))
+      setResumoImportacao(resumo)
+      resumo.forEach(r => {
+        if (r.diverge) {
+          toast.warning(`Nome diverge do cadastro: ${r.nome} (CPF: ${r.cpf || '—'}) — casado pelo CPF`)
+        } else if (r.encontrado) {
+          toast.success(`Colaborador encontrado: ${r.nome} (Matrícula: ${r.matricula || '—'})`)
+        } else {
+          toast.error(`Colaborador NÃO encontrado: ${r.nome} (CPF: ${r.cpf || '—'}) - Verificar cadastro`)
+        }
+      })
     } catch (err) {
       console.error('Erro ao processar PDF de ponto:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao processar PDF')
@@ -175,31 +240,35 @@ export function ImportarPontoPage() {
   const handleAlterarStatus = (idxColaborador: number, idxDia: number, status: StatusDiaAdicional) => {
     setDados(prev => {
       const novo = [...prev]
-      novo[idxColaborador] = { ...novo[idxColaborador] }
-      novo[idxColaborador].dias = [...novo[idxColaborador].dias]
-      novo[idxColaborador].dias[idxDia] = { ...novo[idxColaborador].dias[idxDia], status, revisao: false }
+      const alvo = novo[idxColaborador]
+      const dias = [...alvo.ponto.dias]
+      dias[idxDia] = { ...dias[idxDia], status, revisao: false }
+      novo[idxColaborador] = { ...alvo, ponto: { ...alvo.ponto, dias } }
       return novo
     })
   }
 
   const handleConfirmar = async () => {
+    if (!user) return
     setImportando(true)
     let importados = 0
     let naoEncontrados = 0
 
-    const periodo = calcularPeriodoPDF(dados)
+    const periodo = periodoDosEspelhos(dados.map(d => d.espelho))
     if (periodo) {
+      // Carrega o calendário do período ANTES de excluir: o estado `calendario`
+      // não é carregado nesta tela, então a exclusão precisa do retorno da busca.
+      const calendarioPeriodo = await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
+
       const vinculosAfetados = new Set<string>()
       for (const c of dados) {
-        const colaborador = encontrarColaborador(c)
-        if (!colaborador) continue
-        for (const dia of c.dias) {
-          const vinculo = encontrarVinculo(colaborador.id, dia.data)
-          if (vinculo) vinculosAfetados.add(vinculo.id)
+        if (!c.colaborador) continue
+        for (const dia of c.ponto.dias) {
+          for (const v of encontrarVinculos(c.colaborador.id, dia.data)) vinculosAfetados.add(v.id)
         }
       }
 
-      const diasParaExcluir = calendario.filter(d =>
+      const diasParaExcluir = (calendarioPeriodo || []).filter(d =>
         vinculosAfetados.has(d.vinculo_id) &&
         d.data >= periodo.inicio &&
         d.data <= periodo.fim
@@ -211,26 +280,33 @@ export function ImportarPontoPage() {
       }
     }
 
-    const cacheVinculos = new Map<string, typeof vinculos[0]>()
+    // Colaboradores sem vínculo NÃO têm dias importados para o calendário
+    // (adicionais são exceção — vínculo é criado manualmente na aba Vínculos).
+    // As ocorrências deles são lançadas normalmente mais abaixo.
+    const semVinculo = new Set<string>()
 
     for (const c of dados) {
-      const colaborador = encontrarColaborador(c)
-      if (!colaborador) {
+      if (!c.colaborador) {
         naoEncontrados++
         continue
       }
 
-      for (const dia of c.dias) {
-        const vinculo = await garantirVinculo(colaborador.id, dia.data, periodo, cacheVinculos)
-        if (!vinculo) continue
-
-        await salvarDiaCalendario({
-          vinculo_id: vinculo.id,
-          data: dia.data,
-          status: dia.status,
-          intrajornada: false,
-        })
-        importados++
+      for (const dia of c.ponto.dias) {
+        const vinculosDia = encontrarVinculos(c.colaborador.id, dia.data)
+        if (vinculosDia.length === 0) {
+          semVinculo.add(c.colaborador.id)
+          continue
+        }
+        // Um colaborador pode ter mais de um vínculo (ex.: 2 adicionais) — grava em todos
+        for (const vinculo of vinculosDia) {
+          await salvarDiaCalendario({
+            vinculo_id: vinculo.id,
+            data: dia.data,
+            status: dia.status,
+            intrajornada: false,
+          })
+          importados++
+        }
       }
     }
 
@@ -238,13 +314,56 @@ export function ImportarPontoPage() {
       await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
     }
 
+    // Lançamento das ocorrências (opcional, ligado por padrão para quem tem permissão)
+    let ocorrenciasCriadas = 0
+    let duplicadasIgnoradas = 0
+    const errosOcorrencias: string[] = []
+    if (lancarOcorrencias && podeLancarOcorrencias) {
+      // As planejadas (memo) já refletem as edições manuais de status da prévia;
+      // desmarcadas na lista não são inseridas
+      const validas = planejadas.filter(
+        (p) => !p.duplicada && p.match === 'OK' && p.colaborador && !desmarcadasOcorrencias.has(chavePlanejada(p))
+      )
+      duplicadasIgnoradas = planejadas.filter((p) => p.duplicada).length
+
+      for (let i = 0; i < validas.length; i += TAMANHO_LOTE_OCORRENCIAS) {
+        const lote = validas.slice(i, i + TAMANHO_LOTE_OCORRENCIAS)
+        const payloads = lote.map((p) => montarPayloadInsert(p, user.id))
+        const { error } = await supabase
+          .from('ocorrencias')
+          .insert(payloads as Partial<Ocorrencia>[])
+        if (error) {
+          errosOcorrencias.push(`Lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1}: ${error.message}`)
+        } else {
+          ocorrenciasCriadas += lote.length
+        }
+      }
+    }
+
     setImportando(false)
-    toast.success(`${importados} dia(s) importado(s)`)
+    const partes = [`${importados} dia(s) importado(s)`]
+    if (lancarOcorrencias && podeLancarOcorrencias) {
+      partes.push(`${ocorrenciasCriadas} ocorrência(s) criada(s)`)
+      if (duplicadasIgnoradas > 0) partes.push(`${duplicadasIgnoradas} duplicada(s) ignorada(s)`)
+    }
+    toast.success(partes.join(', '))
+    if (errosOcorrencias.length > 0) {
+      toast.warning(`Erro ao criar ocorrências: ${errosOcorrencias.join(' | ')}`)
+    }
     if (naoEncontrados > 0) {
       toast.warning(`${naoEncontrados} colaborador(es) não encontrado(s)`)
     }
+    if (semVinculo.size > 0) {
+      toast.warning(
+        `${semVinculo.size} colaborador(es) sem vínculo de adicional — dias não importados para o calendário (ocorrências lançadas normalmente).`,
+        { duration: 6000 }
+      )
+    }
     setDados([])
     setArquivo(null)
+    setResumoImportacao(null)
+    setExistentesOcorrencias([])
+    setDesmarcadasOcorrencias(new Set())
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -252,14 +371,48 @@ export function ImportarPontoPage() {
     setArquivo(null)
     setDados([])
     setResumoImportacao(null)
+    setExistentesOcorrencias([])
+    setDesmarcadasOcorrencias(new Set())
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const temRevisao = dados.some(c => c.dias.some(d => d.revisao))
+  const temRevisao = dados.some(c => c.ponto.dias.some(d => d.revisao))
+
+  const resumoOcorrencias = useMemo(() => ({
+    faltas: planejadas.filter((p) => p.tipo === 'Falta Injustificada' && !p.duplicada && p.match === 'OK').length,
+    atestados: planejadas.filter((p) => p.tipo === 'Falta Justificada (atestado)' && !p.duplicada && p.match === 'OK').length,
+    licencas: planejadas.filter((p) => p.tipo.startsWith('Licença Médica') && !p.duplicada && p.match === 'OK').length,
+    duplicadas: planejadas.filter((p) => p.duplicada).length,
+  }), [planejadas])
+
+  // Linhas da prévia de ocorrências (só match OK) e contagem das selecionadas
+  const ocorrenciasVisiveis = planejadas.filter((p) => p.colaborador && p.match === 'OK')
+  const selecionadasOcorrencias = ocorrenciasVisiveis.filter(
+    (p) => !p.duplicada && !desmarcadasOcorrencias.has(chavePlanejada(p))
+  )
+  const todasMarcadas = selecionadasOcorrencias.length === ocorrenciasVisiveis.filter((p) => !p.duplicada).length
+
+  const toggleOcorrencia = (p: (typeof ocorrenciasVisiveis)[number]) => {
+    const chave = chavePlanejada(p)
+    setDesmarcadasOcorrencias((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(chave)) novo.delete(chave)
+      else novo.add(chave)
+      return novo
+    })
+  }
+
+  const toggleTodasOcorrencias = () => {
+    if (todasMarcadas) {
+      setDesmarcadasOcorrencias(new Set(ocorrenciasVisiveis.filter((p) => !p.duplicada).map(chavePlanejada)))
+    } else {
+      setDesmarcadasOcorrencias(new Set())
+    }
+  }
 
   return (
     <AdicionaisShell>
-      <PageHeader backTo="/adicionais/contratos" title="Importar Ponto" description="Importe o PDF do ponto para preencher o calendário automaticamente" />
+      <PageHeader backTo="/adicionais/contratos" title="Importar Ponto" description="Exporte do Flit o relatório “CORH - Adicionais e Ocorrências” (PDF) e importe aqui: o mesmo arquivo preenche o calendário dos adicionais e lança as ocorrências de faltas e atestados" />
 
       <ModuleCard title="Upload do PDF">
         <div className="space-y-4">
@@ -299,11 +452,15 @@ export function ImportarPontoPage() {
               <div
                 key={idx}
                 className="flex items-center justify-between text-sm px-3 py-2 rounded-lg"
-                style={{ backgroundColor: r.encontrado ? '#F0FDF4' : '#FEF2F2', color: r.encontrado ? '#166534' : '#991B1B' }}
+                style={{
+                  backgroundColor: r.encontrado && !r.diverge ? '#F0FDF4' : r.diverge ? '#FFFBEB' : '#FEF2F2',
+                  color: r.encontrado && !r.diverge ? '#166534' : r.diverge ? '#92400E' : '#991B1B',
+                }}
               >
                 <span className="font-medium">{r.nome}</span>
                 <span>
-                  Matrícula: {r.matricula || '—'} — {r.encontrado ? '✅ Encontrado' : '⚠️ Não encontrado'}
+                  CPF: {mascararCPF(r.cpf) || '—'} — Matrícula: {r.matricula || '—'} —{' '}
+                  {r.diverge ? '⚠️ Nome diverge (casado pelo CPF)' : r.encontrado ? '✅ Encontrado' : '⚠️ Não encontrado'}
                 </span>
               </div>
             ))}
@@ -323,8 +480,7 @@ export function ImportarPontoPage() {
 
             <div className="space-y-3">
               {dados.map((c, idxColaborador) => {
-                const resumo = resumoPonto(c)
-                const colaborador = encontrarColaborador(c)
+                const resumo = resumoPontoEspelho(c.ponto)
                 const expandido = colaboradorExpandido === `${idxColaborador}`
                 return (
                   <div key={idxColaborador} className="border rounded-xl overflow-hidden" style={{ borderColor: '#E2E8F0' }}>
@@ -334,8 +490,12 @@ export function ImportarPontoPage() {
                       className="w-full px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50 text-left"
                     >
                       <div>
-                        <div className="font-medium" style={{ color: '#1F2937' }}>{c.nome}</div>
-                        <div className="text-xs" style={{ color: '#94A3B8' }}>Matrícula: {c.matricula || '—'} {colaborador ? '✅ Encontrado' : '⚠️ Não encontrado'}</div>
+                        <div className="font-medium" style={{ color: '#1F2937' }}>{c.ponto.nome}</div>
+                        <div className="text-xs" style={{ color: '#94A3B8' }}>
+                          CPF: {mascararCPF(c.espelho.cpfPdf) || '—'} — Matrícula: {c.ponto.matricula || '—'}{' '}
+                          {c.match === 'NOME_DIVERGE' ? '⚠️ Nome diverge' : c.colaborador ? '✅ Encontrado' : '⚠️ Não encontrado'}
+                          {c.colaborador && (temVinculoNoEspelho(c) ? ' — 🔗 Com vínculo' : ' — ⚠️ Sem vínculo (só ocorrências)')}
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2 text-xs">
                         <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700">✅ {resumo.trabalhou}</span>
@@ -358,7 +518,7 @@ export function ImportarPontoPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {c.dias.map((dia, idxDia) => (
+                            {c.ponto.dias.map((dia, idxDia) => (
                               <TableRow key={idxDia} className="hover:bg-slate-50">
                                 <TableCell style={{ color: '#1F2937' }}>{dia.dataOriginal}</TableCell>
                                 <TableCell>
@@ -392,17 +552,91 @@ export function ImportarPontoPage() {
             </div>
           </ModuleCard>
 
-          <ModuleCard title="Opções">
-            <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1F2937' }}>
-              <input
-                type="checkbox"
-                checked={lancarOcorrencias}
-                onChange={e => setLancarOcorrencias(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300"
-              />
-              Lançar ocorrências automaticamente para Faltas e Atestados (opcional, futuro)
-            </label>
-          </ModuleCard>
+          {podeLancarOcorrencias && (
+            <>
+            <ModuleCard title="Opções">
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1F2937' }}>
+                <input
+                  type="checkbox"
+                  checked={lancarOcorrencias}
+                  onChange={e => setLancarOcorrencias(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300"
+                />
+                Lançar ocorrências automaticamente para Faltas e Atestados
+              </label>
+              {lancarOcorrencias && planejadas.length > 0 && (
+                <p className="mt-2 text-xs" style={{ color: '#64748B' }}>
+                  Serão criadas: {resumoOcorrencias.faltas} falta(s), {resumoOcorrencias.atestados} atestado(s),{' '}
+                  {resumoOcorrencias.licencas} licença(s) médica(s).
+                  {resumoOcorrencias.duplicadas > 0 && ` ${resumoOcorrencias.duplicadas} ocorrência(s) já existente(s) será(ão) ignorada(s).`}
+                </p>
+              )}
+            </ModuleCard>
+
+            {lancarOcorrencias && ocorrenciasVisiveis.length > 0 && (
+              <ModuleCard title={`Ocorrências que serão lançadas (${selecionadasOcorrencias.length})`}>
+                <div className="mb-2">
+                  <button type="button" onClick={toggleTodasOcorrencias} className="text-xs text-[#0F6CBD] hover:underline">
+                    {todasMarcadas ? 'Desmarcar todas' : 'Marcar todas'}
+                  </button>
+                </div>
+                <div className="border rounded-lg overflow-hidden border-slate-200 max-h-96 overflow-y-auto">
+                  <Table>
+                    <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
+                      <TableRow>
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead style={{ color: '#1F2937' }}>Colaborador</TableHead>
+                        <TableHead style={{ color: '#1F2937' }}>Tipo</TableHead>
+                        <TableHead style={{ color: '#1F2937' }}>Período</TableHead>
+                        <TableHead style={{ color: '#1F2937' }}>Dias</TableHead>
+                        <TableHead style={{ color: '#1F2937' }}>Status inicial</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ocorrenciasVisiveis.map((p) => {
+                        const chave = chavePlanejada(p)
+                        const marcada = !p.duplicada && !desmarcadasOcorrencias.has(chave)
+                        return (
+                          <TableRow key={chave} className={p.duplicada ? 'opacity-50' : marcada ? 'hover:bg-slate-50' : 'opacity-60 hover:bg-slate-50'}>
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                checked={marcada}
+                                disabled={p.duplicada}
+                                onChange={() => toggleOcorrencia(p)}
+                                className="h-4 w-4 accent-[#0F6CBD] disabled:opacity-30"
+                              />
+                            </TableCell>
+                            <TableCell style={{ color: '#1F2937' }}>{p.colaborador!.nome_completo}</TableCell>
+                            <TableCell style={{ color: '#1F2937' }}>{p.titulo}</TableCell>
+                            <TableCell className="whitespace-nowrap" style={{ color: '#64748B' }}>
+                              {p.dataInicio === p.dataFim
+                                ? formatarDataBR(p.dataInicio)
+                                : `${formatarDataBR(p.dataInicio)} a ${formatarDataBR(p.dataFim)}`}
+                            </TableCell>
+                            <TableCell style={{ color: '#64748B' }}>{p.dias}</TableCell>
+                            <TableCell>
+                              {p.duplicada ? (
+                                <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-500">Já existe — será ignorada</span>
+                              ) : p.status === 'Pendente' ? (
+                                <span className="px-2 py-1 rounded text-xs bg-amber-50 text-amber-700">Pendente (aguarda anexo)</span>
+                              ) : (
+                                <span className="px-2 py-1 rounded text-xs bg-emerald-50 text-emerald-700">Ativa</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="mt-2 text-xs" style={{ color: '#94A3B8' }}>
+                  Linhas esmaecidas já existem no banco e não serão criadas novamente. Desmarque as que não devem ser lançadas.
+                </p>
+              </ModuleCard>
+            )}
+            </>
+          )}
 
           <div className="flex gap-2">
             <ModuleButton onClick={handleConfirmar} disabled={importando}>

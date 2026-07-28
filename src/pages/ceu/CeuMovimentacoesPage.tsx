@@ -81,7 +81,8 @@ export function CeuMovimentacoesPage() {
     direcao: 'desc',
   })
   const [removerId, setRemoverId] = useState<string | null>(null)
-  const [devolverId, setDevolverId] = useState<string | null>(null)
+  const [devolverItens, setDevolverItens] = useState<EntregaCEU[] | null>(null)
+  const [selecionadosDevolver, setSelecionadosDevolver] = useState<string[]>([])
   const [dataDevolucao, setDataDevolucao] = useState(new Date().toISOString().split('T')[0])
   const [modalRecibo, setModalRecibo] = useState(false)
   const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | DadosEntrega[] | null>(null)
@@ -182,10 +183,18 @@ export function CeuMovimentacoesPage() {
     setChaveFiltro((k) => k + 1)
   }
 
-  const handleDevolver = async (id: string) => {
-    await devolver(id, dataDevolucao)
-    setDevolverId(null)
+  const handleDevolver = async () => {
+    if (selecionadosDevolver.length === 0) return
+    for (const id of selecionadosDevolver) {
+      await devolver(id, dataDevolucao)
+    }
+    setDevolverItens(null)
+    setSelecionadosDevolver([])
     listar()
+  }
+
+  const toggleSelecionadoDevolver = (id: string) => {
+    setSelecionadosDevolver((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]))
   }
 
   const handleRemover = async (id: string) => {
@@ -423,7 +432,16 @@ export function CeuMovimentacoesPage() {
                               </ModuleButton>
                             )}
                             {emAberto && podeDevolver && (
-                              <ModuleButton variant="ghost" size="icon" onClick={() => setDevolverId(mov.entregas.find((e) => !e.data_devolucao)!.id)} className="h-8 w-8" title="Registrar devolução">
+                              <ModuleButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setDevolverItens(mov.entregas.filter((e) => !e.data_devolucao))
+                                  setSelecionadosDevolver([])
+                                }}
+                                className="h-8 w-8"
+                                title="Registrar devolução"
+                              >
                                 <RotateCcw className="w-4 h-4" />
                               </ModuleButton>
                             )}
@@ -470,12 +488,54 @@ export function CeuMovimentacoesPage() {
         )}
       </ModuleCard>
 
-      <CeuDialog open={!!devolverId} onOpenChange={(open) => !open && setDevolverId(null)} title="Registrar devolução" description="Informe a data de devolução do item.">
+      <CeuDialog
+        open={!!devolverItens}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDevolverItens(null)
+            setSelecionadosDevolver([])
+          }
+        }}
+        title="Registrar devolução"
+        description="Marque os itens devolvidos e informe a data da devolução."
+      >
         <div className="bg-white rounded-lg">
+          <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+            {(devolverItens ?? []).map((e) => {
+              const nome = e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'
+              const tipo = e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo
+              const marcado = selecionadosDevolver.includes(e.id)
+              return (
+                <label key={e.id} className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={marcado}
+                    onChange={() => toggleSelecionadoDevolver(e.id)}
+                    className="h-4 w-4 accent-[#0F6CBD]"
+                  />
+                  <span className={cn('w-2 h-2 rounded-full shrink-0', corPorTipo(tipo))} />
+                  <span className="text-sm">
+                    {nome} <span className="text-slate-500">({e.quantidade})</span>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
           <Input type="date" value={dataDevolucao} onChange={(e) => setDataDevolucao(e.target.value)} />
           <div className="flex justify-end gap-2 mt-4">
-            <ModuleButton variant="outline" size="sm" onClick={() => setDevolverId(null)}>Cancelar</ModuleButton>
-            <ModuleButton size="sm" onClick={() => devolverId && handleDevolver(devolverId)}>Confirmar</ModuleButton>
+            <ModuleButton
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDevolverItens(null)
+                setSelecionadosDevolver([])
+              }}
+            >
+              Cancelar
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleDevolver} disabled={selecionadosDevolver.length === 0}>
+              Confirmar ({selecionadosDevolver.length})
+            </ModuleButton>
           </div>
         </div>
       </CeuDialog>

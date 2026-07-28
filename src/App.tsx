@@ -32,7 +32,6 @@ import {
   OcorrenciasPage,
   OcorrenciaFormPage,
   OcorrenciaDetailPage,
-  ImportarPontoOcorrenciasPage,
   ColaboradorDetailPage,
   ColaboradorFormPage,
   ImportarRhPage,
@@ -246,14 +245,6 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ocorrencias' }}>
                     <OcorrenciasPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/rh/ocorrencias/importar-ponto"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ocorrencias' }}>
-                    <ImportarPontoOcorrenciasPage />
                   </ProtectedRoute>
                 }
               />
