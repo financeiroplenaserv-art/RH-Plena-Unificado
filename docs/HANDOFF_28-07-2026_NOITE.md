@@ -8,6 +8,8 @@
 > - `483c42d` — fix(adicionais): timeout por etapa + marcadores de console
 > - `249fc81` — fix(adicionais): **calendário em lote (CAUSA RAIZ)**
 > - `a111f77` — fix(ocorrencias): autocomplete busca também inativos
+> - `73c62a4` — docs: este handoff
+> - (fim da noite) — fix(seguranca): migration 078 remove 27 tabelas de backup sem RLS (alerta crítico Supabase) — ver seção 7
 
 ---
 
@@ -60,3 +62,17 @@
 - PWA: após deploy, orientar **Ctrl+Shift+R**.
 - PDFs com dados pessoais (espelhos Flit) ficam em `dados-locais/` (gitignored) — nunca em `public/`.
 - A importação unificada usa o relatório Flit **"CORH - Adicionais e Ocorrências"**; matching por CPF; **não cria vínculos** (dias só vão ao calendário de quem já tem vínculo).
+
+---
+
+## 7. ✅ Segurança — tabelas de backup expostas (RESOLVIDO em 28/07, fim da noite)
+
+- **Alerta do Supabase** (e-mail, "issues as of 26 Jul 2026"): `rls_disabled_in_public` — CRITICAL, projeto PLENA EA.
+- **Causa:** 27 tabelas `*_backup_2026_07_16` criadas manualmente no SQL Editor em 16/07 (backup pré-manutenção), sem RLS e expostas via PostgREST — qualquer pessoa com a URL + anon key lia `colaboradores` (CPF — LGPD), `ocorrencias`, `perfis`, `configuracoes`, etc. Confirmado por sonda anônima (das 97 rotas expostas, só os backups vazavam; o resto do banco estava blindado).
+- **Correção (decisão da usuária: apagar):** migration `078_remove_tabelas_backup_2026_07_16.sql` (27 `DROP TABLE ... cascade`), executada via **`npx supabase db query --linked`** em 28/07/2026.
+- **Verificação pós-correção:** 0 tabelas de backup restantes; `supabase db advisors --linked --type security --level error` → **"No issues found"**; sonda anônima re-executada → **nenhuma tabela acessível sem login**.
+- **Notas operacionais descobertas nesta sessão:**
+  - `npx supabase link --project-ref jmdjdogskvybsdjtmpmb` foi feito (CLI não estava linkado).
+  - O CLI falha ao parsear o `.env` local — contornar renomeando temporariamente (`mv .env .env.bak && <comando>; mv .env.bak .env`).
+  - `supabase db query --linked` executa SQL direto no remoto (sem Docker); `db dump` exige Docker; **nunca usar `db push`** — as migrations foram aplicadas manualmente e não constam no histórico remoto (push tentaria reaplicar tudo).
+  - Sonda de exposição: script que lista as rotas do PostgREST (spec via service key) e testa cada uma com a anon key sem login — reproduzível se o alerta voltar.

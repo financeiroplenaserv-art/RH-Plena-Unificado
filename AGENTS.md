@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 77 migrations SQL (numeradas 001 a 077)
+├── migrations/             # 78 migrations SQL (numeradas 001 a 078)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **77 migrations** em `supabase/migrations/` (numeradas `001_*` a `077_*`).
+- Existem **78 migrations** em `supabase/migrations/` (numeradas `001_*` a `078_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -288,6 +288,7 @@ npx vitest
   - `075_rpc_extra_plantao_gera_extra_reforco.sql`
   - `076_fix_consentimento_lgpd_rpc.sql`
   - `077_rpc_extra_plantao_duplicidade_nao_se_aplica.sql`
+  - `078_remove_tabelas_backup_2026_07_16.sql` (remove 27 tabelas de backup manuais sem RLS — alerta crítico do Security Advisor)
 
 ### Edge Function `econtador`
 

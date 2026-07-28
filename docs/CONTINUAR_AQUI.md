@@ -1,6 +1,6 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 28/07/2026 (noite) — **Bug "Importando..." RESOLVIDO** (causa raiz: calendário dia-a-dia → operações em lote) + autocomplete de Ocorrências busca inativos + AGENTS.md atualizado (commits `3eab1ae`, `483c42d`, `249fc81`, `a111f77`, `b8cfd53`; push e deploy Netlify feitos; lembrar usuários de Ctrl+Shift+R por causa do PWA)
+> **Último trabalho:** 28/07/2026 (noite) — **Bug "Importando..." RESOLVIDO** (causa raiz: calendário dia-a-dia → operações em lote) + autocomplete de Ocorrências busca inativos + **27 tabelas de backup sem RLS removidas** (alerta crítico do Supabase; migration 078) + AGENTS.md atualizado (push e deploy Netlify feitos; lembrar usuários de Ctrl+Shift+R por causa do PWA)
 > **Relatório da noite:** `docs/HANDOFF_28-07-2026_NOITE.md` (o relatório do dia não foi escrito em arquivo separado — o resumo do dia está logo abaixo neste arquivo)
 >
 > ## ✅ 28/07/2026 — Pacote em produção (2º deploy do dia)
