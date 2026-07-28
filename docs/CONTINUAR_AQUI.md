@@ -1,6 +1,6 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 28/07/2026 — Importação de ponto UNIFICADA (Adicionais + Ocorrências) + CEU devolução por item + Extras duplicidade (TUDO EM PRODUÇÃO)
+> **Último trabalho:** 28/07/2026 — Importação de ponto UNIFICADA (Adicionais + Ocorrências) + CEU devolução por item + Extras duplicidade (TUDO EM PRODUÇÃO — commit `ebf102c`, deploy Netlify feito no fim do dia; lembrar usuários de Ctrl+Shift+R por causa do PWA)
 > **Relatório do dia:** `docs/HANDOFF_28-07-2026.md`
 >
 > ## ✅ 28/07/2026 — Pacote em produção (2º deploy do dia)
