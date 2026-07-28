@@ -1,7 +1,7 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 28/07/2026 — Importação de ponto UNIFICADA (Adicionais + Ocorrências) + CEU devolução por item + Extras duplicidade (TUDO EM PRODUÇÃO — commit `ebf102c`, deploy Netlify feito no fim do dia; lembrar usuários de Ctrl+Shift+R por causa do PWA)
-> **Relatório do dia:** `docs/HANDOFF_28-07-2026.md`
+> **Último trabalho:** 28/07/2026 (noite) — **Bug "Importando..." RESOLVIDO** (causa raiz: calendário dia-a-dia → operações em lote) + autocomplete de Ocorrências busca inativos + AGENTS.md atualizado (commits `3eab1ae`, `483c42d`, `249fc81`, `a111f77`, `b8cfd53`; push e deploy Netlify feitos; lembrar usuários de Ctrl+Shift+R por causa do PWA)
+> **Relatório da noite:** `docs/HANDOFF_28-07-2026_NOITE.md` (o relatório do dia não foi escrito em arquivo separado — o resumo do dia está logo abaixo neste arquivo)
 >
 > ## ✅ 28/07/2026 — Pacote em produção (2º deploy do dia)
 > - **Importação de ponto UNIFICADA (Adicionais + Ocorrências)**: um único upload do espelho Flit **com CPF** alimenta os dois módulos. **O relatório no Flit se chama "CORH - Adicionais e Ocorrências"** (a tela instrui esse nome). A tela única ficou em **Adicionais → Importar Ponto** (`/adicionais/importar-ponto`): grava os dias em `calendario_adicionais` e, com o checkbox "Lançar ocorrências..." (agora funcional, **ligado por padrão**), cria as ocorrências com as regras já validadas (fusão de atestados, tipo por duração, deduplicação). A aba "Importar Ponto" das Ocorrências virou atalho para essa tela; a página `/rh/ocorrencias/importar-ponto` foi removida. Motor: parser posicional único (`src/lib/ocorrencias/importacaoPonto.ts` + novo `src/lib/pdfPosicional.ts` + mapeamento `src/lib/adicionais/importarEspelho.ts`, 14 testes novos). Matching por CPF para os dois lados. Defaults documentados: Suspensão→falta, Falta BH→folga, Feriado→folga (ajustáveis se a usuária decidir diferente).
