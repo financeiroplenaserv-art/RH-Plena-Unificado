@@ -24,7 +24,7 @@
 > - **Chave do Resend rotacionada** em 28/07 (nova chave no painel Resend + `supabase secrets set RESEND_API_KEY=...`); pendência do handoff 27/07 encerrada. Fluxo LGPD com usuário teste validado pela usuária.
 > - Teste de importação real: 1 ocorrência (falta do Adriano) importada pela usuária como teste — as demais 61 ficam para quando ela decidir; a tela marcará as já importadas como duplicadas.
 >
-> **AGENTS.md raiz está desatualizado:** diz 72 migrations, mas existem **77** (073–077 aplicadas; ver `supabase/migrations/`). Atualizar na próxima rodada de docs.
+> ~~**AGENTS.md raiz está desatualizado**~~ — ✅ atualizado em 28/07/2026 (77 migrations, Edge Function `suporte`, módulo Férias, importação unificada, contagem de testes).
 >
 > **Relatório anterior:** 27/07/2026 — Netlify resolvido + LGPD/header/botões Limpar + ordenação Férias + suporte por e-mail (TUDO EM PRODUÇÃO)
 > **Relatório do dia:** `docs/HANDOFF_27-07-2026.md`

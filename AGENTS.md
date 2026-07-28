@@ -16,6 +16,7 @@
 - **Extras** — lançamentos, categorias, recibos de pagamento e assinatura digital.
 - **e-Contador** — importação de empresas e funcionários da API Alterdata e-Contador.
 - **Escalas** — locais de trabalho, mapeamento FLIT e importação de escala.
+- **Férias** — períodos por colaborador (gozo/agendado/previsto), importação da planilha Flit, painel CLT e notificações.
 
 O backend (banco, autenticação, storage, edge functions) roda no **Supabase**. O frontend é uma SPA/PWA estática gerada pelo **Vite**.
 
@@ -85,11 +86,14 @@ src/
 │   ├── storage.ts        # Upload/download de arquivos no Supabase Storage
 │   ├── importar.ts       # Lógica de importação CSV/Excel genérica
 │   ├── pdf.ts            # Geração de PDFs
+│   ├── pdfPosicional.ts  # Parser posicional de PDF (espelho de ponto Flit)
+│   ├── empresas.ts       # Resolução da empresa do colaborador (recibos/PDFs)
 │   ├── adicionais/       # Cálculos e importação de ponto para adicionais
+│   ├── ceu/              # Emissão unificada de recibos do CEU
 │   ├── ceuRecibos.ts     # Lógica de recibos do CEU
 │   ├── escalas/          # Importação de escala FLIT e inferência de local
 │   ├── ferias/           # Parser da planilha de férias do Flit e cálculo CLT
-│   ├── ocorrencias/      # Tipos e classificação de ocorrências
+│   ├── ocorrencias/      # Tipos, classificação e importação de ponto (espelho Flit) de ocorrências
 │   └── vr/               # Cálculo de VR, parsers PDF/Excel, comprovantes e storage
 ├── services/
 │   └── econtadorApi.ts   # Cliente para a Edge Function econtador
@@ -103,8 +107,8 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 72 migrations SQL (numeradas 001 a 072)
-└── functions/econtador/    # Edge Function Deno para integração e-Contador
+├── migrations/             # 77 migrations SQL (numeradas 001 a 077)
+└── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
 public/                   # Assets estáticos (ícones, logo, OG image, manifest)
@@ -176,7 +180,7 @@ npm run test:adicionais
 
 - `npm run lint` — **passa**.
 - `npm run build` — **passa** (gera `dist/` com PWA e service worker).
-- `npm test` — **151 testes passam, 1 falha esperada por ambiente**:
+- `npm test` — **189 testes passam, 1 falha esperada por ambiente**:
   - `src/lib/rls.test.ts` executa um validador Python para verificar conflitos de RLS nas migrations. **Esse teste falha porque o Python não está instalado no ambiente atual** (erro 9009). Ele não indica falha de RLS real; o validador não consegue rodar.
   - Todos os demais testes de lógica (utils, permissões, departamentos, VR, escalas, adicionais, hooks, componentes, smoke) passam.
 
@@ -297,6 +301,16 @@ npx vitest
   supabase functions deploy econtador --project-ref jmdjdogskvybsdjtmpmb
   ```
 
+### Edge Function `suporte`
+
+- Local: `supabase/functions/suporte/index.ts`.
+- Envia e-mail de ajuda/suporte (botão de bóia no header, `SuporteDialog`) via **Resend**; o endereço de destino fica oculto no backend.
+- Requer a secret `RESEND_API_KEY` (`supabase secrets set RESEND_API_KEY=...`). Passo a passo em `docs/CONFIGURAR_FUNCAO_SUPORTE.md`.
+- Deploy:
+  ```bash
+  supabase functions deploy suporte --project-ref jmdjdogskvybsdjtmpmb
+  ```
+
 ### Storage
 
 - Buckets principais: `ocorrencia-anexos`, `vr-arquivos`.
@@ -349,7 +363,7 @@ npx vitest
   - `X-Content-Type-Options: nosniff`
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - CSP ajustada conforme o ambiente.
-- Edge Function: deploy via `supabase functions deploy econtador`.
+- Edge Functions: deploy via `supabase functions deploy <nome>` (`econtador`, `suporte`).
 - Migrations: `supabase link --project-ref jmdjdogskvybsdjtmpmb && supabase db push`.
 - Backup: antes de deploy/migrations, faça backup do banco (plano Free não tem backup automático; usar `scripts/backup_supabase_free.sql` no SQL Editor).
 
@@ -366,6 +380,8 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 - **Recibos de Extras**: ficam no sistema (`recibos_extras`), não são enviados para Youk.
 - **Assinatura digital**: simples (canvas/base64), sem valor jurídico pleno; valor jurídico via Youk.
 - **CEU**: recibos de entrega podem ser datados no **1º dia do mês** por prática operacional. Não altere para "hoje" automaticamente.
+- **Importação de ponto unificada**: um único upload do espelho Flit (relatório **"CORH - Adicionais e Ocorrências"**) em **Adicionais → Importar Ponto** (`/adicionais/importar-ponto`) alimenta os dois módulos; matching por **CPF**. A importação **não cria vínculos automaticamente** — dias só vão para `calendario_adicionais` de quem já tem vínculo cobrindo a data; quem não tem vínculo recebe só as ocorrências.
+- **Extras — duplicidade**: lançamento com "Gera extra = Sim" + ausente "Não se aplica" **não checa duplicidade** de cliente/data (permite equipe extra no mesmo serviço). Com ausente informado ou "Não — falta (controle interno)", a checagem continua.
 
 ---
 
@@ -393,4 +409,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-07-22*
+*Atualizado em: 2026-07-28*
