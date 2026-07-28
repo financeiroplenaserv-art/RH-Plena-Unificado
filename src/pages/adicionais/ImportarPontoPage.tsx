@@ -68,6 +68,8 @@ const STATUS_LABELS: Record<StatusDiaAdicional, string> = {
 const TAMANHO_LOTE_OCORRENCIAS = 100
 const TAMANHO_LOTE_IDS = 50
 const TIMEOUT_CHAMADA_MS = 60_000
+// Operações em lote podem envolver milhares de linhas (vários lotes de 500)
+const TIMEOUT_LOTE_MS = 300_000
 
 /**
  * Garante que uma chamada ao Supabase nunca deixe a tela presa em "Importando...":
@@ -133,7 +135,7 @@ function espelhoComEdicoes(proc: EspelhoProcessado): EspelhoColaborador {
 export function ImportarPontoPage() {
   const { user } = useAuth()
   const podeLancarOcorrencias = user ? podeCriarOcorrencia(user.nivel_acesso) : false
-  const { vinculos, listarVinculos, listarCalendario, salvarDiaCalendario, excluirDiaCalendario } = useAdicionaisContratuais()
+  const { vinculos, listarVinculos, listarCalendario, excluirDiasCalendarioEmLote, salvarDiasCalendarioEmLote } = useAdicionaisContratuais()
   const { listarResumido: listarColaboradores } = useColaboradores()
 
   const [arquivo, setArquivo] = useState<File | null>(null)
@@ -284,45 +286,34 @@ export function ImportarPontoPage() {
       marcarEtapa('confirmar: início')
 
       const periodo = periodoDosEspelhos(dados.map(d => d.espelho))
-      if (periodo) {
-        // Carrega o calendário do período ANTES de excluir: o estado `calendario`
-        // não é carregado nesta tela, então a exclusão precisa do retorno da busca.
-        const calendarioPeriodo = await comTimeout(
-          listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim }),
-          TIMEOUT_CHAMADA_MS,
-          'Leitura do calendário de adicionais'
-        )
-        marcarEtapa('calendário do período carregado')
 
-        const vinculosAfetados = new Set<string>()
-        for (const c of dados) {
-          if (!c.colaborador) continue
-          for (const dia of c.ponto.dias) {
-            for (const v of encontrarVinculos(c.colaborador.id, dia.data)) vinculosAfetados.add(v.id)
-          }
+      // Vínculos cobertos pelos dias dos espelhos (um colab pode ter 2+ adicionais)
+      const vinculosAfetados = new Set<string>()
+      for (const c of dados) {
+        if (!c.colaborador) continue
+        for (const dia of c.ponto.dias) {
+          for (const v of encontrarVinculos(c.colaborador.id, dia.data)) vinculosAfetados.add(v.id)
         }
+      }
 
-        const diasParaExcluir = (calendarioPeriodo || []).filter(d =>
-          vinculosAfetados.has(d.vinculo_id) &&
-          d.data >= periodo.inicio &&
-          d.data <= periodo.fim
+      // Substitui os dias do período EM LOTE: antes eram centenas de DELETEs
+      // individuais, cada um seguido de um SELECT da tabela inteira — milhares
+      // de requisições sequenciais deixavam a tela minutos em "Importando...".
+      if (periodo && vinculosAfetados.size > 0) {
+        marcarEtapa(`excluindo dias antigos de ${vinculosAfetados.size} vínculo(s) em lote`)
+        await comTimeout(
+          excluirDiasCalendarioEmLote([...vinculosAfetados], periodo.inicio, periodo.fim),
+          TIMEOUT_LOTE_MS,
+          'Exclusão dos dias antigos do calendário'
         )
-
-
-        for (const dia of diasParaExcluir) {
-          await comTimeout(
-            excluirDiaCalendario(dia.vinculo_id, dia.data),
-            TIMEOUT_CHAMADA_MS,
-            'Exclusão de dias antigos do calendário'
-          )
-        }
-        if (diasParaExcluir.length > 0) marcarEtapa(`${diasParaExcluir.length} dia(s) antigo(s) excluído(s)`)
+        marcarEtapa('dias antigos excluídos')
       }
 
       // Colaboradores sem vínculo NÃO têm dias importados para o calendário
       // (adicionais são exceção — vínculo é criado manualmente na aba Vínculos).
       // As ocorrências deles são lançadas normalmente mais abaixo.
       const semVinculo = new Set<string>()
+      const diasParaSalvar: { vinculo_id: string; data: string; status: StatusDiaAdicional; intrajornada: boolean }[] = []
 
       for (const c of dados) {
         if (!c.colaborador) {
@@ -338,23 +329,28 @@ export function ImportarPontoPage() {
           }
           // Um colaborador pode ter mais de um vínculo (ex.: 2 adicionais) — grava em todos
           for (const vinculo of vinculosDia) {
-            await comTimeout(
-              salvarDiaCalendario({
-                vinculo_id: vinculo.id,
-                data: dia.data,
-                status: dia.status,
-                intrajornada: false,
-              }),
-              TIMEOUT_CHAMADA_MS,
-              'Gravação dos dias no calendário'
-            )
-            importados++
+            diasParaSalvar.push({
+              vinculo_id: vinculo.id,
+              data: dia.data,
+              status: dia.status,
+              intrajornada: false,
+            })
           }
         }
       }
-      if (importados > 0) marcarEtapa(`${importados} dia(s) gravado(s) no calendário`)
 
-      if (periodo) {
+      if (diasParaSalvar.length > 0) {
+        marcarEtapa(`gravando ${diasParaSalvar.length} dia(s) no calendário em lote`)
+        await comTimeout(
+          salvarDiasCalendarioEmLote(diasParaSalvar),
+          TIMEOUT_LOTE_MS,
+          'Gravação dos dias no calendário'
+        )
+        importados = diasParaSalvar.length
+        marcarEtapa(`${importados} dia(s) gravado(s) no calendário`)
+      }
+
+      if (periodo && (vinculosAfetados.size > 0 || diasParaSalvar.length > 0)) {
         await comTimeout(
           listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim }),
           TIMEOUT_CHAMADA_MS,

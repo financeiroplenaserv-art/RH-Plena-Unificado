@@ -564,6 +564,83 @@ export function useAdicionaisContratuais() {
     return contrato.dias_intrajornada.includes(dia)
   }, [])
 
+  /**
+   * Exclui EM LOTE os dias de um conjunto de vínculos dentro de um período.
+   * Usado pela importação de ponto: substitui centenas de DELETEs individuais
+   * (cada um com refetch da tabela) por poucas chamadas em lote.
+   * Não refaz a leitura do calendário — quem chama decide quando recarregar.
+   */
+  const excluirDiasCalendarioEmLote = useCallback(async (vinculoIds: string[], dataInicio: string, dataFim: string) => {
+    if (vinculoIds.length === 0) return true
+    try {
+      if (MODO_MOCK) {
+        const ids = new Set(vinculoIds)
+        const lista = lerMock<DiaCalendarioAdicional>('calendario')
+          .filter(d => !(ids.has(d.vinculo_id) && d.data >= dataInicio && d.data <= dataFim))
+        salvarMock('calendario', lista)
+        setCalendario(lista)
+        return true
+      }
+      // Lotes de 50 ids para não estourar o limite de URL do PostgREST
+      for (let i = 0; i < vinculoIds.length; i += 50) {
+        const { error } = await supabase
+          .from('calendario_adicionais')
+          .delete()
+          .in('vinculo_id', vinculoIds.slice(i, i + 50))
+          .gte('data', dataInicio)
+          .lte('data', dataFim)
+        if (error) throw error
+      }
+      return true
+    } catch (err: unknown) {
+      console.error('Erro ao excluir dias do calendário em lote:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir dias em lote')
+      return false
+    }
+  }, [])
+
+  /**
+   * Grava (upsert) EM LOTE os dias do calendário. Usado pela importação de
+   * ponto: substitui milhares de upserts individuais (cada um com refetch da
+   * tabela) por lotes de 500 linhas. Duplicidades (vinculo_id, data) dentro
+   * do próprio lote são removidas antes do envio (o último status vence).
+   * Não refaz a leitura do calendário — quem chama decide quando recarregar.
+   */
+  const salvarDiasCalendarioEmLote = useCallback(async (dias: Omit<DiaCalendarioAdicional, 'id' | 'created_at' | 'updated_at'>[]) => {
+    if (dias.length === 0) return true
+    try {
+      // Dedup por (vinculo_id, data): o PostgREST rejeita ON CONFLICT quando
+      // o mesmo lote afeta a mesma linha duas vezes
+      const unicos = new Map<string, Omit<DiaCalendarioAdicional, 'id' | 'created_at' | 'updated_at'>>()
+      for (const d of dias) unicos.set(`${d.vinculo_id}|${d.data}`, d)
+      const lista = [...unicos.values()]
+
+      if (MODO_MOCK) {
+        const atual = lerMock<DiaCalendarioAdicional>('calendario')
+        const chaves = new Set(lista.map(d => `${d.vinculo_id}|${d.data}`))
+        const agora = new Date().toISOString()
+        const mesclado: DiaCalendarioAdicional[] = [
+          ...atual.filter(d => !chaves.has(`${d.vinculo_id}|${d.data}`)),
+          ...lista.map(d => ({ ...d, id: gerarId(), created_at: agora, updated_at: agora })),
+        ]
+        salvarMock('calendario', mesclado)
+        setCalendario(mesclado)
+        return true
+      }
+      for (let i = 0; i < lista.length; i += 500) {
+        const { error } = await supabase
+          .from('calendario_adicionais')
+          .upsert(lista.slice(i, i + 500), { onConflict: 'vinculo_id,data' })
+        if (error) throw error
+      }
+      return true
+    } catch (err: unknown) {
+      console.error('Erro ao salvar dias do calendário em lote:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar dias em lote')
+      return false
+    }
+  }, [])
+
   return {
     contratos,
     vinculos,
@@ -583,6 +660,8 @@ export function useAdicionaisContratuais() {
     salvarSubstituicao,
     removerSubstituicao,
     excluirDiaCalendario,
+    excluirDiasCalendarioEmLote,
+    salvarDiasCalendarioEmLote,
     diaIntrajornada,
   }
 }
