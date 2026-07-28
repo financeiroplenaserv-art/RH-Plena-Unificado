@@ -67,6 +67,30 @@ const STATUS_LABELS: Record<StatusDiaAdicional, string> = {
 
 const TAMANHO_LOTE_OCORRENCIAS = 100
 const TAMANHO_LOTE_IDS = 50
+const TIMEOUT_CHAMADA_MS = 60_000
+
+/**
+ * Garante que uma chamada ao Supabase nunca deixe a tela presa em "Importando...":
+ * se o banco não responder em `ms`, rejeita com erro legível indicando a etapa.
+ * (Caso real: o insert gravava no servidor, mas a resposta nunca chegava ao
+ * navegador — a promise ficava pendente para sempre e nem try/finally salvava.)
+ */
+function comTimeout<T>(promessa: PromiseLike<T>, ms: number, rotulo: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promessa),
+    new Promise<T>((_, rejeita) =>
+      setTimeout(
+        () => rejeita(new Error(`${rotulo}: o banco de dados não respondeu em ${Math.round(ms / 1000)}s. Verifique a conexão e tente novamente.`)),
+        ms
+      )
+    ),
+  ])
+}
+
+/** Marcador de etapa no console — diagnóstico de travamentos da importação. */
+function marcarEtapa(etapa: string) {
+  console.info(`[importar-ponto] ${etapa}`)
+}
 
 /** Espelho processado: dados do PDF + match do cadastro + estrutura editável da prévia. */
 interface EspelhoProcessado {
@@ -257,12 +281,18 @@ export function ImportarPontoPage() {
     try {
       let importados = 0
       let naoEncontrados = 0
+      marcarEtapa('confirmar: início')
 
       const periodo = periodoDosEspelhos(dados.map(d => d.espelho))
       if (periodo) {
         // Carrega o calendário do período ANTES de excluir: o estado `calendario`
         // não é carregado nesta tela, então a exclusão precisa do retorno da busca.
-        const calendarioPeriodo = await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
+        const calendarioPeriodo = await comTimeout(
+          listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim }),
+          TIMEOUT_CHAMADA_MS,
+          'Leitura do calendário de adicionais'
+        )
+        marcarEtapa('calendário do período carregado')
 
         const vinculosAfetados = new Set<string>()
         for (const c of dados) {
@@ -280,8 +310,13 @@ export function ImportarPontoPage() {
 
 
         for (const dia of diasParaExcluir) {
-          await excluirDiaCalendario(dia.vinculo_id, dia.data)
+          await comTimeout(
+            excluirDiaCalendario(dia.vinculo_id, dia.data),
+            TIMEOUT_CHAMADA_MS,
+            'Exclusão de dias antigos do calendário'
+          )
         }
+        if (diasParaExcluir.length > 0) marcarEtapa(`${diasParaExcluir.length} dia(s) antigo(s) excluído(s)`)
       }
 
       // Colaboradores sem vínculo NÃO têm dias importados para o calendário
@@ -303,19 +338,28 @@ export function ImportarPontoPage() {
           }
           // Um colaborador pode ter mais de um vínculo (ex.: 2 adicionais) — grava em todos
           for (const vinculo of vinculosDia) {
-            await salvarDiaCalendario({
-              vinculo_id: vinculo.id,
-              data: dia.data,
-              status: dia.status,
-              intrajornada: false,
-            })
+            await comTimeout(
+              salvarDiaCalendario({
+                vinculo_id: vinculo.id,
+                data: dia.data,
+                status: dia.status,
+                intrajornada: false,
+              }),
+              TIMEOUT_CHAMADA_MS,
+              'Gravação dos dias no calendário'
+            )
             importados++
           }
         }
       }
+      if (importados > 0) marcarEtapa(`${importados} dia(s) gravado(s) no calendário`)
 
       if (periodo) {
-        await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
+        await comTimeout(
+          listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim }),
+          TIMEOUT_CHAMADA_MS,
+          'Atualização do calendário de adicionais'
+        )
       }
 
       // Lançamento das ocorrências (opcional, ligado por padrão para quem tem permissão)
@@ -329,21 +373,28 @@ export function ImportarPontoPage() {
           (p) => !p.duplicada && p.match === 'OK' && p.colaborador && !desmarcadasOcorrencias.has(chavePlanejada(p))
         )
         duplicadasIgnoradas = planejadas.filter((p) => p.duplicada).length
+        marcarEtapa(`ocorrências: ${validas.length} válida(s) para inserir`)
 
         for (let i = 0; i < validas.length; i += TAMANHO_LOTE_OCORRENCIAS) {
           const lote = validas.slice(i, i + TAMANHO_LOTE_OCORRENCIAS)
           const payloads = lote.map((p) => montarPayloadInsert(p, user.id))
           try {
-            const { error } = await supabase
-              .from('ocorrencias')
-              .insert(payloads as Partial<Ocorrencia>[])
+            marcarEtapa(`insert do lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1} enviado (${lote.length} ocorrência(s))`)
+            const { error } = await comTimeout(
+              supabase
+                .from('ocorrencias')
+                .insert(payloads as Partial<Ocorrencia>[]),
+              TIMEOUT_CHAMADA_MS,
+              'Gravação das ocorrências'
+            )
+            marcarEtapa(`insert do lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1} respondido`)
             if (error) {
               errosOcorrencias.push(`Lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1}: ${error.message}`)
             } else {
               ocorrenciasCriadas += lote.length
             }
           } catch (err) {
-            // Promise rejeitada (rede/sessão): registra e segue para o próximo lote
+            // Promise rejeitada ou timeout: registra e segue para o próximo lote
             errosOcorrencias.push(
               `Lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1}: ${err instanceof Error ? err.message : 'falha de comunicação com o banco'}`
             )
@@ -375,7 +426,9 @@ export function ImportarPontoPage() {
       setExistentesOcorrencias([])
       setDesmarcadasOcorrencias(new Set())
       if (fileInputRef.current) fileInputRef.current.value = ''
+      marcarEtapa('confirmar: fim')
     } catch (err) {
+      marcarEtapa(`confirmar: FALHOU — ${err instanceof Error ? err.message : String(err)}`)
       console.error('Erro inesperado na importação de ponto:', err)
       toast.error(
         err instanceof Error
