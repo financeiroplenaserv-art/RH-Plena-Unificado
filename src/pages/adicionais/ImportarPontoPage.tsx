@@ -251,120 +251,140 @@ export function ImportarPontoPage() {
   const handleConfirmar = async () => {
     if (!user) return
     setImportando(true)
-    let importados = 0
-    let naoEncontrados = 0
+    // Tudo dentro de try/finally: qualquer exceção (ex.: falha de rede ou sessão
+    // expirada no insert — casos em que o supabase-js REJEITA a promise em vez de
+    // retornar `{ error }`) não pode deixar o botão travado em "Importando...".
+    try {
+      let importados = 0
+      let naoEncontrados = 0
 
-    const periodo = periodoDosEspelhos(dados.map(d => d.espelho))
-    if (periodo) {
-      // Carrega o calendário do período ANTES de excluir: o estado `calendario`
-      // não é carregado nesta tela, então a exclusão precisa do retorno da busca.
-      const calendarioPeriodo = await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
+      const periodo = periodoDosEspelhos(dados.map(d => d.espelho))
+      if (periodo) {
+        // Carrega o calendário do período ANTES de excluir: o estado `calendario`
+        // não é carregado nesta tela, então a exclusão precisa do retorno da busca.
+        const calendarioPeriodo = await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
 
-      const vinculosAfetados = new Set<string>()
-      for (const c of dados) {
-        if (!c.colaborador) continue
-        for (const dia of c.ponto.dias) {
-          for (const v of encontrarVinculos(c.colaborador.id, dia.data)) vinculosAfetados.add(v.id)
+        const vinculosAfetados = new Set<string>()
+        for (const c of dados) {
+          if (!c.colaborador) continue
+          for (const dia of c.ponto.dias) {
+            for (const v of encontrarVinculos(c.colaborador.id, dia.data)) vinculosAfetados.add(v.id)
+          }
+        }
+
+        const diasParaExcluir = (calendarioPeriodo || []).filter(d =>
+          vinculosAfetados.has(d.vinculo_id) &&
+          d.data >= periodo.inicio &&
+          d.data <= periodo.fim
+        )
+
+
+        for (const dia of diasParaExcluir) {
+          await excluirDiaCalendario(dia.vinculo_id, dia.data)
         }
       }
 
-      const diasParaExcluir = (calendarioPeriodo || []).filter(d =>
-        vinculosAfetados.has(d.vinculo_id) &&
-        d.data >= periodo.inicio &&
-        d.data <= periodo.fim
-      )
+      // Colaboradores sem vínculo NÃO têm dias importados para o calendário
+      // (adicionais são exceção — vínculo é criado manualmente na aba Vínculos).
+      // As ocorrências deles são lançadas normalmente mais abaixo.
+      const semVinculo = new Set<string>()
 
-
-      for (const dia of diasParaExcluir) {
-        await excluirDiaCalendario(dia.vinculo_id, dia.data)
-      }
-    }
-
-    // Colaboradores sem vínculo NÃO têm dias importados para o calendário
-    // (adicionais são exceção — vínculo é criado manualmente na aba Vínculos).
-    // As ocorrências deles são lançadas normalmente mais abaixo.
-    const semVinculo = new Set<string>()
-
-    for (const c of dados) {
-      if (!c.colaborador) {
-        naoEncontrados++
-        continue
-      }
-
-      for (const dia of c.ponto.dias) {
-        const vinculosDia = encontrarVinculos(c.colaborador.id, dia.data)
-        if (vinculosDia.length === 0) {
-          semVinculo.add(c.colaborador.id)
+      for (const c of dados) {
+        if (!c.colaborador) {
+          naoEncontrados++
           continue
         }
-        // Um colaborador pode ter mais de um vínculo (ex.: 2 adicionais) — grava em todos
-        for (const vinculo of vinculosDia) {
-          await salvarDiaCalendario({
-            vinculo_id: vinculo.id,
-            data: dia.data,
-            status: dia.status,
-            intrajornada: false,
-          })
-          importados++
+
+        for (const dia of c.ponto.dias) {
+          const vinculosDia = encontrarVinculos(c.colaborador.id, dia.data)
+          if (vinculosDia.length === 0) {
+            semVinculo.add(c.colaborador.id)
+            continue
+          }
+          // Um colaborador pode ter mais de um vínculo (ex.: 2 adicionais) — grava em todos
+          for (const vinculo of vinculosDia) {
+            await salvarDiaCalendario({
+              vinculo_id: vinculo.id,
+              data: dia.data,
+              status: dia.status,
+              intrajornada: false,
+            })
+            importados++
+          }
         }
       }
-    }
 
-    if (periodo) {
-      await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
-    }
+      if (periodo) {
+        await listarCalendario({ dataInicio: periodo.inicio, dataFim: periodo.fim })
+      }
 
-    // Lançamento das ocorrências (opcional, ligado por padrão para quem tem permissão)
-    let ocorrenciasCriadas = 0
-    let duplicadasIgnoradas = 0
-    const errosOcorrencias: string[] = []
-    if (lancarOcorrencias && podeLancarOcorrencias) {
-      // As planejadas (memo) já refletem as edições manuais de status da prévia;
-      // desmarcadas na lista não são inseridas
-      const validas = planejadas.filter(
-        (p) => !p.duplicada && p.match === 'OK' && p.colaborador && !desmarcadasOcorrencias.has(chavePlanejada(p))
-      )
-      duplicadasIgnoradas = planejadas.filter((p) => p.duplicada).length
+      // Lançamento das ocorrências (opcional, ligado por padrão para quem tem permissão)
+      let ocorrenciasCriadas = 0
+      let duplicadasIgnoradas = 0
+      const errosOcorrencias: string[] = []
+      if (lancarOcorrencias && podeLancarOcorrencias) {
+        // As planejadas (memo) já refletem as edições manuais de status da prévia;
+        // desmarcadas na lista não são inseridas
+        const validas = planejadas.filter(
+          (p) => !p.duplicada && p.match === 'OK' && p.colaborador && !desmarcadasOcorrencias.has(chavePlanejada(p))
+        )
+        duplicadasIgnoradas = planejadas.filter((p) => p.duplicada).length
 
-      for (let i = 0; i < validas.length; i += TAMANHO_LOTE_OCORRENCIAS) {
-        const lote = validas.slice(i, i + TAMANHO_LOTE_OCORRENCIAS)
-        const payloads = lote.map((p) => montarPayloadInsert(p, user.id))
-        const { error } = await supabase
-          .from('ocorrencias')
-          .insert(payloads as Partial<Ocorrencia>[])
-        if (error) {
-          errosOcorrencias.push(`Lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1}: ${error.message}`)
-        } else {
-          ocorrenciasCriadas += lote.length
+        for (let i = 0; i < validas.length; i += TAMANHO_LOTE_OCORRENCIAS) {
+          const lote = validas.slice(i, i + TAMANHO_LOTE_OCORRENCIAS)
+          const payloads = lote.map((p) => montarPayloadInsert(p, user.id))
+          try {
+            const { error } = await supabase
+              .from('ocorrencias')
+              .insert(payloads as Partial<Ocorrencia>[])
+            if (error) {
+              errosOcorrencias.push(`Lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1}: ${error.message}`)
+            } else {
+              ocorrenciasCriadas += lote.length
+            }
+          } catch (err) {
+            // Promise rejeitada (rede/sessão): registra e segue para o próximo lote
+            errosOcorrencias.push(
+              `Lote ${i / TAMANHO_LOTE_OCORRENCIAS + 1}: ${err instanceof Error ? err.message : 'falha de comunicação com o banco'}`
+            )
+          }
         }
       }
-    }
 
-    setImportando(false)
-    const partes = [`${importados} dia(s) importado(s)`]
-    if (lancarOcorrencias && podeLancarOcorrencias) {
-      partes.push(`${ocorrenciasCriadas} ocorrência(s) criada(s)`)
-      if (duplicadasIgnoradas > 0) partes.push(`${duplicadasIgnoradas} duplicada(s) ignorada(s)`)
-    }
-    toast.success(partes.join(', '))
-    if (errosOcorrencias.length > 0) {
-      toast.warning(`Erro ao criar ocorrências: ${errosOcorrencias.join(' | ')}`)
-    }
-    if (naoEncontrados > 0) {
-      toast.warning(`${naoEncontrados} colaborador(es) não encontrado(s)`)
-    }
-    if (semVinculo.size > 0) {
-      toast.warning(
-        `${semVinculo.size} colaborador(es) sem vínculo de adicional — dias não importados para o calendário (ocorrências lançadas normalmente).`,
-        { duration: 6000 }
+      const partes = [`${importados} dia(s) importado(s)`]
+      if (lancarOcorrencias && podeLancarOcorrencias) {
+        partes.push(`${ocorrenciasCriadas} ocorrência(s) criada(s)`)
+        if (duplicadasIgnoradas > 0) partes.push(`${duplicadasIgnoradas} duplicada(s) ignorada(s)`)
+      }
+      toast.success(partes.join(', '))
+      if (errosOcorrencias.length > 0) {
+        toast.warning(`Erro ao criar ocorrências: ${errosOcorrencias.join(' | ')}`)
+      }
+      if (naoEncontrados > 0) {
+        toast.warning(`${naoEncontrados} colaborador(es) não encontrado(s)`)
+      }
+      if (semVinculo.size > 0) {
+        toast.warning(
+          `${semVinculo.size} colaborador(es) sem vínculo de adicional — dias não importados para o calendário (ocorrências lançadas normalmente).`,
+          { duration: 6000 }
+        )
+      }
+      setDados([])
+      setArquivo(null)
+      setResumoImportacao(null)
+      setExistentesOcorrencias([])
+      setDesmarcadasOcorrencias(new Set())
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (err) {
+      console.error('Erro inesperado na importação de ponto:', err)
+      toast.error(
+        err instanceof Error
+          ? `A importação falhou: ${err.message}`
+          : 'A importação falhou por um erro inesperado. Tente novamente.'
       )
+    } finally {
+      setImportando(false)
     }
-    setDados([])
-    setArquivo(null)
-    setResumoImportacao(null)
-    setExistentesOcorrencias([])
-    setDesmarcadasOcorrencias(new Set())
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleCancelar = () => {
