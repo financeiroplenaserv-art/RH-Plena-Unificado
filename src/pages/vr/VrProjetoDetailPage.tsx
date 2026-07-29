@@ -39,6 +39,8 @@ import { formatarData, formatarCPF } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { VrShell } from './VrShell'
+import { supabase } from '@/lib/supabase'
+import { montarMapaNomesPorCpf, nomeExibicaoVR } from '@/lib/vr/nomePorCpf'
 import {
   gerarComprovanteIndividualHTML,
   gerarComprovanteGeralHTML,
@@ -127,11 +129,29 @@ export function VrProjetoDetailPage() {
   const [busca, setBusca] = useState('')
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
   const [confirmarRemoverZero, setConfirmarRemoverZero] = useState(false)
+  // Mapa CPF → nome do cadastro, usado SOMENTE para exibição (tabela e
+  // relatórios). O espelho do Flit pode trazer nome trocado entre homônimos;
+  // o CPF é a chave confiável. Não afeta cálculo nem arquivos PAT/Alterdata.
+  const [nomesPorCpf, setNomesPorCpf] = useState<Map<string, string> | undefined>(undefined)
 
   const refPdfAnterior = useRef<HTMLInputElement>(null)
   const refPdfAtual = useRef<HTMLInputElement>(null)
   const refEscala = useRef<HTMLInputElement>(null)
   const refBase = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const carregarNomes = async () => {
+      const { data, error } = await supabase
+        .from('colaboradores')
+        .select('cpf, nome_completo')
+      if (error) {
+        console.error('Erro ao carregar nomes do cadastro para exibição no VR:', error)
+        return
+      }
+      setNomesPorCpf(montarMapaNomesPorCpf(data || []))
+    }
+    carregarNomes()
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -248,27 +268,28 @@ export function VrProjetoDetailPage() {
 
   const handleExportarConferencia = () => {
     if (!config) return
-    const conteudo = exportarConferencia(config)
+    const conteudo = exportarConferencia(config, nomesPorCpf)
     downloadConteudo(conteudo, `Conferencia_VR_${projeto?.nome || 'exportacao'}.xls`, 'application/vnd.ms-excel')
   }
 
   const handleExportarComprovantes = () => {
     if (!config) return
-    const html = gerarComprovanteGeralHTML(resultados, config)
+    const html = gerarComprovanteGeralHTML(resultados, config, nomesPorCpf)
     downloadConteudo(html, `Comprovantes_VR_${projeto?.nome || 'exportacao'}.html`, 'text/html')
   }
 
   const handleTodosOsRecibos = () => {
     if (!config) return
-    const html = gerarRecibosLoteHTML(resultados, config, projeto?.nome)
+    const html = gerarRecibosLoteHTML(resultados, config, projeto?.nome, nomesPorCpf)
     downloadConteudo(html, `Recibos_VR_${projeto?.nome || 'exportacao'}.html`, 'text/html')
     toast.success('Recibos em lote gerados')
   }
 
   const handleComprovanteIndividual = (r: VRResultadoCalculo) => {
     if (!config) return
-    const html = gerarComprovanteIndividualHTML(r, config)
-    downloadConteudo(html, `Comprovante_VR_${r.nome.replace(/\s+/g, '_')}.html`, 'text/html')
+    const nomeExib = nomeExibicaoVR(r.nome, r.cpf, nomesPorCpf)
+    const html = gerarComprovanteIndividualHTML(r, config, nomesPorCpf)
+    downloadConteudo(html, `Comprovante_VR_${nomeExib.replace(/\s+/g, '_')}.html`, 'text/html')
   }
 
   const toggleExpandir = (index: number) => {
@@ -614,7 +635,7 @@ export function VrProjetoDetailPage() {
                               {status === 'elegivel' && <span className="w-2 h-2 rounded-full bg-green-500" title="Elegível" />}
                               {status === 'parcial' && <span className="w-2 h-2 rounded-full bg-amber-500" title="Parcial" />}
                               {status === 'nao_elegivel' && <span className="w-2 h-2 rounded-full bg-red-500" title="Não elegível" />}
-                              {r.nome}
+                              {nomeExibicaoVR(r.nome, r.cpf, nomesPorCpf)}
                             </div>
                           </TableCell>
                           <TableCell className="text-slate-500">{formatarCPF(r.cpf)}</TableCell>

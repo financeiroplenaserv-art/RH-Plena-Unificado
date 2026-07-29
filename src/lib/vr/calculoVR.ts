@@ -1,6 +1,7 @@
 import type { VRColaboradorPonto, VRColaboradorEscala, VRResultadoCalculo, VRConfiguracao, VRMatchTipo, VRColaborador } from '@/types'
 import { validarCPF } from '@/lib/utils'
 import { contarAbatimentos, contarDiasPdf6h } from './pdfParser'
+import { nomeExibicaoVR } from './nomePorCpf'
 
 // ============================================================
 // MATCHING SEGURO DE COLABORADORES
@@ -745,7 +746,8 @@ export async function carregarDatasNascimento(arrayBuffer: ArrayBuffer): Promise
 
 export function gerarExcelConferencia(
   resultados: VRResultadoCalculo[],
-  config: VRConfiguracao
+  config: VRConfiguracao,
+  nomesPorCpf?: Map<string, string>
 ): string {
   const linhas: string[] = []
   linhas.push([
@@ -755,7 +757,7 @@ export function gerarExcelConferencia(
 
   for (const r of resultados) {
     linhas.push([
-      r.nome, r.cpf, r.matricula || '', String(r.diasPdf), String(r.diasEscala),
+      nomeExibicaoVR(r.nome, r.cpf, nomesPorCpf), r.cpf, r.matricula || '', String(r.diasPdf), String(r.diasEscala),
       String(r.diasElegiveis), String(r.diasAbatimento),
       String(config.valorVR), String(r.valorBruto)
     ].join('\t'))

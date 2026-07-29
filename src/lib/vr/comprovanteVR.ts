@@ -1,10 +1,13 @@
 import type { VRResultadoCalculo, VRConfiguracao } from '@/types'
 import { escapeHtml } from '@/lib/utils'
+import { nomeExibicaoVR } from './nomePorCpf'
 
 export function gerarComprovanteIndividualHTML(
   resultado: VRResultadoCalculo,
-  config: VRConfiguracao
+  config: VRConfiguracao,
+  nomesPorCpf?: Map<string, string>
 ): string {
+  const nomeExibicao = nomeExibicaoVR(resultado.nome, resultado.cpf, nomesPorCpf)
   const valorDias = resultado.diasElegiveis * config.valorVR
   const valorExtra = resultado.extra || 0
   const valorTotal = valorDias + valorExtra
@@ -14,7 +17,7 @@ export function gerarComprovanteIndividualHTML(
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
-  <title>Comprovante VR - ${escapeHtml(resultado.nome)}</title>
+  <title>Comprovante VR - ${escapeHtml(nomeExibicao)}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
@@ -31,7 +34,7 @@ export function gerarComprovanteIndividualHTML(
 <body>
   <div class="card">
     <h1>🍽️ Comprovante de Vale Refeição</h1>
-    <div class="row"><span>👤 Colaborador</span><span>${escapeHtml(resultado.nome)}</span></div>
+    <div class="row"><span>👤 Colaborador</span><span>${escapeHtml(nomeExibicao)}</span></div>
     <div class="row"><span>🆔 CPF</span><span>${escapeHtml(resultado.cpf)}</span></div>
     <div class="row"><span>🎫 Matrícula</span><span>${escapeHtml(resultado.matricula) || '-'}</span></div>
     <div class="row"><span>📅 Período de corte</span><span>${config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span></div>
@@ -51,12 +54,13 @@ export function gerarComprovanteIndividualHTML(
 
 export function gerarComprovanteGeralHTML(
   resultados: VRResultadoCalculo[],
-  config: VRConfiguracao
+  config: VRConfiguracao,
+  nomesPorCpf?: Map<string, string>
 ): string {
   const total = resultados.reduce((s, r) => s + r.valorBruto, 0)
   const rows = resultados.map(r => `
     <tr>
-      <td>${escapeHtml(r.nome)}</td>
+      <td>${escapeHtml(nomeExibicaoVR(r.nome, r.cpf, nomesPorCpf))}</td>
       <td>${escapeHtml(r.cpf)}</td>
       <td>${escapeHtml(r.matricula) || '-'}</td>
       <td>${r.diasElegiveis}</td>
@@ -105,7 +109,8 @@ export function gerarComprovanteGeralHTML(
 export function gerarRecibosLoteHTML(
   resultados: VRResultadoCalculo[],
   config: VRConfiguracao,
-  projetoNome?: string
+  projetoNome?: string,
+  nomesPorCpf?: Map<string, string>
 ): string {
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
   const totalGeral = resultados.reduce((s, r) => s + r.valorBruto, 0)
@@ -128,7 +133,7 @@ export function gerarRecibosLoteHTML(
         <div class="body">
           <div class="info-row">
             <span class="label">Colaborador</span>
-            <span class="value">${escapeHtml(r.nome)}</span>
+            <span class="value">${escapeHtml(nomeExibicaoVR(r.nome, r.cpf, nomesPorCpf))}</span>
           </div>
           <div class="info-row">
             <span class="label">CPF</span>

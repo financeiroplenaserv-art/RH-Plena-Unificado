@@ -110,8 +110,8 @@ export function useCalculoVR() {
     return gerarArquivoAlterdata(resultados, config)
   }, [resultados])
 
-  const exportarConferencia = useCallback((config: VRConfiguracao) => {
-    return gerarExcelConferencia(resultados, config)
+  const exportarConferencia = useCallback((config: VRConfiguracao, nomesPorCpf?: Map<string, string>) => {
+    return gerarExcelConferencia(resultados, config, nomesPorCpf)
   }, [resultados])
 
   const atualizarResultado = useCallback((index: number, patch: Partial<VRResultadoCalculo>, valorVR?: number) => {
