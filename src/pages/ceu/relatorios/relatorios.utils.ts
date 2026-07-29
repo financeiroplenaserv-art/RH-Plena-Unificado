@@ -55,19 +55,19 @@ export type EntregaComSnapshot = EntregaCEU & {
 }
 
 export function nomeItem(e: EntregaComSnapshot) {
-  return e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'
+  return e.item?.nome || e.snapshot_item?.nome || '—'
 }
 
 export function tipoItem(e: EntregaComSnapshot) {
-  return e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || ''
+  return e.item?.tipo || e.snapshot_item?.tipo || ''
 }
 
 export function caItem(e: EntregaComSnapshot) {
-  return e.item?.ca || (e.snapshot_item as { ca?: string })?.ca || '—'
+  return e.item?.ca || e.snapshot_item?.ca || '—'
 }
 
 export function prazoUsoItem(e: EntregaComSnapshot) {
-  return e.item?.prazo_uso_dias || (e.snapshot_item as { prazo_uso_dias?: number | null })?.prazo_uso_dias || null
+  return e.item?.prazo_uso_dias || e.snapshot_item?.prazo_uso_dias || null
 }
 
 export function estoqueBaixo(item: ItemCEU) {

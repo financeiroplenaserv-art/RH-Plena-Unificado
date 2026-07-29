@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson } from './utils'
+import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson, valorNaLista } from './utils'
 
 describe('formatarCPF', () => {
   it('formata CPF string com 11 dígitos', () => {
@@ -116,5 +116,18 @@ describe('localStorageGetJson', () => {
     window.localStorage.setItem('teste_safe_json_invalido', 'not-json')
     expect(localStorageGetJson('teste_safe_json_invalido', [])).toEqual([])
     window.localStorage.removeItem('teste_safe_json_invalido')
+  })
+})
+
+describe('valorNaLista', () => {
+  const opcoes = ['Ativo', 'Inativo', 'Afastado'] as const
+
+  it('retorna true para valor presente na lista', () => {
+    expect(valorNaLista(opcoes, 'Ativo')).toBe(true)
+  })
+
+  it('retorna false para valor fora da lista', () => {
+    expect(valorNaLista(opcoes, 'Outro')).toBe(false)
+    expect(valorNaLista(opcoes, '')).toBe(false)
   })
 })

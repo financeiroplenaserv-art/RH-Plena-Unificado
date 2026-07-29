@@ -18,7 +18,7 @@ import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
-import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData, valorNaLista } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 
@@ -28,10 +28,17 @@ const MOTIVOS: MotivoExtra[] = ['Atestado', 'Falta sem justificativa', 'Folga', 
 const COMUNICACOES: ComunicacaoTipo[] = ['WhatsApp', 'Email', 'Não se aplica']
 const STATUS: StatusExtra[] = ['Pendente', 'Pago', 'Cancelado']
 
-const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
+// No formulário, categoria/motivo usam '' como "não selecionado";
+// a validação no submit garante valor válido antes de montar o payload.
+type ExtraForm = Omit<Extra, 'id' | 'created_at' | 'updated_at' | 'categoria' | 'motivo'> & {
+  categoria: CategoriaOcorrencia | ''
+  motivo: MotivoExtra | ''
+}
+
+const extraVazio = (): ExtraForm => ({
   data_ocorrencia: new Date().toISOString().split('T')[0],
   turno: 'Dia',
-  categoria: '' as CategoriaOcorrencia,
+  categoria: '',
   posto: '',
   departamento_id: null,
   departamento_nome: null,
@@ -39,7 +46,7 @@ const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
   colaborador_ausente_nome: null,
   substituto_id: null,
   substituto_nome: null,
-  motivo: '' as MotivoExtra,
+  motivo: '',
   extra_faturado: false,
   gera_extra: true,
   reforco_contratual: false,
@@ -76,7 +83,7 @@ export function ExtrasFormPage() {
       })
   }, [departamentos])
 
-  const [form, setForm] = useState<Omit<Extra, 'id' | 'created_at' | 'updated_at'>>(extraVazio())
+  const [form, setForm] = useState<ExtraForm>(extraVazio())
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [valorInput, setValorInput] = useState(mascaraMoedaInput(String(form.valor)))
@@ -212,7 +219,9 @@ export function ExtrasFormPage() {
       return
     }
     setSalvando(true)
-    const payload = { ...form }
+    // categoria/motivo já foram validados acima (guards com early return),
+    // então aqui o tipo já está estreitado para o union sem ''.
+    const payload = { ...form, categoria: form.categoria, motivo: form.motivo }
     if (ausenteNaoAplica) {
       payload.colaborador_ausente_id = null
       payload.colaborador_ausente_nome = null
@@ -302,7 +311,7 @@ export function ExtrasFormPage() {
 
             <div className="space-y-2">
               <Label>Turno</Label>
-              <Select value={form.turno} onValueChange={v => setField('turno', v as TurnoExtra)}>
+              <Select value={form.turno} onValueChange={v => { if (valorNaLista(TURNOS, v)) setField('turno', v) }}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
@@ -314,7 +323,7 @@ export function ExtrasFormPage() {
 
             <div className="space-y-2">
               <Label>Categoria</Label>
-              <Select value={form.categoria || 'null'} onValueChange={v => setField('categoria', v === 'null' ? '' as CategoriaOcorrencia : v as CategoriaOcorrencia)}>
+              <Select value={form.categoria || 'null'} onValueChange={v => { if (v === 'null') setField('categoria', ''); else if (valorNaLista(CATEGORIAS, v)) setField('categoria', v) }}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -395,7 +404,7 @@ export function ExtrasFormPage() {
 
             <div className="space-y-2">
               <Label>Motivo</Label>
-              <Select value={form.motivo || 'null'} onValueChange={v => setField('motivo', v === 'null' ? '' as MotivoExtra : v as MotivoExtra)}>
+              <Select value={form.motivo || 'null'} onValueChange={v => { if (v === 'null') setField('motivo', ''); else if (valorNaLista(MOTIVOS, v)) setField('motivo', v) }}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -473,7 +482,7 @@ export function ExtrasFormPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="space-y-2">
               <Label>Meio de comunicação</Label>
-              <Select value={form.comunicacao_tipo || 'Não se aplica'} onValueChange={v => setField('comunicacao_tipo', v as ComunicacaoTipo)}>
+              <Select value={form.comunicacao_tipo || 'Não se aplica'} onValueChange={v => { if (valorNaLista(COMUNICACOES, v)) setField('comunicacao_tipo', v) }}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
@@ -519,7 +528,7 @@ export function ExtrasFormPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setField('status', v as StatusExtra)}>
+              <Select value={form.status} onValueChange={v => { if (valorNaLista(STATUS, v)) setField('status', v) }}>
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
                 </SelectTrigger>

@@ -28,7 +28,7 @@ import {
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
-import { formatarCPF, formatarData, mascaraTelefone, mascararCPF } from '@/lib/utils'
+import { formatarCPF, formatarData, mascaraTelefone, mascararCPF, valorNaLista } from '@/lib/utils'
 import { podeEditarColaboradorBasico, podeEditarColaboradorCompleto } from '@/lib/permissoes'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
@@ -39,6 +39,9 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
 import type { Colaborador, StatusColaborador } from '@/types/database'
+
+const STATUS_FILTRO_OPCOES: (StatusColaborador | 'todos')[] = ['todos', 'Ativo', 'Inativo', 'Afastado']
+const STATUS_EDICAO_OPCOES: StatusColaborador[] = ['Ativo', 'Inativo', 'Afastado']
 
 export function ColaboradoresPage() {
   const { user } = useAuth()
@@ -72,11 +75,11 @@ export function ColaboradoresPage() {
 
       const cargosUnicos = Array.from(
         new Set((cargosData || []).map((c: { cargo: string }) => c.cargo).filter(Boolean))
-      ).sort() as string[]
+      ).sort()
       setCargos(cargosUnicos.map((nome) => ({ nome })))
 
-      setEmpresas((empresasData || []) as { id: string; nome: string }[])
-      setDepartamentos((departamentosData || []) as { id: string; nome: string; nome_curto: string | null }[])
+      setEmpresas(empresasData || [])
+      setDepartamentos(departamentosData || [])
     }
     carregarOpcoes()
   }, [listarPaginado])
@@ -190,7 +193,7 @@ export function ColaboradoresPage() {
           </SelectContent>
         </Select>
 
-        <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as StatusColaborador | 'todos')}>
+        <Select value={filtroStatus} onValueChange={(v) => { if (valorNaLista(STATUS_FILTRO_OPCOES, v)) setFiltroStatus(v) }}>
           <SelectTrigger>
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -403,7 +406,7 @@ export function ColaboradoresPage() {
                     <Label className="text-[10px] text-muted-foreground">Status</Label>
                     <Select
                       value={formEdicao.status || 'Ativo'}
-                      onValueChange={(v) => setFormEdicao((prev) => ({ ...prev, status: v as StatusColaborador }))}
+                      onValueChange={(v) => { if (valorNaLista(STATUS_EDICAO_OPCOES, v)) setFormEdicao((prev) => ({ ...prev, status: v })) }}
                     >
                       <SelectTrigger>
                         <SelectValue />

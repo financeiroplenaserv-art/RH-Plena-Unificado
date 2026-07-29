@@ -270,3 +270,12 @@ export function escapeHtml(valor: string | number | null | undefined): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 }
+
+/**
+ * Type guard: verifica se um valor string pertence a uma lista de opções,
+ * estreitando o tipo para o union da lista. Útil para `onValueChange` de
+ * selects, que sempre devolvem `string`.
+ */
+export function valorNaLista<T extends string>(lista: readonly T[], valor: string): valor is T {
+  return lista.some((item) => item === valor)
+}
