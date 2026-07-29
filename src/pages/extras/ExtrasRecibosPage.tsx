@@ -29,7 +29,7 @@ import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
-import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
+import { gerarReciboExtraPDF, precarregarJsPDF } from '@/lib/extrasRecibos'
 import { formatarDataInput, getPeriodoSemanalAtual } from '@/lib/utils'
 import {
   podeGerenciarReciboExtra,
@@ -97,6 +97,9 @@ export function ExtrasRecibosPage() {
   useEffect(() => {
     listarColaboradores()
     listarEmpresas()
+    // Baixa o chunk do jsPDF em segundo plano para a assinatura/impressão
+    // não ficar parada em "Assinando..." esperando o download.
+    precarregarJsPDF()
   }, [listarColaboradores, listarEmpresas])
 
   useEffect(() => {
@@ -176,6 +179,8 @@ export function ExtrasRecibosPage() {
     setGrupoSelecionado(grupo)
     setMarcarPago(false)
     setModalAberto(true)
+    // Garante o chunk do jsPDF baixado enquanto o colaborador assina.
+    precarregarJsPDF()
   }
 
   const handleGerarRecibo = async (grupo: GrupoSubstituto) => {
@@ -248,46 +253,47 @@ export function ExtrasRecibosPage() {
     }
 
     setEmitindo(true)
-    const assinatura = assinaturaRef.current?.toDataURL() || ''
+    try {
+      const assinatura = assinaturaRef.current?.toDataURL() || ''
 
-    const recibo = await assinar(reciboParaAssinar.id, assinatura, marcarPago)
+      const recibo = await assinar(reciboParaAssinar.id, assinatura, marcarPago)
 
-    if (recibo) {
-      const colab = grupoSelecionado.substituto_id
-        ? mapColaborador.get(grupoSelecionado.substituto_id)
-        : undefined
-      const empresaRecibo = resolverEmpresa(grupoSelecionado)
+      if (recibo) {
+        const colab = grupoSelecionado.substituto_id
+          ? mapColaborador.get(grupoSelecionado.substituto_id)
+          : undefined
+        const empresaRecibo = resolverEmpresa(grupoSelecionado)
 
-      try {
-        await gerarReciboExtraPDF(
-          {
-            nome: grupoSelecionado.substituto_nome,
-            cpf: colab?.cpf,
-          },
-          grupoSelecionado.extras,
-          recibo.data_inicio,
-          recibo.data_fim,
-          assinatura,
-          recibo.id,
-          { nome: empresaRecibo.nome, cnpj: empresaRecibo.cnpj },
-          recibo.data_assinatura
-        )
-      } catch (err) {
-        console.error('Erro ao gerar PDF assinado:', err)
-        toast.error('Erro ao gerar PDF: ' + extrairMensagemErro(err))
-        setEmitindo(false)
-        return
+        try {
+          await gerarReciboExtraPDF(
+            {
+              nome: grupoSelecionado.substituto_nome,
+              cpf: colab?.cpf,
+            },
+            grupoSelecionado.extras,
+            recibo.data_inicio,
+            recibo.data_fim,
+            assinatura,
+            recibo.id,
+            { nome: empresaRecibo.nome, cnpj: empresaRecibo.cnpj },
+            recibo.data_assinatura
+          )
+        } catch (err) {
+          console.error('Erro ao gerar PDF assinado:', err)
+          toast.error('Erro ao gerar PDF: ' + extrairMensagemErro(err))
+          return
+        }
+
+        setModalAberto(false)
+        setReciboParaAssinar(null)
+        setGrupoSelecionado(null)
+        assinaturaRef.current?.limpar()
+        listarRecibos({ dataInicio, dataFim })
+        listar({ dataInicio, dataFim, empresaId: empresaId || undefined })
       }
-
-      setModalAberto(false)
-      setReciboParaAssinar(null)
-      setGrupoSelecionado(null)
-      assinaturaRef.current?.limpar()
-      listarRecibos({ dataInicio, dataFim })
-      listar({ dataInicio, dataFim, empresaId: empresaId || undefined })
+    } finally {
+      setEmitindo(false)
     }
-
-    setEmitindo(false)
   }
 
   const handleReemitirPDF = async (recibo: ReciboExtra) => {

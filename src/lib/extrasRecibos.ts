@@ -15,12 +15,32 @@ interface EmpresaRecibo {
   cnpj?: string | null
 }
 
-async function getJsPDF() {
-  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-    import('jspdf'),
-    import('jspdf-autotable'),
-  ])
-  return { jsPDF, autoTable }
+// Cache da importação dinâmica: jsPDF + autotable formam um chunk pesado
+// (~350 KB) e baixá-lo na hora de gerar o PDF deixava o botão travado em
+// "Assinando..." por vários segundos em conexões lentas. Com o cache, a
+// pré-carga (precarregarJsPDF) deixa o chunk pronto antes do clique.
+let promessaJsPDF: Promise<{ jsPDF: typeof import('jspdf').default; autoTable: typeof import('jspdf-autotable').default }> | null = null
+
+function getJsPDF() {
+  if (!promessaJsPDF) {
+    promessaJsPDF = Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]).then(([jspdf, autotable]) => ({ jsPDF: jspdf.default, autoTable: autotable.default }))
+  }
+  return promessaJsPDF
+}
+
+/**
+ * Pré-carrega o chunk do jsPDF em segundo plano. Chamar ao abrir a tela de
+ * recibos ou o modal de assinatura — quando o usuário clicar em gerar/assinar,
+ * o chunk já está no cache do navegador. Falhas são ignoradas e o cache é
+ * resetado para permitir nova tentativa na geração real.
+ */
+export function precarregarJsPDF(): void {
+  getJsPDF().catch(() => {
+    promessaJsPDF = null
+  })
 }
 
 function valorPorExtenso(valor: number): string {
