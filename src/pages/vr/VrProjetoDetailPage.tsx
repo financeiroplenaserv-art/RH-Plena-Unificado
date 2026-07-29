@@ -214,7 +214,15 @@ export function VrProjetoDetailPage() {
     if (!file || !id) return
     try {
       await processador(file)
-      await uploadVRArquivo(id, tipo, file)
+      // O anexo no storage é arquivo-morto para auditoria — se o upload falhar
+      // (permissão do bucket), o processamento já feito não pode ser perdido:
+      // avisa como warning em vez de erro, pois o cálculo não é afetado.
+      try {
+        await uploadVRArquivo(id, tipo, file)
+      } catch (uploadErr: unknown) {
+        console.error('Arquivo processado, mas falha ao anexar ao projeto:', uploadErr)
+        toast.warning('Arquivo processado, mas não foi possível anexá-lo ao projeto. O cálculo não é afetado.')
+      }
       setArquivos(prev => [...prev.filter(a => a.tipo !== tipo), { tipo, nome: file.name }])
       toast.success(`${file.name} processado`)
     } catch (err: unknown) {
