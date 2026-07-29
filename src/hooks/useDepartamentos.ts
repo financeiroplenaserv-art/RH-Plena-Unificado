@@ -102,11 +102,19 @@ export function useDepartamentos() {
         toast.success('Departamento atualizado')
         return true
       }
-      const { error } = await supabase
+      // .select('id') para detectar UPDATE bloqueado por RLS: sem o select,
+      // o PostgREST retorna sucesso com 0 linhas afetadas e o usuário via o
+      // toast de sucesso sem nada ter mudado (foi o bug do perfil financeiro).
+      const { data, error } = await supabase
         .from('departamentos')
         .update(departamento as Partial<Departamento>)
         .eq('id', id)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar este departamento')
+        return false
+      }
       toast.success('Departamento atualizado')
       await listar(empresaId)
       return true
@@ -126,8 +134,13 @@ export function useDepartamentos() {
         toast.success('Departamento removido')
         return true
       }
-      const { error } = await supabase.from('departamentos').delete().eq('id', id)
+      // Mesmo motivo do atualizar: DELETE bloqueado por RLS não gera erro.
+      const { data, error } = await supabase.from('departamentos').delete().eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para remover este departamento')
+        return false
+      }
       toast.success('Departamento removido')
       await listar(empresaId)
       return true

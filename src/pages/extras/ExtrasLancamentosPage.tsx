@@ -28,7 +28,7 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { ExtrasShell } from './ExtrasShell'
-import { podeEditarExtra } from '@/lib/permissoes'
+import { podeEditarExtra, podeExcluirExtra } from '@/lib/permissoes'
 import type { StatusExtra, CategoriaOcorrencia } from '@/types/extras'
 
 const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
@@ -49,6 +49,7 @@ export function ExtrasLancamentosPage() {
   const { user } = useAuth()
   const perfil = user?.nivel_acesso
   const podeEditar = perfil ? podeEditarExtra(perfil) : false
+  const podeExcluir = perfil ? podeExcluirExtra(perfil) : false
 
   const { extras, loading, listar, listarCategorias, remover } = useExtras()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
@@ -246,22 +247,22 @@ export function ExtrasLancamentosPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       {podeEditar && (
-                        <>
-                          <button
-                            type="button"
-                            className="rounded-md p-1.5 text-foreground hover:bg-accent"
-                            onClick={() => navigate(`/extras/${extra.id}/editar`)}
-                          >
-                            <Pencil className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
-                            onClick={() => setConfirmarExclusao(extra.id)}
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-foreground hover:bg-accent"
+                          onClick={() => navigate(`/extras/${extra.id}/editar`)}
+                        >
+                          <Pencil className="size-4" />
+                        </button>
+                      )}
+                      {podeExcluir && (
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                          onClick={() => setConfirmarExclusao(extra.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       )}
                     </div>
                   </TableCell>

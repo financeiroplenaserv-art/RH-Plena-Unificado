@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 80 migrations SQL (numeradas 001 a 080)
+├── migrations/             # 82 migrations SQL (numeradas 001 a 082)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **80 migrations** em `supabase/migrations/` (numeradas `001_*` a `080_*`).
+- Existem **82 migrations** em `supabase/migrations/` (numeradas `001_*` a `082_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -291,6 +291,8 @@ npx vitest
   - `078_remove_tabelas_backup_2026_07_16.sql` (remove 27 tabelas de backup manuais sem RLS — alerta crítico do Security Advisor)
   - `079_indice_unico_matricula_colaboradores.sql` (índice único em `colaboradores.matricula` — aplicada via `db query --linked` em 29/07/2026 após renumeração dos duplicados com prefixo `ANT-`)
   - `080_calendario_adicionais_delete_editor.sql` (DELETE em `calendario_adicionais` passa a aceitar `is_admin() OR is_editor()` — a importação de ponto falhava para perfis editores como `mesa`, pois ela exclui os dias do período antes de reinserir; remove também as policies legadas de DELETE das migrations 019/064)
+  - `081_recibos_extras_perfil_financeiro.sql` (perfil `financeiro` passa a gerenciar recibos de extras — quem assina é o colaborador, mas no dispositivo do operador logado; nova função `pode_gerenciar_recibos_extras()`, policies INSERT/UPDATE de `recibos_extras` e RPCs `assinar_recibo_extras`/`cancelar_recibo_extras` alinhadas ao `PERMISSOES_PADRAO`, que já autorizava financeiro na UI mas era bloqueado no banco)
+  - `082_departamentos_financeiro_extras_excluir_mesa.sql` (dois alinhamentos RLS↔UI: (1) `financeiro` pode INSERT/UPDATE/DELETE em `departamentos` — o UPDATE bloqueado por RLS falhava **silenciosamente** (0 linhas, sem erro) e a tela mostrava toast de sucesso sem gravar; remove policies legadas redundantes; (2) DELETE em `extras` passa a aceitar `mesa` além de admin — nova ação `extras.excluir` no `PERMISSOES_PADRAO` e na tela Permissões)
 
 ### Edge Function `econtador`
 
@@ -379,7 +381,7 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 - **Adicionais / 12×36**: quem trabalha em regime 12×36 tem direito a insalubridade/periculosidade de **30 dias cheios**, independentemente dos dias efetivamente trabalhados. Não é erro; não altere para proporcional.
 - **e-Contador / Importação Alterdata**: apenas perfis `adm`, `dp1`, `dp2`.
-- **Extras**: visualização `adm, mesa, financeiro, dp1`; edição por `is_editor()`; exclusão apenas `adm`.
+- **Extras**: visualização `adm, mesa, financeiro, dp1`; edição por `is_editor()`; exclusão por `adm` e `mesa` (lançamento errado — migration 082).
 - **Ocorrências**: visualização restrita; exclusão apenas `adm`.
 - **Recibos de Extras**: ficam no sistema (`recibos_extras`), não são enviados para Youk.
 - **Assinatura digital**: simples (canvas/base64), sem valor jurídico pleno; valor jurídico via Youk.

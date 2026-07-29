@@ -77,6 +77,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
 
   // Extras
   { recurso: 'extras', acao: 'editar', label: 'Criar/editar extras', grupo: 'Extras' },
+  { recurso: 'extras', acao: 'excluir', label: 'Excluir extras', grupo: 'Extras' },
   { recurso: 'extras', acao: 'editar_categoria', label: 'Editar categorias de valor', grupo: 'Extras' },
   { recurso: 'extras', acao: 'excluir_categoria', label: 'Excluir categorias de valor', grupo: 'Extras' },
   { recurso: 'extras', acao: 'gerenciar_recibo', label: 'Gerenciar recibos de extras', grupo: 'Extras' },

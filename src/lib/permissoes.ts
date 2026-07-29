@@ -58,6 +58,7 @@ const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, NivelAces
   },
   extras: {
     editar: ['mesa', 'inspetoria'],
+    excluir: ['mesa'],
     editar_categoria: ['mesa', 'inspetoria', 'financeiro'],
     excluir_categoria: ['mesa', 'financeiro'],
     gerenciar_recibo: ['mesa', 'dp1', 'financeiro'],
@@ -211,6 +212,9 @@ export const podeGerarPDFOcorrencia = (p: NivelAcesso) => temPermissaoComPadrao(
 
 /** Quem pode criar/editar/cancelar extras (8.2, 8.3, 8.4) */
 export const podeEditarExtra = (p: NivelAcesso) => temPermissaoComPadrao(p, 'extras', 'editar')
+
+/** Quem pode excluir um extra lançado errado */
+export const podeExcluirExtra = (p: NivelAcesso) => temPermissaoComPadrao(p, 'extras', 'excluir')
 
 /** Quem pode criar/editar categorias de valor (8.7) */
 export const podeEditarCategoriaExtra = (p: NivelAcesso) => temPermissaoComPadrao(p, 'extras', 'editar_categoria')
