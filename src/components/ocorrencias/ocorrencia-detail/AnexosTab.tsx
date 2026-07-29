@@ -77,7 +77,7 @@ export function AnexosTab({
                   onChange={() => onTipoDocumentoUploadChange('comprovante')}
                   className="accent-amber-600"
                 />
-                Comprovante
+                Documento comprobatório do motivo da sanção
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
@@ -126,7 +126,8 @@ export function AnexosTab({
             Nenhum documento anexado.
             {isPendente && (
               <p className="text-xs text-orange-500 mt-1">
-                Anexe documentos para ativar esta ocorrência.
+                Anexe o documento assinado e o documento comprobatório do motivo da sanção para
+                ativar esta ocorrência.
               </p>
             )}
           </div>
@@ -167,9 +168,13 @@ export function AnexosTab({
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-700 truncate">
                           {a.nome_arquivo}
-                          {isAssinado && (
+                          {isAssinado ? (
                             <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 align-middle">
                               Assinado
+                            </span>
+                          ) : (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 align-middle">
+                              Doc. comprobatório
                             </span>
                           )}
                         </p>

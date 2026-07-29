@@ -22,6 +22,8 @@ const MOTIVOS: MotivoExtra[] = [
   'Limpeza interna',
   'Cobertura férias extra faturadas',
   'Outros',
+  'Treinamento',
+  'Movimentação Operacional',
 ]
 const MEIOS_COMUNICACAO: ComunicacaoTipo[] = ['WhatsApp', 'Email', 'Não se aplica']
 

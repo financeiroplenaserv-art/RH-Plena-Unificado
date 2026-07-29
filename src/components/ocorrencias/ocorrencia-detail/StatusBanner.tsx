@@ -4,10 +4,20 @@ import type { Ocorrencia } from '@/types/database'
 interface StatusBannerProps {
   ocorrencia: Ocorrencia
   anexosCount: number
+  temDocAssinado: boolean
+  temDocComprobatorio: boolean
 }
 
-export function StatusBanner({ ocorrencia, anexosCount }: StatusBannerProps) {
+export function StatusBanner({
+  ocorrencia,
+  anexosCount,
+  temDocAssinado,
+  temDocComprobatorio,
+}: StatusBannerProps) {
   if (ocorrencia.status === 'Pendente') {
+    const pendencias: string[] = []
+    if (!temDocAssinado) pendencias.push('documento assinado')
+    if (!temDocComprobatorio) pendencias.push('documento comprobatório do motivo da sanção')
     return (
       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
@@ -15,14 +25,14 @@ export function StatusBanner({ ocorrencia, anexosCount }: StatusBannerProps) {
           <p className="text-sm font-medium text-orange-800">Documentos pendentes (controle interno)</p>
           <p className="text-xs text-orange-700 mt-1">
             Para ocorrências do tipo <strong>{ocorrencia.tipo_penalidade}</strong>, é obrigatório
-            anexar documentos comprobatórios. O PDF para assinatura do colaborador não mostra o
-            status "Pendente" — isso é controle interno do RH.
+            anexar o documento assinado e o documento comprobatório do motivo da sanção. O PDF para
+            assinatura do colaborador não mostra o status "Pendente" — isso é controle interno do RH.
           </p>
           <p className="text-xs text-orange-600 mt-2">
             Anexos atuais: <strong>{anexosCount}</strong>
-            {anexosCount === 0
-              ? ' (anexe pelo menos 1 documento para ativar)'
-              : ' (pronto para ativar)'}
+            {pendencias.length === 0
+              ? ' (pronto para ativar)'
+              : ` (falta anexar: ${pendencias.join(' e ')})`}
           </p>
         </div>
       </div>

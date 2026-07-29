@@ -5,6 +5,23 @@ import type { ReciboExtra } from '@/types/extras'
 
 const COLUNAS_RECIBO_EXTRA = 'id, colaborador_id, colaborador_nome, data_inicio, data_fim, valor_total, quantidade_extras, assinatura_colaborador, extras_ids, marcar_pago, status, data_assinatura, usuario_id, created_at, updated_at'
 
+/**
+ * Extrai a mensagem real de um erro desconhecido. Erros do PostgREST não são
+ * instâncias de Error — são objetos { message, code, details, hint } — então
+ * o `instanceof Error` sempre caía no fallback genérico e escondia a causa.
+ */
+function extrairMensagemErro(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const erro = err as { message?: unknown; details?: unknown; hint?: unknown }
+    if (typeof erro.message === 'string' && erro.message) {
+      const extras = [erro.details, erro.hint].filter((p): p is string => typeof p === 'string' && p.length > 0)
+      return extras.length > 0 ? `${erro.message} (${extras.join(' — ')})` : erro.message
+    }
+  }
+  return fallback
+}
+
 export function useExtrasRecibos() {
   const [recibos, setRecibos] = useState<ReciboExtra[]>([])
   const [loading, setLoading] = useState(false)
@@ -36,7 +53,7 @@ export function useExtrasRecibos() {
       return data || []
     } catch (err: unknown) {
       console.error('Erro ao carregar recibos:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar recibos')
+      toast.error(extrairMensagemErro(err, 'Erro ao carregar recibos'))
       return []
     } finally {
       setLoading(false)
@@ -53,7 +70,7 @@ export function useExtrasRecibos() {
       return data as ReciboExtra
     } catch (err: unknown) {
       console.error('Erro ao gerar recibo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao gerar recibo')
+      toast.error(extrairMensagemErro(err, 'Erro ao gerar recibo'))
       return null
     }
   }, [])
@@ -82,7 +99,7 @@ export function useExtrasRecibos() {
       return data as ReciboExtra
     } catch (err: unknown) {
       console.error('Erro ao assinar recibo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao assinar recibo')
+      toast.error(extrairMensagemErro(err, 'Erro ao assinar recibo'))
       return null
     }
   }, [])
@@ -98,7 +115,7 @@ export function useExtrasRecibos() {
       return true
     } catch (err: unknown) {
       console.error('Erro ao cancelar recibo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao cancelar recibo')
+      toast.error(extrairMensagemErro(err, 'Erro ao cancelar recibo'))
       return false
     }
   }, [])

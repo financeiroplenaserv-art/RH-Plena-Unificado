@@ -38,6 +38,9 @@ export function useExtras() {
       if (filtros?.colaboradorId) {
         query = query.or(`colaborador_ausente_id.eq.${filtros.colaboradorId},substituto_id.eq.${filtros.colaboradorId}`)
       }
+      if (filtros?.empresaId) {
+        query = query.eq('empresa_id', filtros.empresaId)
+      }
 
       const { data, error } = await query
       if (error) throw error

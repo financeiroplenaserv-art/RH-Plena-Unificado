@@ -192,8 +192,21 @@ export function useOcorrenciaDetalhe() {
   const handleAtivar = async () => {
     if (!id || !ocorrencia) return
 
-    if (anexos.length === 0) {
-      toast.error('Não é possível ativar sem documentos anexados. Anexe os comprovantes primeiro.')
+    const temDocAssinado = anexos.some((a) => a.tipo_documento === 'documento_assinado')
+    const temDocComprobatorio = anexos.some((a) => a.tipo_documento === 'comprovante')
+
+    if (!temDocAssinado && !temDocComprobatorio) {
+      toast.error(
+        'Para ativar, anexe o documento assinado e o documento comprobatório do motivo da sanção.'
+      )
+      return
+    }
+    if (!temDocAssinado) {
+      toast.error('Para ativar, falta anexar o documento assinado pelo colaborador.')
+      return
+    }
+    if (!temDocComprobatorio) {
+      toast.error('Para ativar, falta anexar o documento comprobatório do motivo da sanção.')
       return
     }
 

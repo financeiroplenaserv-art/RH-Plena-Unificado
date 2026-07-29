@@ -8,13 +8,39 @@
 //   - RESEND_API_KEY: chave da API do Resend (https://resend.com)
 //
 // Endpoint:
-//   POST / -> { mensagem: string, pagina?: string }
+//   POST / -> { mensagem: string, pagina?: string, anexos?: AnexoSuporte[] }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 
 const EMAIL_DESTINO = 'financeiroplenaserv@gmail.com'
 const EMAIL_REMETENTE = 'CORH Suporte <onboarding@resend.dev>'
 const MAX_MENSAGEM = 2000
+const MAX_ANEXOS = 5
+const MAX_TAMANHO_BASE64_ANEXO = 7_000_000 // ~5 MB de arquivo real (base64 infla ~33%)
+const TIPOS_ANEXO_ACEITOS = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf']
+
+interface AnexoSuporte {
+  nome: string
+  tipo: string
+  conteudo: string // base64, sem prefixo "data:...;base64,"
+}
+
+function validarAnexos(valor: unknown): AnexoSuporte[] | null {
+  if (valor === undefined || valor === null) return []
+  if (!Array.isArray(valor) || valor.length > MAX_ANEXOS) return null
+  const anexos: AnexoSuporte[] = []
+  for (const item of valor) {
+    if (!item || typeof item !== 'object') return null
+    const { nome, tipo, conteudo } = item as Record<string, unknown>
+    if (typeof nome !== 'string' || nome.length === 0 || nome.length > 200) return null
+    if (typeof tipo !== 'string' || !TIPOS_ANEXO_ACEITOS.includes(tipo)) return null
+    if (typeof conteudo !== 'string' || conteudo.length === 0 || conteudo.length > MAX_TAMANHO_BASE64_ANEXO) return null
+    // só base64 puro, sem prefixo data: nem caracteres fora do alfabeto
+    if (conteudo.includes('data:') || /[^A-Za-z0-9+/=]/.test(conteudo)) return null
+    anexos.push({ nome: nome.replace(/[\r\n]/g, ' '), tipo, conteudo })
+  }
+  return anexos
+}
 
 // Controle simples de rate limiting em memória (por usuário)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
@@ -113,6 +139,11 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: `Mensagem excede ${MAX_MENSAGEM} caracteres` }), { status: 400, headers: cors })
     }
 
+    const anexos = validarAnexos(corpo?.anexos)
+    if (anexos === null) {
+      return new Response(JSON.stringify({ error: 'Anexos inválidos (máx. 5 arquivos de até 5 MB: imagem ou PDF)' }), { status: 400, headers: cors })
+    }
+
     // 3. Envio via Resend
     const resendKey = Deno.env.get('RESEND_API_KEY')
     if (!resendKey) {
@@ -140,9 +171,13 @@ Deno.serve(async (req: Request) => {
           <p><strong>Usuário:</strong> ${escapeHtml(nomeUsuario)} (${escapeHtml(emailUsuario)})</p>
           <p><strong>Página:</strong> ${escapeHtml(pagina || 'não informada')}</p>
           <p><strong>Data:</strong> ${agora}</p>
+          ${anexos.length > 0 ? `<p><strong>Anexos:</strong> ${anexos.map((a) => escapeHtml(a.nome)).join(', ')}</p>` : ''}
           <hr />
           <p style="white-space: pre-wrap;">${escapeHtml(mensagem)}</p>
         `,
+        attachments: anexos.length > 0
+          ? anexos.map((a) => ({ filename: a.nome, content: a.conteudo }))
+          : undefined,
       }),
     })
 

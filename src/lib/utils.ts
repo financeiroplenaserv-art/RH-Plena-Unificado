@@ -279,3 +279,25 @@ export function escapeHtml(valor: string | number | null | undefined): string {
 export function valorNaLista<T extends string>(lista: readonly T[], valor: string): valor is T {
   return lista.some((item) => item === valor)
 }
+
+/**
+ * Formata um Date para o formato aceito por <input type="date"> (yyyy-MM-dd),
+ * usando a data local (sem conversão de fuso).
+ */
+export function formatarDataInput(data: Date): string {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * Período semanal padrão dos relatórios de extras: sexta-feira da semana
+ * corrente até a quinta-feira seguinte (início + 6 dias).
+ */
+export function getPeriodoSemanalAtual(referencia: Date = new Date()): { inicio: Date; fim: Date } {
+  const d = new Date(referencia)
+  const diasDesdeSexta = (d.getDay() - 5 + 7) % 7
+  const inicio = new Date(d)
+  inicio.setDate(inicio.getDate() - diasDesdeSexta)
+  const fim = new Date(inicio)
+  fim.setDate(fim.getDate() + 6)
+  return { inicio, fim }
+}

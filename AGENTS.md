@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 79 migrations SQL (numeradas 001 a 079)
+├── migrations/             # 80 migrations SQL (numeradas 001 a 080)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **79 migrations** em `supabase/migrations/` (numeradas `001_*` a `079_*`).
+- Existem **80 migrations** em `supabase/migrations/` (numeradas `001_*` a `080_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -290,6 +290,7 @@ npx vitest
   - `077_rpc_extra_plantao_duplicidade_nao_se_aplica.sql`
   - `078_remove_tabelas_backup_2026_07_16.sql` (remove 27 tabelas de backup manuais sem RLS — alerta crítico do Security Advisor)
   - `079_indice_unico_matricula_colaboradores.sql` (índice único em `colaboradores.matricula` — aplicada via `db query --linked` em 29/07/2026 após renumeração dos duplicados com prefixo `ANT-`)
+  - `080_calendario_adicionais_delete_editor.sql` (DELETE em `calendario_adicionais` passa a aceitar `is_admin() OR is_editor()` — a importação de ponto falhava para perfis editores como `mesa`, pois ela exclui os dias do período antes de reinserir; remove também as policies legadas de DELETE das migrations 019/064)
 
 ### Edge Function `econtador`
 
@@ -306,7 +307,7 @@ npx vitest
 ### Edge Function `suporte`
 
 - Local: `supabase/functions/suporte/index.ts`.
-- Envia e-mail de ajuda/suporte (botão de bóia no header, `SuporteDialog`) via **Resend**; o endereço de destino fica oculto no backend.
+- Envia e-mail de ajuda/suporte (botão de bóia no header, `SuporteDialog`) via **Resend**; o endereço de destino fica oculto no backend. Aceita até 5 anexos (imagem ou PDF, ~5 MB cada) enviados em base64 no corpo da requisição.
 - Requer a secret `RESEND_API_KEY` (`supabase secrets set RESEND_API_KEY=...`). Passo a passo em `docs/CONFIGURAR_FUNCAO_SUPORTE.md`.
 - Deploy:
   ```bash
@@ -412,4 +413,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-07-28*
+*Atualizado em: 2026-07-29*

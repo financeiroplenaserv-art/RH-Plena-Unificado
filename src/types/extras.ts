@@ -29,6 +29,8 @@ export type MotivoExtra =
   | 'Limpeza interna'
   | 'Cobertura férias extra faturadas'
   | 'Outros'
+  | 'Treinamento'
+  | 'Movimentação Operacional'
 
 export type ComunicacaoTipo = 'WhatsApp' | 'Email' | 'Não se aplica'
 
@@ -85,6 +87,7 @@ export interface ExtrasFiltros {
   categoria?: CategoriaOcorrencia
   posto?: string
   status?: StatusExtra
+  empresaId?: string
   busca?: string
 }
 

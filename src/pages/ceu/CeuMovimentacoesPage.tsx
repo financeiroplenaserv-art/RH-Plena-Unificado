@@ -356,6 +356,7 @@ export function CeuMovimentacoesPage() {
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-orange-500" /> EPI</span>
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-green-500" /> Uniforme</span>
         <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-yellow-500" /> Crachá</span>
+        <span className="inline-flex items-center gap-1.5"><span className="line-through">Item (1)</span> ↩ devolvido</span>
       </div>
 
       <ModuleCard title={`Lista de movimentações (${paginacao?.total ?? movimentacoesAgrupadas.length})`}>
@@ -402,7 +403,14 @@ export function CeuMovimentacoesPage() {
                     const emAberto = mov.entregas.some((e) => !e.data_devolucao)
                     return (
                       <TableRow key={`${mov.data}|${mov.colaborador_id}`}>
-                        <TableCell className="whitespace-nowrap">{formatarData(mov.data)}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatarData(mov.data)}
+                          {!emAberto && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                              Devolvido
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="break-words max-w-[220px]">
                           <div>
                             <p className="font-medium">{mov.colaborador?.nome_completo || '—'}</p>
@@ -414,10 +422,22 @@ export function CeuMovimentacoesPage() {
                             {mov.entregas.map((e) => {
                               const nome = e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'
                               const tipo = e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo
+                              const devolvido = !!e.data_devolucao
                               return (
-                                <span key={e.id} className="inline-flex items-center gap-1.5 text-sm">
-                                  <span className={cn('w-2 h-2 rounded-full', corPorTipo(tipo))} />
-                                  {nome} ({e.quantidade})
+                                <span
+                                  key={e.id}
+                                  className="inline-flex items-center gap-1.5 text-sm"
+                                  title={devolvido ? `Devolvido em ${formatarData(e.data_devolucao!)}` : undefined}
+                                >
+                                  <span className={cn('w-2 h-2 rounded-full', corPorTipo(tipo), devolvido && 'opacity-40')} />
+                                  <span className={devolvido ? 'line-through text-slate-400' : undefined}>
+                                    {nome} ({e.quantidade})
+                                  </span>
+                                  {devolvido && (
+                                    <span className="text-xs text-slate-400 whitespace-nowrap">
+                                      ↩ {formatarData(e.data_devolucao!)}
+                                    </span>
+                                  )}
                                 </span>
                               )
                             })}

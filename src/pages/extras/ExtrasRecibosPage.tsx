@@ -30,23 +30,13 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { gerarReciboExtraPDF } from '@/lib/extrasRecibos'
+import { formatarDataInput, getPeriodoSemanalAtual } from '@/lib/utils'
 import {
   podeGerenciarReciboExtra,
   podeMarcarExtraComoPago,
   podeCancelarReciboExtra,
 } from '@/lib/permissoes'
 import type { Extra, ReciboExtra } from '@/types/extras'
-
-function getInicioSemana(data: Date): Date {
-  const d = new Date(data)
-  const dia = d.getDay()
-  const diff = d.getDate() - dia
-  return new Date(d.setDate(diff))
-}
-
-function formatarDataInput(data: Date): string {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
-}
 
 function formatarDataBR(data: string | null) {
   if (!data) return '—'
@@ -56,6 +46,16 @@ function formatarDataBR(data: string | null) {
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// Erros de libs (ex.: jsPDF) nem sempre são instâncias de Error; extrai a
+// mensagem real para o toast não cair em "erro desconhecido".
+function extrairMensagemErro(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message: string }).message
+  }
+  return 'erro desconhecido'
 }
 
 interface GrupoSubstituto {
@@ -72,13 +72,10 @@ export function ExtrasRecibosPage() {
   const podeMarcarPago = perfil ? podeMarcarExtraComoPago(perfil) : false
   const podeCancelarRecibo = perfil ? podeCancelarReciboExtra(perfil) : false
 
-  const hoje = new Date()
-  const inicioSemana = getInicioSemana(hoje)
-  const fimSemana = new Date(inicioSemana)
-  fimSemana.setDate(fimSemana.getDate() + 6)
+  const { inicio, fim } = getPeriodoSemanalAtual()
 
-  const [dataInicio, setDataInicio] = useState(formatarDataInput(inicioSemana))
-  const [dataFim, setDataFim] = useState(formatarDataInput(fimSemana))
+  const [dataInicio, setDataInicio] = useState(formatarDataInput(inicio))
+  const [dataFim, setDataFim] = useState(formatarDataInput(fim))
   const [empresaId, setEmpresaId] = useState<string>('')
   const [modalAberto, setModalAberto] = useState(false)
   const [reciboParaAssinar, setReciboParaAssinar] = useState<ReciboExtra | null>(null)
@@ -103,9 +100,9 @@ export function ExtrasRecibosPage() {
   }, [listarColaboradores, listarEmpresas])
 
   useEffect(() => {
-    listar({ dataInicio, dataFim })
+    listar({ dataInicio, dataFim, empresaId: empresaId || undefined })
     listarRecibos({ dataInicio, dataFim })
-  }, [dataInicio, dataFim, listar, listarRecibos])
+  }, [dataInicio, dataFim, empresaId, listar, listarRecibos])
 
   const mapColaborador = useMemo(() => {
     const m = new Map<string, { nome_completo: string; matricula?: string | null; cpf?: string | null; cargo?: string | null; departamento?: string | null }>()
@@ -119,12 +116,19 @@ export function ExtrasRecibosPage() {
     cnpj: null,
   }), [])
 
-  const empresaSelecionada = useMemo(() => {
-    const empresa = empresaId
-      ? empresas.find(e => e.id === empresaId)
-      : empresas[0]
-
-    return empresa || empresaPadrao
+  // Empresa usada no cabeçalho do PDF: quando uma empresa específica está
+  // selecionada, usa ela; em "Todas as empresas", resolve pela empresa do
+  // primeiro extra do grupo, com fallback para a primeira da lista.
+  const resolverEmpresa = useMemo(() => {
+    return (grupo: GrupoSubstituto) => {
+      if (empresaId) {
+        return empresas.find(e => e.id === empresaId) || empresaPadrao
+      }
+      const empresaDoGrupo = grupo.extras.length > 0
+        ? empresas.find(e => e.id === grupo.extras[0].empresa_id)
+        : undefined
+      return empresaDoGrupo || empresas[0] || empresaPadrao
+    }
   }, [empresas, empresaId, empresaPadrao])
 
   const grupos = useMemo<GrupoSubstituto[]>(() => {
@@ -212,6 +216,7 @@ export function ExtrasRecibosPage() {
 
     if (modoPapel) {
       const colab = grupo.substituto_id ? mapColaborador.get(grupo.substituto_id) : undefined
+      const empresaRecibo = resolverEmpresa(grupo)
       try {
         await gerarReciboExtraPDF(
           { nome: grupo.substituto_nome, cpf: colab?.cpf },
@@ -220,14 +225,14 @@ export function ExtrasRecibosPage() {
           recibo.data_fim,
           '',
           recibo.id,
-          { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj },
+          { nome: empresaRecibo.nome, cnpj: empresaRecibo.cnpj },
           recibo.data_assinatura,
           true
         )
         toast.success('Recibo para impressão gerado')
       } catch (err) {
         console.error('Erro ao gerar recibo para impressão:', err)
-        toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
+        toast.error('Erro ao gerar PDF: ' + extrairMensagemErro(err))
       }
       return
     }
@@ -251,6 +256,7 @@ export function ExtrasRecibosPage() {
       const colab = grupoSelecionado.substituto_id
         ? mapColaborador.get(grupoSelecionado.substituto_id)
         : undefined
+      const empresaRecibo = resolverEmpresa(grupoSelecionado)
 
       try {
         await gerarReciboExtraPDF(
@@ -263,12 +269,12 @@ export function ExtrasRecibosPage() {
           recibo.data_fim,
           assinatura,
           recibo.id,
-          { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj },
+          { nome: empresaRecibo.nome, cnpj: empresaRecibo.cnpj },
           recibo.data_assinatura
         )
       } catch (err) {
         console.error('Erro ao gerar PDF assinado:', err)
-        toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
+        toast.error('Erro ao gerar PDF: ' + extrairMensagemErro(err))
         setEmitindo(false)
         return
       }
@@ -278,7 +284,7 @@ export function ExtrasRecibosPage() {
       setGrupoSelecionado(null)
       assinaturaRef.current?.limpar()
       listarRecibos({ dataInicio, dataFim })
-      listar({ dataInicio, dataFim })
+      listar({ dataInicio, dataFim, empresaId: empresaId || undefined })
     }
 
     setEmitindo(false)
@@ -293,6 +299,7 @@ export function ExtrasRecibosPage() {
     }
 
     const colab = grupo.substituto_id ? mapColaborador.get(grupo.substituto_id) : undefined
+    const empresaRecibo = resolverEmpresa(grupo)
 
     try {
       await gerarReciboExtraPDF(
@@ -305,12 +312,12 @@ export function ExtrasRecibosPage() {
         recibo.data_fim,
         recibo.assinatura_colaborador || '',
         recibo.id,
-        { nome: empresaSelecionada?.nome, cnpj: empresaSelecionada?.cnpj },
+        { nome: empresaRecibo.nome, cnpj: empresaRecibo.cnpj },
         recibo.data_assinatura
       )
     } catch (err) {
       console.error('Erro ao reemitir PDF do recibo:', err)
-      toast.error('Erro ao gerar PDF: ' + (err instanceof Error ? err.message : 'erro desconhecido'))
+      toast.error('Erro ao gerar PDF: ' + extrairMensagemErro(err))
     }
   }
 
@@ -373,7 +380,7 @@ export function ExtrasRecibosPage() {
 
     if (sucessos > 0) {
       toast.success(`${sucessos} extra(s) marcado(s) como Pago`)
-      await listar({ dataInicio, dataFim })
+      await listar({ dataInicio, dataFim, empresaId: empresaId || undefined })
       await listarRecibos({ dataInicio, dataFim })
     }
     setGrupoParaPagar(null)
@@ -412,7 +419,7 @@ export function ExtrasRecibosPage() {
               onChange={e => setEmpresaId(e.target.value)}
               className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm"
             >
-              <option value="">{empresas.length > 0 ? empresas[0].nome : 'Selecione uma empresa'}</option>
+              <option value="">Todas as empresas</option>
               {empresas.map(empresa => (
                 <option key={empresa.id} value={empresa.id}>{empresa.nome}</option>
               ))}
@@ -431,7 +438,7 @@ export function ExtrasRecibosPage() {
             </label>
           </div>
           <div className="flex items-end gap-2 md:col-span-2 xl:col-span-1">
-            <ModuleButton variant="outline" size="sm" onClick={() => { listar({ dataInicio, dataFim }); listarRecibos({ dataInicio, dataFim }) }}>
+            <ModuleButton variant="outline" size="sm" onClick={() => { listar({ dataInicio, dataFim, empresaId: empresaId || undefined }); listarRecibos({ dataInicio, dataFim }) }}>
               <RefreshCcw className="w-4 h-4 mr-2" />
               Atualizar
             </ModuleButton>

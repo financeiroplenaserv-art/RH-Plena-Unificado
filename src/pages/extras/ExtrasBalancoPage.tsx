@@ -63,7 +63,8 @@ export function ExtrasBalancoPage() {
   }, [listarColaboradores, listarDepartamentos])
 
   useEffect(() => {
-    listar({ dataInicio: dataSelecionada, dataFim: dataSelecionada })
+    // Busca também o dia anterior para alimentar a seção "Noite anterior"
+    listar({ dataInicio: subtrairUmDia(dataSelecionada), dataFim: dataSelecionada })
   }, [dataSelecionada, listar])
 
   const mapColaborador = useMemo(() => {
@@ -80,11 +81,10 @@ export function ExtrasBalancoPage() {
 
   const extrasDia = useMemo(() => extras.filter(e => e.data_ocorrencia === dataSelecionada), [extras, dataSelecionada])
 
-  const extrasPortariaNoiteAnterior = useMemo(() => {
+  const extrasNoiteAnterior = useMemo(() => {
     const diaAnterior = subtrairUmDia(dataSelecionada)
     return extras.filter(e =>
       e.data_ocorrencia === diaAnterior &&
-      e.categoria === 'Portaria' &&
       e.turno === 'Noite anterior'
     )
   }, [extras, dataSelecionada])
@@ -103,7 +103,7 @@ export function ExtrasBalancoPage() {
 
     const categoriasDia = [...new Set(extrasDia.map(e => e.categoria))].sort()
 
-    if (extrasDia.length === 0 && extrasPortariaNoiteAnterior.length === 0) {
+    if (extrasDia.length === 0 && extrasNoiteAnterior.length === 0) {
       texto += '\n_Nenhuma ocorrência registrada._'
     }
 
@@ -128,21 +128,23 @@ export function ExtrasBalancoPage() {
           texto += `• *Ausente:* ${ausente}${faturado}${reforco}\n`
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
-          texto += `  *Cliente:* ${comunicacao}\n\n`
+          texto += `  *Cliente:* ${comunicacao}\n`
+          if (extra.observacoes) texto += `  *Detalhes:* ${extra.observacoes}\n`
+          texto += '\n'
         })
       })
     })
 
-    if (extrasPortariaNoiteAnterior.length > 0) {
+    if (extrasNoiteAnterior.length > 0) {
       const dataAnteriorFormatada = formatarData(subtrairUmDia(dataSelecionada))
-      const porDepartamento = extrasPortariaNoiteAnterior.reduce((acc, extra) => {
+      const porDepartamento = extrasNoiteAnterior.reduce((acc, extra) => {
         const dept = departamentoDoExtra(extra)
         if (!acc[dept]) acc[dept] = []
         acc[dept].push(extra)
         return acc
       }, {} as Record<string, Extra[]>)
 
-      texto += `\n*Portaria – Noite anterior (${dataAnteriorFormatada})*\n`
+      texto += `\n*Noite anterior (${dataAnteriorFormatada})*\n`
       Object.entries(porDepartamento).forEach(([dept, itens]) => {
         texto += `\n*Departamento:* ${dept}\n`
         itens.forEach(extra => {
@@ -154,7 +156,9 @@ export function ExtrasBalancoPage() {
           texto += `• *Ausente:* ${ausente}${faturado}${reforco}\n`
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
-          texto += `  *Cliente:* ${comunicacao}\n\n`
+          texto += `  *Cliente:* ${comunicacao}\n`
+          if (extra.observacoes) texto += `  *Detalhes:* ${extra.observacoes}\n`
+          texto += '\n'
         })
       })
     }
@@ -166,7 +170,7 @@ export function ExtrasBalancoPage() {
     const novaMensagem = gerarMensagem()
     setMensagemEditada(novaMensagem)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extrasDia, extrasPortariaNoiteAnterior, dataSelecionada, mapColaborador, mapDepartamento])
+  }, [extrasDia, extrasNoiteAnterior, dataSelecionada, mapColaborador, mapDepartamento])
 
   const copiarFallback = (texto: string): boolean => {
     const textarea = document.createElement('textarea')
@@ -224,8 +228,8 @@ export function ExtrasBalancoPage() {
     setMensagemEditada(novaMensagem)
   }
 
-  const totalOcorrencias = extrasDia.length + extrasPortariaNoiteAnterior.length
-  const totalValor = [...extrasDia, ...extrasPortariaNoiteAnterior].reduce((acc, e) => acc + (e.valor || 0), 0)
+  const totalOcorrencias = extrasDia.length + extrasNoiteAnterior.length
+  const totalValor = [...extrasDia, ...extrasNoiteAnterior].reduce((acc, e) => acc + (e.valor || 0), 0)
   const comunicacoesPendentes = extrasDia.filter(e =>
     !e.comunicacao_tipo || e.comunicacao_tipo === 'Não se aplica'
   ).length

@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useExtras } from '@/hooks/useExtras'
+import { formatarDataInput, getPeriodoSemanalAtual } from '@/lib/utils'
 
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
@@ -29,25 +30,11 @@ function formatarMoeda(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function getInicioSemana(data: Date): Date {
-  const d = new Date(data)
-  const dia = d.getDay()
-  const diff = d.getDate() - dia
-  return new Date(d.setDate(diff))
-}
-
-function formatarDataInput(data: Date): string {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
-}
-
 export function ExtrasRelatorioPage() {
-  const hoje = new Date()
-  const inicioSemana = getInicioSemana(hoje)
-  const fimSemana = new Date(inicioSemana)
-  fimSemana.setDate(fimSemana.getDate() + 6)
+  const { inicio, fim } = getPeriodoSemanalAtual()
 
-  const [dataInicio, setDataInicio] = useState(formatarDataInput(inicioSemana))
-  const [dataFim, setDataFim] = useState(formatarDataInput(fimSemana))
+  const [dataInicio, setDataInicio] = useState(formatarDataInput(inicio))
+  const [dataFim, setDataFim] = useState(formatarDataInput(fim))
   const [busca, setBusca] = useState('')
 
   const { extras, loading, listar } = useExtras()

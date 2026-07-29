@@ -18,7 +18,8 @@ interface DetailHeaderProps {
   podeAprovar: boolean
   podeCancelar: boolean
   ativando: boolean
-  anexosCount: number
+  temDocAssinado: boolean
+  temDocComprobatorio: boolean
   onGerarPDF: () => void
   onAtivar: () => void
   onCancelar: () => void
@@ -40,7 +41,8 @@ export function DetailHeader({
   podeAprovar,
   podeCancelar,
   ativando,
-  anexosCount,
+  temDocAssinado,
+  temDocComprobatorio,
   onGerarPDF,
   onAtivar,
   onCancelar,
@@ -50,6 +52,15 @@ export function DetailHeader({
 
   const isPendente = ocorrencia.status === 'Pendente'
   const isAtiva = ocorrencia.status === 'Ativa'
+
+  const podeAtivar = temDocAssinado && temDocComprobatorio
+  const tooltipAtivar = podeAtivar
+    ? 'Ativar ocorrência'
+    : !temDocAssinado && !temDocComprobatorio
+      ? 'Anexe o documento assinado e o documento comprobatório do motivo da sanção para ativar'
+      : !temDocAssinado
+        ? 'Falta anexar o documento assinado para ativar'
+        : 'Falta anexar o documento comprobatório do motivo da sanção para ativar'
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -102,9 +113,9 @@ export function DetailHeader({
             <Button
               size="sm"
               onClick={onAtivar}
-              disabled={ativando || anexosCount === 0}
+              disabled={ativando || !podeAtivar}
               className="gap-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-              title={anexosCount === 0 ? 'Anexe documentos para ativar' : 'Ativar ocorrência'}
+              title={tooltipAtivar}
             >
               <CheckCircle className="h-3.5 w-3.5" />
               {ativando ? 'Ativando...' : 'Ativar'}
