@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 78 migrations SQL (numeradas 001 a 078)
+├── migrations/             # 79 migrations SQL (numeradas 001 a 079)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -180,7 +180,7 @@ npm run test:adicionais
 
 - `npm run lint` — **passa**.
 - `npm run build` — **passa** (gera `dist/` com PWA e service worker).
-- `npm test` — **189 testes passam, 1 falha esperada por ambiente**:
+- `npm test` — **191 testes passam, 1 falha esperada por ambiente**:
   - `src/lib/rls.test.ts` executa um validador Python para verificar conflitos de RLS nas migrations. **Esse teste falha porque o Python não está instalado no ambiente atual** (erro 9009). Ele não indica falha de RLS real; o validador não consegue rodar.
   - Todos os demais testes de lógica (utils, permissões, departamentos, VR, escalas, adicionais, hooks, componentes, smoke) passam.
 
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **78 migrations** em `supabase/migrations/` (numeradas `001_*` a `078_*`).
+- Existem **79 migrations** em `supabase/migrations/` (numeradas `001_*` a `079_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -289,6 +289,7 @@ npx vitest
   - `076_fix_consentimento_lgpd_rpc.sql`
   - `077_rpc_extra_plantao_duplicidade_nao_se_aplica.sql`
   - `078_remove_tabelas_backup_2026_07_16.sql` (remove 27 tabelas de backup manuais sem RLS — alerta crítico do Security Advisor)
+  - `079_indice_unico_matricula_colaboradores.sql` (índice único em `colaboradores.matricula` — aplicada via `db query --linked` em 29/07/2026 após renumeração dos duplicados com prefixo `ANT-`)
 
 ### Edge Function `econtador`
 
@@ -365,7 +366,8 @@ npx vitest
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - CSP ajustada conforme o ambiente.
 - Edge Functions: deploy via `supabase functions deploy <nome>` (`econtador`, `suporte`).
-- Migrations: `supabase link --project-ref jmdjdogskvybsdjtmpmb && supabase db push`.
+- Migrations: aplicar **manualmente** (SQL Editor ou `npx supabase db query --linked`). **Nunca usar `supabase db push`** — as migrations foram aplicadas manualmente e não constam no histórico remoto; o push tentaria reaplicar tudo. Nota: o CLI falha ao parsear o `.env` local — renomear temporariamente (`mv .env .env.bak && <comando>; mv .env.bak .env`).
+- **Netlify: cada deploy de produção custa 15 créditos** (plano Personal = 1.000/mês). Regra de ouro: **1–2 deploys por dia de trabalho, agrupando mudanças**. Deploy preview (sem `--prod`) é grátis.
 - Backup: antes de deploy/migrations, faça backup do banco (plano Free não tem backup automático; usar `scripts/backup_supabase_free.sql` no SQL Editor).
 
 ---

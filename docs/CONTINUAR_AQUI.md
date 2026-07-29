@@ -1,7 +1,14 @@
 # CONTINUAR AQUI — RH Plena Unificado
 
-> **Último trabalho:** 28/07/2026 (noite) — **Bug "Importando..." RESOLVIDO** (causa raiz: calendário dia-a-dia → operações em lote) + autocomplete de Ocorrências busca inativos + **27 tabelas de backup sem RLS removidas** (alerta crítico do Supabase; migration 078) + AGENTS.md atualizado (push e deploy Netlify feitos; lembrar usuários de Ctrl+Shift+R por causa do PWA)
-> **Relatório da noite:** `docs/HANDOFF_28-07-2026_NOITE.md` (o relatório do dia não foi escrito em arquivo separado — o resumo do dia está logo abaixo neste arquivo)
+> **Último trabalho:** 29/07/2026 — **Zeragem das pendências 2–5 do handoff anterior:**
+> - **Item 2 (placeholder):** planilha de revisão gerada (`dados-locais/revisao_placeholder_564.xlsx` — são **564 nomes distintos**, não 331; a contagem anterior era limitada pela paginação do Supabase). Usuária aprovou 10 associações; **9 aplicadas (64 ocorrências reassociadas)** via `scripts/reassociar-ocorrencias-placeholder.mjs` (backup local em `dados-locais/backup_ocorrencias_reassociacao_2026-07-29.json`). CATIA MOREIRA BERNARDINO (5 ocorr.) **permanece no placeholder por decisão da usuária** (não consta no cadastro). Demais nomes ficam no placeholder (histórico de ex-colaboradores não cadastrados). Retrato: **4.969 ocorrências no placeholder**.
+> - **✅ Matrículas duplicadas RESOLVIDO (29/07):** os 4 registros do lote antigo (25/06) renumerados com prefixo `ANT-` (`scripts/renumerar-matriculas-duplicadas.mjs`, backup em `dados-locais/backup_colaboradores_renumeracao_2026-07-29.json`): Rosane→`ANT-000016`, Isaneiva→`ANT-000017`, Elza→`ANT-000008`, Nádia→`ANT-000003`. **Alessandra Alves (ativa, Plena Tech) mantém `000016`.** Migration **079** (`079_indice_unico_matricula_colaboradores.sql`) criada e **aplicada via `db query --linked` em 29/07** — índice único ativo (testado: insert duplicado rejeitado com 23505).
+> - **Item 3 (testes manuais):** virou bateria automatizada — `scripts/teste-integracao-api.mjs` + `scripts/teste-escalas-dryrun.ts`, relatório `docs/TESTES_INTEGRACAO_2026-07-29.md`: **46/46 PASS** (login dos 9 perfis via magiclink sem trocar senhas, storage com RLS positivo/negativo, extras 074/075/077, dry-run de escalas). Manual só resta: aparência dos menus por perfil na UI.
+> - **Item 4 (débito técnico):** ZERADO. Botões modulares (CeuButton etc.) **não existiam** — já unificados em `corh/Button`. Páginas quebradas: `OcorrenciaFormPage` 328→99, `OcorrenciaDetailPage` 466→211, `CeuRelatoriosPage` 510→153 linhas (hooks/componentes extraídos, comportamento preservado). 28 casts `as` eliminados (CeuRelatorios e Extras/Colaboradores ficaram com 0). **191 testes passando** (2 novos de `valorNaLista`), lint e build verdes.
+> - **Item 5 (15 créditos Netlify):** virou regra permanente no `AGENTS.md` seção 10, junto com "nunca usar `supabase db push`" e a gambiarra do `.env` com o CLI.
+> - **Item 1 (único ainda aberto):** validação da usuária EM PRODUÇÃO da importação de ponto unificada (~60 ocorrências restantes do espelho) e da busca de colaboradores inativos na tela Ocorrências.
+>
+> **Relatório da noite anterior:** `docs/HANDOFF_28-07-2026_NOITE.md` (bug "Importando..." resolvido + autocomplete inativos + migration 078)
 >
 > ## ✅ 28/07/2026 — Pacote em produção (2º deploy do dia)
 > - **Importação de ponto UNIFICADA (Adicionais + Ocorrências)**: um único upload do espelho Flit **com CPF** alimenta os dois módulos. **O relatório no Flit se chama "CORH - Adicionais e Ocorrências"** (a tela instrui esse nome). A tela única ficou em **Adicionais → Importar Ponto** (`/adicionais/importar-ponto`): grava os dias em `calendario_adicionais` e, com o checkbox "Lançar ocorrências..." (agora funcional, **ligado por padrão**), cria as ocorrências com as regras já validadas (fusão de atestados, tipo por duração, deduplicação). A aba "Importar Ponto" das Ocorrências virou atalho para essa tela; a página `/rh/ocorrencias/importar-ponto` foi removida. Motor: parser posicional único (`src/lib/ocorrencias/importacaoPonto.ts` + novo `src/lib/pdfPosicional.ts` + mapeamento `src/lib/adicionais/importarEspelho.ts`, 14 testes novos). Matching por CPF para os dois lados. Defaults documentados: Suspensão→falta, Falta BH→folga, Feriado→folga (ajustáveis se a usuária decidir diferente).
@@ -191,25 +198,15 @@
 ## 🎯 Próximos passos pendentes (priorizados)
 
 ### 🟠 Alto
-1. ~~**Aplicar migration 072** no SQL Editor e validar~~ — ✅ aplicada em 23/07/2026.
-2. ~~**Re-deploy da Edge Function e-Contador**~~ — ✅ feito em 23/07/2026.
-3. **Revisar/associar mais ocorrências do placeholder** usando `dados-locais/revisao_496_nomes.xlsx`.
-4. **Revisar os 9 casos de múltiplos matches** da importação histórica.
-5. **Verificar no sistema** se a busca e os detalhes das ocorrências históricas funcionam corretamente.
-6. **Aplicar mais importações** conforme arquivos novos disponibilizados (ocorrências, colaboradores, departamentos, etc.).
-7. **Testes manuais de login/perfis** — verificar menus e rotas para cada perfil de teste.
-8. **Testes manuais de storage** — upload/visualização de anexos de ocorrências e arquivos VR.
-9. **Testes manuais do fluxo de extras** — cálculo, pagamento e auditoria.
-10. **Testes manuais do módulo Escalas** — importação Flit, confirmação de local e exportações.
-11. **Revisar type assertions (`as`)** — reduzir uso, especialmente em formulários grandes.
-12. **Quebrar páginas monolíticas** — `OcorrenciaFormPage`, `OcorrenciaDetailPage`, `CeuRelatoriosPage`.
-13. **Unificar componentes de UI** — `CeuButton`, `VrButton`, `ExtrasButton`, etc.
+1. **Validar em produção** (único item aberto do handoff 28/07): importação de ponto unificada completa (~60 ocorrências restantes do espelho — a tela marca as já importadas) e busca de colaborador inativo na tela Ocorrências (ex.: Adriano). Lembrar do Ctrl+Shift+R (PWA).
+2. **Aplicar mais importações** conforme arquivos novos disponibilizados (ocorrências, colaboradores, departamentos, etc.).
+3. **Revisão visual dos menus por perfil** (única parte não automatizável da bateria de testes — ver `docs/TESTES_INTEGRACAO_2026-07-29.md`).
+4. **Rever 33 divergências** entre `permissoes_perfil` (banco) e `PERMISSOES_PADRAO` — são ajustes da tela Permissões com precedência; confirmar se foram intencionais.
 
-### 🟡 Médio / após auditoria
-12. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
-13. **Testar validação de duplicidade de extras** em cenário real.
-14. **Definir design system** antes de implementar módulos novos.
-15. **Módulos placeholders:** `/ferias`, `/escalas` (estrutura já criada), `/relatorios`.
+### 🟡 Médio
+6. **Confirmar PWA no celular** — "Adicionar à tela inicial" e tela cheia.
+7. **Testar validação de duplicidade de extras** em cenário real.
+8. **Módulo placeholder:** `/relatorios`.
 
 ---
 
