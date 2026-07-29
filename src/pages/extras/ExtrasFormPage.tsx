@@ -358,6 +358,15 @@ export function ExtrasFormPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="null">Selecione...</SelectItem>
+                  {/* Garante o departamento atual do extra como opção, mesmo que
+                      ele não esteja na lista (carga assíncrona, inativado ou
+                      filtrado). Sem isso, ao editar (ex.: trocar só o motivo) o
+                      select caía em "Selecione..." e a validação barrou o save. */}
+                  {form.departamento_id && !departamentosUnicos.some(d => d.id === form.departamento_id) && (
+                    <SelectItem value={form.departamento_id}>
+                      {form.departamento_nome || 'Departamento atual'}
+                    </SelectItem>
+                  )}
                   {departamentosUnicos.map(d => (
                     <SelectItem key={d.id} value={d.id}>{d.nome_curto || d.nome}</SelectItem>
                   ))}
