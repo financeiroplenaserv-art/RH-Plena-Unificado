@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 84 migrations SQL (numeradas 001 a 084)
+├── migrations/             # 85 migrations SQL (numeradas 001 a 085)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **84 migrations** em `supabase/migrations/` (numeradas `001_*` a `084_*`).
+- Existem **85 migrations** em `supabase/migrations/` (numeradas `001_*` a `085_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -295,6 +295,7 @@ npx vitest
   - `082_departamentos_financeiro_extras_excluir_mesa.sql` (dois alinhamentos RLS↔UI: (1) `financeiro` pode INSERT/UPDATE/DELETE em `departamentos` — o UPDATE bloqueado por RLS falhava **silenciosamente** (0 linhas, sem erro) e a tela mostrava toast de sucesso sem gravar; remove policies legadas redundantes; (2) DELETE em `extras` passa a aceitar `mesa` além de admin — nova ação `extras.excluir` no `PERMISSOES_PADRAO` e na tela Permissões)
   - `083_vr_arquivos_dp1.sql` (`pode_ver_vr_arquivos()` passa a incluir `dp1` — a tela Permissões concedeu `vr.gerenciar` ao dp1 via `permissoes_perfil`, mas o upload no bucket `vr-arquivos` era bloqueado: o toast de erro aparecia após o processamento do ponto e o cálculo funcionava mesmo assim, pois os dados já estavam em memória)
   - `084_fix_recibos_extras_cast_uuid_jsonb.sql` (corrige "cannot cast type uuid[] to jsonb" ao assinar/cancelar recibo de extras: `recibos_extras.extras_ids` é `uuid[]` desde a migration 026, mas as RPCs `assinar_recibo_extras`/`cancelar_recibo_extras` (067, recriadas na 081) faziam `extras_ids::jsonb` — cast inexistente no PostgreSQL; o bug ficou oculto atrás do erro de permissão que a 081 corrigiu. Trocado por `unnest(r.extras_ids)`; demais lógicas intactas. Aplicada via `db query --linked` em 30/07/2026)
+  - `085_colaboradores_data_demissao.sql` (versiona a coluna `colaboradores.data_demissao` (date), que existia em produção fora das migrations — drift. O app já a usa de ponta a ponta: formulário (demissão preenchida força status Inativo), detalhes, importação Excel ("Data Demissão") e e-Contador (atributo `demissao` da Alterdata → `data_demissao` + status Inativo). Idempotente, no-op em produção. Aplicada via `db query --linked` em 30/07/2026)
 
 ### Edge Function `econtador`
 
