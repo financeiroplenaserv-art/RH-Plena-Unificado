@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 83 migrations SQL (numeradas 001 a 083)
+├── migrations/             # 84 migrations SQL (numeradas 001 a 084)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **83 migrations** em `supabase/migrations/` (numeradas `001_*` a `083_*`).
+- Existem **84 migrations** em `supabase/migrations/` (numeradas `001_*` a `084_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -294,6 +294,7 @@ npx vitest
   - `081_recibos_extras_perfil_financeiro.sql` (perfil `financeiro` passa a gerenciar recibos de extras — quem assina é o colaborador, mas no dispositivo do operador logado; nova função `pode_gerenciar_recibos_extras()`, policies INSERT/UPDATE de `recibos_extras` e RPCs `assinar_recibo_extras`/`cancelar_recibo_extras` alinhadas ao `PERMISSOES_PADRAO`, que já autorizava financeiro na UI mas era bloqueado no banco)
   - `082_departamentos_financeiro_extras_excluir_mesa.sql` (dois alinhamentos RLS↔UI: (1) `financeiro` pode INSERT/UPDATE/DELETE em `departamentos` — o UPDATE bloqueado por RLS falhava **silenciosamente** (0 linhas, sem erro) e a tela mostrava toast de sucesso sem gravar; remove policies legadas redundantes; (2) DELETE em `extras` passa a aceitar `mesa` além de admin — nova ação `extras.excluir` no `PERMISSOES_PADRAO` e na tela Permissões)
   - `083_vr_arquivos_dp1.sql` (`pode_ver_vr_arquivos()` passa a incluir `dp1` — a tela Permissões concedeu `vr.gerenciar` ao dp1 via `permissoes_perfil`, mas o upload no bucket `vr-arquivos` era bloqueado: o toast de erro aparecia após o processamento do ponto e o cálculo funcionava mesmo assim, pois os dados já estavam em memória)
+  - `084_fix_recibos_extras_cast_uuid_jsonb.sql` (corrige "cannot cast type uuid[] to jsonb" ao assinar/cancelar recibo de extras: `recibos_extras.extras_ids` é `uuid[]` desde a migration 026, mas as RPCs `assinar_recibo_extras`/`cancelar_recibo_extras` (067, recriadas na 081) faziam `extras_ids::jsonb` — cast inexistente no PostgreSQL; o bug ficou oculto atrás do erro de permissão que a 081 corrigiu. Trocado por `unnest(r.extras_ids)`; demais lógicas intactas. Aplicada via `db query --linked` em 30/07/2026)
 
 ### Edge Function `econtador`
 
@@ -416,4 +417,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-07-29*
+*Atualizado em: 2026-07-30*
