@@ -174,6 +174,10 @@ npm run test:watch
 
 # Script de testes adicionais (via tsx)
 npm run test:adicionais
+
+# Regenera public/pdf.worker.min.mjs com os polyfills ES2025 (roda também no
+# postinstall — necessário após atualizar o pdfjs-dist; ver scripts/corrigir-pdf-worker.cjs)
+npm run pdf:worker
 ```
 
 ### Estado atual dos checks

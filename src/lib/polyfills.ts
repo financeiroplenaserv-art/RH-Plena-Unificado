@@ -6,6 +6,11 @@
 // antigos, processar qualquer PDF (importação de ponto em Adicionais,
 // VR, ocorrências) falhava com "a.toHex is not a function" no cálculo
 // do fingerprint do documento.
+//
+// ATENÇÃO: este arquivo cobre apenas a thread principal. O fingerprint é
+// calculado DENTRO do Web Worker do pdfjs (contexto separado) — por isso o
+// worker servido em public/pdf.worker.min.mjs também recebe os mesmos
+// polyfills, injetados por scripts/corrigir-pdf-worker.cjs (postinstall).
 // ============================================================
 
 const uint8Proto = Uint8Array.prototype as Uint8Array & {

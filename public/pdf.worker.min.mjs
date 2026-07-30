@@ -1,3 +1,7 @@
+// Polyfills ES2025 injetados por scripts/corrigir-pdf-worker.cjs — nao editar manualmente
+if(typeof Uint8Array.prototype.toHex!=='function'){Uint8Array.prototype.toHex=function(){let t='';for(let e=0;e<this.length;e++)t+=this[e].toString(16).padStart(2,'0');return t}}
+if(typeof Uint8Array.prototype.toBase64!=='function'){Uint8Array.prototype.toBase64=function(){let t='';for(let e=0;e<this.length;e++)t+=String.fromCharCode(this[e]);return btoa(t)}}
+if(typeof Uint8Array.fromBase64!=='function'){Uint8Array.fromBase64=function(t){const e=atob(t),r=new Uint8Array(e.length);for(let n=0;n<e.length;n++)r[n]=e.charCodeAt(n);return r}};
 /**
  * @licstart The following is the entire license notice for the
  * JavaScript code in this page
