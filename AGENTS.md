@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 85 migrations SQL (numeradas 001 a 085)
+├── migrations/             # 86 migrations SQL (numeradas 001 a 086)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **85 migrations** em `supabase/migrations/` (numeradas `001_*` a `085_*`).
+- Existem **86 migrations** em `supabase/migrations/` (numeradas `001_*` a `086_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -296,6 +296,7 @@ npx vitest
   - `083_vr_arquivos_dp1.sql` (`pode_ver_vr_arquivos()` passa a incluir `dp1` — a tela Permissões concedeu `vr.gerenciar` ao dp1 via `permissoes_perfil`, mas o upload no bucket `vr-arquivos` era bloqueado: o toast de erro aparecia após o processamento do ponto e o cálculo funcionava mesmo assim, pois os dados já estavam em memória)
   - `084_fix_recibos_extras_cast_uuid_jsonb.sql` (corrige "cannot cast type uuid[] to jsonb" ao assinar/cancelar recibo de extras: `recibos_extras.extras_ids` é `uuid[]` desde a migration 026, mas as RPCs `assinar_recibo_extras`/`cancelar_recibo_extras` (067, recriadas na 081) faziam `extras_ids::jsonb` — cast inexistente no PostgreSQL; o bug ficou oculto atrás do erro de permissão que a 081 corrigiu. Trocado por `unnest(r.extras_ids)`; demais lógicas intactas. Aplicada via `db query --linked` em 30/07/2026)
   - `085_colaboradores_data_demissao.sql` (versiona a coluna `colaboradores.data_demissao` (date), que existia em produção fora das migrations — drift. O app já a usa de ponta a ponta: formulário (demissão preenchida força status Inativo), detalhes, importação Excel ("Data Demissão") e e-Contador (atributo `demissao` da Alterdata → `data_demissao` + status Inativo). Idempotente, no-op em produção. Aplicada via `db query --linked` em 30/07/2026)
+  - `086_extras_empresa_trigger_backfill.sql` (todos os extras estavam com `empresa_id` NULL — os 3 caminhos de lançamento (form web, plantão web, RPC mobile) gravavam NULL, então o filtro "Empresa" da tela Recibos só funcionava em "Todas". Trigger `trg_extras_preencher_empresa` (BEFORE INSERT OR UPDATE) deriva a empresa do substituto (ou do ausente, sem substituto) em qualquer caminho de escrita; backfill dos 67 históricos (52 Plena EA, 12 Plena Tech, 3 sem vínculo permanecem NULL). Aplicada via `db query --linked` em 30/07/2026)
 
 ### Edge Function `econtador`
 

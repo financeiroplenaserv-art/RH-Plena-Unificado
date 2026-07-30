@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, BarChart3 } from 'lucide-react'
+import { Search, BarChart3, FileSpreadsheet } from 'lucide-react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -17,7 +18,7 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
 import { StatusBadge } from '@/components/corh/StatusBadge'
-import { ModuleCard } from '@/components/layout/ModuleShell'
+import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { ExtrasShell } from './ExtrasShell'
 
 function formatarDataBR(data: string | null) {
@@ -61,9 +62,43 @@ export function ExtrasRelatorioPage() {
   const totalFaturado = useMemo(() => extrasFiltrados.filter(e => e.extra_faturado).reduce((acc, e) => acc + (e.valor || 0), 0), [extrasFiltrados])
   const totalNaoFaturado = useMemo(() => extrasFiltrados.filter(e => !e.extra_faturado).reduce((acc, e) => acc + (e.valor || 0), 0), [extrasFiltrados])
 
+  // Exporta exatamente o que está na tela (mesmos filtros e colunas).
+  const exportarExcel = async () => {
+    if (extrasFiltrados.length === 0) {
+      toast.info('Nenhum registro para exportar.')
+      return
+    }
+    try {
+      const XLSX = await import('@e965/xlsx')
+      const dados = extrasFiltrados.map(extra => ({
+        'Data': formatarDataBR(extra.data_ocorrencia),
+        'Departamento': extra.departamento_nome || '—',
+        'Ausente': extra.colaborador_ausente_nome || '—',
+        'Substituto': extra.substituto_nome || '—',
+        'Motivo': extra.motivo,
+        'Valor': extra.valor,
+        'Faturado': extra.extra_faturado ? 'Sim' : 'Não',
+        'Status': extra.status,
+      }))
+      const worksheet = XLSX.utils.json_to_sheet(dados)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório Semanal')
+      XLSX.writeFile(workbook, `relatorio_semanal_extras_${dataInicio}_a_${dataFim}.xlsx`)
+      toast.success(`${dados.length} registro(s) exportado(s) para Excel.`)
+    } catch (err) {
+      console.error('Erro ao exportar Excel:', err)
+      toast.error('Erro ao exportar Excel')
+    }
+  }
+
   return (
     <ExtrasShell>
-      <PageHeader backTo="/extras/lancamentos" title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos" />
+      <PageHeader backTo="/extras/lancamentos" title="Relatório Semanal" description="Consolidação de extras para pagamento e emissão de recibos">
+        <ModuleButton variant="outline" onClick={exportarExcel}>
+          <FileSpreadsheet className="w-4 h-4 mr-2" />
+          Exportar Excel
+        </ModuleButton>
+      </PageHeader>
 
       <Filters onApply={() => {}} onClear={() => setBusca('')} loading={loading}>
         <div className="space-y-2">
