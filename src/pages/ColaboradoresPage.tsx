@@ -457,6 +457,15 @@ export function ColaboradoresPage() {
 
                     <Card>
                       <CardContent className="p-3">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Demissão</p>
+                        <p className="text-sm font-medium">
+                          {colaboradorSelecionado.data_demissao ? formatarData(colaboradorSelecionado.data_demissao) : '—'}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-3">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Telefone</p>
                         <p className="text-sm font-medium break-words">{colaboradorSelecionado.telefone || colaboradorSelecionado.celular || '—'}</p>
                       </CardContent>
