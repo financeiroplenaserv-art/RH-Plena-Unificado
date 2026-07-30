@@ -26,6 +26,13 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# index.html nunca cacheado — garante que o usuário sempre receba a versão
+# mais recente do app (os assets fingerprintados continuam com cache longo)
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
 # Cache longo (7 dias) para o worker do pdfjs (1,2 MB) — não é fingerprintado;
 # 7 dias reduz banda sem risco de versão velha ficar presa por um ano.
 [[headers]]

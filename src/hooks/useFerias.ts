@@ -173,9 +173,16 @@ export function useFerias() {
 
   /** Exclui um período manual (previsão do RH). Períodos do Flit exigem admin. */
   const excluirPeriodo = useCallback(async (id: string): Promise<boolean> => {
-    const { error } = await supabase.from('ferias_periodos').delete().eq('id', id)
+    // .select('id') para detectar DELETE bloqueado por RLS (períodos do Flit
+    // exigem admin): sem o select, o PostgREST retorna sucesso com 0 linhas
+    // e o toast fingiria que o período foi excluído.
+    const { data, error } = await supabase.from('ferias_periodos').delete().eq('id', id).select('id')
     if (error) {
       toast.error('Erro ao excluir período: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para excluir este período')
       return false
     }
     toast.success('Período excluído.')

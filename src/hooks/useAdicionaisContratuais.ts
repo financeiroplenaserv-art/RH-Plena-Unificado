@@ -194,8 +194,15 @@ export function useAdicionaisContratuais() {
         toast.success('Contrato atualizado')
         return true
       }
-      const { error } = await supabase.from('contratos_adicionais').update(dados).eq('id', id)
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso (mesma defesa
+      // do removerContrato abaixo).
+      const { data, error } = await supabase.from('contratos_adicionais').update(dados).eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar este contrato')
+        return false
+      }
       toast.success('Contrato atualizado')
       await listarContratos()
       return true
@@ -317,8 +324,14 @@ export function useAdicionaisContratuais() {
       if (dados.contrato_id !== undefined) payload.contrato_id = dados.contrato_id
       if (dados.data_inicio !== undefined) payload.data_inicio = dados.data_inicio
       if (dados.data_fim !== undefined) payload.data_fim = dados.data_fim
-      const { error } = await supabase.from('vinculos_adicionais').update(payload).eq('id', id)
+      // Mesma defesa do atualizarContrato: UPDATE bloqueado por RLS retorna
+      // 0 linhas SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase.from('vinculos_adicionais').update(payload).eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar este vínculo')
+        return false
+      }
       toast.success('Vínculo atualizado')
       await listarVinculos()
       return true

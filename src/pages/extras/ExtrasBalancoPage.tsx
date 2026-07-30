@@ -134,11 +134,12 @@ export function ExtrasBalancoPage() {
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
           texto += `  *Cliente:* ${comunicacao}\n`
-          // "Observações" do balanço = campo "Detalhes" do formulário de Novo
-          // extra (comunicacao_detalhes). Deve aparecer mesmo quando a
-          // comunicação é "Não se aplica" (faltas/reforços sem cliente).
-          if (extra.comunicacao_detalhes) texto += `  *Observações:* ${extra.comunicacao_detalhes}\n`
-          if (extra.observacoes) texto += `  *Detalhes:* ${extra.observacoes}\n`
+          // "Observações" do balanço = campo observações do extra (decisão da
+          // gestão em 30/07/2026). "Detalhes" mostra o campo Detalhes do
+          // formulário (comunicacao_detalhes), mesmo quando a comunicação é
+          // "Não se aplica" (faltas/reforços sem cliente).
+          if (extra.observacoes) texto += `  *Observações:* ${extra.observacoes}\n`
+          if (extra.comunicacao_detalhes) texto += `  *Detalhes:* ${extra.comunicacao_detalhes}\n`
           texto += '\n'
         })
       })
@@ -166,11 +167,12 @@ export function ExtrasBalancoPage() {
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
           texto += `  *Cliente:* ${comunicacao}\n`
-          // "Observações" do balanço = campo "Detalhes" do formulário de Novo
-          // extra (comunicacao_detalhes). Deve aparecer mesmo quando a
-          // comunicação é "Não se aplica" (faltas/reforços sem cliente).
-          if (extra.comunicacao_detalhes) texto += `  *Observações:* ${extra.comunicacao_detalhes}\n`
-          if (extra.observacoes) texto += `  *Detalhes:* ${extra.observacoes}\n`
+          // "Observações" do balanço = campo observações do extra (decisão da
+          // gestão em 30/07/2026). "Detalhes" mostra o campo Detalhes do
+          // formulário (comunicacao_detalhes), mesmo quando a comunicação é
+          // "Não se aplica" (faltas/reforços sem cliente).
+          if (extra.observacoes) texto += `  *Observações:* ${extra.observacoes}\n`
+          if (extra.comunicacao_detalhes) texto += `  *Detalhes:* ${extra.comunicacao_detalhes}\n`
           texto += '\n'
         })
       })

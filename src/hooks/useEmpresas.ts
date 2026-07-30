@@ -42,13 +42,20 @@ export function useEmpresas() {
   }, [listar])
 
   const atualizar = useCallback(async (id: string, empresa: Partial<Omit<Empresa, 'id' | 'created_at'>>) => {
-    const { error } = await supabase
+    // .select('id') para detectar UPDATE bloqueado por RLS: sem o select,
+    // o PostgREST retorna sucesso com 0 linhas afetadas e o toast fingiria sucesso.
+    const { data, error } = await supabase
       .from('empresas')
       .update(empresa as Partial<Empresa>)
       .eq('id', id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao atualizar empresa: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar esta empresa')
       return false
     }
     toast.success('Empresa atualizada')
@@ -57,13 +64,19 @@ export function useEmpresas() {
   }, [listar])
 
   const remover = useCallback(async (id: string) => {
-    const { error } = await supabase
+    // Mesma defesa do atualizar: DELETE bloqueado por RLS falha em silêncio.
+    const { data, error } = await supabase
       .from('empresas')
       .delete()
       .eq('id', id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao remover empresa: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para remover esta empresa')
       return false
     }
     toast.success('Empresa removida')

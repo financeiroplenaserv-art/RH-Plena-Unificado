@@ -209,13 +209,21 @@ export function useColaboradores() {
   }, [montarQuery])
 
   const atualizar = useCallback(async (id: string, colaborador: Partial<Omit<Colaborador, 'id' | 'created_at' | 'updated_at'>>) => {
-    const { error } = await supabase
+    // .select('id') para detectar UPDATE bloqueado por RLS: sem o select,
+    // o PostgREST retorna sucesso com 0 linhas afetadas e a tela mostraria
+    // o toast de sucesso sem nada ter mudado.
+    const { data, error } = await supabase
       .from('colaboradores')
       .update(colaborador as Partial<Colaborador>)
       .eq('id', id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao atualizar colaborador: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar este colaborador')
       return false
     }
     toast.success('Colaborador atualizado')

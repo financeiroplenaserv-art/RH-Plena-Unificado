@@ -87,8 +87,14 @@ export function useExtras() {
 
   const atualizarCategoria = useCallback(async (id: string, dados: Partial<Omit<CategoriaExtra, 'id' | 'created_at' | 'updated_at'>>): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('categorias_extras').update(dados).eq('id', id)
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro (mesma defesa do atualizar/remover de extras abaixo).
+      const { data, error } = await supabase.from('categorias_extras').update(dados).eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar esta categoria')
+        return false
+      }
       toast.success('Categoria atualizada')
       setCategorias(prev => prev.map(c => c.id === id ? { ...c, ...dados } : c).sort((a, b) => a.nome.localeCompare(b.nome)))
       return true
@@ -101,8 +107,13 @@ export function useExtras() {
 
   const removerCategoria = useCallback(async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('categorias_extras').delete().eq('id', id)
+      // Mesma defesa do atualizarCategoria: DELETE bloqueado por RLS falha em silêncio.
+      const { data, error } = await supabase.from('categorias_extras').delete().eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para remover esta categoria')
+        return false
+      }
       toast.success('Categoria removida')
       setCategorias(prev => prev.filter(c => c.id !== id))
       return true
