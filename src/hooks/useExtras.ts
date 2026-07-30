@@ -172,8 +172,15 @@ export function useExtras() {
 
   const atualizar = useCallback(async (id: string, dados: Partial<Omit<Extra, 'id' | 'created_at' | 'updated_at'>>): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('extras').update(dados).eq('id', id)
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem, a tela mostraria o valor novo em memória
+      // enquanto o banco (e as outras telas, ex.: Relatório Semanal) manteria o antigo.
+      const { data, error } = await supabase.from('extras').update(dados).eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar este extra')
+        return false
+      }
       toast.success('Extra atualizado com sucesso')
       setExtras(prev => prev.map(e => e.id === id ? { ...e, ...dados } : e))
       return true
@@ -186,8 +193,13 @@ export function useExtras() {
 
   const remover = useCallback(async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('extras').delete().eq('id', id)
+      // Mesma defesa do atualizar: DELETE bloqueado por RLS falha em silêncio.
+      const { data, error } = await supabase.from('extras').delete().eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para excluir este extra')
+        return false
+      }
       toast.success('Extra removido com sucesso')
       setExtras(prev => prev.filter(e => e.id !== id))
       return true
