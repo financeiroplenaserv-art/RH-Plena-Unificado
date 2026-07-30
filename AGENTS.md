@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 88 migrations SQL (numeradas 001 a 088)
+├── migrations/             # 89 migrations SQL (numeradas 001 a 089)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -266,7 +266,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **88 migrations** em `supabase/migrations/` (numeradas `001_*` a `088_*`).
+- Existem **89 migrations** em `supabase/migrations/` (numeradas `001_*` a `089_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -299,6 +299,7 @@ npx vitest
   - `086_extras_empresa_trigger_backfill.sql` (todos os extras estavam com `empresa_id` NULL — os 3 caminhos de lançamento (form web, plantão web, RPC mobile) gravavam NULL, então o filtro "Empresa" da tela Recibos só funcionava em "Todas". Trigger `trg_extras_preencher_empresa` (BEFORE INSERT OR UPDATE) deriva a empresa do substituto (ou do ausente, sem substituto) em qualquer caminho de escrita; backfill dos 67 históricos (52 Plena EA, 12 Plena Tech, 3 sem vínculo permanecem NULL). Aplicada via `db query --linked` em 30/07/2026)
   - `087_rls_alinhamento_divergencias_permissoes.sql` (auditoria das 34 divergências `permissoes_perfil` × `PERMISSOES_PADRAO` — relatório em `docs/AUDITORIA_DIVERGENCIAS_PERMISSOES_2026-07-30.md`, script `scripts/auditar-divergencias-permissoes.ts`. Alinha o backend às concessões da tela: `pode_ver_extras()` +dp2/inspetoria, `pode_ver_adicionais()` +dp1, DELETE `departamentos` +dp1/dp2, RPC `cancelar_recibo_extras` +dp2/mesa, INSERT/UPDATE `ocorrencias` +inspetoria. E falhas que já estavam no padrão: INSERT/UPDATE `extras` +inspetoria, `categorias_extras` INSERT/UPDATE +financeiro/inspetoria e DELETE +mesa/financeiro. As 9 restrições (tela mais restrita) são intencionais — sem alteração. Aplicada via `db query --linked` em 30/07/2026)
   - `088_contratos_adicionais_delete_por_perfil.sql` (DELETE de `contratos_adicionais` era só `is_admin()`, mas a UI já mostrava a lixeira para `editar_contrato` (gestor, dp2, mesa, financeiro) — falha silenciosa com toast "Contrato removido". Decisão da gestão: os 4 perfis podem excluir. Hooks `removerContrato`/`removerVinculo` passaram a checar linhas afetadas (`.select('id')`) para nunca fingir sucesso; `vinculos_adicionais` DELETE segue só admin — decisão pendente. Aplicada via `db query --linked` em 30/07/2026)
+  - `089_vinculos_delete_e_recibos_inspetoria.sql` (decisões da gestão em 30/07/2026: (1) mesa/dp1/dp2 com os mesmos poderes do admin em `vinculos_adicionais` — DELETE incluído (SELECT/INSERT/UPDATE já cobriam); `editar_vinculo` no mapa padrão ganhou dp1 (dinâmico já concedia); (2) inspetoria pode gerar recibo de extras para o colaborador assinar e marcar como pago — `pode_gerenciar_recibos_extras()` +inspetoria e linhas dinâmicas `extras.gerenciar_recibo`/`extras.marcar_pago` viradas para true; UPDATE de extras já liberado na 087. Aplicada via `db query --linked` em 30/07/2026)
 
 ### Edge Function `econtador`
 

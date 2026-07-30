@@ -96,9 +96,9 @@ describe('Permissões de extras', () => {
     )
   })
 
-  it('somente financeiro pode marcar extra como pago', () => {
+  it('financeiro e inspetoria podem marcar extra como pago', () => {
     expect(perfisQuePermitem(podeMarcarExtraComoPago).sort()).toEqual(
-      ['admin', 'adm', 'financeiro'].sort()
+      ['admin', 'adm', 'financeiro', 'inspetoria'].sort()
     )
   })
 })
@@ -118,9 +118,9 @@ describe('Permissões de adicionais contratuais', () => {
     )
   })
 
-  it('somente dp2 e mesa editam vínculos', () => {
+  it('dp1, dp2 e mesa editam vínculos', () => {
     expect(perfisQuePermitem(podeEditarVinculoAdicional).sort()).toEqual(
-      ['admin', 'adm', 'dp2', 'mesa'].sort()
+      ['admin', 'adm', 'dp1', 'dp2', 'mesa'].sort()
     )
   })
 })
