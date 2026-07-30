@@ -215,8 +215,14 @@ export function useAdicionaisContratuais() {
         toast.success('Contrato removido')
         return true
       }
-      const { error } = await supabase.from('contratos_adicionais').delete().eq('id', id)
+      // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase.from('contratos_adicionais').delete().eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para excluir este contrato')
+        return false
+      }
       toast.success('Contrato removido')
       await listarContratos()
       return true
@@ -377,8 +383,14 @@ export function useAdicionaisContratuais() {
         toast.success('Vínculo removido')
         return true
       }
-      const { error } = await supabase.from('vinculos_adicionais').delete().eq('id', id)
+      // Mesma defesa do removerContrato: DELETE bloqueado por RLS falha em
+      // silêncio (0 linhas) — sem .select('id') o toast fingiria sucesso.
+      const { data, error } = await supabase.from('vinculos_adicionais').delete().eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para excluir este vínculo')
+        return false
+      }
       toast.success('Vínculo removido')
       await listarVinculos()
       return true

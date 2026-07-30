@@ -57,10 +57,11 @@ Nenhuma alteração.
   comando SQL, não por ação de negócio — mesma granularidade que mesa/dp2 já
   tinham. Se a gestão não quiser isso, desmarcar criar/editar/aprovar da
   inspetoria na tela Permissões e avisar para rever a policy.
-- **DELETE de contratos/vínculos de adicionais** continua só `is_admin()` —
-  a tela não tem ação "excluir contrato" separada; se a UI expuser exclusão
-  para gestor/dp2/mesa/financeiro (`editar_contrato`), falhará em silêncio.
-  Validar com a gestão antes de alterar.
+- **DELETE de contratos de adicionais:** era só `is_admin()` e a UI já mostrava
+  a lixeira para `editar_contrato` — falha silenciosa. **Decidido pela gestão
+  em 30/07/2026: gestor, dp2, mesa e financeiro podem excluir** (migration 088).
+  DELETE de **vínculos** segue só admin — decisão pendente; o hook agora avisa
+  "Sem permissão" em vez de fingir sucesso.
 - Linhas de `menu`, `rota` e `escala` (318) não têm contraparte no
   PERMISSOES_PADRAO e são só de UI — fora do escopo.
 
