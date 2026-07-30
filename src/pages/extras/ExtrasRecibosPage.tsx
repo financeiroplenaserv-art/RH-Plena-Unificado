@@ -108,7 +108,7 @@ export function ExtrasRecibosPage() {
   }, [dataInicio, dataFim, empresaId, listar, listarRecibos])
 
   const mapColaborador = useMemo(() => {
-    const m = new Map<string, { nome_completo: string; matricula?: string | null; cpf?: string | null; cargo?: string | null; departamento?: string | null }>()
+    const m = new Map<string, { nome_completo: string; matricula?: string | null; cpf?: string | null; cargo?: string | null; departamento?: string | null; empresa_id?: string | null }>()
     colaboradores.forEach(c => m.set(c.id, c))
     return m
   }, [colaboradores])
@@ -119,11 +119,20 @@ export function ExtrasRecibosPage() {
     cnpj: null,
   }), [])
 
-  // Empresa usada no cabeçalho do PDF: quando uma empresa específica está
-  // selecionada, usa ela; em "Todas as empresas", resolve pela empresa do
-  // primeiro extra do grupo, com fallback para a primeira da lista.
+  // Empresa usada no cabeçalho do PDF: a empresa real do colaborador
+  // (substituto) tem prioridade — o recibo não pode sair com a empresa do
+  // lançamento se o colaborador for de outra (ex.: extra lançado na Plena EA
+  // para colaborador da Plena Tech). Sem colaborador vinculado, usa a empresa
+  // do filtro da tela; depois a do primeiro extra; por fim a primeira da lista.
   const resolverEmpresa = useMemo(() => {
     return (grupo: GrupoSubstituto) => {
+      if (grupo.substituto_id) {
+        const empresaDoColaborador = mapColaborador.get(grupo.substituto_id)?.empresa_id
+        const encontrada = empresaDoColaborador
+          ? empresas.find(e => e.id === empresaDoColaborador)
+          : undefined
+        if (encontrada) return encontrada
+      }
       if (empresaId) {
         return empresas.find(e => e.id === empresaId) || empresaPadrao
       }
@@ -132,7 +141,7 @@ export function ExtrasRecibosPage() {
         : undefined
       return empresaDoGrupo || empresas[0] || empresaPadrao
     }
-  }, [empresas, empresaId, empresaPadrao])
+  }, [empresas, empresaId, empresaPadrao, mapColaborador])
 
   const grupos = useMemo<GrupoSubstituto[]>(() => {
     const mapa = new Map<string, GrupoSubstituto>()

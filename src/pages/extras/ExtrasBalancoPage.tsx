@@ -25,7 +25,6 @@ function formatarComunicacao(extra: Extra): string {
   const partes: string[] = [extra.comunicacao_tipo]
   if (extra.comunicacao_data) partes.push(formatarData(extra.comunicacao_data))
   if (extra.comunicacao_hora) partes.push(extra.comunicacao_hora)
-  if (extra.comunicacao_detalhes) partes.push(extra.comunicacao_detalhes)
   return partes.join(' ')
 }
 
@@ -37,7 +36,7 @@ const RODAPE_BALANCO = `Demais Operações:
 
 Operacional S/O
 Zelador (Dia): S/O
-Encarregado / Zelador (Noite anterior): S/O
+Encarregado / Zelador: S/O
 Medidas disciplinares: S/O
 Jardinagem: S/O
 
@@ -79,7 +78,13 @@ export function ExtrasBalancoPage() {
     return m
   }, [departamentos])
 
-  const extrasDia = useMemo(() => extras.filter(e => e.data_ocorrencia === dataSelecionada), [extras, dataSelecionada])
+  // Extras do dia com turno "Noite anterior" NÃO entram no balanço do
+  // próprio dia — eles são reportados no balanço do dia seguinte (regra:
+  // a mensagem do dia X cobre do turno "Noite anterior" de X-1 até X).
+  const extrasDia = useMemo(() => extras.filter(e =>
+    e.data_ocorrencia === dataSelecionada &&
+    e.turno !== 'Noite anterior'
+  ), [extras, dataSelecionada])
 
   const extrasNoiteAnterior = useMemo(() => {
     const diaAnterior = subtrairUmDia(dataSelecionada)
@@ -129,6 +134,10 @@ export function ExtrasBalancoPage() {
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
           texto += `  *Cliente:* ${comunicacao}\n`
+          // "Observações" do balanço = campo "Detalhes" do formulário de Novo
+          // extra (comunicacao_detalhes). Deve aparecer mesmo quando a
+          // comunicação é "Não se aplica" (faltas/reforços sem cliente).
+          if (extra.comunicacao_detalhes) texto += `  *Observações:* ${extra.comunicacao_detalhes}\n`
           if (extra.observacoes) texto += `  *Detalhes:* ${extra.observacoes}\n`
           texto += '\n'
         })
@@ -157,6 +166,10 @@ export function ExtrasBalancoPage() {
           texto += `  *Substituto:* ${substituto}\n`
           texto += `  *Valor:* ${formatarMoeda(extra.valor)}\n`
           texto += `  *Cliente:* ${comunicacao}\n`
+          // "Observações" do balanço = campo "Detalhes" do formulário de Novo
+          // extra (comunicacao_detalhes). Deve aparecer mesmo quando a
+          // comunicação é "Não se aplica" (faltas/reforços sem cliente).
+          if (extra.comunicacao_detalhes) texto += `  *Observações:* ${extra.comunicacao_detalhes}\n`
           if (extra.observacoes) texto += `  *Detalhes:* ${extra.observacoes}\n`
           texto += '\n'
         })
