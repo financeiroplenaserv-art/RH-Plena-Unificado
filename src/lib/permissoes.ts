@@ -24,7 +24,7 @@ const isAdm = (p: NivelAcesso) => p === 'adm' || p === 'admin'
 // admin/adm não aparecem aqui: eles têm acesso total sempre.
 // ============================================================
 
-const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, NivelAcesso[]>>>> = {
+export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, NivelAcesso[]>>>> = {
   empresa: {
     editar: ['gestor', 'dp1', 'dp2', 'financeiro'],
     excluir: [],
