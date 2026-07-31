@@ -168,7 +168,8 @@ export async function gerarReciboExtraPDF(
 
   const yTabela = 54 + linhasTexto.length * 7 + 8
 
-  // Tabela apenas com data e departamento
+  // Tabela apenas com data e departamento — o turno NÃO aparece no recibo
+  // ("Noite anterior" é conceito interno do balanço operacional)
   const rows = extras.map((e) => [
     formatarData(e.data_ocorrencia),
     e.departamento_nome || '-',

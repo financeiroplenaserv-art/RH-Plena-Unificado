@@ -43,12 +43,17 @@ export const AssinaturaCanvas = forwardRef<AssinaturaCanvasRef, AssinaturaCanvas
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
+      // O fundo TEM que vir antes da caneta: desenharFundo muda o strokeStyle
+      // para cinza-claro (linha guia). Antes desta correção, a 1ª assinatura
+      // de cada sessão saía cinza — só voltava ao preto após um "Limpar".
+      desenharFundo(canvas, ctx)
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.lineWidth = 3
+      // Traço grosso: o canvas é 600px e exibido reduzido no celular — 3px
+      // internos viravam ~1,6px na tela e pareciam cinza-claro. No PDF
+      // (imagem em resolução cheia) continua saindo preto normalmente.
+      ctx.lineWidth = 6
       ctx.strokeStyle = '#000000'
-
-      desenharFundo(canvas, ctx)
     }, [])
 
     const getPos = (e: React.MouseEvent | React.TouchEvent) => {
@@ -102,7 +107,7 @@ export const AssinaturaCanvas = forwardRef<AssinaturaCanvasRef, AssinaturaCanvas
       desenharFundo(canvas, ctx)
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.lineWidth = 3
+      ctx.lineWidth = 6
       ctx.strokeStyle = '#000000'
       setTemAssinatura(false)
     }

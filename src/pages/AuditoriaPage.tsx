@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment } from 'react'
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
 import { Search, History, ChevronDown, ChevronUp } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAuditoria } from '@/hooks/useAuditoria'
+import { supabase } from '@/lib/supabase'
 import { formatarData } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 
@@ -73,10 +74,27 @@ export function AuditoriaPage() {
   const [tabela, setTabela] = useState('todas')
   const [busca, setBusca] = useState('')
   const [expandido, setExpandido] = useState<string | null>(null)
+  // Mapa id → nome para exibir quem fez cada ação (em vez do UUID cru)
+  const [nomesUsuarios, setNomesUsuarios] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
     loadLogs(tabela !== 'todas' ? { tabela } : {})
   }, [tabela, loadLogs])
+
+  useEffect(() => {
+    supabase
+      .from('perfis')
+      .select('id, nome, email')
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Erro ao carregar perfis para a auditoria:', error)
+          return
+        }
+        setNomesUsuarios(new Map((data || []).map((p) => [p.id, p.nome || p.email || p.id])))
+      })
+  }, [])
+
+  const nomeUsuario = useCallback((id: string | null) => (id ? nomesUsuarios.get(id) || id : '—'), [nomesUsuarios])
 
   const logsFiltrados = useMemo(() => {
     if (!busca.trim()) return logs
@@ -87,12 +105,13 @@ export function AuditoriaPage() {
         l.operacao,
         l.registro_id,
         l.usuario_id,
+        nomeUsuario(l.usuario_id),
         JSON.stringify(l.dados_anteriores),
         JSON.stringify(l.dados_novos),
       ]
       return campos.some((c) => String(c).toLowerCase().includes(termo))
     })
-  }, [logs, busca])
+  }, [logs, busca, nomeUsuario])
 
   return (
     <ModuleShell>
@@ -167,7 +186,9 @@ export function AuditoriaPage() {
                         <TableCell className="text-sm text-slate-700">{log.tabela}</TableCell>
                         <TableCell><BadgeAcao acao={log.operacao} /></TableCell>
                         <TableCell className="text-sm text-slate-600 font-mono truncate max-w-[150px]">{log.registro_id}</TableCell>
-                        <TableCell className="text-sm text-slate-600 font-mono truncate max-w-[150px]">{log.usuario_id || '—'}</TableCell>
+                        <TableCell className="text-sm text-slate-600 truncate max-w-[180px]" title={log.usuario_id || undefined}>
+                          {nomeUsuario(log.usuario_id)}
+                        </TableCell>
                         <TableCell>
                           {expandido === log.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                         </TableCell>

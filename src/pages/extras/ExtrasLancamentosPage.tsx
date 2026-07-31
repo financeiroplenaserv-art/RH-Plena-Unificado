@@ -222,6 +222,7 @@ export function ExtrasLancamentosPage() {
                 <TableHead>Motivo</TableHead>
                 <TableHead>Valor</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Lançado em</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -243,6 +244,14 @@ export function ExtrasLancamentosPage() {
                     >
                       {extra.status}
                     </StatusBadge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground text-xs">
+                    {extra.created_at
+                      ? new Date(extra.created_at).toLocaleString('pt-BR', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        })
+                      : '—'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

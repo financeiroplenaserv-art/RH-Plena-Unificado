@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, DollarSign, RefreshCcw, Trash2, X, ArrowUp, ArrowDown } from 'lucide-react'
+import { FileText, DollarSign, RefreshCcw, Trash2, X, ArrowUp, ArrowDown, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -80,6 +80,7 @@ export function ExtrasRecibosPage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [reciboParaAssinar, setReciboParaAssinar] = useState<ReciboExtra | null>(null)
   const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoSubstituto | null>(null)
+  const [reciboDetalhe, setReciboDetalhe] = useState<ReciboExtra | null>(null)
   const [marcarPago, setMarcarPago] = useState(false)
   const [emitindo, setEmitindo] = useState(false)
   const [modoPapel, setModoPapel] = useState(false)
@@ -586,6 +587,10 @@ export function ExtrasRecibosPage() {
                     <TableCell>{recibo.data_assinatura ? formatarDataBR(recibo.data_assinatura.split('T')[0]) : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <ModuleButton variant="outline" size="sm" onClick={() => setReciboDetalhe(recibo)} title="Ver detalhes">
+                          <Eye className="w-4 h-4 mr-2" />
+                          Detalhes
+                        </ModuleButton>
                         <ModuleButton variant="outline" size="sm" onClick={() => handleReemitirPDF(recibo)}>
                           <FileText className="w-4 h-4 mr-2" />
                           PDF
@@ -647,6 +652,7 @@ export function ExtrasRecibosPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Data</TableHead>
+                        <TableHead>Turno</TableHead>
                         <TableHead>Departamento</TableHead>
                         <TableHead>Motivo</TableHead>
                         <TableHead>Valor</TableHead>
@@ -656,6 +662,7 @@ export function ExtrasRecibosPage() {
                       {grupoSelecionado.extras.map(extra => (
                         <TableRow key={extra.id}>
                           <TableCell>{formatarDataBR(extra.data_ocorrencia)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{extra.turno || '—'}</TableCell>
                           <TableCell>{extra.departamento_nome || '—'}</TableCell>
                           <TableCell>{extra.motivo}</TableCell>
                           <TableCell>{formatarMoeda(Number(extra.valor) || 0)}</TableCell>
@@ -694,6 +701,58 @@ export function ExtrasRecibosPage() {
             </ModuleButton>
             <ModuleButton size="sm" onClick={handleAssinar} disabled={emitindo}>
               {emitindo ? 'Assinando...' : 'Confirmar e gerar PDF'}
+            </ModuleButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detalhes de um recibo já assinado (somente leitura, uso interno) */}
+      <Dialog open={!!reciboDetalhe} onOpenChange={() => setReciboDetalhe(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do recibo</DialogTitle>
+            <DialogDescription>
+              {reciboDetalhe && (
+                <>
+                  Recibo de <strong>{reciboDetalhe.colaborador_nome}</strong> — período{' '}
+                  {formatarDataBR(reciboDetalhe.data_inicio)} a {formatarDataBR(reciboDetalhe.data_fim)} —{' '}
+                  <strong>{formatarMoeda(reciboDetalhe.valor_total)}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {reciboDetalhe && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Turno</TableHead>
+                    <TableHead>Departamento</TableHead>
+                    <TableHead>Motivo</TableHead>
+                    <TableHead>Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {extras
+                    .filter(e => reciboDetalhe.extras_ids.includes(e.id))
+                    .map(extra => (
+                      <TableRow key={extra.id}>
+                        <TableCell className="whitespace-nowrap">{formatarDataBR(extra.data_ocorrencia)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{extra.turno || '—'}</TableCell>
+                        <TableCell>{extra.departamento_nome || '—'}</TableCell>
+                        <TableCell>{extra.motivo}</TableCell>
+                        <TableCell>{formatarMoeda(Number(extra.valor) || 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <ModuleButton variant="outline" size="sm" onClick={() => setReciboDetalhe(null)}>
+              <X className="w-4 h-4 mr-2" />
+              Fechar
             </ModuleButton>
           </DialogFooter>
         </DialogContent>

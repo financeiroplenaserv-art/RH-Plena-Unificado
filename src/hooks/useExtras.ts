@@ -169,7 +169,14 @@ export function useExtras() {
 
   const criar = useCallback(async (dados: Omit<Extra, 'id' | 'created_at' | 'updated_at'>): Promise<Extra | null> => {
     try {
-      const { data, error } = await supabase.from('extras').insert(dados).select(COLUNAS_EXTRAS).single()
+      // Sempre registra o autor: formulário web e plantão enviavam usuario_id
+      // null — sem isso não dava para rastrear quem lançou o extra.
+      let usuarioId = dados.usuario_id
+      if (!usuarioId) {
+        const { data: authData } = await supabase.auth.getUser()
+        usuarioId = authData.user?.id ?? null
+      }
+      const { data, error } = await supabase.from('extras').insert({ ...dados, usuario_id: usuarioId }).select(COLUNAS_EXTRAS).single()
       if (error) throw error
       toast.success('Extra registrado com sucesso')
       setExtras(prev => [data as Extra, ...prev])
