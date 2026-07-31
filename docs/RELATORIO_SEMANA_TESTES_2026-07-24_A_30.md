@@ -1,9 +1,16 @@
-# Relatório da semana de testes — 24/07 a 31/07/2026
+# Relatório da semana de testes — 23/07 a 31/07/2026
 
 > **Para quem é este documento:** gestores e diretoria. Linguagem simples, sem termos técnicos.
 > **O que ele conta:** tudo o que foi melhorado e corrigido no sistema CORH durante a semana de testes com usuários reais.
 
 ---
+
+## Quinta-feira, 23/07 — nasce o módulo Férias
+
+- **Módulo Férias completo:** 3 abas (Visão geral, Importar e Notificações), importação da planilha do Flit, previsão manual do RH (baixa automática quando o Flit confirma), notificações ao colaborador/responsável e o painel CLT — Em gozo, Agendado, Previsto, A vencer, Vencido, Em dia.
+- **Assinatura de ocorrências:** registro de como o documento foi assinado (papel ou Youk) e anexo do tipo "Documento assinado", com selo verde na ocorrência.
+- **PDF da ocorrência com cara institucional:** logo Plena 30 anos e nome/CNPJ reais da empresa no cabeçalho. Corrigida a causa raiz do "PDF sai com a empresa errada" (o formulário não gravava a empresa) e alinhadas 58 ocorrências da Plena Tech no banco.
+- **e-Contador mais seguro:** a consulta de funcionários passou a ser restrita às empresas permitidas.
 
 ## Sexta-feira, 24/07 — dia de deixar a casa em ordem
 
@@ -74,7 +81,7 @@ Saímos de um sistema em testes com usuários, com pequenos travamentos e permis
 
 ## Números da semana
 
-- **50 entregas** de melhorias e correções (commits)
+- **64 entregas** de melhorias e correções (commits)
 - **10 frentes** de auditoria de segurança executadas
 - **215 testes automatizados** passando
 - **162 colaboradores** com tamanhos de uniforme preenchidos automaticamente pelo histórico de entregas
