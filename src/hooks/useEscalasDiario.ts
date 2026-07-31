@@ -7,7 +7,7 @@ import { inferirLocalTrabalho } from '@/lib/escalas/inferirLocalTrabalho'
 import { nomesSimilares } from '@/lib/utils'
 
 const COLUNAS_LOCAL_TRABALHO_DIARIO = 'id, colaborador_id, data, local_trabalho_id, fonte, usuario_confirmacao_id, confirmado_em, observacao, importacao_ref, created_at, updated_at'
-const COLUNAS_COLABORADOR_ESCALAS = 'id, nome_completo, matricula'
+const COLUNAS_COLABORADOR_ESCALAS = 'id, nome_completo, matricula, cargo'
 const COLUNAS_LOCAL_TRABALHO = 'id, nome, nome_curto, status, observacao'
 
 export interface FiltrosEscalasDiario {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Upload, FileText, X, AlertTriangle, Save } from 'lucide-react'
+import { Upload, FileText, X, AlertTriangle, Save, Trash2 } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -15,6 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
@@ -22,6 +30,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { extrairPaginasPosicionais } from '@/lib/pdfPosicional'
 import {
   parsePaginasEspelho,
@@ -43,6 +52,14 @@ import {
 } from '@/lib/adicionais/importarEspelho'
 import { podeCriarOcorrencia } from '@/lib/permissoes'
 import { mascararCPF } from '@/lib/utils'
+import {
+  listarArquivos,
+  salvarArquivo,
+  buscarArquivoIdentico,
+  baixarArquivo,
+  excluirArquivo,
+  type PontoEspelhoArquivo,
+} from '@/lib/adicionais/pontoEspelhoArquivos'
 import { toast } from 'sonner'
 import type { StatusDiaAdicional } from '@/types/adicionais'
 import type { Ocorrencia } from '@/types/database'
@@ -147,7 +164,21 @@ export function ImportarPontoPage() {
   const [resumoImportacao, setResumoImportacao] = useState<{ nome: string; cpf: string; matricula: string; encontrado: boolean; diverge: boolean }[] | null>(null)
   const [existentesOcorrencias, setExistentesOcorrencias] = useState<OcorrenciaExistente[]>([])
   const [desmarcadasOcorrencias, setDesmarcadasOcorrencias] = useState<Set<string>>(new Set())
+  const [arquivosEnviados, setArquivosEnviados] = useState<PontoEspelhoArquivo[]>([])
+  const [baixandoArquivoId, setBaixandoArquivoId] = useState<string | null>(null)
+  const [confirmarExclusaoArquivo, setConfirmarExclusaoArquivo] = useState<PontoEspelhoArquivo | null>(null)
+  const [arquivoDuplicadoPendente, setArquivoDuplicadoPendente] = useState<PontoEspelhoArquivo | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isAdmin = user?.nivel_acesso === 'admin' || user?.nivel_acesso === 'adm'
+
+  const carregarArquivosEnviados = async () => {
+    try {
+      setArquivosEnviados(await listarArquivos())
+    } catch (err) {
+      console.error('Erro ao listar espelhos de ponto salvos:', err)
+    }
+  }
 
   /** Chave única da ocorrência planejada (colaborador + início + tipo). */
   const chavePlanejada = (p: { colaborador: ColaboradorResumo | null; dataInicio: string; tipo: string }) =>
@@ -163,6 +194,7 @@ export function ImportarPontoPage() {
 
   useEffect(() => {
     listarVinculos()
+    carregarArquivosEnviados()
   }, [listarVinculos])
 
   /** Todos os vínculos do colaborador que cobrem a data (um colab pode ter 2+ adicionais). */
@@ -198,11 +230,10 @@ export function ImportarPontoPage() {
     }
   }
 
-  const handleProcessar = async () => {
-    if (!arquivo) return
+  const processarArquivo = async (file: File) => {
     setProcessando(true)
     try {
-      const paginas = await extrairPaginasPosicionais(arquivo)
+      const paginas = await extrairPaginasPosicionais(file)
       const espelhos = parsePaginasEspelho(paginas).filter((e) => e.dias.length > 0)
       if (espelhos.length === 0) {
         toast.warning('Nenhum espelho de ponto reconhecido neste PDF. Confira se é o relatório “CORH - Adicionais e Ocorrências” exportado do Flit.')
@@ -260,6 +291,84 @@ export function ImportarPontoPage() {
       toast.error(err instanceof Error ? err.message : 'Erro ao processar PDF')
     } finally {
       setProcessando(false)
+    }
+  }
+
+  /**
+   * Salva o PDF no servidor ANTES de processar, para que outros operadores
+   * (ex.: mesa) reaproveitem o mesmo arquivo depois. Se o arquivo já foi
+   * enviado, pergunta antes ao usuário (reutilizar ou reenviar) — nada é
+   * decidido automaticamente. Falha no upload não bloqueia o processamento.
+   */
+  const handleProcessar = async () => {
+    if (!arquivo || !user) return
+    try {
+      const existente = await buscarArquivoIdentico(arquivo)
+      if (existente) {
+        setArquivoDuplicadoPendente(existente)
+        return // aguarda a escolha do usuário no diálogo
+      }
+    } catch (err) {
+      // Falha na checagem não impede o fluxo — segue com upload + processamento
+      console.error('Erro ao verificar espelho já enviado:', err)
+    }
+    await salvarEProcessar(false)
+  }
+
+  /** Usa o registro que já está no servidor (sem reenviar) e processa o PDF. */
+  const handleUsarArquivoExistente = async () => {
+    setArquivoDuplicadoPendente(null)
+    if (arquivo) await processarArquivo(arquivo)
+  }
+
+  /** Reenvia o PDF como um novo registro e processa. */
+  const handleReenviarArquivo = async () => {
+    setArquivoDuplicadoPendente(null)
+    await salvarEProcessar(true)
+  }
+
+  const salvarEProcessar = async (reenviar: boolean) => {
+    if (!arquivo || !user) return
+    try {
+      await salvarArquivo(arquivo, user.id, reenviar)
+      carregarArquivosEnviados()
+    } catch (err) {
+      console.error('Erro ao salvar espelho de ponto para reutilização:', err)
+      toast.warning('O PDF será processado, mas não foi possível salvá-lo no servidor para reutilização.')
+    }
+    await processarArquivo(arquivo)
+  }
+
+  /** Reaproveita um espelho já enviado: baixa do servidor e roda a mesma pipeline. */
+  const handleUsarArquivo = async (item: PontoEspelhoArquivo) => {
+    setBaixandoArquivoId(item.id)
+    try {
+      const file = await baixarArquivo(item)
+      setArquivo(file)
+      setDados([])
+      setResumoImportacao(null)
+      setExistentesOcorrencias([])
+      setDesmarcadasOcorrencias(new Set())
+      await processarArquivo(file)
+    } catch (err) {
+      console.error('Erro ao baixar espelho de ponto salvo:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao baixar o arquivo salvo')
+    } finally {
+      setBaixandoArquivoId(null)
+    }
+  }
+
+  const handleExcluirArquivo = async () => {
+    if (!confirmarExclusaoArquivo) return
+    try {
+      await excluirArquivo(confirmarExclusaoArquivo)
+      toast.success('Arquivo removido')
+      carregarArquivosEnviados()
+    } catch (err) {
+      console.error('Erro ao excluir espelho de ponto:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir o arquivo')
+    } finally {
+      setConfirmarExclusaoArquivo(null)
     }
   }
 
@@ -513,6 +622,95 @@ export function ImportarPontoPage() {
           </ModuleButton>
         </div>
       </ModuleCard>
+
+      {dados.length === 0 && arquivosEnviados.length > 0 && (
+        <ModuleCard title="Arquivos já enviados">
+          <p className="text-xs mb-3" style={{ color: '#64748B' }}>
+            Estes espelhos já foram enviados e estão salvos no servidor — qualquer operador pode reaproveitá-los sem precisar do PDF em mãos.
+          </p>
+          <div className="space-y-2">
+            {arquivosEnviados.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-lg border"
+                style={{ borderColor: '#F1F5F9' }}
+              >
+                <div className="flex items-center gap-2 text-sm min-w-0" style={{ color: '#1F2937' }}>
+                  <FileText className="w-4 h-4 shrink-0" style={{ color: '#0F6CBD' }} />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{item.nome_arquivo}</div>
+                    <div className="text-xs" style={{ color: '#94A3B8' }}>
+                      {new Date(item.created_at).toLocaleString('pt-BR')}
+                      {item.enviado_por_nome ? ` — enviado por ${item.enviado_por_nome}` : ''}
+                      {item.tamanho_bytes ? ` — ${(item.tamanho_bytes / 1024 / 1024).toFixed(1)} MB` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <ModuleButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleUsarArquivo(item)}
+                    disabled={baixandoArquivoId !== null || processando}
+                  >
+                    {baixandoArquivoId === item.id ? 'Baixando...' : 'Usar este arquivo'}
+                  </ModuleButton>
+                  {isAdmin && (
+                    <button
+                      className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
+                      onClick={() => setConfirmarExclusaoArquivo(item)}
+                      title="Excluir arquivo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ModuleCard>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmarExclusaoArquivo}
+        onOpenChange={() => setConfirmarExclusaoArquivo(null)}
+        icon={<Trash2 className="w-6 h-6" />}
+        iconClassName="bg-red-50 text-red-600"
+        title="Excluir arquivo?"
+        description={confirmarExclusaoArquivo ? `O arquivo "${confirmarExclusaoArquivo.nome_arquivo}" será removido do servidor e não poderá mais ser reutilizado.` : ''}
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={handleExcluirArquivo}
+      />
+
+      <Dialog open={!!arquivoDuplicadoPendente} onOpenChange={() => setArquivoDuplicadoPendente(null)}>
+        <DialogContent className="sm:max-w-md rounded-xl bg-white text-slate-900 border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-base" style={{ color: '#1F2937' }}>Este arquivo já foi enviado</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: '#64748B' }}>
+              {arquivoDuplicadoPendente && (
+                <>
+                  <strong>{arquivoDuplicadoPendente.nome_arquivo}</strong> já está salvo no servidor desde{' '}
+                  {new Date(arquivoDuplicadoPendente.created_at).toLocaleString('pt-BR')}
+                  {arquivoDuplicadoPendente.enviado_por_nome ? ` (enviado por ${arquivoDuplicadoPendente.enviado_por_nome})` : ''}.
+                  Escolha se quer aproveitar o arquivo que já está no sistema ou reenviar como um novo registro.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <ModuleButton variant="outline" size="sm" onClick={() => setArquivoDuplicadoPendente(null)}>
+              Cancelar
+            </ModuleButton>
+            <ModuleButton variant="outline" size="sm" onClick={handleReenviarArquivo}>
+              Reenviar arquivo
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleUsarArquivoExistente}>
+              Usar o que está no sistema
+            </ModuleButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {resumoImportacao && resumoImportacao.length > 0 && (
         <ModuleCard title="Resumo dos colaboradores do PDF">

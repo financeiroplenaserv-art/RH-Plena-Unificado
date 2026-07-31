@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Save, Search, User, Package, Hash, Trash2 } from 'lucide-react'
+import { Plus, Save, Search, User, Package, Hash, Trash2, Copy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 import {
@@ -17,8 +17,9 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { cn } from '@/lib/utils'
+import { listarTamanhos, resumoTamanhos, tamanhoParaItem, tamanhoDoNomeItem } from '@/lib/ceu/tamanhos'
 import { toast } from 'sonner'
-import type { Colaborador, ItemCEU } from '@/types/database'
+import type { CeuTamanhos, Colaborador, ItemCEU } from '@/types/database'
 
 const TIPOS = ['EPI', 'Uniforme', 'Crachá'] as const
 type TipoItem = (typeof TIPOS)[number]
@@ -31,6 +32,8 @@ interface LinhaLancamento {
   data: string
   colaboradorId: string
   colaboradorInput: string
+  /** Medidas do colaborador (tabela ceu_tamanhos) — referência para a coluna Tam. */
+  tamanhos: CeuTamanhos | null
   tipo: TipoItem | ''
   codigo: string
   produto: string
@@ -43,12 +46,20 @@ function gerarId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function criarLinhaVazia(): LinhaLancamento {
+/**
+ * Cria uma linha nova. Com `base`, herda apenas a DATA da linha anterior
+ * (fill-down); com `copiarColaborador`, herda também o colaborador — fluxo
+ * "mesma pessoa, vários itens". Tipo, código, produto e quantidade nunca
+ * são copiados (decisão da usuária: repetir só data e nome); status volta
+ * ao padrão "Novo".
+ */
+function criarLinhaVazia(base?: LinhaLancamento, copiarColaborador = false): LinhaLancamento {
   return {
     id: gerarId(),
-    data: new Date().toISOString().split('T')[0],
-    colaboradorId: '',
-    colaboradorInput: '',
+    data: base?.data || new Date().toISOString().split('T')[0],
+    colaboradorId: copiarColaborador && base ? base.colaboradorId : '',
+    colaboradorInput: copiarColaborador && base ? base.colaboradorInput : '',
+    tamanhos: copiarColaborador && base ? base.tamanhos : null,
     tipo: '',
     codigo: '',
     produto: '',
@@ -62,20 +73,51 @@ function normalizarCodigo(codigo: string) {
   return codigo.trim().toLowerCase()
 }
 
+/** Rascunho automático: sair da tela não perde as linhas preenchidas. */
+const CHAVE_RASCUNHO = 'ceu-lancamento-rapido-rascunho'
+
+function carregarRascunho(): LinhaLancamento[] {
+  try {
+    const salvo = localStorage.getItem(CHAVE_RASCUNHO)
+    if (salvo) {
+      const parsed = JSON.parse(salvo)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Rascunhos antigos (antes do ceu_tamanhos) não têm o campo `tamanhos`
+        return parsed.map((l) => ({ tamanhos: null, ...l }))
+      }
+    }
+  } catch {
+    // Rascunho corrompido — ignora e começa limpo
+  }
+  return Array.from({ length: 5 }, () => criarLinhaVazia())
+}
+
 export function CeuLancamentoRapidoPage() {
   const navigate = useNavigate()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { itens, listar: listarItens } = useCEUItens()
   const { criar } = useCEUEntregas()
-  const [linhas, setLinhas] = useState<LinhaLancamento[]>(() => Array.from({ length: 5 }, criarLinhaVazia))
+  const [linhas, setLinhas] = useState<LinhaLancamento[]>(carregarRascunho)
   const [salvando, setSalvando] = useState(false)
   const [dropdownAberto, setDropdownAberto] = useState<string | null>(null)
+  const [destaqueColab, setDestaqueColab] = useState(0)
+  const [dropdownProdutoAberto, setDropdownProdutoAberto] = useState<string | null>(null)
+  const [destaqueProduto, setDestaqueProduto] = useState(0)
+  const [mapaTamanhos, setMapaTamanhos] = useState<Map<string, CeuTamanhos>>(new Map())
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
     listarColaboradores({ status: 'Ativo' })
     listarItens()
+    listarTamanhos()
+      .then(setMapaTamanhos)
+      .catch((err) => console.error('Erro ao carregar tamanhos do CEU:', err))
   }, [listarColaboradores, listarItens])
+
+  // Persiste o rascunho a cada alteração das linhas
+  useEffect(() => {
+    localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(linhas))
+  }, [linhas])
 
   const mapaItensPorCodigo = useMemo(() => {
     const map = new Map<string, ItemCEU>()
@@ -115,6 +157,19 @@ export function CeuLancamentoRapidoPage() {
       .slice(0, 8)
   }
 
+  /** Sugestões de produto pelo nome, respeitando o Tipo escolhido na linha. */
+  function itensSugeridos(linha: LinhaLancamento) {
+    const termo = linha.produto.trim().toLowerCase()
+    if (!termo) return []
+    return itens
+      .filter(
+        (i) =>
+          (!linha.tipo || i.tipo === linha.tipo) &&
+          i.nome.toLowerCase().includes(termo)
+      )
+      .slice(0, 8)
+  }
+
   function atualizarLinha(id: string, patch: Partial<LinhaLancamento>) {
     setLinhas((prev) => prev.map((linha) => (linha.id === id ? { ...linha, ...patch } : linha)))
   }
@@ -123,7 +178,9 @@ export function CeuLancamentoRapidoPage() {
     atualizarLinha(id, {
       colaboradorInput: value,
       colaboradorId: '',
+      tamanhos: null,
     })
+    setDestaqueColab(0)
     setDropdownAberto(id)
   }
 
@@ -131,8 +188,94 @@ export function CeuLancamentoRapidoPage() {
     atualizarLinha(id, {
       colaboradorId: colaborador.id,
       colaboradorInput: `${colaborador.nome_completo} — ${colaborador.matricula}`,
+      tamanhos: mapaTamanhos.get(colaborador.id) ?? null,
     })
     setDropdownAberto(null)
+  }
+
+  function selecionarItem(id: string, item: ItemCEU) {
+    atualizarLinha(id, {
+      produto: item.nome,
+      codigo: item.codigo || item.ca || item.id,
+      itemId: item.id,
+      tipo: (item.tipo as TipoItem) || '',
+    })
+    setDropdownProdutoAberto(null)
+    inputRefs.current[`qtd-${id}`]?.focus()
+  }
+
+  /** Teclado no campo Colaborador: setas navegam, Enter escolhe e vai para o Código. */
+  function handleKeyDownColaborador(e: React.KeyboardEvent, linha: LinhaLancamento, sugestoes: Colaborador[]) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setDestaqueColab((d) => Math.min(d + 1, sugestoes.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setDestaqueColab((d) => Math.max(d - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const alvo = sugestoes[destaqueColab] || sugestoes[0]
+      if (alvo && dropdownAberto === linha.id) {
+        selecionarColaborador(linha.id, alvo)
+        inputRefs.current[`cod-${linha.id}`]?.focus()
+      }
+    }
+  }
+
+  /** Teclado no campo Produto: setas navegam, Enter escolhe e vai para a Qtd. */
+  function handleKeyDownProduto(e: React.KeyboardEvent, linha: LinhaLancamento, sugestoes: ItemCEU[]) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setDestaqueProduto((d) => Math.min(d + 1, sugestoes.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setDestaqueProduto((d) => Math.max(d - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const alvo = sugestoes[destaqueProduto] || sugestoes[0]
+      if (alvo && dropdownProdutoAberto === linha.id) {
+        selecionarItem(linha.id, alvo)
+      }
+    }
+  }
+
+  /** Enter no Código (item resolvido) vai direto para a Quantidade. */
+  function handleKeyDownCodigo(e: React.KeyboardEvent, linha: LinhaLancamento) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (linha.itemId) inputRefs.current[`qtd-${linha.id}`]?.focus()
+    }
+  }
+
+  /** Enter na Quantidade cria a próxima linha herdando data, colaborador e status. */
+  function handleKeyDownQuantidade(e: React.KeyboardEvent, linha: LinhaLancamento) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      adicionarLinhaAPartir(linha)
+    }
+  }
+
+  /** Insere uma nova linha logo abaixo, herdando data, colaborador e status (item 1). */
+  function adicionarLinhaAPartir(linha: LinhaLancamento) {
+    const nova = criarLinhaVazia(linha, true)
+    setLinhas((prev) => {
+      const idx = prev.findIndex((l) => l.id === linha.id)
+      const copia = [...prev]
+      copia.splice(idx + 1, 0, nova)
+      return copia
+    })
+    setTimeout(() => inputRefs.current[`cod-${nova.id}`]?.focus(), 0)
+  }
+
+  /** Repete apenas data e colaborador numa nova linha logo abaixo (nunca tipo/código/produto). */
+  function duplicarLinha(id: string) {
+    setLinhas((prev) => {
+      const idx = prev.findIndex((l) => l.id === id)
+      if (idx === -1) return prev
+      const copia = [...prev]
+      copia.splice(idx + 1, 0, criarLinhaVazia(prev[idx], true))
+      return copia
+    })
   }
 
   function handleCodigo(id: string, value: string) {
@@ -178,10 +321,16 @@ export function CeuLancamentoRapidoPage() {
       itemId: '',
       codigo: '',
     })
+    setDestaqueProduto(0)
+    setDropdownProdutoAberto(id)
   }
 
+  /** Novas linhas em lote herdam data e status da última linha (fill-down). */
   function adicionarLinhas(quantidade: number) {
-    setLinhas((prev) => [...prev, ...Array.from({ length: quantidade }, criarLinhaVazia)])
+    setLinhas((prev) => {
+      const ultima = prev[prev.length - 1]
+      return [...prev, ...Array.from({ length: quantidade }, () => criarLinhaVazia(ultima, false))]
+    })
   }
 
   function removerLinha(id: string) {
@@ -197,6 +346,11 @@ export function CeuLancamentoRapidoPage() {
       linha.quantidade > 0 &&
       linha.status
     )
+  }
+
+  /** Linha com qualquer conteúdo digitado (ignora os defaults de data/qtd/status). */
+  function linhaTemConteudo(linha: LinhaLancamento) {
+    return !!(linha.colaboradorInput || linha.colaboradorId || linha.codigo || linha.produto)
   }
 
   async function handleSalvar() {
@@ -239,8 +393,17 @@ export function CeuLancamentoRapidoPage() {
     toast.success(`${sucesso} entrega(s) registrada(s) com sucesso`)
 
     if (sucesso > 0) {
-      setLinhas(Array.from({ length: 5 }, criarLinhaVazia))
-      navigate('/ceu/movimentacoes')
+      // Linhas com conteúdo que NÃO foram salvas permanecem na tela para
+      // correção — antes a grade inteira era apagada e elas se perdiam.
+      const pendentes = linhas.filter((l) => !linhaValida(l) && linhaTemConteudo(l))
+      if (pendentes.length > 0) {
+        toast.warning(`${pendentes.length} linha(s) ficaram de fora (campos incompletos) — elas permanecem na tela`, { duration: 6000 })
+        setLinhas(pendentes)
+      } else {
+        localStorage.removeItem(CHAVE_RASCUNHO)
+        setLinhas(Array.from({ length: 5 }, () => criarLinhaVazia()))
+        navigate('/ceu/movimentacoes')
+      }
     }
   }
 
@@ -287,6 +450,7 @@ export function CeuLancamentoRapidoPage() {
                   <th className="px-3 py-2 w-32">Tipo</th>
                   <th className="px-3 py-2 w-28">Código</th>
                   <th className="px-3 py-2 min-w-[220px]">Produto</th>
+                  <th className="px-3 py-2 w-16" title="Tamanho de referência do cadastro CEU (apenas visual)">Tam.</th>
                   <th className="px-3 py-2 w-20">Qtd</th>
                   <th className="px-3 py-2 w-36">Status</th>
                   <th className="px-3 py-2 w-16"></th>
@@ -295,6 +459,22 @@ export function CeuLancamentoRapidoPage() {
               <tbody>
                 {linhas.map((linha, index) => {
                   const sugestoes = colaboradoresSugeridos(linha.colaboradorInput)
+                  const sugestoesItens = itensSugeridos(linha)
+                  // Linha "repetição": herdou data+nome da linha de cima e ainda
+                  // não tem item — fica azul até receber EPI/Uniforme/Crachá.
+                  const ehRepeticao =
+                    index > 0 &&
+                    !!linha.colaboradorId &&
+                    linhas[index - 1].colaboradorId === linha.colaboradorId &&
+                    !linha.itemId
+                  const resumoTam = resumoTamanhos(linha.tamanhos)
+                  const itemDaLinha = linha.itemId ? mapaItensPorId.get(linha.itemId) : undefined
+                  const tamSugerido = itemDaLinha ? tamanhoParaItem(itemDaLinha.nome, linha.tamanhos) : null
+                  // Alerta (não bloqueia): o item escolhido tem tamanho diferente do cadastro
+                  const tamDoItem = itemDaLinha ? tamanhoDoNomeItem(itemDaLinha.nome) : null
+                  const tamDivergente =
+                    !!tamSugerido && !!tamDoItem &&
+                    tamSugerido.toUpperCase() !== tamDoItem.toUpperCase()
 
                   return (
                     <tr
@@ -304,30 +484,33 @@ export function CeuLancamentoRapidoPage() {
                         index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
                       )}
                     >
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-1.5 align-top">
                         <Input
                           type="date"
                           value={linha.data}
                           onChange={(e) => atualizarLinha(linha.id, { data: e.target.value })}
                           className={cn(
                             'h-9 text-xs px-2',
+                            ehRepeticao && 'text-[#0F6CBD] font-medium',
                             linha.data ? 'border-green-500 focus-visible:ring-green-200' : 'border-slate-300'
                           )}
                         />
                       </td>
 
-                      <td className="px-2 py-1.5 relative max-w-[260px]">
+                      <td className="px-2 py-1.5 align-top relative max-w-[260px]">
                         <div className="relative">
                           <User className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                           <Input
                             ref={(el) => { inputRefs.current[`colab-${linha.id}`] = el }}
                             value={linha.colaboradorInput}
                             onChange={(e) => handleColaboradorInput(linha.id, e.target.value)}
-                            onFocus={() => setDropdownAberto(linha.id)}
+                            onKeyDown={(e) => handleKeyDownColaborador(e, linha, sugestoes)}
+                            onFocus={() => { setDestaqueColab(0); setDropdownAberto(linha.id) }}
                             onBlur={() => setTimeout(() => setDropdownAberto(null), 200)}
                             placeholder="Nome ou matrícula..."
                             className={cn(
                               'h-9 text-xs pl-7 pr-2',
+                              ehRepeticao && 'text-[#0F6CBD] font-medium',
                               linha.colaboradorId
                                 ? 'border-green-500 focus-visible:ring-green-200'
                                 : 'border-slate-300'
@@ -335,12 +518,17 @@ export function CeuLancamentoRapidoPage() {
                           />
                           {dropdownAberto === linha.id && sugestoes.length > 0 && (
                             <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-auto">
-                              {sugestoes.map((colab) => (
+                              {sugestoes.map((colab, idx) => (
                                 <button
                                   key={colab.id}
                                   type="button"
+                                  tabIndex={-1}
                                   onMouseDown={() => selecionarColaborador(linha.id, colab)}
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 border-b border-slate-50 last:border-0"
+                                  onMouseEnter={() => setDestaqueColab(idx)}
+                                  className={cn(
+                                    'w-full text-left px-3 py-2 text-xs border-b border-slate-50 last:border-0',
+                                    idx === destaqueColab ? 'bg-blue-50' : 'hover:bg-slate-50'
+                                  )}
                                 >
                                   <p className="font-medium text-slate-900">{colab.nome_completo}</p>
                                   <p className="text-slate-500">{colab.matricula} — {colab.departamento || '—'}</p>
@@ -349,9 +537,12 @@ export function CeuLancamentoRapidoPage() {
                             </div>
                           )}
                         </div>
+                        {resumoTam && (
+                          <p className="text-[10px] text-slate-500 mt-0.5 pl-1">📏 {resumoTam}</p>
+                        )}
                       </td>
 
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-1.5 align-top">
                         <Select value={linha.tipo} onValueChange={(v) => handleTipoChange(linha.id, v as TipoItem)}>
                           <SelectTrigger
                             className={cn(
@@ -371,27 +562,39 @@ export function CeuLancamentoRapidoPage() {
                         </Select>
                       </td>
 
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-1.5 align-top">
                         <div className="relative">
                           <Hash className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                           <Input
+                            ref={(el) => { inputRefs.current[`cod-${linha.id}`] = el }}
                             value={linha.codigo}
                             onChange={(e) => handleCodigo(linha.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDownCodigo(e, linha)}
                             placeholder="CA/código"
                             className={cn(
                               'h-9 text-xs pl-7 pr-2',
-                              linha.itemId ? 'border-green-500 focus-visible:ring-green-200' : 'border-slate-300'
+                              linha.itemId
+                                ? 'border-green-500 focus-visible:ring-green-200'
+                                : linha.codigo.trim()
+                                  ? 'border-red-500 focus-visible:ring-red-200'
+                                  : 'border-slate-300'
                             )}
                           />
                         </div>
+                        {linha.codigo.trim() && !linha.itemId && (
+                          <p className="text-[10px] text-red-600 mt-0.5 pl-1">Código não encontrado no cadastro</p>
+                        )}
                       </td>
 
-                      <td className="px-2 py-1.5 max-w-[220px]">
+                      <td className="px-2 py-1.5 align-top relative max-w-[220px]">
                         <div className="relative">
                           <Package className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
                           <Input
                             value={linha.produto}
                             onChange={(e) => handleProdutoChange(linha.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDownProduto(e, linha, sugestoesItens)}
+                            onFocus={() => { setDestaqueProduto(0); if (linha.produto.trim() && !linha.itemId) setDropdownProdutoAberto(linha.id) }}
+                            onBlur={() => setTimeout(() => setDropdownProdutoAberto(null), 200)}
                             placeholder="Produto"
                             className={cn(
                               'h-9 text-xs pl-7 pr-2',
@@ -400,17 +603,61 @@ export function CeuLancamentoRapidoPage() {
                                 : 'border-slate-300'
                             )}
                           />
+                          {dropdownProdutoAberto === linha.id && sugestoesItens.length > 0 && (
+                            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-auto">
+                              {sugestoesItens.map((item, idx) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  tabIndex={-1}
+                                  onMouseDown={() => selecionarItem(linha.id, item)}
+                                  onMouseEnter={() => setDestaqueProduto(idx)}
+                                  className={cn(
+                                    'w-full text-left px-3 py-2 text-xs border-b border-slate-50 last:border-0',
+                                    idx === destaqueProduto ? 'bg-blue-50' : 'hover:bg-slate-50'
+                                  )}
+                                >
+                                  <p className="font-medium text-slate-900">{item.nome}</p>
+                                  <p className="text-slate-500">{[item.tipo, item.ca ? `CA ${item.ca}` : null, item.codigo].filter(Boolean).join(' — ')}</p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </td>
 
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-1.5 align-top">
+                        {tamSugerido ? (
+                          <span
+                            className={cn(
+                              'inline-block px-2 py-1 rounded text-xs',
+                              tamDivergente
+                                ? 'bg-red-50 text-red-600 font-bold'
+                                : 'bg-blue-50 text-[#0F6CBD] font-semibold'
+                            )}
+                            title={
+                              tamDivergente
+                                ? `Atenção: o cadastro indica ${tamSugerido}, mas o item escolhido é ${tamDoItem}. Verifique antes de salvar (não bloqueia o lançamento).`
+                                : 'Tamanho de referência do cadastro CEU — apenas orientação, não é gravado'
+                            }
+                          >
+                            {tamSugerido}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </td>
+
+                      <td className="px-2 py-1.5 align-top">
                         <Input
+                          ref={(el) => { inputRefs.current[`qtd-${linha.id}`] = el }}
                           type="number"
                           min={1}
                           value={linha.quantidade}
                           onChange={(e) =>
                             atualizarLinha(linha.id, { quantidade: Math.max(1, parseInt(e.target.value) || 0) })
                           }
+                          onKeyDown={(e) => handleKeyDownQuantidade(e, linha)}
                           className={cn(
                             'h-9 text-xs px-2',
                             linha.quantidade > 0 ? 'border-green-500 focus-visible:ring-green-200' : 'border-slate-300'
@@ -418,7 +665,7 @@ export function CeuLancamentoRapidoPage() {
                         />
                       </td>
 
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-1.5 align-top">
                         <Select value={linha.status} onValueChange={(v) => atualizarLinha(linha.id, { status: v as StatusLancamento })}>
                           <SelectTrigger
                             className={cn(
@@ -437,16 +684,27 @@ export function CeuLancamentoRapidoPage() {
                           </SelectContent>
                         </Select>
                       </td>
-                      <td className="px-2 py-1.5">
-                        <ModuleButton
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removerLinha(linha.id)}
-                          className="h-8 w-8 text-slate-400 hover:text-red-600"
-                          title="Remover linha"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </ModuleButton>
+                      <td className="px-2 py-1.5 align-top">
+                        <div className="flex items-center gap-0.5">
+                          <ModuleButton
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => duplicarLinha(linha.id)}
+                            className="h-8 w-8 text-slate-400 hover:text-[#0F6CBD]"
+                            title="Repetir data e colaborador numa nova linha"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </ModuleButton>
+                          <ModuleButton
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removerLinha(linha.id)}
+                            className="h-8 w-8 text-slate-400 hover:text-red-600"
+                            title="Remover linha"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </ModuleButton>
+                        </div>
                       </td>
                     </tr>
                   )

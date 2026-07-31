@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 89 migrations SQL (numeradas 001 a 089)
+├── migrations/             # 96 migrations SQL (numeradas 001 a 096)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -270,7 +270,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **89 migrations** em `supabase/migrations/` (numeradas `001_*` a `089_*`).
+- Existem **96 migrations** em `supabase/migrations/` (numeradas `001_*` a `096_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -308,6 +308,9 @@ npx vitest
   - `091_recibos_extras_delete_admin_financeiro.sql` (decisão da gestão em 30/07/2026: admin e financeiro podem EXCLUIR recibos de extras — não havia policy de DELETE, então nem admin excluía via API. Condição espelha a RPC `cancelar_recibo_extras` (081). Cancelamento formal segue via RPC; DELETE é limpeza administrativa. Aplicada via `db query --linked` em 30/07/2026)
   - `092_entregas_matricula_backfill.sql` (decisão da gestão em 30/07/2026: cria `entregas.matricula` — o formulário CEU sempre enviou o campo, mas a tabela não tinha a coluna e o PostgREST descartava o valor em silêncio. Backfill das 5.542 entregas a partir de `colaboradores.matricula`. Aplicada via `db query --linked` em 30/07/2026)
   - `093_consolidacao_policies_limpezas.sql` (bloco 3 da varredura de 30/07/2026: (1) remove a policy legada `write_admin_rh` de `departamentos` — INSERT/UPDATE de rh já eram cobertos por `is_editor()` e o DELETE foi incorporado à policy "Permitir delete de departamentos" (+rh), comportamento idêntico; `select_autenticado` foi MANTIDA de propósito (removê-la tiraria o SELECT do visualizador); (2) remove a linha dinâmica redundante `dp1/editar_vinculo` de `permissoes_perfil` (o padrão já concede desde a 089); (3) comentário na RPC `registrar_extra_plantao` documentando a exceção de duplicidade. Aplicada via `db query --linked` em 30/07/2026)
+  - `094_ponto_espelho_arquivos.sql` (persiste o espelho de ponto (PDF do Flit) para reutilização entre operadores: bucket privado `ponto-espelhos` (só PDF, 50 MB) + tabela `ponto_espelho_arquivos` (metadados: nome, path, tamanho, `enviado_por`). SELECT/INSERT com `is_editor()` (o PDF contém CPFs — visualizador fica fora), DELETE só `is_admin()`. A tela Adicionais → Importar Ponto salva o PDF ao processar e mostra o card "Arquivos já enviados" com "Usar este arquivo". Aplicada via `db query --linked` em 31/07/2026)
+  - `095_colaboradores_tamanho_luva.sql` (cria `colaboradores.tamanho_luva` — na mesma sessão foi **substituída pela 096**: as medidas saíram do cadastro; a coluna permanece mas não é lida pelo app. Aplicada via `db query --linked` em 31/07/2026)
+  - `096_ceu_tamanhos.sql` (decisão da gestão em 31/07/2026: tamanhos de uniforme/EPI (camisa, calça, calçado, luva) são dado operacional do CEU, não do cadastro geral — nova tabela `ceu_tamanhos` (1:1 com colaborador) com backfill das colunas legadas `colaboradores.tamanho_*` (estas ficam sem uso). RLS: SELECT/INSERT/UPDATE com `is_editor()`, DELETE só `is_admin()`. Nova aba CEU → Tamanhos (`/ceu/tamanhos`); o Lançamento Rápido lê as medidas dela (linha 📏 e coluna "Tam.", apenas referência visual — tamanho não vai para a entrega nem para o recibo; selo fica vermelho em negrito quando o tamanho do item escolhido diverge do cadastro, sem bloquear o fluxo). Backfill do histórico de entregas em 31/07/2026 (`scripts/preencher-tamanhos-ceu.mjs`, revisão em `dados-locais/revisao_tamanhos_ceu.xlsx`): vale a entrega mais recente por categoria; o nome original do item importado está em `entregas.observacao` ("Item: ..."). Resultado: 162 de 314 ativos com alguma medida (calçado 126, luva 153 — calça/camisa quase sem tamanho no histórico, decisão da gestão ignorar). Aplicada via `db query --linked` em 31/07/2026)
 
 ### Edge Function `econtador`
 
@@ -430,4 +433,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-07-30*
+*Atualizado em: 2026-07-31*

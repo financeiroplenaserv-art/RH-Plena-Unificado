@@ -5,6 +5,7 @@ import {
   FileBarChart,
   Truck,
   Upload,
+  Ruler,
 } from 'lucide-react'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import type { ModuleTab } from '@/components/layout/ModuleShell'
@@ -13,6 +14,7 @@ const TABS: ModuleTab[] = [
   { path: '/ceu/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight },
   { path: '/ceu/itens', label: 'Itens', icon: Package },
   { path: '/ceu/lancamento-rapido', label: 'Lançamento Rápido', icon: Zap },
+  { path: '/ceu/tamanhos', label: 'Tamanhos', icon: Ruler },
   { path: '/ceu/relatorios', label: 'Relatórios', icon: FileBarChart },
   { path: '/ceu/fornecedores', label: 'Fornecedores', icon: Truck },
   { path: '/ceu/importar', label: 'Importar', icon: Upload },

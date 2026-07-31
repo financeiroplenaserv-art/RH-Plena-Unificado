@@ -476,7 +476,9 @@ export function useAdicionaisContratuais() {
     data: string,
     substitutoColaboradorId: string,
     substitutoColaboradorNome: string,
-    statusAtual: StatusDiaAdicional = 'falta'
+    statusAtual: StatusDiaAdicional = 'falta',
+    /** true na substituição em lote: o resumo é exibido uma única vez ao final */
+    silenciarToast = false
   ) => {
     try {
       if (MODO_MOCK) {
@@ -508,7 +510,7 @@ export function useAdicionaisContratuais() {
             ]
         salvarMock('calendario', atualizada)
         setCalendario(atualizada)
-        toast.success('Substituto registrado')
+        if (!silenciarToast) toast.success('Substituto registrado')
         return true
       }
       const { error } = await supabase
@@ -525,7 +527,7 @@ export function useAdicionaisContratuais() {
           { onConflict: 'vinculo_id,data' }
         )
       if (error) throw error
-      toast.success('Substituto registrado')
+      if (!silenciarToast) toast.success('Substituto registrado')
       return true
     } catch (err: unknown) {
       console.error('Erro ao salvar substituto:', err)

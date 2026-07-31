@@ -46,6 +46,7 @@ import {
   CeuMovimentacoesPage,
   CeuEntregaFormPage,
   CeuLancamentoRapidoPage,
+  CeuTamanhosPage,
   CeuRelatoriosPage,
   CeuImportarPage,
   AdicionaisContratosPage,
@@ -375,6 +376,14 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
                     <CeuLancamentoRapidoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ceu/tamanhos"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
+                    <CeuTamanhosPage />
                   </ProtectedRoute>
                 }
               />

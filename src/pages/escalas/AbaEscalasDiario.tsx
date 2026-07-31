@@ -30,6 +30,7 @@ import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
 import { Button } from '@/components/corh/Button'
 import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks/useEscalasDiario'
+import { abreviarFuncao } from '@/lib/escalas/funcao'
 import XLSX from '@e965/xlsx'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import { useColaboradores } from '@/hooks/useColaboradores'
@@ -86,7 +87,7 @@ export function AbaEscalasDiario() {
   const [observacaoManual, setObservacaoManual] = useState('')
   const [historicoColaborador, setHistoricoColaborador] = useState<LocalTrabalhoDiario[]>([])
 
-  const [ordenacao, setOrdenacao] = useState<{ coluna: 'data' | 'colaborador'; direcao: 'asc' | 'desc' }>({
+  const [ordenacao, setOrdenacao] = useState<{ coluna: 'data' | 'colaborador' | 'funcao'; direcao: 'asc' | 'desc' }>({
     coluna: 'data',
     direcao: 'asc',
   })
@@ -120,6 +121,12 @@ export function AbaEscalasDiario() {
       sorted.sort((a, b) => {
         if (ordenacao.coluna === 'data') {
           return ordenacao.direcao === 'asc' ? a.data.localeCompare(b.data) : b.data.localeCompare(a.data)
+        }
+        if (ordenacao.coluna === 'funcao') {
+          // Ordena pelo texto exibido (abreviado) para o A-Z bater com a tela
+          const funcA = abreviarFuncao(a.colaborador?.cargo)
+          const funcB = abreviarFuncao(b.colaborador?.cargo)
+          return ordenacao.direcao === 'asc' ? funcA.localeCompare(funcB) : funcB.localeCompare(funcA)
         }
         const nomeA = a.colaborador?.nome_completo || ''
         const nomeB = b.colaborador?.nome_completo || ''
@@ -169,7 +176,7 @@ export function AbaEscalasDiario() {
 
   const diasOrdenados = useMemo(() => ordenarDias(dias), [dias, ordenarDias])
 
-  const toggleOrdenacao = (coluna: 'data' | 'colaborador') => {
+  const toggleOrdenacao = (coluna: 'data' | 'colaborador' | 'funcao') => {
     setOrdenacao((atual) => ({
       coluna,
       direcao: atual.coluna === coluna && atual.direcao === 'asc' ? 'desc' : 'asc',
@@ -528,6 +535,16 @@ export function AbaEscalasDiario() {
                     )}
                   </div>
                 </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleOrdenacao('funcao')}>
+                  <div className="flex items-center gap-1">
+                    Função
+                    {ordenacao.coluna === 'funcao' ? (
+                      ordenacao.direcao === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/60" />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead>Local de Trabalho</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
@@ -543,6 +560,9 @@ export function AbaEscalasDiario() {
                   </TableCell>
                   <TableCell className="font-medium">
                     {dia.colaborador?.nome_completo} <span className="text-muted-foreground/70">({dia.colaborador?.matricula})</span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground" title={dia.colaborador?.cargo || undefined}>
+                    {abreviarFuncao(dia.colaborador?.cargo)}
                   </TableCell>
                   <TableCell>
                     {dia.local_trabalho ? (

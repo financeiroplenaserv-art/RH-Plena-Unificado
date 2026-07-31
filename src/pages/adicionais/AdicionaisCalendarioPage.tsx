@@ -145,9 +145,15 @@ export function AdicionaisCalendarioPage() {
   const [buscaSubstituto, setBuscaSubstituto] = useState('')
   const [substitutoSelecionado, setSubstitutoSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [ignorados, setIgnorados] = useState<Set<string>>(new Set())
-  const [statusFiltro, setStatusFiltro] = useState<StatusDiaAdicional[]>([])
+  const [statusFiltro, setStatusFiltro] = useState<(StatusDiaAdicional | 'precisa_substituto')[]>([])
   const [modalStatus, setModalStatus] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
   const [confirmarRemocao, setConfirmarRemocao] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
+  // Substituição em lote: cobre todos os dias pendentes do vínculo no período (ex.: férias)
+  const [modalLote, setModalLote] = useState<{ vinculo: VinculoAdicional } | null>(null)
+  const [diasLote, setDiasLote] = useState<Set<string>>(new Set())
+  const [buscaSubstitutoLote, setBuscaSubstitutoLote] = useState('')
+  const [substitutoLoteSelecionado, setSubstitutoLoteSelecionado] = useState<{ id: string; nome: string } | null>(null)
+  const [salvandoLote, setSalvandoLote] = useState(false)
 
   const periodoInicio = useMemo(() => {
     const data = new Date(periodoAno, periodoMes - 1, 20)
@@ -226,6 +232,21 @@ export function AdicionaisCalendarioPage() {
     }
   }, [alteracoes, calendario, mapContrato])
 
+  const getSubstituto = useCallback((vinculoId: string, data: string): DiaCalendarioAdicional | null => {
+    const alteracao = Object.values(alteracoes).find(
+      d => d.vinculo_id === vinculoId && d.data === data && d.substituto_colaborador_id
+    )
+    if (alteracao) return alteracao
+    return calendario.find(d => d.vinculo_id === vinculoId && d.data === data && d.substituto_colaborador_id) || null
+  }, [alteracoes, calendario])
+
+  const precisaSubstituto = useCallback((vinculo: VinculoAdicional, data: string) => {
+    const dia = getDia(vinculo, data)
+    const ausente = ['falta', 'ferias', 'afastado', 'folga_substituicao'].includes(dia.status)
+    const chave = `${vinculo.id}|${data}`
+    return ausente && !getSubstituto(vinculo.id, data) && !ignorados.has(chave)
+  }, [getDia, getSubstituto, ignorados])
+
   const vinculosFiltrados = useMemo(() => {
     let lista = vinculosAtivosNoPeriodo
     if (vinculoFiltro !== 'todos') {
@@ -248,14 +269,15 @@ export function AdicionaisCalendarioPage() {
     }
     if (statusFiltro.length > 0) {
       lista = lista.filter(v =>
-        diasDoPeriodo.some(data => {
-          const dia = getDia(v, data)
-          return statusFiltro.includes(dia.status)
-        })
+        statusFiltro.some(f =>
+          f === 'precisa_substituto'
+            ? diasDoPeriodo.some(data => precisaSubstituto(v, data))
+            : diasDoPeriodo.some(data => getDia(v, data).status === f)
+        )
       )
     }
     return lista
-  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, busca, mapColaborador, mapContrato, statusFiltro, diasDoPeriodo, getDia])
+  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, busca, mapColaborador, mapContrato, statusFiltro, diasDoPeriodo, getDia, precisaSubstituto])
 
   /* ============================================================
      CORREÇÃO: getDia agora recebe o vinculo completo e aplica
@@ -321,14 +343,6 @@ export function AdicionaisCalendarioPage() {
 
   const temAlteracoes = Object.keys(alteracoes).length > 0
 
-  const getSubstituto = (vinculoId: string, data: string): DiaCalendarioAdicional | null => {
-    const alteracao = Object.values(alteracoes).find(
-      d => d.vinculo_id === vinculoId && d.data === data && d.substituto_colaborador_id
-    )
-    if (alteracao) return alteracao
-    return calendario.find(d => d.vinculo_id === vinculoId && d.data === data && d.substituto_colaborador_id) || null
-  }
-
   const getVinculoSubstituido = (colaboradorId: string, data: string): { nome: string; vinculoId: string } | null => {
     const alteracao = Object.values(alteracoes).find(
       d => d.data === data && d.substituto_colaborador_id === colaboradorId
@@ -347,13 +361,6 @@ export function AdicionaisCalendarioPage() {
       nome: vinculo?.colaborador_nome || mapColaborador.get(vinculo?.colaborador_id || '')?.nome || '—',
       vinculoId: salvo.vinculo_id,
     }
-  }
-
-  const precisaSubstituto = (vinculo: VinculoAdicional, data: string) => {
-    const dia = getDia(vinculo, data)
-    const ausente = ['falta', 'ferias', 'afastado', 'folga_substituicao'].includes(dia.status)
-    const chave = `${vinculo.id}|${data}`
-    return ausente && !getSubstituto(vinculo.id, data) && !ignorados.has(chave)
   }
 
   const ignorarSubstituto = (vinculo: VinculoAdicional, data: string) => {
@@ -401,6 +408,64 @@ export function AdicionaisCalendarioPage() {
     setBuscaSubstituto('')
     setSubstitutoSelecionado(null)
     setModalSubstituto({ vinculo, data })
+  }
+
+  /** Dias do período que ainda precisam de substituto neste vínculo. */
+  const diasPendentesVinculo = (vinculo: VinculoAdicional) =>
+    diasDoPeriodo.filter(data => precisaSubstituto(vinculo, data))
+
+  const handleAbrirLote = (vinculo: VinculoAdicional) => {
+    setDiasLote(new Set(diasPendentesVinculo(vinculo)))
+    setBuscaSubstitutoLote('')
+    setSubstitutoLoteSelecionado(null)
+    setModalLote({ vinculo })
+  }
+
+  const toggleDiaLote = (data: string) => {
+    setDiasLote(prev => {
+      const novo = new Set(prev)
+      if (novo.has(data)) novo.delete(data)
+      else novo.add(data)
+      return novo
+    })
+  }
+
+  /** Sugestões de substituto no modal em lote (nome ou matrícula). */
+  const colaboradoresDisponiveisLote = useMemo(() => {
+    const termo = buscaSubstitutoLote.trim().toLowerCase()
+    if (!termo) return colaboradores.slice(0, 10)
+    return colaboradores.filter(c =>
+      c.nome_completo.toLowerCase().includes(termo) ||
+      c.matricula.toLowerCase().includes(termo)
+    ).slice(0, 10)
+  }, [buscaSubstitutoLote, colaboradores])
+
+  const handleConfirmarLote = async () => {
+    if (!modalLote || !substitutoLoteSelecionado || diasLote.size === 0) return
+    setSalvandoLote(true)
+    let ok = 0
+    for (const data of [...diasLote].sort()) {
+      const resultado = await salvarSubstituicao(
+        modalLote.vinculo.id,
+        data,
+        substitutoLoteSelecionado.id,
+        substitutoLoteSelecionado.nome,
+        getDia(modalLote.vinculo, data).status,
+        true // um toast por dia viraria spam — o resumo vem ao final
+      )
+      if (resultado) ok++
+    }
+    setSalvandoLote(false)
+    if (ok > 0) {
+      toast.success(`${substitutoLoteSelecionado.nome} definido como substituto em ${ok} dia(s)`)
+    }
+    if (ok < diasLote.size) {
+      toast.warning(`${diasLote.size - ok} dia(s) não puderam ser gravados — verifique e tente novamente`)
+    }
+    await listarCalendario({ dataInicio: periodoInicio, dataFim: periodoFim })
+    setModalLote(null)
+    setSubstitutoLoteSelecionado(null)
+    setBuscaSubstitutoLote('')
   }
 
   const alertasSubstituicao: { contrato: string; data: string; colaborador: string }[] = []
@@ -515,6 +580,33 @@ export function AdicionaisCalendarioPage() {
               </button>
             )
           })}
+          {/* Filtro especial: vínculos com dias pendentes de substituto */}
+          {(() => {
+            const selecionado = statusFiltro.includes('precisa_substituto')
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFiltro(prev =>
+                    prev.includes('precisa_substituto')
+                      ? prev.filter(x => x !== 'precisa_substituto')
+                      : [...prev, 'precisa_substituto']
+                  )
+                }}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-xs border transition-all hover:opacity-90',
+                  selecionado && 'ring-2 ring-offset-1 ring-slate-900'
+                )}
+                style={{
+                  backgroundColor: selecionado ? '#92400E' : '#FEF3C7',
+                  borderColor: '#F59E0B',
+                  color: selecionado ? '#FFFFFF' : '#92400E',
+                }}
+              >
+                ⚠️ Precisa de substituto
+              </button>
+            )
+          })()}
           <button
             type="button"
             onClick={() => setStatusFiltro([])}
@@ -554,8 +646,19 @@ export function AdicionaisCalendarioPage() {
             const contrato = mapContrato.get(v.contrato_id)
             const nomeColaborador = col?.nome || v.colaborador_nome || '—'
             const nomeContrato = contrato?.nome || v.contrato_nome || '—'
+            const pendentes = diasPendentesVinculo(v)
             return (
-              <ModuleCard key={v.id} title={`${nomeColaborador} • ${nomeContrato}`}>
+              <ModuleCard key={v.id} title={
+                <span className="flex flex-wrap items-center justify-between gap-2 w-full">
+                  <span>{nomeColaborador} • {nomeContrato}</span>
+                  {pendentes.length > 0 && (
+                    <ModuleButton variant="outline" size="sm" onClick={() => handleAbrirLote(v)}>
+                      <UserPlus className="w-4 h-4 mr-1.5" />
+                      Definir substituto ({pendentes.length} {pendentes.length === 1 ? 'dia' : 'dias'})
+                    </ModuleButton>
+                  )}
+                </span>
+              }>
                 <div className="flex flex-wrap gap-2">
                   {diasDoPeriodo.map(data => {
                     const dia = getDia(v, data)
@@ -776,6 +879,101 @@ export function AdicionaisCalendarioPage() {
             </ModuleButton>
             <ModuleButton size="sm" onClick={handleConfirmarSubstituto} disabled={!substitutoSelecionado}>
               Confirmar substituição
+            </ModuleButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Substituição em lote: cobre os dias pendentes do vínculo no período (ex.: férias) */}
+      <Dialog open={!!modalLote} onOpenChange={() => setModalLote(null)}>
+        <DialogContent className="sm:max-w-lg rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base" style={{ color: '#1F2937' }}>Definir substituto para o período</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: '#94A3B8' }}>
+              {modalLote && (
+                <>
+                  Escolha os dias e o substituto de <strong>{mapColaborador.get(modalLote.vinculo.colaborador_id)?.nome || modalLote.vinculo.colaborador_nome}</strong>.
+                  Ideal para cobrir férias de uma vez, sem lançar dia a dia.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {modalLote && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label style={{ color: '#1F2937' }}>Dias que precisam de substituto ({diasLote.size} selecionado(s))</Label>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                  {diasPendentesVinculo(modalLote.vinculo).map(data => {
+                    const marcado = diasLote.has(data)
+                    const statusDia = getDia(modalLote.vinculo, data).status
+                    return (
+                      <button
+                        key={data}
+                        type="button"
+                        onClick={() => toggleDiaLote(data)}
+                        className={cn(
+                          'px-2.5 py-1.5 rounded-lg border text-xs transition-colors',
+                          marcado ? 'ring-2 ring-slate-900' : 'opacity-50'
+                        )}
+                        style={{
+                          borderColor: STATUS_STYLE[statusDia].border,
+                          backgroundColor: marcado ? STATUS_STYLE[statusDia].bg : '#FFFFFF',
+                          color: STATUS_STYLE[statusDia].text,
+                        }}
+                        title={STATUS_OPCOES.find(s => s.value === statusDia)?.label}
+                      >
+                        {formatarDataBR(data)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label style={{ color: '#1F2937' }}>Substituto</Label>
+                <Input
+                  placeholder="Buscar por nome ou matrícula..."
+                  value={buscaSubstitutoLote}
+                  onChange={e => setBuscaSubstitutoLote(e.target.value)}
+                  className="rounded-lg"
+                />
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {colaboradoresDisponiveisLote.map(c => {
+                    const selecionado = substitutoLoteSelecionado?.id === c.id
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setSubstitutoLoteSelecionado({ id: c.id, nome: c.nome_completo })}
+                        className="w-full text-left px-4 py-2.5 rounded-lg border hover:bg-slate-50 transition-colors"
+                        style={{
+                          borderColor: selecionado ? '#1F2937' : '#E2E8F0',
+                          backgroundColor: selecionado ? '#F8FAFC' : '#FFFFFF',
+                          color: '#1F2937',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{c.nome_completo}</span>
+                          <span className="text-xs" style={{ color: '#94A3B8' }}>{c.matricula}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                  {colaboradoresDisponiveisLote.length === 0 && (
+                    <p className="text-sm text-center py-4" style={{ color: '#94A3B8' }}>Nenhum colaborador encontrado.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <ModuleButton variant="outline" size="sm" onClick={() => setModalLote(null)} disabled={salvandoLote}>
+              <X className="w-4 h-4 mr-2" />
+              Cancelar
+            </ModuleButton>
+            <ModuleButton size="sm" onClick={handleConfirmarLote} disabled={!substitutoLoteSelecionado || diasLote.size === 0 || salvandoLote}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              {salvandoLote ? 'Gravando...' : `Confirmar (${diasLote.size} ${diasLote.size === 1 ? 'dia' : 'dias'})`}
             </ModuleButton>
           </DialogFooter>
         </DialogContent>

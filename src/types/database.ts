@@ -86,6 +86,7 @@ export interface Colaborador {
   tamanho_camisa?: string | null
   tamanho_calca?: string | null
   tamanho_calcado?: string | null
+  tamanho_luva?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -416,6 +417,26 @@ export interface EntregaCEU {
   item?: ItemCEU | null
 }
 
+export interface PontoEspelhoArquivoRow {
+  id: string
+  nome_arquivo: string
+  storage_path: string
+  tamanho_bytes: number | null
+  enviado_por: string | null
+  created_at: string
+}
+
+/** Medidas de uniforme/EPI do colaborador — gerenciadas no módulo CEU (migration 096). */
+export interface CeuTamanhos {
+  colaborador_id: string
+  tamanho_camisa: string | null
+  tamanho_calca: string | null
+  tamanho_calcado: string | null
+  tamanho_luva: string | null
+  updated_by?: string | null
+  updated_at?: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -525,6 +546,18 @@ export type Database = {
         Row: FeriasNotificacao & Record<string, unknown>
         Insert: Partial<FeriasNotificacao> & Record<string, unknown>
         Update: Partial<FeriasNotificacao> & Record<string, unknown>
+        Relationships: []
+      }
+      ponto_espelho_arquivos: {
+        Row: PontoEspelhoArquivoRow & Record<string, unknown>
+        Insert: Partial<PontoEspelhoArquivoRow> & Record<string, unknown>
+        Update: Partial<PontoEspelhoArquivoRow> & Record<string, unknown>
+        Relationships: []
+      }
+      ceu_tamanhos: {
+        Row: CeuTamanhos & Record<string, unknown>
+        Insert: Partial<CeuTamanhos> & Record<string, unknown>
+        Update: Partial<CeuTamanhos> & Record<string, unknown>
         Relationships: []
       }
       resultados_vr: {
