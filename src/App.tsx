@@ -52,6 +52,7 @@ import {
   AdicionaisContratosPage,
   AdicionaisVinculosPage,
   AdicionaisCalendarioPage,
+  AdicionaisFeriadosPage,
   AdicionaisRelatorioPage,
   ImportarPontoPage,
   ExtrasLancamentosPage,
@@ -487,6 +488,14 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'adicionais' }}>
                     <AdicionaisCalendarioPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/adicionais/feriados"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'adicionais' }}>
+                    <AdicionaisFeriadosPage />
                   </ProtectedRoute>
                 }
               />

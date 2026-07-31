@@ -437,6 +437,14 @@ export interface CeuTamanhos {
   updated_at?: string
 }
 
+/** Feriado cadastrado para o adicional de feriado (migration 097). */
+export interface FeriadoRow {
+  id: string
+  data: string
+  nome: string
+  created_at?: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -558,6 +566,12 @@ export type Database = {
         Row: CeuTamanhos & Record<string, unknown>
         Insert: Partial<CeuTamanhos> & Record<string, unknown>
         Update: Partial<CeuTamanhos> & Record<string, unknown>
+        Relationships: []
+      }
+      feriados: {
+        Row: FeriadoRow & Record<string, unknown>
+        Insert: Partial<FeriadoRow> & Record<string, unknown>
+        Update: Partial<FeriadoRow> & Record<string, unknown>
         Relationships: []
       }
       resultados_vr: {

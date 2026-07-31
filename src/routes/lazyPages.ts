@@ -37,6 +37,7 @@ export const CeuImportarPage = lazyNamed(() => import('@/pages/ceu/CeuImportarPa
 export const AdicionaisContratosPage = lazyNamed(() => import('@/pages/adicionais/AdicionaisContratosPage'), 'AdicionaisContratosPage')
 export const AdicionaisVinculosPage = lazyNamed(() => import('@/pages/adicionais/AdicionaisVinculosPage'), 'AdicionaisVinculosPage')
 export const AdicionaisCalendarioPage = lazyNamed(() => import('@/pages/adicionais/AdicionaisCalendarioPage'), 'AdicionaisCalendarioPage')
+export const AdicionaisFeriadosPage = lazyNamed(() => import('@/pages/adicionais/AdicionaisFeriadosPage'), 'AdicionaisFeriadosPage')
 export const AdicionaisRelatorioPage = lazyNamed(() => import('@/pages/adicionais/AdicionaisRelatorioPage'), 'AdicionaisRelatorioPage')
 export const ImportarPontoPage = lazyNamed(() => import('@/pages/adicionais/ImportarPontoPage'), 'ImportarPontoPage')
 

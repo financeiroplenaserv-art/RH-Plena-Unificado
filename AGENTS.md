@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 96 migrations SQL (numeradas 001 a 096)
+├── migrations/             # 97 migrations SQL (numeradas 001 a 097)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -270,7 +270,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **96 migrations** em `supabase/migrations/` (numeradas `001_*` a `096_*`).
+- Existem **97 migrations** em `supabase/migrations/` (numeradas `001_*` a `097_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -311,6 +311,7 @@ npx vitest
   - `094_ponto_espelho_arquivos.sql` (persiste o espelho de ponto (PDF do Flit) para reutilização entre operadores: bucket privado `ponto-espelhos` (só PDF, 50 MB) + tabela `ponto_espelho_arquivos` (metadados: nome, path, tamanho, `enviado_por`). SELECT/INSERT com `is_editor()` (o PDF contém CPFs — visualizador fica fora), DELETE só `is_admin()`. A tela Adicionais → Importar Ponto salva o PDF ao processar e mostra o card "Arquivos já enviados" com "Usar este arquivo". Aplicada via `db query --linked` em 31/07/2026)
   - `095_colaboradores_tamanho_luva.sql` (cria `colaboradores.tamanho_luva` — na mesma sessão foi **substituída pela 096**: as medidas saíram do cadastro; a coluna permanece mas não é lida pelo app. Aplicada via `db query --linked` em 31/07/2026)
   - `096_ceu_tamanhos.sql` (decisão da gestão em 31/07/2026: tamanhos de uniforme/EPI (camisa, calça, calçado, luva) são dado operacional do CEU, não do cadastro geral — nova tabela `ceu_tamanhos` (1:1 com colaborador) com backfill das colunas legadas `colaboradores.tamanho_*` (estas ficam sem uso). RLS: SELECT/INSERT/UPDATE com `is_editor()`, DELETE só `is_admin()`. Nova aba CEU → Tamanhos (`/ceu/tamanhos`); o Lançamento Rápido lê as medidas dela (linha 📏 e coluna "Tam.", apenas referência visual — tamanho não vai para a entrega nem para o recibo; selo fica vermelho em negrito quando o tamanho do item escolhido diverge do cadastro, sem bloquear o fluxo). Backfill do histórico de entregas em 31/07/2026 (`scripts/preencher-tamanhos-ceu.mjs`, revisão em `dados-locais/revisao_tamanhos_ceu.xlsx`): vale a entrega mais recente por categoria; o nome original do item importado está em `entregas.observacao` ("Item: ..."). Resultado: 162 de 314 ativos com alguma medida (calçado 126, luva 153 — calça/camisa quase sem tamanho no histórico, decisão da gestão ignorar). Aplicada via `db query --linked` em 31/07/2026)
+  - `097_feriados.sql` (decisão da gestão em 31/07/2026: o flag `adicionais.feriado` do contrato existia sem efeito — não havia datas nem cálculo. Tabela `feriados` (data única + nome) com seed dos 10 feriados nacionais de 2026; municipais/datas de contrato entram pela nova aba **Adicionais → Feriados** (`/adicionais/feriados`). RLS: SELECT autenticado, INSERT/UPDATE `is_editor()`, DELETE admin. **Regra de contagem:** o adicional conta APENAS para vínculos cujo contrato tem o flag E cuja escala prevê trabalho no feriado (substituto/cobertura não recebe — não estava previamente escalado). Relatório de Adicionais ganha a coluna "Feriado" (tela, CSV, Excel e filtro); lógica pura testada em `src/lib/adicionais/calculoAdicionais.ts` (`escaladoParaTrabalhar`, `contarDiasFeriadoEscalado`). Aplicada via `db query --linked` em 31/07/2026)
 
 ### Edge Function `econtador`
 

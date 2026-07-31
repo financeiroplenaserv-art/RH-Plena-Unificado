@@ -26,7 +26,8 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
-import { diaIntrajornada } from '@/lib/adicionais/calculoAdicionais'
+import { diaIntrajornada, contarDiasFeriadoEscalado } from '@/lib/adicionais/calculoAdicionais'
+import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
 
@@ -41,6 +42,7 @@ interface RelatorioAdicionalAgregado {
   dias_periculosidade: number
   dias_insalubridade: number
   dias_intrajornada: number
+  dias_feriado: number
   folgas: number
   faltas: number
   ferias: number
@@ -48,8 +50,8 @@ interface RelatorioAdicionalAgregado {
 }
 
 function exportarCSV(linhas: RelatorioAdicionalAgregado[]) {
-  const headers = ['Colaborador', 'Contrato', 'Departamento', 'Trabalhados', 'Noturno', 'Periculosidade', 'Insalubridade', 'Intrajornada', 'Folgas', 'Faltas', 'Férias', 'Afastados']
-  const rows = linhas.map(l => [l.colaborador_nome, l.contrato_nome, l.departamento, String(l.dias_trabalhados), String(l.dias_noturno), String(l.dias_periculosidade), String(l.dias_insalubridade), String(l.dias_intrajornada), String(l.folgas), String(l.faltas), String(l.ferias), String(l.afastados)])
+  const headers = ['Colaborador', 'Contrato', 'Departamento', 'Trabalhados', 'Noturno', 'Periculosidade', 'Insalubridade', 'Intrajornada', 'Feriado', 'Folgas', 'Faltas', 'Férias', 'Afastados']
+  const rows = linhas.map(l => [l.colaborador_nome, l.contrato_nome, l.departamento, String(l.dias_trabalhados), String(l.dias_noturno), String(l.dias_periculosidade), String(l.dias_insalubridade), String(l.dias_intrajornada), String(l.dias_feriado), String(l.folgas), String(l.faltas), String(l.ferias), String(l.afastados)])
   const csv = [headers, ...rows]
     .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
     .join('\n')
@@ -66,6 +68,7 @@ function exportarExcel(linhas: RelatorioAdicionalAgregado[]) {
     Periculosidade: l.dias_periculosidade,
     Insalubridade: l.dias_insalubridade,
     Intrajornada: l.dias_intrajornada,
+    Feriado: l.dias_feriado,
     Folgas: l.folgas,
     Faltas: l.faltas,
     'Férias': l.ferias,
@@ -198,6 +201,7 @@ export function AdicionaisRelatorioPage() {
   const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
   const [adicionalFiltro, setAdicionalFiltro] = useState<string>('todos')
   const [busca, setBusca] = useState('')
+  const [feriados, setFeriados] = useState<Feriado[]>([])
 
   const inicioMes = useMemo(() => {
     const anoAnterior = mes === 1 ? ano - 1 : ano
@@ -214,7 +218,10 @@ export function AdicionaisRelatorioPage() {
     listarVinculos()
     listarColaboradores()
     listarDepartamentos()
+    listarFeriados().then(setFeriados).catch((err) => console.error('Erro ao carregar feriados:', err))
   }, [listarContratos, listarVinculos, listarColaboradores, listarDepartamentos])
+
+  const datasFeriados = useMemo(() => new Set(feriados.map(f => f.data)), [feriados])
 
   useEffect(() => {
     listarCalendario({ dataInicio: inicioMes, dataFim: fimMes })
@@ -280,6 +287,7 @@ export function AdicionaisRelatorioPage() {
           dias_periculosidade: 0,
           dias_insalubridade: 0,
           dias_intrajornada: 0,
+          dias_feriado: 0,
           folgas: 0,
           faltas: 0,
           ferias: 0,
@@ -338,6 +346,7 @@ export function AdicionaisRelatorioPage() {
           dias_periculosidade: 0,
           dias_insalubridade: 0,
           dias_intrajornada: 0,
+          dias_feriado: 0,
           folgas: 0,
           faltas: 0,
           ferias: 0,
@@ -347,6 +356,12 @@ export function AdicionaisRelatorioPage() {
       }
 
       const regime = contrato?.regime_trabalho
+      // Adicional de feriado (regra da gestão): só contratos com o flag, e
+      // conta o feriado apenas quando a escala previa trabalho no dia.
+      // Substituto/cobertura não recebe — não estava previamente escalado.
+      if (contrato?.adicionais?.feriado) {
+        registro!.dias_feriado = contarDiasFeriadoEscalado(regime, vinculo.data_inicio, diasDoPeriodo, datasFeriados)
+      }
       diasDoPeriodo.forEach(data => {
         const dia = getDiaEfetivo(vinculo, regime, data, calendarioUnico)
         const status = statusEfetivo(vinculo, regime, data)
@@ -389,6 +404,7 @@ export function AdicionaisRelatorioPage() {
               dias_periculosidade: 0,
               dias_insalubridade: 0,
               dias_intrajornada: 0,
+          dias_feriado: 0,
               folgas: 0,
               faltas: 0,
               ferias: 0,
@@ -423,7 +439,7 @@ export function AdicionaisRelatorioPage() {
     })
 
     return resultado
-  }, [calendarioUnico, vinculosAtivosNoMes, inicioMes, fimMes, mapContrato, mapColaborador, mapDepartamento])
+  }, [calendarioUnico, vinculosAtivosNoMes, inicioMes, fimMes, mapContrato, mapColaborador, mapDepartamento, datasFeriados])
 
   const linhasFiltradas = useMemo(() => {
     let lista = linhasAgregadas
@@ -497,6 +513,7 @@ export function AdicionaisRelatorioPage() {
                 <SelectItem value="periculosidade">Periculosidade</SelectItem>
                 <SelectItem value="insalubridade">Insalubridade</SelectItem>
                 <SelectItem value="intrajornada">Intrajornada</SelectItem>
+                <SelectItem value="feriado">Feriado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -552,6 +569,7 @@ export function AdicionaisRelatorioPage() {
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Periculosidade</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Insalubridade</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Intrajornada</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}>Feriado</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Folgas</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Faltas</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Férias</TableHead>
@@ -569,6 +587,7 @@ export function AdicionaisRelatorioPage() {
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_periculosidade}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_insalubridade}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_intrajornada}</TableCell>
+                    <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_feriado}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.folgas}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.faltas}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.ferias}</TableCell>
