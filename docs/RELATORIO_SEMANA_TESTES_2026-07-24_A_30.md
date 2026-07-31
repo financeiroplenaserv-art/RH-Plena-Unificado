@@ -1,4 +1,4 @@
-# Relatório da semana de testes — 24/07 a 30/07/2026
+# Relatório da semana de testes — 24/07 a 31/07/2026
 
 > **Para quem é este documento:** gestores e diretoria. Linguagem simples, sem termos técnicos.
 > **O que ele conta:** tudo o que foi melhorado e corrigido no sistema CORH durante a semana de testes com usuários reais.
@@ -53,6 +53,19 @@
   - CEU: a matrícula do colaborador agora fica gravada em cada entrega (5.542 entregas antigas preenchidas retroativamente).
 - **Testes automatizados:** 202 passando, zero falhas.
 
+## Sexta-feira, 31/07 — tamanhos, agilidade no CEU e fim do retrabalho
+
+- **Espelho de ponto guardado no servidor:** quem processa o PDF do Flit em Adicionais agora deixa o arquivo salvo no sistema. Qualquer colega (ex.: mesa) que abrir a tela depois vê o card "Arquivos já enviados" e clica em "Usar este arquivo" — acabou a necessidade de ficar passando PDF por WhatsApp/e-mail. Se o arquivo já foi enviado, o sistema pergunta antes: reutilizar ou reenviar.
+- **Lançamento Rápido do CEU muito mais rápido:** ao entregar vários itens para a mesma pessoa, a linha nova já vem com data e nome preenchidos (em azul, para não confundir); dá para lançar tudo pelo teclado (Enter pula de campo em campo); o produto ganhou pesquisa com sugestões; e código errado fica vermelho na hora — antes a linha simplesmente sumia sem aviso.
+- **Nada se perde mais:** linhas incompletas não são mais apagadas ao salvar, e o rascunho fica guardado no navegador — pode sair da tela e voltar que está tudo lá.
+- **Tamanhos de uniforme/EPI agora são do CEU:** criamos a aba **Tamanhos** dentro do CEU, onde se cadastra camisa, calça, calçado e luva de cada colaborador — essas medidas saíram do cadastro geral (nem todo mundo precisa vê-las). A lista mostra todos os ativos, inclusive quem ainda está sem tamanho, para ir completando.
+- **Preenchimento automático pelo histórico:** varremos todas as 5.542 entregas já registradas e preenchemos os tamanhos de **162 colaboradores**, valendo sempre a entrega mais recente (recebeu calça M em janeiro e G em fevereiro? Ficou a G).
+- **Alerta de tamanho divergente:** no lançamento, se o item escolhido tem tamanho diferente do cadastro (cadastro diz 39, item é 40), o campo fica **vermelho em negrito** — é só um aviso, não trava o lançamento.
+- **Substituição de férias com um clique:** antes era preciso lançar o substituto dia por dia. Agora, no calendário de Adicionais, o botão "Definir substituto" cobre todas as férias (ou faltas) do período de uma vez — e o novo filtro "⚠️ Precisa de substituto" mostra só quem ainda está descoberto.
+- **Escalas com função:** a grade de Escalas ganhou a coluna Função com abreviações (ASG, Port., Enc. Jr...), ordenável de A a Z.
+- **Recibos de R$ 0,00:** não aparecem mais na fila de recibos de extras (não faz sentido gerar recibo sem valor).
+- **Testes automatizados:** 215 passando, zero falhas. Tudo publicado em produção no mesmo dia.
+
 ---
 
 ## Resumo em uma frase
@@ -61,11 +74,12 @@ Saímos de um sistema em testes com usuários, com pequenos travamentos e permis
 
 ## Números da semana
 
-- **49 entregas** de melhorias e correções (commits)
+- **50 entregas** de melhorias e correções (commits)
 - **10 frentes** de auditoria de segurança executadas
-- **202 testes automatizados** passando
+- **215 testes automatizados** passando
+- **162 colaboradores** com tamanhos de uniforme preenchidos automaticamente pelo histórico de entregas
 - **0 problemas críticos** pendentes ao fim da semana
 
 ---
 
-*Documento gerado em 30/07/2026.*
+*Documento gerado em 30/07/2026 e atualizado em 31/07/2026.*
