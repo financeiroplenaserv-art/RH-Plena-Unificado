@@ -15,7 +15,8 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { gerarPDFColaborador, gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAuth } from '@/hooks/useAuth'
-import { podeEditarColaboradorBasico, podeEditarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
+import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto, podeCriarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
+import { formatarCPF, mascararCPF } from '@/lib/utils'
 import {
   ArrowLeft,
   Edit,
@@ -37,7 +38,12 @@ export function ColaboradorDetailPage() {
   const { user } = useAuth()
   const perfil = user?.nivel_acesso
   const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
-  const podeEditarOc = perfil ? podeEditarOcorrencia(perfil) : false
+  // CPF completo segue a permissão ver_cpf_completo (listagem e ficha) —
+  // gestão, 01/08/2026: inclui o financeiro.
+  const podeVerCPFCompleto = perfil ? temPermissaoCPFCompleto(perfil) : false
+  // Botão "Nova Ocorrência" segue a permissão de CRIAR (não a de editar) —
+  // é o que libera o financeiro sem dar poder de edição (01/08/2026).
+  const podeCriarOc = perfil ? podeCriarOcorrencia(perfil) : false
   const podeCancelarOc = perfil ? podeCancelarOcorrencia(perfil) : false
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
@@ -137,7 +143,13 @@ export function ColaboradorDetailPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 text-xs">
             <div>
               <span className="text-slate-400 block">CPF</span>
-              <span className="text-slate-800 font-medium">{colaborador.cpf || '—'}</span>
+              <span className="text-slate-800 font-medium">
+                {colaborador.cpf
+                  ? podeVerCPFCompleto
+                    ? formatarCPF(colaborador.cpf)
+                    : mascararCPF(colaborador.cpf)
+                  : '—'}
+              </span>
             </div>
             <div>
               <span className="text-slate-400 block">Departamento</span>
@@ -206,7 +218,7 @@ export function ColaboradorDetailPage() {
               </span>
             )}
           </div>
-          {podeEditarOc && (
+          {podeCriarOc && (
             <Button
               size="sm"
               onClick={() => navigate(`/rh/ocorrencias/colaborador/${id}`)}

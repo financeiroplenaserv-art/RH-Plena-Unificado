@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 97 migrations SQL (numeradas 001 a 097)
+├── migrations/             # 98 migrations SQL (numeradas 001 a 098)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -184,7 +184,7 @@ npm run pdf:worker
 
 - `npm run lint` — **passa**.
 - `npm run build` — **passa** (gera `dist/` com PWA e service worker).
-- `npm test` — **222 testes passam, 1 pulado por ambiente**:
+- `npm test` — **234 testes passam, 1 pulado por ambiente**:
   - `src/lib/rls.test.ts` executa um validador Python para verificar conflitos de RLS nas migrations. Quando o Python não está instalado no ambiente, o teste é **pulado automaticamente** (`it.skipIf`, desde 30/07/2026) — antes ele falhava com erro 9009. Com Python no PATH, ele roda normalmente.
   - Todos os demais testes de lógica (utils, permissões, departamentos, VR, escalas, adicionais, hooks, componentes, smoke) passam.
 
@@ -270,7 +270,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **97 migrations** em `supabase/migrations/` (numeradas `001_*` a `097_*`).
+- Existem **98 migrations** em `supabase/migrations/` (numeradas `001_*` a `098_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -312,6 +312,7 @@ npx vitest
   - `095_colaboradores_tamanho_luva.sql` (cria `colaboradores.tamanho_luva` — na mesma sessão foi **substituída pela 096**: as medidas saíram do cadastro; a coluna permanece mas não é lida pelo app. Aplicada via `db query --linked` em 31/07/2026)
   - `096_ceu_tamanhos.sql` (decisão da gestão em 31/07/2026: tamanhos de uniforme/EPI (camisa, calça, calçado, luva) são dado operacional do CEU, não do cadastro geral — nova tabela `ceu_tamanhos` (1:1 com colaborador) com backfill das colunas legadas `colaboradores.tamanho_*` (estas ficam sem uso). RLS: SELECT/INSERT/UPDATE com `is_editor()`, DELETE só `is_admin()`. Nova aba CEU → Tamanhos (`/ceu/tamanhos`); o Lançamento Rápido lê as medidas dela (linha 📏 e coluna "Tam.", apenas referência visual — tamanho não vai para a entrega nem para o recibo; selo fica vermelho em negrito quando o tamanho do item escolhido diverge do cadastro, sem bloquear o fluxo). Backfill do histórico de entregas em 31/07/2026 (`scripts/preencher-tamanhos-ceu.mjs`, revisão em `dados-locais/revisao_tamanhos_ceu.xlsx`): vale a entrega mais recente por categoria; o nome original do item importado está em `entregas.observacao` ("Item: ..."). Resultado: 162 de 314 ativos com alguma medida (calçado 126, luva 153 — calça/camisa quase sem tamanho no histórico, decisão da gestão ignorar). Aplicada via `db query --linked` em 31/07/2026)
   - `097_feriados.sql` (decisão da gestão em 31/07/2026: o flag `adicionais.feriado` do contrato existia sem efeito — não havia datas nem cálculo. Tabela `feriados` (data única + nome) com seed dos 10 feriados nacionais de 2026; municipais/datas de contrato entram pela nova aba **Adicionais → Feriados** (`/adicionais/feriados`). RLS: SELECT autenticado, INSERT/UPDATE `is_editor()`, DELETE admin. **Regra de contagem:** o adicional conta APENAS para vínculos cujo contrato tem o flag E cuja escala prevê trabalho no feriado (substituto/cobertura não recebe — não estava previamente escalado). Relatório de Adicionais ganha a coluna "Feriado" (tela, CSV, Excel e filtro); lógica pura testada em `src/lib/adicionais/calculoAdicionais.ts` (`escaladoParaTrabalhar`, `contarDiasFeriadoEscalado`). Aplicada via `db query --linked` em 31/07/2026)
+  - `098_financeiro_ocorrencias.sql` (decisão da gestão em 01/08/2026: financeiro acessa o quadro do colaborador, **insere** ocorrências e **vê o CPF completo**. `pode_ver_ocorrencias()` +financeiro (SELECT em `ocorrencias` e tabelas filhas), INSERT de `ocorrencias` +financeiro (UPDATE/DELETE não), linhas dinâmicas `rota.ocorrencias`, `menu.rh`, `ocorrencia.criar`, `ocorrencia.ver_detalhes` e `colaborador.ver_cpf_completo` = true; `PERMISSOES_PADRAO` espelhado (nova ação `colaborador.ver_cpf_completo`: gestor/rh/dp1/dp2/financeiro — listagem e ficha usam essa ação; mesa/inspetoria/visualizador seguem com CPF mascarado). O detalhe do colaborador já abria para ele (rota + SELECT de colaboradores existiam) — a seção de ocorrências é que zerava em silêncio. Na UI, o botão "Nova Ocorrência" da ficha passou de `ocorrencia.editar` para `ocorrencia.criar`. Limitação conhecida: `reset_permissoes_perfil` (054) tem lista fixa — "Restaurar padrão" do financeiro remove as concessões. Aplicada via `db query --linked` em 01/08/2026)
 
 ### Edge Function `econtador`
 
@@ -398,7 +399,7 @@ npx vitest
 
 Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
-- **Adicionais / 12×36**: quem trabalha em regime 12×36 tem direito a insalubridade/periculosidade de **30 dias cheios**, independentemente dos dias efetivamente trabalhados. Não é erro; não altere para proporcional.
+- **Adicionais / insalubridade e periculosidade** (regra da gestão, 01/08/2026): titular (qualquer escala) recebe **30 − faltas − dias de férias/afastado cobertos por substituto** (no 12×36 equivale a trabalhados+folgas da parte ativa; férias sem substituto não transferem). **Substituto:** insalubridade = todos os dias cobertos; periculosidade = **apenas** dias de férias/afastado cobertos (cobertura de falta não gera). Afastado segue a regra de férias. Detalhes em `docs/REGRAS_NEGOCIO.md`; lógica em `src/lib/adicionais/calculoAdicionais.ts`. Não altere sem validação de negócio.
 - **e-Contador / Importação Alterdata**: apenas perfis `adm`, `dp1`, `dp2`.
 - **Extras**: visualização `adm, mesa, financeiro, dp1`; edição por `is_editor()`; exclusão por `adm` e `mesa` (lançamento errado — migration 082).
 - **Ocorrências**: visualização restrita; exclusão apenas `adm`.

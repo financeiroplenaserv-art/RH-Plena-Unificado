@@ -26,7 +26,7 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
-import { diaIntrajornada, contarDiasFeriadoEscalado } from '@/lib/adicionais/calculoAdicionais'
+import { diaIntrajornada, contarDiasFeriadoEscalado, adicionalTitular30, insalubridadeSubstituto, periculosidadeSubstituto } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
@@ -268,6 +268,13 @@ export function AdicionaisRelatorioPage() {
   const linhasAgregadas = useMemo<RelatorioAdicionalAgregado[]>(() => {
     const contagem = new Map<string, RelatorioAdicionalAgregado>()
 
+    // Regra da gestão (01/08/2026) — estruturas da divisão titular/substituto:
+    const chavesVinculos = new Set(vinculosAtivosNoMes.map(v => `${v.colaborador_id}|${v.contrato_id}`))
+    const chavesSubstitutoPuro = new Set<string>() // linhas que existem só por cobertura (sem vínculo próprio)
+    const transferidosPorChave = new Map<string, number>() // titular: dias de férias/afastado cobertos pelo substituto
+    const cobertosFeriasAfastPorChave = new Map<string, number>() // substituto: dias de férias/afastado cobertos
+    const cobertosFaltaFolgaPorChave = new Map<string, number>() // substituto: dias de falta/folga cobertos
+
     // Inicializa todos os vínculos ativos no período
     vinculosAtivosNoMes.forEach(v => {
       const contrato = mapContrato.get(v.contrato_id)
@@ -411,30 +418,58 @@ export function AdicionaisRelatorioPage() {
               afastados: 0,
             }
             contagem.set(chaveSubst, registroSubst)
+            // Linha criada só por cobertura (sem vínculo próprio no contrato):
+            // no fechamento ela segue a regra do substituto, não a do titular.
+            if (!chavesVinculos.has(chaveSubst)) chavesSubstitutoPuro.add(chaveSubst)
           }
 
           registroSubst.dias_trabalhados += 1
           if (contrato?.adicionais?.noturno) registroSubst.dias_noturno += 1
-          if (contrato?.adicionais?.periculosidade) registroSubst.dias_periculosidade += 1
-          if (contrato?.adicionais?.insalubridade) registroSubst.dias_insalubridade += 1
           if (diaIntrajornada(contrato, data)) registroSubst.dias_intrajornada += 1
+          // Insalubridade/periculosidade do substituto são calculadas no
+          // fechamento (regra 01/08/2026); aqui só separamos o tipo de cobertura.
+          if (status === 'ferias' || status === 'afastado') {
+            cobertosFeriasAfastPorChave.set(chaveSubst, (cobertosFeriasAfastPorChave.get(chaveSubst) ?? 0) + 1)
+            // O dia coberto sai da conta do titular — ele recebe só a parte ativa.
+            transferidosPorChave.set(chave, (transferidosPorChave.get(chave) ?? 0) + 1)
+          } else {
+            cobertosFaltaFolgaPorChave.set(chaveSubst, (cobertosFaltaFolgaPorChave.get(chaveSubst) ?? 0) + 1)
+          }
         }
       })
     })
 
     const resultado = Array.from(contagem.values())
 
-    // REVERTIDO: mantida a regra original do sistema conforme solicitado.
-    // Regra de negócio: insalubridade/periculosidade = 30 dias se não houver faltas; senão, desconta as faltas.
-    // Para escala 12×36 o adicional é cheio (30 dias), independentemente dos dias trabalhados.
+    // Fechamento de insalubridade/periculosidade (regra da gestão, 01/08/2026):
+    // - TITULAR (qualquer escala): 30 − faltas − dias de férias/afastado
+    //   transferidos ao substituto. No 12×36 equivale a trabalhados + folgas
+    //   da parte ativa; nas demais escalas, aos dias corridos da parte dele.
+    //   Férias/afastado SEM substituto não transferem (titular mantém 30 − faltas).
+    // - SUBSTITUTO PURO: insalubridade = todos os dias cobertos;
+    //   periculosidade = apenas os dias de férias/afastado cobertos
+    //   (cobertura de falta NÃO gera periculosidade).
     resultado.forEach(registro => {
       const contrato = mapContrato.get(registro.contrato_id)
       if (!contrato) return
+      const chave = `${registro.colaborador_id}|${registro.contrato_id}`
+      if (chavesSubstitutoPuro.has(chave)) {
+        const feriasAfast = cobertosFeriasAfastPorChave.get(chave) ?? 0
+        const faltaFolga = cobertosFaltaFolgaPorChave.get(chave) ?? 0
+        registro.dias_insalubridade = contrato.adicionais?.insalubridade
+          ? insalubridadeSubstituto(feriasAfast, faltaFolga)
+          : 0
+        registro.dias_periculosidade = contrato.adicionais?.periculosidade
+          ? periculosidadeSubstituto(feriasAfast)
+          : 0
+        return
+      }
+      const transferidos = transferidosPorChave.get(chave) ?? 0
       if (contrato.adicionais?.insalubridade) {
-        registro.dias_insalubridade = Math.max(0, 30 - registro.faltas)
+        registro.dias_insalubridade = adicionalTitular30(registro.faltas, transferidos)
       }
       if (contrato.adicionais?.periculosidade) {
-        registro.dias_periculosidade = Math.max(0, 30 - registro.faltas)
+        registro.dias_periculosidade = adicionalTitular30(registro.faltas, transferidos)
       }
     })
 

@@ -55,6 +55,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'departamento', acao: 'importar', label: 'Importar departamentos', grupo: 'Dados Mestres' },
   { recurso: 'colaborador', acao: 'editar_basico', label: 'Editar dados básicos do colaborador', grupo: 'Dados Mestres' },
   { recurso: 'colaborador', acao: 'editar_completo', label: 'Editar dados completos do colaborador', grupo: 'Dados Mestres' },
+  { recurso: 'colaborador', acao: 'ver_cpf_completo', label: 'Ver CPF completo do colaborador', grupo: 'Dados Mestres' },
   { recurso: 'colaborador', acao: 'cadastrar', label: 'Cadastrar colaborador', grupo: 'Dados Mestres' },
   { recurso: 'colaborador', acao: 'excluir', label: 'Excluir colaborador', grupo: 'Dados Mestres' },
   { recurso: 'colaborador', acao: 'importar', label: 'Importar colaboradores (e-Contador)', grupo: 'Dados Mestres' },

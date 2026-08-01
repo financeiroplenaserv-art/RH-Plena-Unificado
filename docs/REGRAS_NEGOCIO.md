@@ -6,10 +6,19 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 
 ## Adicionais / Insalubridade / Periculosidade
 
-### Regra dos 30 dias
-- Quem trabalha em regime **12×36** tem direito a receber insalubridade/periculosidade de **um mês cheio (30 dias)**, independentemente de quantos dias efetivamente trabalhou no mês.
-- Não é erro. Não deve ser alterado para cálculo proporcional.
-- Reforçado em: `src/pages/adicionais/AdicionaisRelatorioPage.tsx`.
+### Regra dos 30 dias (atualizada em 01/08/2026, validada com a gestão)
+- **Titular (qualquer escala):** trabalhou tudo → **30 dias**. Faltou → **30 − faltas**.
+- **Titular com férias ou afastado coberto por substituto:** os dias cobertos saem da conta dele → **30 − faltas − dias transferidos**.
+  - No **12×36** isso equivale a "trabalhados + folgas" da parte ativa.
+  - Nas **demais escalas**, equivale aos dias corridos da parte dele no mês (decisão confirmada em 01/08/2026).
+  - Férias/afastado **sem substituto registrado** não transferem dias — o titular mantém 30 − faltas.
+  - Falta antes das férias **desconta** da parte do titular (decisão confirmada em 01/08/2026).
+- **Substituto (sem vínculo próprio no contrato):**
+  - **Insalubridade:** recebe **todos os dias cobertos** — faltas/folgas de substituição **e** o bloco de férias/afastado ("a outra parte do mês").
+  - **Periculosidade:** recebe **apenas os dias de férias/afastado cobertos**; cobertura de falta **não** gera periculosidade.
+- Afastado (atestado/INSS) segue a **mesma regra de férias** (decisão confirmada em 01/08/2026).
+- Lógica pura: `src/lib/adicionais/calculoAdicionais.ts` (`adicionalTitular30`, `insalubridadeSubstituto`, `periculosidadeSubstituto` — com testes). Aplicada no fechamento de `src/pages/adicionais/AdicionaisRelatorioPage.tsx`.
+- **Substituída em 01/08/2026:** a regra anterior ("12×36 sempre 30 dias cheios, nunca proporcional") não vale mais — não reverter sem validação da gestão.
 
 ---
 
@@ -26,10 +35,15 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 - Exclusão: apenas **adm**.
 
 ### Ocorrências
-- Visualização: **adm, gestor, dp1, dp2, mesa, inspetor**.
+- Visualização: **adm, gestor, dp1, dp2, mesa, inspetor, financeiro** (financeiro incluído em 01/08/2026 — migration 098).
+- Criação: **adm, gestor, rh, dp1, dp2, mesa, inspetoria, financeiro** (financeiro incluído em 01/08/2026 — migration 098; ele só cria e visualiza, não edita/cancela/anexa).
 - Edição: mantida pela função `is_editor()`.
 - Exclusão: apenas **adm**.
 - Após gerar o PDF, registra-se **como o documento foi assinado** (`forma_assinatura`: papel ou Youk — opcional) e o impresso assinado pode ser anexado como **"Documento assinado"** (`tipo_documento` no anexo). Decisão de 2026-07-23.
+
+### Colaboradores (quadro de informações)
+- A tela de detalhes (`/rh/colaboradores/:id`) é acessível ao **financeiro** desde o seed (rota + SELECT já existiam); em 01/08/2026 a seção de ocorrências passou a funcionar para ele (migration 098) e o botão "Nova Ocorrência" passou a seguir a permissão `ocorrencia.criar`.
+- CPF completo (listagem e ficha) segue a ação `colaborador.ver_cpf_completo`: **gestor, rh, dp1, dp2 e financeiro** (financeiro incluído em 01/08/2026 — migration 098). Demais perfis veem o CPF mascarado (LGPD).
 
 ---
 

@@ -37,6 +37,7 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
   colaborador: {
     editar_basico: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
     editar_completo: ['gestor', 'rh', 'dp1', 'dp2'],
+    ver_cpf_completo: ['gestor', 'rh', 'dp1', 'dp2', 'financeiro'],
     cadastrar: ['rh', 'dp1', 'dp2'],
     excluir: ['dp1', 'dp2'],
     importar: ['dp1', 'dp2'],
@@ -48,8 +49,8 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
   ocorrencia: {
     editar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
     cancelar: ['gestor', 'rh', 'dp1', 'mesa'],
-    criar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
-    ver_detalhes: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'],
+    criar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'financeiro'],
+    ver_detalhes: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro'],
     aprovar: ['gestor', 'rh', 'dp1', 'dp2'],
     anexar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'],
     adicionar_testemunha: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'],
@@ -161,6 +162,9 @@ export const podeEditarColaboradorBasico = (p: NivelAcesso) => temPermissaoComPa
 
 /** Quem pode editar dados completos/sensíveis do colaborador (1.5) */
 export const podeEditarColaboradorCompleto = (p: NivelAcesso) => temPermissaoComPadrao(p, 'colaborador', 'editar_completo')
+
+/** Quem pode ver o CPF sem máscara (listagem e ficha) — decisão da gestão, 01/08/2026: inclui financeiro */
+export const podeVerCPFCompleto = (p: NivelAcesso) => temPermissaoComPadrao(p, 'colaborador', 'ver_cpf_completo')
 
 /** Quem pode cadastrar novo colaborador manualmente (1.6) */
 export const podeCadastrarColaborador = (p: NivelAcesso) => temPermissaoComPadrao(p, 'colaborador', 'cadastrar')

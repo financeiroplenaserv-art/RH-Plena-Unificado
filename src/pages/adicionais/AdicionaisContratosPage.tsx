@@ -92,6 +92,7 @@ export function AdicionaisContratosPage() {
   const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
   const [modalVinculados, setModalVinculados] = useState<string | null>(null)
   const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
+  const [adicionalFiltro, setAdicionalFiltro] = useState<string>('todos')
 
   useEffect(() => {
     listarContratos()
@@ -167,6 +168,11 @@ export function AdicionaisContratosPage() {
 
   const adicionaisAtivos = (c: ContratoAdicional) =>
     ADICIONAIS_OPCOES.filter(a => c.adicionais[a.key]).map(a => a.label).join(', ') || '—'
+
+  const contratosFiltrados = contratos.filter(c =>
+    (departamentoFiltro === 'todos' || c.departamento_id === departamentoFiltro) &&
+    (adicionalFiltro === 'todos' || c.adicionais[adicionalFiltro as keyof AdicionaisConfig])
+  )
 
   return (
     <AdicionaisShell>
@@ -286,17 +292,35 @@ export function AdicionaisContratosPage() {
       )}
 
       <ModuleCard title="Contratos cadastrados">
-        <div className="mb-4 w-full md:w-72">
-          <Label style={{ color: '#1F2937' }}>Departamento</Label>
-          <DepartamentoAutocomplete
-            value={departamentoFiltro}
-            onChange={setDepartamentoFiltro}
-            mode="id"
-            placeholder="Buscar departamento..."
-          />
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label style={{ color: '#1F2937' }}>Departamento</Label>
+            <DepartamentoAutocomplete
+              value={departamentoFiltro}
+              onChange={setDepartamentoFiltro}
+              mode="id"
+              placeholder="Buscar departamento..."
+            />
+          </div>
+          <div>
+            <Label style={{ color: '#1F2937' }}>Adicional</Label>
+            <Select value={adicionalFiltro} onValueChange={setAdicionalFiltro}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="noturno">Noturno</SelectItem>
+                <SelectItem value="periculosidade">Periculosidade</SelectItem>
+                <SelectItem value="insalubridade">Insalubridade</SelectItem>
+                <SelectItem value="intrajornada">Intrajornada</SelectItem>
+                <SelectItem value="feriado">Feriado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {contratos.filter(c => departamentoFiltro === 'todos' || c.departamento_id === departamentoFiltro).length === 0 ? (
+        {contratosFiltrados.length === 0 ? (
           <p className="text-center py-8" style={{ color: '#94A3B8' }}>Nenhum contrato cadastrado.</p>
         ) : (
           <div className="border rounded-xl overflow-hidden" style={{ borderColor: '#F1F5F9' }}>
@@ -312,8 +336,7 @@ export function AdicionaisContratosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {contratos
-                  .filter(c => departamentoFiltro === 'todos' || c.departamento_id === departamentoFiltro)
+                {contratosFiltrados
                   .map(c => {
                     const vinculados = vinculosPorContrato.get(c.id) || 0
                     const esperados = c.quantidade_colaboradores || 0

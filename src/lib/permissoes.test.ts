@@ -126,9 +126,9 @@ describe('Permissões de adicionais contratuais', () => {
 })
 
 describe('Permissões de ocorrências', () => {
-  it('gestor, rh, dp1, dp2 e mesa criam ocorrências', () => {
+  it('gestor, rh, dp1, dp2, mesa e financeiro criam ocorrências', () => {
     expect(perfisQuePermitem(podeCriarOcorrencia).sort()).toEqual(
-      ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa'].sort()
+      ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2', 'mesa', 'financeiro'].sort()
     )
   })
 

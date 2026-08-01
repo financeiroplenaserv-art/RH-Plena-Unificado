@@ -43,3 +43,39 @@ export function contarDiasFeriadoEscalado(
   return total
 }
 
+// ============================================================
+// Insalubridade e periculosidade — regra da gestão, 01/08/2026
+// ------------------------------------------------------------
+// TITULAR (qualquer escala):
+//   - Trabalhou tudo → 30 dias.
+//   - Faltou → 30 − faltas.
+//   - Saiu de férias (ou afastado) com substituto cobrindo → os dias
+//     cobertos saem da conta dele e vão para o substituto:
+//     30 − faltas − dias transferidos. No 12×36 isso equivale a
+//     "trabalhados + folgas" da parte ativa; nas demais escalas, aos dias
+//     corridos da parte dele no mês.
+//   Férias/afastado SEM substituto registrado não transferem dias
+//   (o titular mantém 30 − faltas).
+//
+// SUBSTITUTO (linha criada só por cobertura, sem vínculo próprio):
+//   - Insalubridade: todos os dias cobertos — faltas/folgas de
+//     substituição E o bloco de férias/afastado (a "outra parte do mês").
+//   - Periculosidade: APENAS os dias de férias/afastado cobertos;
+//     cobertura de falta NÃO gera periculosidade.
+// ============================================================
+
+/** Adicional mensal do titular: 30 − faltas − dias transferidos ao substituto. */
+export function adicionalTitular30(faltas: number, diasTransferidos = 0): number {
+  return Math.max(0, 30 - faltas - diasTransferidos)
+}
+
+/** Insalubridade do substituto: todos os dias cobertos (férias/afastado + falta/folga). */
+export function insalubridadeSubstituto(diasFeriasAfastado: number, diasFaltaFolga: number): number {
+  return diasFeriasAfastado + diasFaltaFolga
+}
+
+/** Periculosidade do substituto: somente os dias de férias/afastado cobertos. */
+export function periculosidadeSubstituto(diasFeriasAfastado: number): number {
+  return diasFeriasAfastado
+}
+

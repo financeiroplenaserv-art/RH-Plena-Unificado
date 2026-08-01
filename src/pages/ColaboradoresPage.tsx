@@ -29,7 +29,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { formatarCPF, formatarData, mascaraTelefone, mascararCPF, valorNaLista } from '@/lib/utils'
-import { podeEditarColaboradorBasico, podeEditarColaboradorCompleto } from '@/lib/permissoes'
+import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto } from '@/lib/permissoes'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -47,7 +47,7 @@ export function ColaboradoresPage() {
   const { user } = useAuth()
   const perfil = user?.nivel_acesso
   const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
-  const podeVerCPFCompleto = perfil ? podeEditarColaboradorCompleto(perfil) : false
+  const podeVerCPFCompleto = perfil ? temPermissaoCPFCompleto(perfil) : false
 
   const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
   const [busca, setBusca] = useState('')

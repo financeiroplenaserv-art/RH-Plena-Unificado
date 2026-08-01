@@ -59,6 +59,7 @@ export function AdicionaisVinculosPage() {
   const [dataFim, setDataFim] = useState('')
   const [busca, setBusca] = useState('')
   const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
+  const [adicionalFiltro, setAdicionalFiltro] = useState<string>('todos')
   const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
   const [modalCopiar, setModalCopiar] = useState(false)
   const [copiando, setCopiando] = useState(false)
@@ -124,6 +125,17 @@ export function AdicionaisVinculosPage() {
         return contrato?.departamento_id === departamentoFiltro
       })
     }
+    if (adicionalFiltro !== 'todos') {
+      // Filtra pelos adicionais do próprio vínculo (ele pode ter um subconjunto
+      // dos adicionais do contrato); vínculo antigo sem lista cai no contrato.
+      lista = lista.filter(v => {
+        if (v.adicionais && v.adicionais.length > 0) {
+          return v.adicionais.includes(adicionalFiltro as AdicionalTipo)
+        }
+        const contrato = contratos.find(c => c.id === v.contrato_id)
+        return contrato?.adicionais?.[adicionalFiltro as keyof typeof contrato.adicionais] === true
+      })
+    }
     const termo = busca.trim().toLowerCase()
     if (!termo) return lista
     return lista.filter(v => {
@@ -134,7 +146,7 @@ export function AdicionaisVinculosPage() {
         mapContrato.get(v.contrato_id)?.toLowerCase().includes(termo)
       )
     })
-  }, [vinculos, busca, mapColaborador, mapContrato, departamentoFiltro, contratos])
+  }, [vinculos, busca, mapColaborador, mapContrato, departamentoFiltro, adicionalFiltro, contratos])
 
   const handleSalvar = async () => {
     if (!colaboradorId || !contratoId || !dataInicio || !dataFim) return
@@ -333,7 +345,7 @@ export function AdicionaisVinculosPage() {
       )}
 
       <ModuleCard title="Vínculos cadastrados">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <Label style={{ color: '#1F2937' }}>Departamento</Label>
             <DepartamentoAutocomplete
@@ -342,6 +354,22 @@ export function AdicionaisVinculosPage() {
               mode="id"
               placeholder="Buscar departamento..."
             />
+          </div>
+          <div>
+            <Label style={{ color: '#1F2937' }}>Adicional</Label>
+            <Select value={adicionalFiltro} onValueChange={setAdicionalFiltro}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="noturno">Noturno</SelectItem>
+                <SelectItem value="periculosidade">Periculosidade</SelectItem>
+                <SelectItem value="insalubridade">Insalubridade</SelectItem>
+                <SelectItem value="intrajornada">Intrajornada</SelectItem>
+                <SelectItem value="feriado">Feriado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="relative">
             <Label style={{ color: '#1F2937' }}>Buscar</Label>
