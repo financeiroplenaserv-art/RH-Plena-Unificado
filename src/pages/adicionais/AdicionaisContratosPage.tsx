@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { PageHeader } from '@/components/corh/PageHeader'
@@ -91,8 +92,8 @@ export function AdicionaisContratosPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
   const [modalVinculados, setModalVinculados] = useState<string | null>(null)
-  const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
-  const [adicionalFiltro, setAdicionalFiltro] = useState<string>('todos')
+  const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.contratos.departamento', 'todos')
+  const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.contratos.adicional', 'todos')
 
   useEffect(() => {
     listarContratos()

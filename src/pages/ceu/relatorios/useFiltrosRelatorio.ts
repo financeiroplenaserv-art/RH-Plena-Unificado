@@ -1,26 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import type { EntregaCEU } from '@/types/database'
 import type { EntregaComSnapshot } from './relatorios.utils'
 
 export type StatusFiltroRelatorio = 'todos' | 'em_aberto' | 'devolvido'
 
 export function useFiltrosRelatorio(dadosEntregas: EntregaCEU[]) {
-  const [filtroDataInicio, setFiltroDataInicio] = useState('')
-  const [filtroDataFim, setFiltroDataFim] = useState('')
-  const [filtroColaborador, setFiltroColaborador] = useState('todos')
-  const [filtroItem, setFiltroItem] = useState('todos')
-  const [filtroTipo, setFiltroTipo] = useState('todos')
-  const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
-  const [filtroStatus, setFiltroStatus] = useState<StatusFiltroRelatorio>('todos')
+  const [filtroDataInicio, setFiltroDataInicio] = useFiltroPersistente('ceu.relatorios.aplicado.data_inicio', '')
+  const [filtroDataFim, setFiltroDataFim] = useFiltroPersistente('ceu.relatorios.aplicado.data_fim', '')
+  const [filtroColaborador, setFiltroColaborador] = useFiltroPersistente('ceu.relatorios.aplicado.colaborador', 'todos')
+  const [filtroItem, setFiltroItem] = useFiltroPersistente('ceu.relatorios.aplicado.item', 'todos')
+  const [filtroTipo, setFiltroTipo] = useFiltroPersistente('ceu.relatorios.aplicado.tipo', 'todos')
+  const [filtroDepartamento, setFiltroDepartamento] = useFiltroPersistente('ceu.relatorios.aplicado.departamento', 'todos')
+  const [filtroStatus, setFiltroStatus] = useFiltroPersistente<StatusFiltroRelatorio>('ceu.relatorios.aplicado.status', 'todos')
 
-  const [inputDataInicio, setInputDataInicio] = useState('')
-  const [inputDataFim, setInputDataFim] = useState('')
-  const [inputColaborador, setInputColaborador] = useState('todos')
-  const [inputItem, setInputItem] = useState('todos')
-  const [inputTipo, setInputTipo] = useState('todos')
-  const [inputDepartamento, setInputDepartamento] = useState('')
-  const [inputStatus, setInputStatus] = useState<StatusFiltroRelatorio>('todos')
+  const [inputDataInicio, setInputDataInicio] = useFiltroPersistente('ceu.relatorios.draft.data_inicio', '')
+  const [inputDataFim, setInputDataFim] = useFiltroPersistente('ceu.relatorios.draft.data_fim', '')
+  const [inputColaborador, setInputColaborador] = useFiltroPersistente('ceu.relatorios.draft.colaborador', 'todos')
+  const [inputItem, setInputItem] = useFiltroPersistente('ceu.relatorios.draft.item', 'todos')
+  const [inputTipo, setInputTipo] = useFiltroPersistente('ceu.relatorios.draft.tipo', 'todos')
+  const [inputDepartamento, setInputDepartamento] = useFiltroPersistente('ceu.relatorios.draft.departamento', '')
+  const [inputStatus, setInputStatus] = useFiltroPersistente<StatusFiltroRelatorio>('ceu.relatorios.draft.status', 'todos')
 
   const [colabIdsDepartamento, setColabIdsDepartamento] = useState<Set<string>>(new Set())
 

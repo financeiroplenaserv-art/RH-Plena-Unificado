@@ -37,6 +37,7 @@ import {
   podeImportarCEU,
 } from '@/lib/permissoes'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { prepararGruposRecibo, gerarRecibosLoteHTML } from '@/lib/ceu/emissaoRecibos'
 import type { EntregaCEU } from '@/types/database'
 import { toast } from 'sonner'
@@ -68,18 +69,21 @@ export function CeuMovimentacoesPage() {
   const podeImportar = perfil ? podeImportarCEU(perfil) : false
   const { entregas, loading, paginacao, listar, listarPaginado, devolver, remover, proximoNumeroRecibo, registrarEmissaoRecibo } = useCEUEntregas()
   const { itens, listar: listarItens } = useCEUItens()
-  const [busca, setBusca] = useState('')
-  const [filtroItem, setFiltroItem] = useState('todos')
-  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'em_aberto' | 'devolvido'>('todos')
-  const [filtroDataInicio, setFiltroDataInicio] = useState('')
-  const [filtroDataFim, setFiltroDataFim] = useState('')
-  const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
+  const [busca, setBusca] = useFiltroPersistente('ceu.movimentacoes.busca', '')
+  const [filtroItem, setFiltroItem] = useFiltroPersistente('ceu.movimentacoes.item', 'todos')
+  const [filtroStatus, setFiltroStatus] = useFiltroPersistente<'todos' | 'em_aberto' | 'devolvido'>('ceu.movimentacoes.status', 'todos')
+  const [filtroDataInicio, setFiltroDataInicio] = useFiltroPersistente('ceu.movimentacoes.data_inicio', '')
+  const [filtroDataFim, setFiltroDataFim] = useFiltroPersistente('ceu.movimentacoes.data_fim', '')
+  const [filtroDepartamento, setFiltroDepartamento] = useFiltroPersistente('ceu.movimentacoes.departamento', 'todos')
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [chaveFiltro, setChaveFiltro] = useState(0)
-  const [ordem, setOrdem] = useState<{ coluna: 'data' | 'colaborador' | 'itens' | 'qtdTotal'; direcao: 'asc' | 'desc' }>({
-    coluna: 'data',
-    direcao: 'desc',
-  })
+  const [ordem, setOrdem] = useFiltroPersistente<{ coluna: 'data' | 'colaborador' | 'itens' | 'qtdTotal'; direcao: 'asc' | 'desc' }>(
+    'ceu.movimentacoes.ordem',
+    {
+      coluna: 'data',
+      direcao: 'desc',
+    }
+  )
   const [removerId, setRemoverId] = useState<string | null>(null)
   const [devolverItens, setDevolverItens] = useState<EntregaCEU[] | null>(null)
   const [selecionadosDevolver, setSelecionadosDevolver] = useState<string[]>([])

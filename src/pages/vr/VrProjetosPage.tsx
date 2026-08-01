@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Edit, FileText, Search, Calendar, Upload, Download, History } from 'lucide-react'
 import { useProjetosVR } from '@/hooks/useProjetosVR'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -43,8 +44,8 @@ function downloadFile(content: string | Blob, filename: string, type: string) {
 export function VrProjetosPage() {
   const navigate = useNavigate()
   const { projetos, loading, listar, excluir, criar } = useProjetosVR()
-  const [busca, setBusca] = useState('')
-  const [filtroDataCorte, setFiltroDataCorte] = useState('')
+  const [busca, setBusca] = useFiltroPersistente('vr.projetos.busca', '')
+  const [filtroDataCorte, setFiltroDataCorte] = useFiltroPersistente('vr.projetos.data_corte', '')
   const [excluirId, setExcluirId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 

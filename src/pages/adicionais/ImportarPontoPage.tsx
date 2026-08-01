@@ -164,6 +164,10 @@ export function ImportarPontoPage() {
   const [resumoImportacao, setResumoImportacao] = useState<{ nome: string; cpf: string; matricula: string; encontrado: boolean; diverge: boolean }[] | null>(null)
   const [existentesOcorrencias, setExistentesOcorrencias] = useState<OcorrenciaExistente[]>([])
   const [desmarcadasOcorrencias, setDesmarcadasOcorrencias] = useState<Set<string>>(new Set())
+  // Importação seletiva (01/08/2026): colaboradores DESMARCADOS na prévia não
+  // têm os dias importados nem o calendário resetado — o reset do período
+  // vale apenas para quem está marcado.
+  const [desmarcadosDias, setDesmarcadosDias] = useState<Set<string>>(new Set())
   const [arquivosEnviados, setArquivosEnviados] = useState<PontoEspelhoArquivo[]>([])
   const [baixandoArquivoId, setBaixandoArquivoId] = useState<string | null>(null)
   const [confirmarExclusaoArquivo, setConfirmarExclusaoArquivo] = useState<PontoEspelhoArquivo | null>(null)
@@ -226,7 +230,29 @@ export function ImportarPontoPage() {
       setResumoImportacao(null)
       setExistentesOcorrencias([])
       setDesmarcadasOcorrencias(new Set())
-      setDesmarcadasOcorrencias(new Set())
+      setDesmarcadosDias(new Set())
+    }
+  }
+
+  /** Chave do colaborador na prévia para a seleção de importação dos dias. */
+  const chaveColabDias = (c: EspelhoProcessado, idx: number) =>
+    c.colaborador?.id ?? c.espelho.cpfPdf ?? `idx-${idx}`
+
+  const alternarDiasColaborador = (chave: string) => {
+    setDesmarcadosDias(prev => {
+      const novo = new Set(prev)
+      if (novo.has(chave)) novo.delete(chave)
+      else novo.add(chave)
+      return novo
+    })
+  }
+
+  const todosDiasMarcados = dados.every((c, idx) => !desmarcadosDias.has(chaveColabDias(c, idx)))
+  const alternarTodosDias = () => {
+    if (todosDiasMarcados) {
+      setDesmarcadosDias(new Set(dados.map((c, idx) => chaveColabDias(c, idx))))
+    } else {
+      setDesmarcadosDias(new Set())
     }
   }
 
@@ -394,11 +420,14 @@ export function ImportarPontoPage() {
       let naoEncontrados = 0
       marcarEtapa('confirmar: início')
 
-      const periodo = periodoDosEspelhos(dados.map(d => d.espelho))
+      // Importação seletiva: só os colaboradores marcados na prévia têm os
+      // dias importados e o calendário resetado no período.
+      const incluidosDias = dados.filter((c, idx) => !desmarcadosDias.has(chaveColabDias(c, idx)))
+      const periodo = periodoDosEspelhos(incluidosDias.map(d => d.espelho))
 
       // Vínculos cobertos pelos dias dos espelhos (um colab pode ter 2+ adicionais)
       const vinculosAfetados = new Set<string>()
-      for (const c of dados) {
+      for (const c of incluidosDias) {
         if (!c.colaborador) continue
         for (const dia of c.ponto.dias) {
           for (const v of encontrarVinculos(c.colaborador.id, dia.data)) vinculosAfetados.add(v.id)
@@ -424,7 +453,7 @@ export function ImportarPontoPage() {
       const semVinculo = new Set<string>()
       const diasParaSalvar: { vinculo_id: string; data: string; status: StatusDiaAdicional; intrajornada: boolean }[] = []
 
-      for (const c of dados) {
+      for (const c of incluidosDias) {
         if (!c.colaborador) {
           naoEncontrados++
           continue
@@ -530,6 +559,7 @@ export function ImportarPontoPage() {
       setResumoImportacao(null)
       setExistentesOcorrencias([])
       setDesmarcadasOcorrencias(new Set())
+      setDesmarcadosDias(new Set())
       if (fileInputRef.current) fileInputRef.current.value = ''
       marcarEtapa('confirmar: fim')
     } catch (err) {
@@ -745,23 +775,46 @@ export function ImportarPontoPage() {
               </div>
             )}
 
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs" style={{ color: '#64748B' }}>
+                Somente os colaboradores <strong>marcados</strong> terão os dias importados — e o calendário deles no período é
+                substituído pelo espelho (lançamentos manuais e substitutos desses colaboradores são apagados).
+              </p>
+              <ModuleButton variant="outline" size="sm" onClick={alternarTodosDias}>
+                {todosDiasMarcados ? 'Desmarcar todos' : 'Marcar todos'}
+              </ModuleButton>
+            </div>
+
             <div className="space-y-3">
               {dados.map((c, idxColaborador) => {
                 const resumo = resumoPontoEspelho(c.ponto)
                 const expandido = colaboradorExpandido === `${idxColaborador}`
+                const chaveDias = chaveColabDias(c, idxColaborador)
+                const marcadoDias = !desmarcadosDias.has(chaveDias)
                 return (
-                  <div key={idxColaborador} className="border rounded-xl overflow-hidden" style={{ borderColor: '#E2E8F0' }}>
+                  <div key={idxColaborador} className="border rounded-xl overflow-hidden" style={{ borderColor: '#E2E8F0', opacity: marcadoDias ? 1 : 0.55 }}>
                     <button
                       type="button"
                       onClick={() => setColaboradorExpandido(expandido ? null : `${idxColaborador}`)}
                       className="w-full px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50 text-left"
                     >
-                      <div>
-                        <div className="font-medium" style={{ color: '#1F2937' }}>{c.ponto.nome}</div>
-                        <div className="text-xs" style={{ color: '#94A3B8' }}>
-                          CPF: {mascararCPF(c.espelho.cpfPdf) || '—'} — Matrícula: {c.ponto.matricula || '—'}{' '}
-                          {c.match === 'NOME_DIVERGE' ? '⚠️ Nome diverge' : c.colaborador ? '✅ Encontrado' : '⚠️ Não encontrado'}
-                          {c.colaborador && (temVinculoNoEspelho(c) ? ' — 🔗 Com vínculo' : ' — ⚠️ Sem vínculo (só ocorrências)')}
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={marcadoDias}
+                          onChange={() => alternarDiasColaborador(chaveDias)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 w-4 h-4 rounded border-slate-300"
+                          title={marcadoDias ? 'Desmarcar para NÃO importar os dias deste colaborador' : 'Marcar para importar os dias deste colaborador'}
+                        />
+                        <div>
+                          <div className="font-medium" style={{ color: '#1F2937' }}>{c.ponto.nome}</div>
+                          <div className="text-xs" style={{ color: '#94A3B8' }}>
+                            CPF: {mascararCPF(c.espelho.cpfPdf) || '—'} — Matrícula: {c.ponto.matricula || '—'}{' '}
+                            {c.match === 'NOME_DIVERGE' ? '⚠️ Nome diverge' : c.colaborador ? '✅ Encontrado' : '⚠️ Não encontrado'}
+                            {c.colaborador && (temVinculoNoEspelho(c) ? ' — 🔗 Com vínculo' : ' — ⚠️ Sem vínculo (só ocorrências)')}
+                            {!marcadoDias && ' — ⏭️ Dias não serão importados'}
+                          </div>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 text-xs">

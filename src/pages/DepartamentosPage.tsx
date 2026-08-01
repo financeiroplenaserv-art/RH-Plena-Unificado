@@ -34,6 +34,7 @@ import { StatusBadge } from '@/components/corh/StatusBadge'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { Button } from '@/components/corh/Button'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useAuth } from '@/hooks/useAuth'
 import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
@@ -128,11 +129,11 @@ export function DepartamentosPage() {
   const podeImportar = perfil ? podeImportarDepartamentos(perfil) : false
 
   const { departamentos, loading, sincronizando, listar, criar, atualizar, remover, sincronizar } = useDepartamentos()
-  const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'Ativo' | 'Inativo'>('Ativo')
+  const [busca, setBusca] = useFiltroPersistente('core.departamentos.busca', '')
+  const [filtroStatus, setFiltroStatus] = useFiltroPersistente<'todos' | 'Ativo' | 'Inativo'>('core.departamentos.status', 'Ativo')
   type OrdenacaoColuna = 'nome_curto' | 'nome' | 'endereco'
   type OrdenacaoDirecao = 'asc' | 'desc'
-  const [ordenacao, setOrdenacao] = useState<{ coluna: OrdenacaoColuna; direcao: OrdenacaoDirecao }>({ coluna: 'nome_curto', direcao: 'asc' })
+  const [ordenacao, setOrdenacao] = useFiltroPersistente<{ coluna: OrdenacaoColuna; direcao: OrdenacaoDirecao }>('core.departamentos.ordenacao', { coluna: 'nome_curto', direcao: 'asc' })
 
   const alternarOrdenacao = (coluna: OrdenacaoColuna) => {
     setOrdenacao(prev => ({

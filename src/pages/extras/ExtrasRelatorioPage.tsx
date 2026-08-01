@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Search, BarChart3, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useExtras } from '@/hooks/useExtras'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { formatarDataInput, getPeriodoSemanalAtual } from '@/lib/utils'
 
 import { PageHeader } from '@/components/corh/PageHeader'
@@ -34,9 +35,9 @@ function formatarMoeda(valor: number) {
 export function ExtrasRelatorioPage() {
   const { inicio, fim } = getPeriodoSemanalAtual()
 
-  const [dataInicio, setDataInicio] = useState(formatarDataInput(inicio))
-  const [dataFim, setDataFim] = useState(formatarDataInput(fim))
-  const [busca, setBusca] = useState('')
+  const [dataInicio, setDataInicio] = useFiltroPersistente('extras.relatorio.data_inicio', () => formatarDataInput(inicio))
+  const [dataFim, setDataFim] = useFiltroPersistente('extras.relatorio.data_fim', () => formatarDataInput(fim))
+  const [busca, setBusca] = useFiltroPersistente('extras.relatorio.busca', '')
 
   const { extras, loading, listar } = useExtras()
 

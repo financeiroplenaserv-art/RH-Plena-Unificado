@@ -27,6 +27,7 @@ import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { podeEditarItemCEU, podeExcluirItemCEU } from '@/lib/permissoes'
 
 const TIPOS = ['Crachá', 'Uniforme', 'EPI']
@@ -58,12 +59,12 @@ export function CeuItensPage() {
   const podeExcluir = perfil ? podeExcluirItemCEU(perfil) : false
   const { itens, loading, listar, remover } = useCEUItens()
   const { fornecedores, listar: listarFornecedores } = useCEUFornecedores()
-  const [busca, setBusca] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('todos')
-  const [filtroFornecedor, setFiltroFornecedor] = useState('todos')
-  const [buscaInput, setBuscaInput] = useState('')
-  const [filtroTipoInput, setFiltroTipoInput] = useState('todos')
-  const [filtroFornecedorInput, setFiltroFornecedorInput] = useState('todos')
+  const [busca, setBusca] = useFiltroPersistente('ceu.itens.aplicado.busca', '')
+  const [filtroTipo, setFiltroTipo] = useFiltroPersistente('ceu.itens.aplicado.tipo', 'todos')
+  const [filtroFornecedor, setFiltroFornecedor] = useFiltroPersistente('ceu.itens.aplicado.fornecedor', 'todos')
+  const [buscaInput, setBuscaInput] = useFiltroPersistente('ceu.itens.draft.busca', '')
+  const [filtroTipoInput, setFiltroTipoInput] = useFiltroPersistente('ceu.itens.draft.tipo', 'todos')
+  const [filtroFornecedorInput, setFiltroFornecedorInput] = useFiltroPersistente('ceu.itens.draft.fornecedor', 'todos')
   const [removerId, setRemoverId] = useState<string | null>(null)
 
   useEffect(() => {

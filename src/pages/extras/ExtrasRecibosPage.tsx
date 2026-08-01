@@ -24,6 +24,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useEmpresas } from '@/hooks/useEmpresas'
 import { useExtrasRecibos } from '@/hooks/useExtrasRecibos'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { AssinaturaCanvas, type AssinaturaCanvasRef } from '@/components/extras/AssinaturaCanvas'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
@@ -74,9 +75,9 @@ export function ExtrasRecibosPage() {
 
   const { inicio, fim } = getPeriodoSemanalAtual()
 
-  const [dataInicio, setDataInicio] = useState(formatarDataInput(inicio))
-  const [dataFim, setDataFim] = useState(formatarDataInput(fim))
-  const [empresaId, setEmpresaId] = useState<string>('')
+  const [dataInicio, setDataInicio] = useFiltroPersistente('extras.recibos.data_inicio', () => formatarDataInput(inicio))
+  const [dataFim, setDataFim] = useFiltroPersistente('extras.recibos.data_fim', () => formatarDataInput(fim))
+  const [empresaId, setEmpresaId] = useFiltroPersistente<string>('extras.recibos.empresa', '')
   const [modalAberto, setModalAberto] = useState(false)
   const [reciboParaAssinar, setReciboParaAssinar] = useState<ReciboExtra | null>(null)
   const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoSubstituto | null>(null)
@@ -84,8 +85,8 @@ export function ExtrasRecibosPage() {
   const [marcarPago, setMarcarPago] = useState(false)
   const [emitindo, setEmitindo] = useState(false)
   const [modoPapel, setModoPapel] = useState(false)
-  const [filtroNome, setFiltroNome] = useState('')
-  const [ordemNome, setOrdemNome] = useState<'asc' | 'desc' | null>('asc')
+  const [filtroNome, setFiltroNome] = useFiltroPersistente('extras.recibos.nome', '')
+  const [ordemNome, setOrdemNome] = useFiltroPersistente<'asc' | 'desc' | null>('extras.recibos.ordem_nome', 'asc')
   const [reciboParaRemover, setReciboParaRemover] = useState<string | null>(null)
   const [grupoParaPagar, setGrupoParaPagar] = useState<GrupoSubstituto | null>(null)
 

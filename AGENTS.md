@@ -184,7 +184,7 @@ npm run pdf:worker
 
 - `npm run lint` — **passa**.
 - `npm run build` — **passa** (gera `dist/` com PWA e service worker).
-- `npm test` — **234 testes passam, 1 pulado por ambiente**:
+- `npm test` — **249 testes passam, 1 pulado por ambiente**:
   - `src/lib/rls.test.ts` executa um validador Python para verificar conflitos de RLS nas migrations. Quando o Python não está instalado no ambiente, o teste é **pulado automaticamente** (`it.skipIf`, desde 30/07/2026) — antes ele falhava com erro 9009. Com Python no PATH, ele roda normalmente.
   - Todos os demais testes de lógica (utils, permissões, departamentos, VR, escalas, adicionais, hooks, componentes, smoke) passam.
 
@@ -399,14 +399,14 @@ npx vitest
 
 Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
-- **Adicionais / insalubridade e periculosidade** (regra da gestão, 01/08/2026): titular (qualquer escala) recebe **30 − faltas − dias de férias/afastado cobertos por substituto** (no 12×36 equivale a trabalhados+folgas da parte ativa; férias sem substituto não transferem). **Substituto:** insalubridade = todos os dias cobertos; periculosidade = **apenas** dias de férias/afastado cobertos (cobertura de falta não gera). Afastado segue a regra de férias. Detalhes em `docs/REGRAS_NEGOCIO.md`; lógica em `src/lib/adicionais/calculoAdicionais.ts`. Não altere sem validação de negócio.
+- **Adicionais / insalubridade e periculosidade** (regra da gestão, 01/08/2026): titular (qualquer escala) recebe **30 − faltas − dias de férias/afastado transferidos ao substituto** (férias sem substituto não transferem). Transferidos: escala normal = dias com substituto; **12×36 = dias com substituto + folga pareada** de cada dia de escala coberto (trabalhado+folga). **Substituto:** insalubridade = dias transferidos + coberturas de falta/folga; periculosidade = **apenas** dias de férias/afastado transferidos (falta não gera). Afastado segue a regra de férias. Detalhes em `docs/REGRAS_NEGOCIO.md`; lógica em `src/lib/adicionais/calculoAdicionais.ts` (`adicionalTitular30`, `contarDiasTransferidos`). Não altere sem validação de negócio.
 - **e-Contador / Importação Alterdata**: apenas perfis `adm`, `dp1`, `dp2`.
 - **Extras**: visualização `adm, mesa, financeiro, dp1`; edição por `is_editor()`; exclusão por `adm` e `mesa` (lançamento errado — migration 082).
 - **Ocorrências**: visualização restrita; exclusão apenas `adm`.
 - **Recibos de Extras**: ficam no sistema (`recibos_extras`), não são enviados para Youk.
 - **Assinatura digital**: simples (canvas/base64), sem valor jurídico pleno; valor jurídico via Youk.
 - **CEU**: recibos de entrega podem ser datados no **1º dia do mês** por prática operacional. Não altere para "hoje" automaticamente.
-- **Importação de ponto unificada**: um único upload do espelho Flit (relatório **"CORH - Adicionais e Ocorrências"**) em **Adicionais → Importar Ponto** (`/adicionais/importar-ponto`) alimenta os dois módulos; matching por **CPF**. A importação **não cria vínculos automaticamente** — dias só vão para `calendario_adicionais` de quem já tem vínculo cobrindo a data; quem não tem vínculo recebe só as ocorrências.
+- **Importação de ponto unificada**: um único upload do espelho Flit (relatório **"CORH - Adicionais e Ocorrências"**) em **Adicionais → Importar Ponto** (`/adicionais/importar-ponto`) alimenta os dois módulos; matching por **CPF**. A importação **não cria vínculos automaticamente** — dias só vão para `calendario_adicionais` de quem já tem vínculo cobrindo a data; quem não tem vínculo recebe só as ocorrências. **Reimportar reseta o período ao estado do espelho** (decisão da gestão, 01/08/2026): lançamentos manuais e substitutos do período são apagados de propósito — após reimportar, refazer o substituto pelo Calendário ("Definir substituto" em lote).
 - **Extras — duplicidade**: lançamento com "Gera extra = Sim" + ausente "Não se aplica" **não checa duplicidade** de cliente/data (permite equipe extra no mesmo serviço). Com ausente informado ou "Não — falta (controle interno)", a checagem continua.
 
 ---

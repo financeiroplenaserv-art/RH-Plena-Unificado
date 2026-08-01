@@ -23,12 +23,15 @@ import { cn, nomeDepartamento } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional } from '@/types/adicionais'
+import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos } from '@/lib/adicionais/calculoAdicionais'
+import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
+import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional, AdicionalTipo } from '@/types/adicionais'
 
 const EMOJI_STATUS: Record<StatusDiaAdicional, string> = {
   trabalhou: '✅',
@@ -135,17 +138,19 @@ export function AdicionaisCalendarioPage() {
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const hoje = new Date()
-  const [periodoAno, setPeriodoAno] = useState(hoje.getFullYear())
-  const [periodoMes, setPeriodoMes] = useState(hoje.getMonth() + 1)
-  const [vinculoFiltro, setVinculoFiltro] = useState<string>('todos')
-  const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
-  const [busca, setBusca] = useState('')
+  const [periodoAno, setPeriodoAno] = useFiltroPersistente('adicionais.calendario.ano', () => hoje.getFullYear())
+  const [periodoMes, setPeriodoMes] = useFiltroPersistente('adicionais.calendario.mes', () => hoje.getMonth() + 1)
+  const [vinculoFiltro, setVinculoFiltro] = useFiltroPersistente<string>('adicionais.calendario.vinculo', 'todos')
+  const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.calendario.departamento', 'todos')
+  const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.calendario.adicional', 'todos')
+  const [busca, setBusca] = useFiltroPersistente('adicionais.calendario.busca', '')
+  const [feriados, setFeriados] = useState<Feriado[]>([])
   const [alteracoes, setAlteracoes] = useState<Record<string, DiaCalendarioAdicional>>({})
   const [modalSubstituto, setModalSubstituto] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
   const [buscaSubstituto, setBuscaSubstituto] = useState('')
   const [substitutoSelecionado, setSubstitutoSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [ignorados, setIgnorados] = useState<Set<string>>(new Set())
-  const [statusFiltro, setStatusFiltro] = useState<(StatusDiaAdicional | 'precisa_substituto')[]>([])
+  const [statusFiltro, setStatusFiltro] = useFiltroPersistente<(StatusDiaAdicional | 'precisa_substituto')[]>('adicionais.calendario.status', [])
   const [modalStatus, setModalStatus] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
   const [confirmarRemocao, setConfirmarRemocao] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
   // Substituição em lote: cobre todos os dias pendentes do vínculo no período (ex.: férias)
@@ -174,7 +179,10 @@ export function AdicionaisCalendarioPage() {
     listarVinculos()
     listarColaboradores()
     listarDepartamentos()
+    listarFeriados().then(setFeriados).catch((err) => console.error('Erro ao carregar feriados:', err))
   }, [listarContratos, listarVinculos, listarColaboradores, listarDepartamentos])
+
+  const datasFeriados = useMemo(() => new Set(feriados.map(f => f.data)), [feriados])
 
   useEffect(() => {
     listarCalendario({ dataInicio: periodoInicio, dataFim: periodoFim })
@@ -258,6 +266,17 @@ export function AdicionaisCalendarioPage() {
         return contrato?.departamento_id === departamentoFiltro
       })
     }
+    if (adicionalFiltro !== 'todos') {
+      // Filtra pelos adicionais do próprio vínculo (pode ser subconjunto do
+      // contrato); vínculo antigo sem lista cai no flag do contrato.
+      lista = lista.filter(v => {
+        if (v.adicionais && v.adicionais.length > 0) {
+          return v.adicionais.includes(adicionalFiltro as AdicionalTipo)
+        }
+        const contrato = mapContrato.get(v.contrato_id)
+        return contrato?.adicionais?.[adicionalFiltro as keyof typeof contrato.adicionais] === true
+      })
+    }
     if (busca.trim()) {
       const termo = busca.trim().toLowerCase()
       lista = lista.filter(v => {
@@ -277,7 +296,7 @@ export function AdicionaisCalendarioPage() {
       )
     }
     return lista
-  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, busca, mapColaborador, mapContrato, statusFiltro, diasDoPeriodo, getDia, precisaSubstituto])
+  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, adicionalFiltro, busca, mapColaborador, mapContrato, statusFiltro, diasDoPeriodo, getDia, precisaSubstituto])
 
   /* ============================================================
      CORREÇÃO: getDia agora recebe o vinculo completo e aplica
@@ -482,6 +501,44 @@ export function AdicionaisCalendarioPage() {
     })
   })
 
+  /**
+   * Resumo de direito aos adicionais do TITULAR do posto no período
+   * (regra da gestão, 01/08/2026): insalubridade/periculosidade =
+   * 30 − faltas − dias transferidos ao substituto (no 12×36, cada dia de
+   * escala coberto transfere também a folga pareada); noturno = dias
+   * trabalhados; intrajornada = trabalhados em dias configurados;
+   * feriado = feriados com escala prevista. Com o filtro de adicional
+   * ativo, mostra só o adicional escolhido.
+   */
+  const resumoDireito = (v: VinculoAdicional): { key: string; label: string; dias: number }[] => {
+    const contrato = mapContrato.get(v.contrato_id)
+    if (!contrato) return []
+    let faltas = 0
+    let trabalhados = 0
+    let diasIntrajornada = 0
+    const blocoFerias: { data: string; comSubstituto: boolean }[] = []
+    diasDoPeriodo.forEach(data => {
+      const dia = getDia(v, data)
+      if (dia.status === 'trabalhou') {
+        trabalhados++
+        if (diaIntrajornada(contrato, data)) diasIntrajornada++
+      } else if (dia.status === 'falta') {
+        faltas++
+      }
+      if (dia.status === 'ferias' || dia.status === 'afastado') {
+        blocoFerias.push({ data, comSubstituto: !!getSubstituto(v.id, data) })
+      }
+    })
+    const transferidos = contarDiasTransferidos(contrato.regime_trabalho, v.data_inicio, blocoFerias)
+    const resumo: { key: string; label: string; dias: number }[] = []
+    if (contrato.adicionais?.insalubridade) resumo.push({ key: 'insalubridade', label: 'Insalubridade', dias: adicionalTitular30(faltas, transferidos) })
+    if (contrato.adicionais?.periculosidade) resumo.push({ key: 'periculosidade', label: 'Periculosidade', dias: adicionalTitular30(faltas, transferidos) })
+    if (contrato.adicionais?.noturno) resumo.push({ key: 'noturno', label: 'Noturno', dias: trabalhados })
+    if (contrato.adicionais?.intrajornada) resumo.push({ key: 'intrajornada', label: 'Intrajornada', dias: diasIntrajornada })
+    if (contrato.adicionais?.feriado) resumo.push({ key: 'feriado', label: 'Feriado', dias: contarDiasFeriadoEscalado(contrato.regime_trabalho, v.data_inicio, diasDoPeriodo, datasFeriados) })
+    return adicionalFiltro === 'todos' ? resumo : resumo.filter(r => r.key === adicionalFiltro)
+  }
+
   return (
     <AdicionaisShell>
       <PageHeader backTo="/adicionais/contratos" title="Calendário de Escalas" description="Preencha dia a dia o status dos colaboradores vinculados" />
@@ -529,6 +586,23 @@ export function AdicionaisCalendarioPage() {
                 {contratos.map(c => (
                   <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full lg:w-48">
+            <Label style={{ color: '#1F2937' }}>Adicional</Label>
+            <Select value={adicionalFiltro} onValueChange={setAdicionalFiltro}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="noturno">Noturno</SelectItem>
+                <SelectItem value="periculosidade">Periculosidade</SelectItem>
+                <SelectItem value="insalubridade">Insalubridade</SelectItem>
+                <SelectItem value="intrajornada">Intrajornada</SelectItem>
+                <SelectItem value="feriado">Feriado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -736,6 +810,27 @@ export function AdicionaisCalendarioPage() {
                     )
                   })}
                 </div>
+
+                {/* Resumo de direito aos adicionais do titular do posto (regra 01/08/2026) */}
+                {(() => {
+                  const resumo = resumoDireito(v)
+                  if (resumo.length === 0) return null
+                  return (
+                    <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-2" style={{ borderColor: '#F1F5F9' }}>
+                      <span className="text-xs" style={{ color: '#94A3B8' }}>Direito no período:</span>
+                      {resumo.map(r => (
+                        <span
+                          key={r.key}
+                          className="text-xs px-2.5 py-1 rounded-full font-medium"
+                          style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}
+                          title={`${r.label}: ${r.dias} dia(s) de direito neste período`}
+                        >
+                          {r.label}: <strong>{r.dias} {r.dias === 1 ? 'dia' : 'dias'}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
               </ModuleCard>
             )
           })}

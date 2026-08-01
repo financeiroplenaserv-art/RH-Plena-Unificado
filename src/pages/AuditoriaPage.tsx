@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAuditoria } from '@/hooks/useAuditoria'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { supabase } from '@/lib/supabase'
 import { formatarData } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
@@ -71,8 +72,8 @@ function DiffJSON({ dados }: { dados: Record<string, unknown> | null }) {
 
 export function AuditoriaPage() {
   const { logs, loading, loadLogs } = useAuditoria()
-  const [tabela, setTabela] = useState('todas')
-  const [busca, setBusca] = useState('')
+  const [tabela, setTabela] = useFiltroPersistente('auditoria.lista.tabela', 'todas')
+  const [busca, setBusca] = useFiltroPersistente('auditoria.lista.busca', '')
   const [expandido, setExpandido] = useState<string | null>(null)
   // Mapa id → nome para exibir quem fez cada ação (em vez do UUID cru)
   const [nomesUsuarios, setNomesUsuarios] = useState<Map<string, string>>(new Map())

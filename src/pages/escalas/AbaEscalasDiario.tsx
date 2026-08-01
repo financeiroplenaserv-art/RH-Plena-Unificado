@@ -33,6 +33,7 @@ import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks
 import { abreviarFuncao } from '@/lib/escalas/funcao'
 import XLSX from '@e965/xlsx'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { nomeCurtoLocal, removerAcentos } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -77,8 +78,8 @@ export function AbaEscalasDiario() {
   const { locais, listar: listarLocais } = useEscalasLocais()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
-  const [input, setInput] = useState<FiltroEscalas>(filtroInicial)
-  const [aplicado, setAplicado] = useState<FiltroEscalas>(filtroInicial)
+  const [input, setInput] = useFiltroPersistente<FiltroEscalas>('escalas.diario.draft', filtroInicial)
+  const [aplicado, setAplicado] = useFiltroPersistente<FiltroEscalas>('escalas.diario.aplicado', filtroInicial)
 
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [localLote, setLocalLote] = useState('')
@@ -87,10 +88,13 @@ export function AbaEscalasDiario() {
   const [observacaoManual, setObservacaoManual] = useState('')
   const [historicoColaborador, setHistoricoColaborador] = useState<LocalTrabalhoDiario[]>([])
 
-  const [ordenacao, setOrdenacao] = useState<{ coluna: 'data' | 'colaborador' | 'funcao'; direcao: 'asc' | 'desc' }>({
-    coluna: 'data',
-    direcao: 'asc',
-  })
+  const [ordenacao, setOrdenacao] = useFiltroPersistente<{ coluna: 'data' | 'colaborador' | 'funcao'; direcao: 'asc' | 'desc' }>(
+    'escalas.diario.ordenacao',
+    {
+      coluna: 'data',
+      direcao: 'asc',
+    }
+  )
 
   useEffect(() => {
     listarLocais()

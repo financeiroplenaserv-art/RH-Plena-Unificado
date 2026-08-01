@@ -5,6 +5,7 @@ import {
   adicionalTitular30,
   insalubridadeSubstituto,
   periculosidadeSubstituto,
+  contarDiasTransferidos,
 } from './calculoAdicionais'
 
 const FERIADOS = new Set(['2026-06-04', '2026-06-24', '2026-12-25'])
@@ -94,5 +95,45 @@ describe('periculosidadeSubstituto (só férias/afastado)', () => {
   })
   it('férias/afastado coberto → a outra parte do mês', () => {
     expect(periculosidadeSubstituto(16)).toBe(16)
+  })
+})
+
+// Regra 12×36 da gestão (01/08/2026): o substituto cobre os dias de ESCALA
+// do titular, mas recebe trabalhado + folga pareada — cada dia de escala
+// coberto transfere 2 (o dia + a folga seguinte, se também for férias).
+const BLOCO_FERIAS = [
+  '2026-06-20', '2026-06-21', '2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25',
+  '2026-06-26', '2026-06-27', '2026-06-28', '2026-06-29', '2026-06-30',
+  '2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05', '2026-07-06', '2026-07-07',
+]
+// Vínculo 12x36 iniciado em 20/06: dias de escala = diferenças pares
+const ESCALA_MARIANA = ['2026-06-20', '2026-06-22', '2026-06-24', '2026-06-26', '2026-06-28', '2026-06-30', '2026-07-02', '2026-07-04', '2026-07-06']
+const diasComSubstitutoEm = (cobertos: string[]) =>
+  BLOCO_FERIAS.map(data => ({ data, comSubstituto: cobertos.includes(data) }))
+
+describe('contarDiasTransferidos (12×36: trabalhado + folga pareada)', () => {
+  it('caso Mariana: 9 dias de escala cobertos transferem o bloco inteiro (18)', () => {
+    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(ESCALA_MARIANA))).toBe(18)
+  })
+  it('substituto em todos os dias do bloco não duplica (pareamento deduplica)', () => {
+    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(BLOCO_FERIAS))).toBe(18)
+  })
+  it('um dia de escala coberto transfere o dia + a folga seguinte', () => {
+    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(['2026-06-20']))).toBe(2)
+  })
+  it('dia de FOLGA coberto transfere só ele (a folga não gera novo par)', () => {
+    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(['2026-06-21']))).toBe(1)
+  })
+  it('dia de escala no fim do bloco: folga fora do bloco não conta', () => {
+    const dias = [{ data: '2026-07-06', comSubstituto: true }]
+    expect(contarDiasTransferidos('12x36', '2026-06-20', dias)).toBe(1)
+  })
+  it('regime indefinido se comporta como 12×36 (padrão do sistema)', () => {
+    expect(contarDiasTransferidos(undefined, '2026-06-20', diasComSubstitutoEm(['2026-06-20']))).toBe(2)
+  })
+  it('escalas normais: só os dias cobertos, sem folga pareada', () => {
+    const dias = ['2026-06-22', '2026-06-23', '2026-06-24'].map(data => ({ data, comSubstituto: true }))
+    expect(contarDiasTransferidos('5x2', undefined, dias)).toBe(3)
+    expect(contarDiasTransferidos('6x1', '2026-06-20', dias)).toBe(3)
   })
 })

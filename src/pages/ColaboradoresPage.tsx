@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { formatarCPF, formatarData, mascaraTelefone, mascararCPF, valorNaLista } from '@/lib/utils'
 import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto } from '@/lib/permissoes'
@@ -50,11 +51,11 @@ export function ColaboradoresPage() {
   const podeVerCPFCompleto = perfil ? temPermissaoCPFCompleto(perfil) : false
 
   const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
-  const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<StatusColaborador | 'todos'>('Ativo')
-  const [filtroDepartamento, setFiltroDepartamento] = useState('todos')
-  const [filtroCargo, setFiltroCargo] = useState('todos')
-  const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
+  const [busca, setBusca] = useFiltroPersistente('colaboradores.lista.busca', '')
+  const [filtroStatus, setFiltroStatus] = useFiltroPersistente<StatusColaborador | 'todos'>('colaboradores.lista.status', 'Ativo')
+  const [filtroDepartamento, setFiltroDepartamento] = useFiltroPersistente('colaboradores.lista.departamento', 'todos')
+  const [filtroCargo, setFiltroCargo] = useFiltroPersistente('colaboradores.lista.cargo', 'todos')
+  const [filtroEmpresa, setFiltroEmpresa] = useFiltroPersistente('colaboradores.lista.empresa', 'todos')
   const [cargos, setCargos] = useState<{ nome: string }[]>([])
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [departamentos, setDepartamentos] = useState<{ id: string; nome: string; nome_curto: string | null }[]>([])

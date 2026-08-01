@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
@@ -48,8 +49,7 @@ Porteiros / ASG / Faltistas em apoio
 
 export function ExtrasBalancoPage() {
   const navigate = useNavigate()
-  const hoje = new Date().toISOString().split('T')[0]
-  const [dataSelecionada, setDataSelecionada] = useState(hoje)
+  const [dataSelecionada, setDataSelecionada] = useFiltroPersistente('extras.balanco.data', () => new Date().toISOString().split('T')[0])
   const [mensagemEditada, setMensagemEditada] = useState('')
 
   const { extras, loading, listar } = useExtras()

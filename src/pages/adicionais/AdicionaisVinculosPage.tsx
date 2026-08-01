@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { useAuth } from '@/hooks/useAuth'
@@ -57,9 +58,9 @@ export function AdicionaisVinculosPage() {
   const [contratoId, setContratoId] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
-  const [busca, setBusca] = useState('')
-  const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
-  const [adicionalFiltro, setAdicionalFiltro] = useState<string>('todos')
+  const [busca, setBusca] = useFiltroPersistente('adicionais.vinculos.busca', '')
+  const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.vinculos.departamento', 'todos')
+  const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.vinculos.adicional', 'todos')
   const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
   const [modalCopiar, setModalCopiar] = useState(false)
   const [copiando, setCopiando] = useState(false)

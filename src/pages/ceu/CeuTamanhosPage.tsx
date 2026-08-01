@@ -17,6 +17,7 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
 import { podeRegistrarEntregaCEU } from '@/lib/permissoes'
 import { listarTamanhos, salvarTamanhos, type TamanhosInput } from '@/lib/ceu/tamanhos'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { abreviarFuncao } from '@/lib/escalas/funcao'
 import { toast } from 'sonner'
 import type { CeuTamanhos, Colaborador } from '@/types/database'
@@ -38,7 +39,7 @@ export function CeuTamanhosPage() {
   const [editando, setEditando] = useState<Colaborador | null>(null)
   const [form, setForm] = useState<TamanhosInput>(FORM_VAZIO)
   const [salvando, setSalvando] = useState(false)
-  const [busca, setBusca] = useState('')
+  const [busca, setBusca] = useFiltroPersistente('ceu.tamanhos.busca', '')
 
   const carregarTamanhos = useCallback(async () => {
     try {

@@ -27,6 +27,7 @@ import {
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { ExtrasShell } from './ExtrasShell'
 import { podeEditarExtra, podeExcluirExtra } from '@/lib/permissoes'
 import type { StatusExtra, CategoriaOcorrencia } from '@/types/extras'
@@ -55,18 +56,18 @@ export function ExtrasLancamentosPage() {
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
   const hoje = new Date()
-  const [dataInicio, setDataInicio] = useState(() => {
+  const [dataInicio, setDataInicio] = useFiltroPersistente('extras.lancamentos.data_inicio', () => {
     const d = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  const [dataFim, setDataFim] = useState(() => {
+  const [dataFim, setDataFim] = useFiltroPersistente('extras.lancamentos.data_fim', () => {
     const d = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  const [categoriaFiltro, setCategoriaFiltro] = useState<string>('todas')
-  const [statusFiltro, setStatusFiltro] = useState<string>('todos')
-  const [colaboradorFiltro, setColaboradorFiltro] = useState<string>('todos')
-  const [busca, setBusca] = useState('')
+  const [categoriaFiltro, setCategoriaFiltro] = useFiltroPersistente<string>('extras.lancamentos.categoria', 'todas')
+  const [statusFiltro, setStatusFiltro] = useFiltroPersistente<string>('extras.lancamentos.status', 'todos')
+  const [colaboradorFiltro, setColaboradorFiltro] = useFiltroPersistente<string>('extras.lancamentos.colaborador', 'todos')
+  const [busca, setBusca] = useFiltroPersistente('extras.lancamentos.busca', '')
   const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
 
   useEffect(() => {

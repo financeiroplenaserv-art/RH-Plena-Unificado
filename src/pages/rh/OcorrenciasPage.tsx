@@ -31,6 +31,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RhShell } from './RhShell'
 import { useOcorrencias } from '@/hooks/useOcorrencias'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { cn, formatarData } from '@/lib/utils'
 import {
   podeCriarOcorrencia,
@@ -72,18 +73,18 @@ export function OcorrenciasPage() {
 
   const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
   const [pagina, setPagina] = useState(0)
-  const [modoBusca, setModoBusca] = useState<'cadastrados' | 'historicos'>('cadastrados')
-  const [busca, setBusca] = useState('')
-  const [filtroTipos, setFiltroTipos] = useState<string[]>([])
+  const [modoBusca, setModoBusca] = useFiltroPersistente<'cadastrados' | 'historicos'>('ocorrencias.lista.modo_busca', 'cadastrados')
+  const [busca, setBusca] = useFiltroPersistente('ocorrencias.lista.busca', '')
+  const [filtroTipos, setFiltroTipos] = useFiltroPersistente<string[]>('ocorrencias.lista.tipos', [])
   const [inputTipo, setInputTipo] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState('todos')
-  const [filtroEmpresa, setFiltroEmpresa] = useState('todos')
-  const [filtroMacroGrupo, setFiltroMacroGrupo] = useState('todos')
-  const [filtroDataInicio, setFiltroDataInicio] = useState('')
-  const [filtroDataFim, setFiltroDataFim] = useState('')
-  const [filtroColaboradorId, setFiltroColaboradorId] = useState<string | undefined>(undefined)
-  const [incluirNaoIdentificados, setIncluirNaoIdentificados] = useState(false)
-  const [filtroStatusColaborador, setFiltroStatusColaborador] = useState<'todos' | 'ativo' | 'inativo'>('ativo')
+  const [filtroStatus, setFiltroStatus] = useFiltroPersistente('ocorrencias.lista.status', 'todos')
+  const [filtroEmpresa, setFiltroEmpresa] = useFiltroPersistente('ocorrencias.lista.empresa', 'todos')
+  const [filtroMacroGrupo, setFiltroMacroGrupo] = useFiltroPersistente('ocorrencias.lista.macro_grupo', 'todos')
+  const [filtroDataInicio, setFiltroDataInicio] = useFiltroPersistente('ocorrencias.lista.data_inicio', '')
+  const [filtroDataFim, setFiltroDataFim] = useFiltroPersistente('ocorrencias.lista.data_fim', '')
+  const [filtroColaboradorId, setFiltroColaboradorId] = useFiltroPersistente<string | undefined>('ocorrencias.lista.colaborador_id', undefined)
+  const [incluirNaoIdentificados, setIncluirNaoIdentificados] = useFiltroPersistente('ocorrencias.lista.incluir_nao_identificados', false)
+  const [filtroStatusColaborador, setFiltroStatusColaborador] = useFiltroPersistente<'todos' | 'ativo' | 'inativo'>('ocorrencias.lista.status_colaborador', 'ativo')
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [ocorrenciaParaExcluir, setOcorrenciaParaExcluir] = useState<string | null>(null)
 
@@ -137,7 +138,7 @@ export function OcorrenciasPage() {
     setIncluirNaoIdentificados(false)
     setFiltroStatusColaborador('ativo')
     setPagina(0)
-  }, [])
+  }, [setBusca, setFiltroTipos, setFiltroStatus, setFiltroEmpresa, setFiltroMacroGrupo, setFiltroDataInicio, setFiltroDataFim, setFiltroColaboradorId, setIncluirNaoIdentificados, setFiltroStatusColaborador])
 
   useEffect(() => {
     loadEmpresas()

@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useFerias } from '@/hooks/useFerias'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
@@ -112,8 +113,8 @@ export function FeriasPage() {
   const [periodos, setPeriodos] = useState<FeriasPeriodo[]>([])
   const [carregando, setCarregando] = useState(true)
 
-  const [input, setInput] = useState({ busca: '', departamento: 'todos', situacao: 'todas' })
-  const [aplicado, setAplicado] = useState(input)
+  const [input, setInput] = useFiltroPersistente('ferias.lista.draft', { busca: '', departamento: 'todos', situacao: 'todas' })
+  const [aplicado, setAplicado] = useFiltroPersistente('ferias.lista.aplicado', { busca: '', departamento: 'todos', situacao: 'todas' })
 
   const [modalPrevisao, setModalPrevisao] = useState(false)
   const [notificacaoLinha, setNotificacaoLinha] = useState<LinhaFerias | null>(null)
@@ -205,7 +206,7 @@ export function FeriasPage() {
     })
   }, [linhas, aplicado])
 
-  const [ordenacao, setOrdenacao] = useState<{ coluna: ColunaOrdenacao; direcao: 'asc' | 'desc' } | null>(null)
+  const [ordenacao, setOrdenacao] = useFiltroPersistente<{ coluna: ColunaOrdenacao; direcao: 'asc' | 'desc' } | null>('ferias.lista.ordenacao', null)
 
   // Linhas ordenadas pela coluna clicada; linhas sem data ficam sempre por último
   const linhasOrdenadas = useMemo(() => {

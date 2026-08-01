@@ -9,8 +9,8 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 ### Regra dos 30 dias (atualizada em 01/08/2026, validada com a gestão)
 - **Titular (qualquer escala):** trabalhou tudo → **30 dias**. Faltou → **30 − faltas**.
 - **Titular com férias ou afastado coberto por substituto:** os dias cobertos saem da conta dele → **30 − faltas − dias transferidos**.
-  - No **12×36** isso equivale a "trabalhados + folgas" da parte ativa.
-  - Nas **demais escalas**, equivale aos dias corridos da parte dele no mês (decisão confirmada em 01/08/2026).
+  - No **12×36**: o substituto cobre os dias de ESCALA do titular, mas o adicional do 12×36 é pago em trabalhado + folga — então **cada dia de escala coberto transfere também a folga pareada** (o dia seguinte, se também for férias/afastado). Ex.: cobrir os 9 dias de escala de um bloco de 18 transfere os 18 (caso Mariana/Marcelo, 01/08/2026: titular 12 = 6 trabalhados + 6 folgas de 8–19/07; substituto 18).
+  - Nas **demais escalas**: transferem os dias cobertos (dias corridos da "outra parte do mês").
   - Férias/afastado **sem substituto registrado** não transferem dias — o titular mantém 30 − faltas.
   - Falta antes das férias **desconta** da parte do titular (decisão confirmada em 01/08/2026).
 - **Substituto (sem vínculo próprio no contrato):**

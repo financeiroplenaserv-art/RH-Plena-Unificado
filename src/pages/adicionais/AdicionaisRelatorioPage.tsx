@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
@@ -26,7 +27,7 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
-import { diaIntrajornada, contarDiasFeriadoEscalado, adicionalTitular30, insalubridadeSubstituto, periculosidadeSubstituto } from '@/lib/adicionais/calculoAdicionais'
+import { diaIntrajornada, contarDiasFeriadoEscalado, adicionalTitular30, insalubridadeSubstituto, periculosidadeSubstituto, contarDiasTransferidos } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
@@ -195,12 +196,12 @@ export function AdicionaisRelatorioPage() {
   const { departamentos, loading: loadingDepartamentos, listar: listarDepartamentos } = useDepartamentos()
 
   const hoje = new Date()
-  const [ano, setAno] = useState(hoje.getFullYear())
-  const [mes, setMes] = useState(hoje.getMonth() + 1)
+  const [ano, setAno] = useFiltroPersistente('adicionais.relatorio.ano', () => hoje.getFullYear())
+  const [mes, setMes] = useFiltroPersistente('adicionais.relatorio.mes', () => hoje.getMonth() + 1)
 
-  const [departamentoFiltro, setDepartamentoFiltro] = useState<string>('todos')
-  const [adicionalFiltro, setAdicionalFiltro] = useState<string>('todos')
-  const [busca, setBusca] = useState('')
+  const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.relatorio.departamento', 'todos')
+  const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.relatorio.adicional', 'todos')
+  const [busca, setBusca] = useFiltroPersistente('adicionais.relatorio.busca', '')
   const [feriados, setFeriados] = useState<Feriado[]>([])
 
   const inicioMes = useMemo(() => {
@@ -271,8 +272,7 @@ export function AdicionaisRelatorioPage() {
     // Regra da gestão (01/08/2026) — estruturas da divisão titular/substituto:
     const chavesVinculos = new Set(vinculosAtivosNoMes.map(v => `${v.colaborador_id}|${v.contrato_id}`))
     const chavesSubstitutoPuro = new Set<string>() // linhas que existem só por cobertura (sem vínculo próprio)
-    const transferidosPorChave = new Map<string, number>() // titular: dias de férias/afastado cobertos pelo substituto
-    const cobertosFeriasAfastPorChave = new Map<string, number>() // substituto: dias de férias/afastado cobertos
+    const feriasAfastPorVinculo = new Map<string, { data: string; substitutoId: string | null }[]>() // bloco de férias/afastado por vínculo (com e sem substituto — a folga pareada do 12×36 é calculada no fechamento)
     const cobertosFaltaFolgaPorChave = new Map<string, number>() // substituto: dias de falta/folga cobertos
 
     // Inicializa todos os vínculos ativos no período
@@ -373,6 +373,15 @@ export function AdicionaisRelatorioPage() {
         const dia = getDiaEfetivo(vinculo, regime, data, calendarioUnico)
         const status = statusEfetivo(vinculo, regime, data)
 
+        // Bloco de férias/afastado do vínculo (com e sem substituto): a
+        // transferência titular→substituto (com a folga pareada do 12×36)
+        // é calculada no fechamento por contarDiasTransferidos.
+        if (status === 'ferias' || status === 'afastado') {
+          const lista = feriasAfastPorVinculo.get(vinculo.id) ?? []
+          lista.push({ data, substitutoId: dia.substituto_colaborador_id ?? null })
+          feriasAfastPorVinculo.set(vinculo.id, lista)
+        }
+
         if (status === 'trabalhou') {
           registro!.dias_trabalhados += 1
           if (contrato?.adicionais?.noturno) registro!.dias_noturno += 1
@@ -427,12 +436,9 @@ export function AdicionaisRelatorioPage() {
           if (contrato?.adicionais?.noturno) registroSubst.dias_noturno += 1
           if (diaIntrajornada(contrato, data)) registroSubst.dias_intrajornada += 1
           // Insalubridade/periculosidade do substituto são calculadas no
-          // fechamento (regra 01/08/2026); aqui só separamos o tipo de cobertura.
-          if (status === 'ferias' || status === 'afastado') {
-            cobertosFeriasAfastPorChave.set(chaveSubst, (cobertosFeriasAfastPorChave.get(chaveSubst) ?? 0) + 1)
-            // O dia coberto sai da conta do titular — ele recebe só a parte ativa.
-            transferidosPorChave.set(chave, (transferidosPorChave.get(chave) ?? 0) + 1)
-          } else {
+          // fechamento (regra 01/08/2026); aqui só marcamos a cobertura de
+          // falta/folga (férias/afastado entram via feriasAfastPorVinculo).
+          if (status !== 'ferias' && status !== 'afastado') {
             cobertosFaltaFolgaPorChave.set(chaveSubst, (cobertosFaltaFolgaPorChave.get(chaveSubst) ?? 0) + 1)
           }
         }
@@ -442,19 +448,29 @@ export function AdicionaisRelatorioPage() {
     const resultado = Array.from(contagem.values())
 
     // Fechamento de insalubridade/periculosidade (regra da gestão, 01/08/2026):
-    // - TITULAR (qualquer escala): 30 − faltas − dias de férias/afastado
-    //   transferidos ao substituto. No 12×36 equivale a trabalhados + folgas
-    //   da parte ativa; nas demais escalas, aos dias corridos da parte dele.
+    // - TITULAR (qualquer escala): 30 − faltas − dias transferidos ao
+    //   substituto. No 12×36, cada dia de escala coberto transfere também a
+    //   folga pareada (trabalhado + folga); nas demais, só os dias cobertos.
     //   Férias/afastado SEM substituto não transferem (titular mantém 30 − faltas).
-    // - SUBSTITUTO PURO: insalubridade = todos os dias cobertos;
-    //   periculosidade = apenas os dias de férias/afastado cobertos
+    // - SUBSTITUTO PURO: insalubridade = todos os dias cobertos (com a folga
+    //   pareada do 12×36); periculosidade = apenas férias/afastado cobertos
     //   (cobertura de falta NÃO gera periculosidade).
     resultado.forEach(registro => {
       const contrato = mapContrato.get(registro.contrato_id)
       if (!contrato) return
       const chave = `${registro.colaborador_id}|${registro.contrato_id}`
+      const regime = contrato.regime_trabalho
       if (chavesSubstitutoPuro.has(chave)) {
-        const feriasAfast = cobertosFeriasAfastPorChave.get(chave) ?? 0
+        // Soma o que ESTE substituto cobriu em cada vínculo deste contrato
+        let feriasAfast = 0
+        feriasAfastPorVinculo.forEach((lista, vinculoId) => {
+          const vinc = vinculosAtivosNoMes.find(v => v.id === vinculoId)
+          if (vinc?.contrato_id !== registro.contrato_id) return
+          feriasAfast += contarDiasTransferidos(regime, vinc?.data_inicio, lista.map(d => ({
+            data: d.data,
+            comSubstituto: d.substitutoId === registro.colaborador_id,
+          })))
+        })
         const faltaFolga = cobertosFaltaFolgaPorChave.get(chave) ?? 0
         registro.dias_insalubridade = contrato.adicionais?.insalubridade
           ? insalubridadeSubstituto(feriasAfast, faltaFolga)
@@ -464,7 +480,12 @@ export function AdicionaisRelatorioPage() {
           : 0
         return
       }
-      const transferidos = transferidosPorChave.get(chave) ?? 0
+      const vinc = vinculosAtivosNoMes.find(v => `${v.colaborador_id}|${v.contrato_id}` === chave)
+      const lista = vinc ? feriasAfastPorVinculo.get(vinc.id) ?? [] : []
+      const transferidos = contarDiasTransferidos(regime, vinc?.data_inicio, lista.map(d => ({
+        data: d.data,
+        comSubstituto: !!d.substitutoId,
+      })))
       if (contrato.adicionais?.insalubridade) {
         registro.dias_insalubridade = adicionalTitular30(registro.faltas, transferidos)
       }

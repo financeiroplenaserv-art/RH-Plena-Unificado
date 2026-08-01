@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useFerias } from '@/hooks/useFerias'
 import { podeGerenciarFerias } from '@/lib/permissoes'
 import { normalizarTexto } from '@/lib/escalas/normalizarTexto'
@@ -38,8 +39,8 @@ export function FeriasNotificacoesPage() {
   const [carregando, setCarregando] = useState(true)
   const [modal, setModal] = useState(false)
 
-  const [input, setInput] = useState({ busca: '', destinatario: 'todos' })
-  const [aplicado, setAplicado] = useState(input)
+  const [input, setInput] = useFiltroPersistente('ferias.notificacoes.draft', { busca: '', destinatario: 'todos' })
+  const [aplicado, setAplicado] = useFiltroPersistente('ferias.notificacoes.aplicado', { busca: '', destinatario: 'todos' })
 
   const carregar = async () => {
     setCarregando(true)

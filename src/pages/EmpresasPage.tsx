@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useEmpresas } from '@/hooks/useEmpresas'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { formatarCNPJ, mascaraCNPJ, validarCNPJ } from '@/lib/utils'
@@ -44,7 +45,7 @@ export function EmpresasPage() {
   const podeExcluir = perfil ? podeExcluirEmpresa(perfil) : false
 
   const { empresas, loading, listar, criar, atualizar, remover } = useEmpresas()
-  const [busca, setBusca] = useState('')
+  const [busca, setBusca] = useFiltroPersistente('core.empresas.busca', '')
   const [form, setForm] = useState(emptyForm)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
