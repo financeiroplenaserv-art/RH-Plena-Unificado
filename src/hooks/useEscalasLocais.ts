@@ -50,11 +50,18 @@ export function useEscalasLocais() {
 
   const atualizar = useCallback(async (id: string, local: Partial<Omit<LocalTrabalho, 'id' | 'created_at' | 'updated_at'>>) => {
     try {
-      const { error } = await supabase
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase
         .from('locais_trabalho')
         .update(local as Partial<LocalTrabalho>)
         .eq('id', id)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar este local de trabalho')
+        return false
+      }
       toast.success('Local de trabalho atualizado')
       await listar()
       return true
@@ -67,11 +74,18 @@ export function useEscalasLocais() {
 
   const remover = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase
+      // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase
         .from('locais_trabalho')
         .delete()
         .eq('id', id)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para remover este local de trabalho')
+        return false
+      }
       toast.success('Local de trabalho removido')
       await listar()
       return true

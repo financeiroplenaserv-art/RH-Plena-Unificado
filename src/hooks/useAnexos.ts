@@ -77,13 +77,21 @@ export function useAnexos() {
       console.warn('Erro ao remover arquivo do storage:', storageError.message)
     }
 
-    const { error } = await supabase
+    // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase
       .from('ocorrencia_anexos')
       .delete()
       .eq('id', anexo.id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao remover anexo: ' + error.message)
+      return false
+    }
+
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para remover este anexo')
       return false
     }
 

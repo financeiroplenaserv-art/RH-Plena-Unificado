@@ -226,12 +226,19 @@ export function useCEUEntregas() {
   }, [])
 
   const devolver = useCallback(async (id: string, dataDevolucao: string) => {
-    const { error } = await supabase
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase
       .from('entregas')
       .update({ data_devolucao: dataDevolucao })
       .eq('id', id)
+      .select('id')
     if (error) {
       toast.error('Erro ao registrar devolução: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para registrar a devolução desta entrega')
       return false
     }
     toast.success('Devolução registrada com sucesso')
@@ -239,12 +246,19 @@ export function useCEUEntregas() {
   }, [])
 
   const marcarReciboEmitido = useCallback(async (id: string) => {
-    const { error } = await supabase
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem a tela fingiria sucesso.
+    const { data, error } = await supabase
       .from('entregas')
       .update({ recibo_emitido: true })
       .eq('id', id)
+      .select('id')
     if (error) {
       toast.error('Erro ao marcar recibo: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar esta entrega')
       return false
     }
     return true
@@ -252,12 +266,19 @@ export function useCEUEntregas() {
 
   const marcarLoteReciboEmitido = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return true
-    const { error } = await supabase
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro; em lote, menos linhas que o esperado indica falha parcial.
+    const { data, error } = await supabase
       .from('entregas')
       .update({ recibo_emitido: true })
       .in('id', ids)
+      .select('id')
     if (error) {
       toast.error('Erro ao marcar recibos em lote: ' + error.message)
+      return false
+    }
+    if (!data || data.length !== ids.length) {
+      toast.error('Sem permissão para marcar o recibo de uma ou mais entregas')
       return false
     }
     return true
@@ -283,21 +304,34 @@ export function useCEUEntregas() {
    */
   const registrarEmissaoRecibo = useCallback(async (ids: string[], numeroRecibo: string) => {
     if (ids.length === 0) return true
-    const { error } = await supabase
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro; em lote, menos linhas que o esperado indica falha parcial.
+    const { data, error } = await supabase
       .from('entregas')
       .update({ recibo_emitido: true, numero_recibo: numeroRecibo })
       .in('id', ids)
+      .select('id')
     if (error) {
       toast.error('Erro ao registrar número do recibo: ' + error.message)
+      return false
+    }
+    if (!data || data.length !== ids.length) {
+      toast.error('Sem permissão para registrar o recibo de uma ou mais entregas')
       return false
     }
     return true
   }, [])
 
   const remover = useCallback(async (id: string) => {
-    const { error } = await supabase.from('entregas').delete().eq('id', id)
+    // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase.from('entregas').delete().eq('id', id).select('id')
     if (error) {
       toast.error('Erro ao remover entrega: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para remover esta entrega')
       return false
     }
     toast.success('Entrega removida com sucesso')

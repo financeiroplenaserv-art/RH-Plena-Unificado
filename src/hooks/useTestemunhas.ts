@@ -46,13 +46,20 @@ export function useTestemunhas() {
   )
 
   const removerTestemunha = useCallback(async (id: string) => {
-    const { error } = await supabase
+    // .select('id') para detectar DELETE bloqueado por RLS: sem o select,
+    // o PostgREST retorna sucesso com 0 linhas afetadas e o toast fingiria sucesso.
+    const { data, error } = await supabase
       .from('ocorrencia_testemunhas')
       .delete()
       .eq('id', id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao remover testemunha: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para remover esta testemunha')
       return false
     }
 

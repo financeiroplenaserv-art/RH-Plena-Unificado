@@ -78,10 +78,16 @@ export function useProjetosVR() {
   }, [])
 
   const excluir = useCallback(async (id: string) => {
-    const { error } = await supabase.from('projetos_vr').delete().eq('id', id)
+    // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase.from('projetos_vr').delete().eq('id', id).select('id')
 
     if (error) {
       toast.error('Erro ao excluir projeto VR: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para excluir este projeto VR')
       return false
     }
 

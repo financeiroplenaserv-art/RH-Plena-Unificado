@@ -14,7 +14,6 @@ import { LoginPage } from '@/pages/LoginPage'
 import { ConsentimentoLGPDPage } from '@/pages/ConsentimentoLGPDPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ColaboradoresPage } from '@/pages/ColaboradoresPage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import {
   ImportarEContadorPage,
   DepartamentosPage,
@@ -22,6 +21,7 @@ import {
   AuditoriaPage,
   EmpresasPage,
   PermissoesPage,
+  RelatoriosPage,
   EscalasPage,
   EscalasImportarPage,
   EscalasLocaisPage,
@@ -638,7 +638,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/relatorios" element={<PlaceholderPage titulo="Relatórios" descricao="Relatórios gerenciais do sistema" />} />
+              <Route
+                path="/relatorios"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'relatorios' }}>
+                    <RelatoriosPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

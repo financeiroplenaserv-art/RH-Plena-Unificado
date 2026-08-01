@@ -50,7 +50,10 @@ export function usePermissoes() {
   const salvarPermissoes = useCallback(async (novasPermissoes: PermissaoPerfil[]) => {
     setSalvando(true)
     try {
-      const { error } = await supabase
+      // .select('id') após o upsert: a parte UPDATE de um upsert bloqueado
+      // por RLS retorna 0 linhas SEM erro — sem essa checagem o toast
+      // fingiria sucesso.
+      const { data, error } = await supabase
         .from('permissoes_perfil')
         .upsert(
           novasPermissoes.map((p) => ({
@@ -61,10 +64,15 @@ export function usePermissoes() {
           })),
           { onConflict: 'perfil,recurso,acao' }
         )
+        .select('id')
 
       if (error) {
         console.error('Erro ao salvar permissões:', error)
         toast.error('Erro ao salvar permissões: ' + error.message)
+        return false
+      }
+      if (!data || (data.length === 0 && novasPermissoes.length > 0)) {
+        toast.error('Sem permissão para salvar estas permissões')
         return false
       }
 

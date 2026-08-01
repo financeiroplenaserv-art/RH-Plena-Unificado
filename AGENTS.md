@@ -184,7 +184,7 @@ npm run pdf:worker
 
 - `npm run lint` — **passa**.
 - `npm run build` — **passa** (gera `dist/` com PWA e service worker).
-- `npm test` — **202 testes passam, 1 pulado por ambiente**:
+- `npm test` — **222 testes passam, 1 pulado por ambiente**:
   - `src/lib/rls.test.ts` executa um validador Python para verificar conflitos de RLS nas migrations. Quando o Python não está instalado no ambiente, o teste é **pulado automaticamente** (`it.skipIf`, desde 30/07/2026) — antes ele falhava com erro 9009. Com Python no PATH, ele roda normalmente.
   - Todos os demais testes de lógica (utils, permissões, departamentos, VR, escalas, adicionais, hooks, componentes, smoke) passam.
 
@@ -419,6 +419,7 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 - Não altere a regra de 30 dias para adicionais sem validação de negócio.
 - Não mude o banco de dados sem backup e sem migrations versionadas.
 - Não ignore o teste de RLS sem verificar se o Python está instalado.
+- Não faça UPDATE/DELETE via PostgREST sem terminar em `.select('id')` e checar se alguma linha foi afetada — escrita bloqueada por RLS retorna 0 linhas SEM erro e o toast fingiria sucesso (padrão anti-falso-sucesso aplicado em todos os hooks em 01/08/2026; ver `src/hooks/useExtras.ts`).
 
 ---
 
@@ -434,4 +435,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-07-31*
+*Atualizado em: 2026-08-01*

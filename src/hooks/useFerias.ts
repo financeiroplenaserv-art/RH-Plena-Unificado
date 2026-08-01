@@ -135,14 +135,18 @@ export function useFerias() {
         .map((p) => p.id)
 
       if (idsAlinhados.length > 0) {
-        const { error: erroBaixa } = await supabase
+        // .select('id') após o delete: DELETE bloqueado por RLS retorna 0
+        // linhas SEM erro — conta só o que foi de fato excluído para não
+        // reportar baixa fantasma no resultado da importação.
+        const { data: baixados, error: erroBaixa } = await supabase
           .from('ferias_periodos')
           .delete()
           .in('id', idsAlinhados)
+          .select('id')
         if (erroBaixa) {
           console.error('Erro ao baixar previsões alinhadas:', erroBaixa)
         } else {
-          previsoesAlinhadas = idsAlinhados.length
+          previsoesAlinhadas = baixados?.length ?? 0
         }
       }
     }

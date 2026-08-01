@@ -63,6 +63,7 @@ export const FeriasImportarPage = lazyNamed(() => import('@/pages/ferias/FeriasI
 export const FeriasNotificacoesPage = lazyNamed(() => import('@/pages/ferias/FeriasNotificacoesPage'), 'FeriasNotificacoesPage')
 
 // Outros
+export const RelatoriosPage = lazyNamed(() => import('@/pages/RelatoriosPage'), 'RelatoriosPage')
 export const DepartamentosPage = lazyNamed(() => import('@/pages/DepartamentosPage'), 'DepartamentosPage')
 export const EmpresasPage = lazyNamed(() => import('@/pages/EmpresasPage'), 'EmpresasPage')
 export const ImportarEContadorPage = lazyNamed(() => import('@/pages/ImportarEContadorPage'), 'ImportarEContadorPage')

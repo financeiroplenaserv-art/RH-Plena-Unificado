@@ -298,8 +298,17 @@ export function useColaboradores() {
         }
       }
 
-      const { error } = await supabase.from('colaboradores').update(dadosUpdate as Partial<Colaborador>).eq('id', existente.id)
+      // .select('id') para detectar UPDATE bloqueado por RLS: sem o select,
+      // o PostgREST retorna sucesso com 0 linhas afetadas e o retorno fingiria sucesso.
+      const { data: atualizado, error } = await supabase
+        .from('colaboradores')
+        .update(dadosUpdate as Partial<Colaborador>)
+        .eq('id', existente.id)
+        .select('id')
       if (error) throw error
+      if (!atualizado || atualizado.length === 0) {
+        throw new Error('Sem permissão para atualizar este colaborador')
+      }
       return { acao: 'atualizado', id: existente.id } as const
     }
 

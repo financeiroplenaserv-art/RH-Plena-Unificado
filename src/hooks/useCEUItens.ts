@@ -46,9 +46,15 @@ export function useCEUItens() {
   }, [])
 
   const atualizar = useCallback(async (id: string, item: Partial<ItemCEU>) => {
-    const { error } = await supabase.from('itens').update(item).eq('id', id)
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase.from('itens').update(item).eq('id', id).select('id')
     if (error) {
       toast.error('Erro ao atualizar item: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar este item')
       return false
     }
     toast.success('Item atualizado com sucesso')
@@ -56,9 +62,15 @@ export function useCEUItens() {
   }, [])
 
   const remover = useCallback(async (id: string) => {
-    const { error } = await supabase.from('itens').delete().eq('id', id)
+    // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase.from('itens').delete().eq('id', id).select('id')
     if (error) {
       toast.error('Erro ao remover item: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para remover este item')
       return false
     }
     toast.success('Item removido com sucesso')

@@ -35,9 +35,15 @@ export function useCEUFornecedores() {
   }, [])
 
   const atualizar = useCallback(async (id: string, fornecedor: Partial<Fornecedor>) => {
-    const { error } = await supabase.from('fornecedores').update(fornecedor).eq('id', id)
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase.from('fornecedores').update(fornecedor).eq('id', id).select('id')
     if (error) {
       toast.error('Erro ao atualizar fornecedor: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar este fornecedor')
       return false
     }
     toast.success('Fornecedor atualizado com sucesso')
@@ -45,9 +51,15 @@ export function useCEUFornecedores() {
   }, [])
 
   const remover = useCallback(async (id: string) => {
-    const { error } = await supabase.from('fornecedores').delete().eq('id', id)
+    // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem o toast fingiria sucesso.
+    const { data, error } = await supabase.from('fornecedores').delete().eq('id', id).select('id')
     if (error) {
       toast.error('Erro ao remover fornecedor: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para remover este fornecedor')
       return false
     }
     toast.success('Fornecedor removido com sucesso')

@@ -32,13 +32,21 @@ export function useAlertas() {
   }, [])
 
   const marcarComoLido = useCallback(async (id: string) => {
-    const { error } = await supabase
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem a tela fingiria sucesso.
+    const { data, error } = await supabase
       .from('alertas')
       .update({ status: 'lido' })
       .eq('id', id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao atualizar alerta: ' + error.message)
+      return false
+    }
+
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar este alerta')
       return false
     }
 
@@ -49,13 +57,21 @@ export function useAlertas() {
   }, [])
 
   const arquivar = useCallback(async (id: string) => {
-    const { error } = await supabase
+    // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+    // SEM erro — sem essa checagem a tela fingiria sucesso.
+    const { data, error } = await supabase
       .from('alertas')
       .update({ status: 'arquivado' })
       .eq('id', id)
+      .select('id')
 
     if (error) {
       toast.error('Erro ao arquivar alerta: ' + error.message)
+      return false
+    }
+
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para arquivar este alerta')
       return false
     }
 

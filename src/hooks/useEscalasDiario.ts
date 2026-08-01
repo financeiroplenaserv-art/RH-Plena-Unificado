@@ -129,7 +129,9 @@ export function useEscalasDiario() {
     try {
       const { data: usuario } = await supabase.auth.getUser()
 
-      const { error } = await supabase
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase
         .from('locais_trabalho_diario')
         .update({
           local_trabalho_id: localTrabalhoId,
@@ -139,7 +141,12 @@ export function useEscalasDiario() {
           observacao: observacao || null,
         } as Partial<LocalTrabalhoDiario>)
         .eq('id', diaId)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para confirmar este dia')
+        return false
+      }
 
       toast.success('Local confirmado')
       return true
@@ -158,7 +165,9 @@ export function useEscalasDiario() {
     try {
       const { data: usuario } = await supabase.auth.getUser()
 
-      const { error } = await supabase
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase
         .from('locais_trabalho_diario')
         .update({
           local_trabalho_id: localTrabalhoId,
@@ -168,7 +177,12 @@ export function useEscalasDiario() {
           observacao: observacao || null,
         } as Partial<LocalTrabalhoDiario>)
         .in('id', diaIds)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar estes dias')
+        return false
+      }
 
       toast.success(`${diaIds.length} dia(s) atualizado(s)`)
       return true

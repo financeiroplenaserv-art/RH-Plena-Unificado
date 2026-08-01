@@ -162,10 +162,16 @@ export function useOcorrencias() {
   }, [aplicarFiltros, placeholderId])
 
   const excluir = useCallback(async (id: string) => {
-    const { error } = await supabase.from('ocorrencias').delete().eq('id', id)
+    // .select('id') para detectar DELETE bloqueado por RLS: sem o select,
+    // o PostgREST retorna sucesso com 0 linhas afetadas e o toast fingiria sucesso.
+    const { data, error } = await supabase.from('ocorrencias').delete().eq('id', id).select('id')
 
     if (error) {
       toast.error('Erro ao excluir ocorrência: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para excluir esta ocorrência')
       return false
     }
 

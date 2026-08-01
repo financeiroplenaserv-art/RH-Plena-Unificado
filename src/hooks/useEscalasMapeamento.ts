@@ -51,11 +51,18 @@ export function useEscalasMapeamento() {
 
   const remover = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase
+      // .select('id') após o delete: DELETE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase
         .from('mapeamento_flit_local_trabalho')
         .delete()
         .eq('id', id)
+        .select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para remover este mapeamento')
+        return false
+      }
       toast.success('Mapeamento removido')
       await listar()
       return true
