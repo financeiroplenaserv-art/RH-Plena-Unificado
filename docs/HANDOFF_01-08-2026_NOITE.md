@@ -1,6 +1,6 @@
 # Handoff — 01/08/2026 (noite: persistência de filtros, filtro de adicional no Calendário, resumo de direito, caso Mariana)
 
-> Passagem para o próximo agente. Terceira sessão do dia 01/08. Nada de migration nova. Deploy Netlify pendente (acumulou o dia inteiro — 1 deploy cobre tudo).
+> Passagem para o próximo agente. Terceira sessão do dia 01/08. Nada de migration nova. **Deploy Netlify produção feito em 01/08 à noite** (commit `8372be3`, URL https://plena-corh.netlify.app) — cobriu as três sessões do dia.
 
 ## 1. Persistência de filtros em TODAS as telas
 
@@ -26,16 +26,20 @@
 - Decisão final da gestão: o substituto cobre **os dias de escala** do titular, mas o adicional do 12×36 paga trabalhado + folga → **cada dia de escala coberto transfere também a folga pareada** (dia seguinte, se também férias/afastado). Ex.: 9 dias de escala cobertos num bloco de 18 → 18 transferidos.
 - Nova função pura `contarDiasTransferidos` em `calculoAdicionais.ts` (7 testes novos — caso Mariana, dedupe, borda de bloco, regime indefinido, escalas normais). Aplicada no fechamento do **Relatório** (coleta `feriasAfastPorVinculo` com e sem substituto) e no **resumo do Calendário**.
 - Auditoria por agente (explore): implementação considerada **fiel à regra**; achados de borda registrados (vínculo duplicado mesma chave, pareamento com data_inicio vazio, dois substitutos no mesmo bloco) — nenhum afeta o caso real.
-- **Caso Mariana encerrado:** banco correto (18 férias 20/06–07/07, trabalhou/folga 8–19/07). Esperado após registrar o substituto: **Mariana 12 / Marcelo 18**.
+- **⚠️ CASO MARIANA AINDA ABERTO (registro da usuária, 01/08 à noite): NÃO conseguimos resolver — ainda está com erro.**
+  - O que está garantido: o banco está consistente com o espelho salvo (30 dias gravados às 16:02: férias 20/06–07/07 = 18 dias, trabalhou/folga 8–19/07, **sem substituto**). A regra nova está implementada, testada e auditada; com o Marcelo registrado nos dias de férias, o esperado é Mariana 12 / Marcelo 18.
+  - O que NÃO está explicado: (1) a reimportação dela à noite não gravou nada no banco, mas a tela mostrou um estado (férias só 20–29/06, trabalhou a partir de 30/06) que não bate nem com o banco nem com o espelho salvo; (2) no arquivo que ela usa, a página da Mariana **não aparece na prévia da importação** (o parser lê o CPF 161.636.867-56 mas não o nome — `nome=undefined`).
+  - Próximos passos na retomada: (a) corrigir o parser para a página dela (`parsePaginasEspelho` — layout da página sem nome parseável; usar `scripts/inspecionar-espelho-mariana.ts` para reproduzir); (b) só depois refazer o fluxo completo em produção com ela (importar → Definir substituto em lote → conferir 12/18); (c) se a tela voltar a mostrar estado divergente do banco, investigar cache do PWA/sessionStorage na máquina dela.
 - **Bug de parser identificado (pendente):** no espelho salvo (`20jun a 19jul (1).pdf`), a página da Mariana parseia com `nome=undefined` (CPF 161.636.867-56 parseia normal) — na prévia o nome dela não aparece, embora o match por CPF funcione. Investigar `parsePaginasEspelho` para o layout da página dela. Script de inspeção: `scripts/inspecionar-espelho-mariana.ts [NOME|CPF]` (baixa o espelho do bucket e mostra os dias parseados).
 
 ## Estado final
 
-- `npm run lint` — limpo · `npm test` — **242 passando, 1 skipped** · `npm run build` — ok
-- Banco: sem migration nova; apenas as 2 correções de dados acima (aplicadas e verificadas).
+- `npm run lint` — limpo · `npm test` — **249 passando, 1 skipped** · `npm run build` — ok
+- Banco: sem migration nova; correções de dados da Mariana aplicadas ao longo do dia (estado final: 18 férias 20/06–07/07, sem substituto).
+- **Deploy Netlify produção feito em 01/08 à noite** (commit `8372be3`).
 
 ## Pendências
 
-- **Deploy Netlify** (acumulou: hooks anti-falso-sucesso, /relatorios, regra de adicionais, financeiro, filtros persistentes, calendário).
-- Validar com a usuária: relatório de junho mostrando Mariana 12 / Marcelo 18; filtro de adicional + resumo no Calendário; filtros persistindo ao navegar.
-- Pendências antigas: validações de produção (feriados, assinatura preta, "Lançado em"), recibo do Ricardo, importação unificada (~60 ocorrências), revisão visual dos menus por perfil, casos ambíguos da varredura anti-falso-sucesso.
+- **⚠️ CASO MARIANA ABERTO — ainda com erro (ver seção 5 acima).** Prioridade na próxima sessão: corrigir o parser da página dela e refazer o fluxo em produção até fechar 12/18.
+- Validar com a usuária: filtro de adicional + resumo no Calendário; filtros persistindo ao navegar.
+- Pendências antigas: validações de produção (feriados, assinatura preta, "Lançado em"), recibo do Ricardo, importação unificada (~60 ocorrências), revisão visual dos menus por perfil, casos ambíguos da varredura anti-falso-sucesso, achados de borda da auditoria da regra (vínculo duplicado na chave, pareamento com data_inicio vazio).
