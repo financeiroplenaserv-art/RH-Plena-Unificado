@@ -36,8 +36,8 @@ const TABELAS = [
   { value: 'contratos_adicionais', label: 'Contratos adicionais' },
   { value: 'vinculos_adicionais', label: 'Vínculos adicionais' },
   { value: 'calendario_adicionais', label: 'Calendário adicionais' },
-  { value: 'itens_ceu', label: 'Itens CEU' },
-  { value: 'entregas_ceu', label: 'Entregas CEU' },
+  { value: 'itens', label: 'Itens CEU' },
+  { value: 'entregas', label: 'Entregas CEU' },
 ]
 
 const ACOES: Record<string, string> = {

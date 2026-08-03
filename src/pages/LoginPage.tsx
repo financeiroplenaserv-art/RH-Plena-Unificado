@@ -32,7 +32,7 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
     setRecuperando(true)
     try {
       await recuperarSenha(email.trim())
-      toast.success('Se o e-mail estiver cadastrado, você receberá o link para redefinir a senha.')
+      toast.success('Link de redefinição enviado para o e-mail cadastrado.')
     } catch (err) {
       console.error('Erro ao enviar recuperação de senha:', err)
       toast.error('Não foi possível enviar o e-mail de recuperação. Fale com o administrador.')
