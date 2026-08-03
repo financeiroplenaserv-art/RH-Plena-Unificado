@@ -20,9 +20,12 @@ import {
 } from '@/components/ui/table'
 import { useAuditoria } from '@/hooks/useAuditoria'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
+import { Paginacao } from '@/components/Paginacao'
 import { supabase } from '@/lib/supabase'
 import { formatarData } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
+
+const TAMANHO_PAGINA = 50
 
 const TABELAS = [
   { value: 'todas', label: 'Todas as tabelas' },
@@ -71,16 +74,23 @@ function DiffJSON({ dados }: { dados: Record<string, unknown> | null }) {
 }
 
 export function AuditoriaPage() {
-  const { logs, loading, loadLogs } = useAuditoria()
+  const { logs, total, loading, loadLogs } = useAuditoria()
   const [tabela, setTabela] = useFiltroPersistente('auditoria.lista.tabela', 'todas')
   const [busca, setBusca] = useFiltroPersistente('auditoria.lista.busca', '')
+  const [pagina, setPagina] = useState(0)
   const [expandido, setExpandido] = useState<string | null>(null)
   // Mapa id → nome para exibir quem fez cada ação (em vez do UUID cru)
   const [nomesUsuarios, setNomesUsuarios] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
-    loadLogs(tabela !== 'todas' ? { tabela } : {})
-  }, [tabela, loadLogs])
+    loadLogs({ ...(tabela !== 'todas' ? { tabela } : {}), pagina, porPagina: TAMANHO_PAGINA })
+  }, [tabela, pagina, loadLogs])
+
+  // Troca de tabela volta para a primeira página
+  const mudarTabela = (novaTabela: string) => {
+    setTabela(novaTabela)
+    setPagina(0)
+  }
 
   useEffect(() => {
     supabase
@@ -135,7 +145,7 @@ export function AuditoriaPage() {
             </div>
             <div>
               <Label htmlFor="tabela" className="sr-only">Tabela</Label>
-              <Select value={tabela} onValueChange={setTabela}>
+              <Select value={tabela} onValueChange={mudarTabela}>
                 <SelectTrigger id="tabela">
                   <SelectValue placeholder="Tabela" />
                 </SelectTrigger>
@@ -216,6 +226,15 @@ export function AuditoriaPage() {
               </TableBody>
             </Table>
           </div>
+          <Paginacao
+            pagina={pagina}
+            totalPaginas={Math.ceil(total / TAMANHO_PAGINA)}
+            totalRegistros={total}
+            tamanho={TAMANHO_PAGINA}
+            onPaginaAnterior={() => setPagina(p => Math.max(0, p - 1))}
+            onPaginaProxima={() => setPagina(p => p + 1)}
+            carregando={loading}
+          />
       </ModuleCard>
     </ModuleShell>
   )
