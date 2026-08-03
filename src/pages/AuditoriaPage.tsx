@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
-import { Search, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { useCallback, useEffect, useState, Fragment } from 'react'
+import { Search, History, ChevronDown, ChevronUp, Filter, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ModuleShell, ModuleCard } from '@/components/layout/ModuleShell'
+import { ModuleShell, ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import {
   Select,
   SelectContent,
@@ -76,19 +76,57 @@ function DiffJSON({ dados }: { dados: Record<string, unknown> | null }) {
 export function AuditoriaPage() {
   const { logs, total, loading, loadLogs } = useAuditoria()
   const [tabela, setTabela] = useFiltroPersistente('auditoria.lista.tabela', 'todas')
-  const [busca, setBusca] = useFiltroPersistente('auditoria.lista.busca', '')
+  // Rascunho (o que está digitado) × aplicado (o que vale na consulta)
+  const [buscaInput, setBuscaInput] = useFiltroPersistente('auditoria.lista.draft.busca', '')
+  const [dataInicioInput, setDataInicioInput] = useFiltroPersistente('auditoria.lista.draft.dataInicio', '')
+  const [dataFimInput, setDataFimInput] = useFiltroPersistente('auditoria.lista.draft.dataFim', '')
+  const [busca, setBusca] = useFiltroPersistente('auditoria.lista.aplicado.busca', '')
+  const [dataInicio, setDataInicio] = useFiltroPersistente('auditoria.lista.aplicado.dataInicio', '')
+  const [dataFim, setDataFim] = useFiltroPersistente('auditoria.lista.aplicado.dataFim', '')
   const [pagina, setPagina] = useState(0)
   const [expandido, setExpandido] = useState<string | null>(null)
   // Mapa id → nome para exibir quem fez cada ação (em vez do UUID cru)
   const [nomesUsuarios, setNomesUsuarios] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
-    loadLogs({ ...(tabela !== 'todas' ? { tabela } : {}), pagina, porPagina: TAMANHO_PAGINA })
-  }, [tabela, pagina, loadLogs])
+    // Busca por nome de usuário: resolve os perfis cujo nome/e-mail contém o termo
+    let idsUsuariosBusca: string[] = []
+    if (busca.trim()) {
+      const termo = busca.trim().toLowerCase()
+      idsUsuariosBusca = [...nomesUsuarios.entries()]
+        .filter(([, nome]) => nome.toLowerCase().includes(termo))
+        .map(([id]) => id)
+    }
+    loadLogs({
+      ...(tabela !== 'todas' ? { tabela } : {}),
+      ...(busca.trim() ? { busca, idsUsuariosBusca } : {}),
+      ...(dataInicio ? { dataInicio } : {}),
+      ...(dataFim ? { dataFim } : {}),
+      pagina,
+      porPagina: TAMANHO_PAGINA,
+    })
+  }, [tabela, busca, dataInicio, dataFim, pagina, loadLogs, nomesUsuarios])
 
   // Troca de tabela volta para a primeira página
   const mudarTabela = (novaTabela: string) => {
     setTabela(novaTabela)
+    setPagina(0)
+  }
+
+  const aplicarFiltros = () => {
+    setBusca(buscaInput)
+    setDataInicio(dataInicioInput)
+    setDataFim(dataFimInput)
+    setPagina(0)
+  }
+
+  const limparFiltros = () => {
+    setBuscaInput('')
+    setDataInicioInput('')
+    setDataFimInput('')
+    setBusca('')
+    setDataInicio('')
+    setDataFim('')
     setPagina(0)
   }
 
@@ -107,23 +145,6 @@ export function AuditoriaPage() {
 
   const nomeUsuario = useCallback((id: string | null) => (id ? nomesUsuarios.get(id) || id : '—'), [nomesUsuarios])
 
-  const logsFiltrados = useMemo(() => {
-    if (!busca.trim()) return logs
-    const termo = busca.toLowerCase()
-    return logs.filter((l) => {
-      const campos = [
-        l.tabela,
-        l.operacao,
-        l.registro_id,
-        l.usuario_id,
-        nomeUsuario(l.usuario_id),
-        JSON.stringify(l.dados_anteriores),
-        JSON.stringify(l.dados_novos),
-      ]
-      return campos.some((c) => String(c).toLowerCase().includes(termo))
-    })
-  }, [logs, busca, nomeUsuario])
-
   return (
     <ModuleShell>
       <PageHeader
@@ -133,13 +154,14 @@ export function AuditoriaPage() {
       />
 
       <ModuleCard title="Filtros" icon={<History className="w-4 h-4" />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input
-                placeholder="Buscar em qualquer campo..."
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Tabela, ação, registro ou usuário..."
+                value={buscaInput}
+                onChange={(e) => setBuscaInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && aplicarFiltros()}
                 className="pl-10"
               />
             </div>
@@ -158,6 +180,36 @@ export function AuditoriaPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label htmlFor="data-inicio" className="sr-only">De</Label>
+              <Input
+                id="data-inicio"
+                type="date"
+                value={dataInicioInput}
+                onChange={(e) => setDataInicioInput(e.target.value)}
+                title="Data inicial"
+              />
+            </div>
+            <div>
+              <Label htmlFor="data-fim" className="sr-only">Até</Label>
+              <Input
+                id="data-fim"
+                type="date"
+                value={dataFimInput}
+                onChange={(e) => setDataFimInput(e.target.value)}
+                title="Data final"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <ModuleButton onClick={aplicarFiltros}>
+              <Filter className="w-4 h-4 mr-2" />
+              Aplicar
+            </ModuleButton>
+            <ModuleButton onClick={limparFiltros}>
+              <X className="w-4 h-4 mr-2" />
+              Limpar
+            </ModuleButton>
           </div>
       </ModuleCard>
 
@@ -181,14 +233,14 @@ export function AuditoriaPage() {
                       Carregando auditoria...
                     </TableCell>
                   </TableRow>
-                ) : logsFiltrados.length === 0 ? (
+                ) : logs.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                       Nenhum registro de auditoria encontrado.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  logsFiltrados.map((log) => (
+                  logs.map((log) => (
                     <Fragment key={log.id}>
                       <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpandido(expandido === log.id ? null : log.id)}>
                         <TableCell className="whitespace-nowrap text-sm text-slate-700">
