@@ -65,7 +65,7 @@ const espelhos = parsePaginasEspelho(paginas)
 console.log(`Espelhos parseados: ${espelhos.length}`)
 
 const encontrados = espelhos.filter((e) =>
-  e.nome?.toUpperCase().includes(alvo) ||
+  e.nomePdf?.toUpperCase().includes(alvo) ||
   (alvoDigitos.length >= 5 && (e.cpfPdf || '').replace(/\D/g, '').includes(alvoDigitos))
 )
 if (encontrados.length === 0) {
@@ -74,8 +74,8 @@ if (encontrados.length === 0) {
 }
 
 for (const e of encontrados) {
-  console.log(`\n=== ${e.nome} (CPF ${e.cpfPdf || '—'}) ===`)
+  console.log(`\n=== ${e.nomePdf} (CPF ${e.cpfPdf || '—'}) — página ${e.pagina}, ${e.periodoInicio} a ${e.periodoFim} ===`)
   for (const dia of e.dias) {
-    console.log(`${dia.dataOriginal}  classificacao=${dia.classificacao}  categoria=${dia.categoria || '—'}  ${dia.horarios?.join(' ') || ''} ${dia.observacao || ''}`)
+    console.log(`${dia.data}  classificacao=${dia.classificacao}  categoria=${dia.categoria || '—'}  ${dia.realizado || ''} ${dia.justificativa || ''}`)
   }
 }

@@ -124,7 +124,8 @@ export function CeuItemFormPage() {
       : await criar(payload)
     setSalvando(false)
     if (sucesso) {
-      navigate('/ceu/itens')
+      // state.itemCriado: a listagem limpa os filtros para o item novo aparecer
+      navigate('/ceu/itens', id ? undefined : { state: { itemCriado: true } })
     }
   }
 

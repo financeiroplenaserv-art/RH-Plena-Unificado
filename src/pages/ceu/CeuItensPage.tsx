@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Search, Trash2, Edit, Package, Hash, X, Filter } from 'lucide-react'
 import {
   Table,
@@ -53,6 +53,7 @@ function formatarValorCentavos(valor?: number | null): string {
 
 export function CeuItensPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const perfil = user?.nivel_acesso
   const podeEditar = perfil ? podeEditarItemCEU(perfil) : false
@@ -93,6 +94,17 @@ export function CeuItensPage() {
     setFiltroTipo('todos')
     setFiltroFornecedor('todos')
   }
+
+  // Vindo do cadastro de um item novo: limpa os filtros persistidos para o
+  // item recém-criado aparecer na listagem — um filtro esquecido (ex.: busca
+  // que não cobre o nome novo) esconderia o item e pareceria que não salvou.
+  useEffect(() => {
+    if ((location.state as { itemCriado?: boolean } | null)?.itemCriado) {
+      handleLimpar()
+      navigate(location.pathname, { replace: true, state: null })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleRemover = async (id: string) => {
     const item = itens.find((i) => i.id === id)

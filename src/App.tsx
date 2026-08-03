@@ -1,4 +1,4 @@
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster, toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -11,6 +11,7 @@ import { PageLoading } from '@/components/PageLoading'
 import { cn } from '@/lib/utils'
 import type { Perfil } from '@/types/database'
 import { LoginPage } from '@/pages/LoginPage'
+import { RedefinirSenhaPage } from '@/pages/RedefinirSenhaPage'
 import { ConsentimentoLGPDPage } from '@/pages/ConsentimentoLGPDPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ColaboradoresPage } from '@/pages/ColaboradoresPage'
@@ -97,6 +98,17 @@ function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [loginLoading, setLoginLoading] = useState(false)
   const [recarregandoPerfil, setRecarregandoPerfil] = useState(false)
+  // Fluxo "Esqueci a senha": o link do e-mail abre o app com uma sessão de
+  // recuperação (evento PASSWORD_RECOVERY) — mostra a tela de nova senha
+  // no lugar do login/app até a senha ser redefinida.
+  const [redefinindoSenha, setRedefinindoSenha] = useState(false)
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setRedefinindoSenha(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
   const location = useLocation()
   const isMobileFalta = location.pathname === '/mobile/falta'
 
@@ -132,6 +144,22 @@ function App() {
       <div className="flex h-screen w-screen items-center justify-center bg-white">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
       </div>
+    )
+  }
+
+  const handleSenhaRedefinida = async () => {
+    // Encerra a sessão de recuperação para o usuário entrar com a senha nova
+    await logout()
+    setRedefinindoSenha(false)
+    toast.success('Senha redefinida com sucesso! Entre com a nova senha.')
+  }
+
+  if (redefinindoSenha) {
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <RedefinirSenhaPage onSenhaRedefinida={handleSenhaRedefinida} />
+      </>
     )
   }
 

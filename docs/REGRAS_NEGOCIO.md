@@ -6,10 +6,10 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 
 ## Adicionais / Insalubridade / Periculosidade
 
-### Regra dos 30 dias (atualizada em 01/08/2026, validada com a gestão)
+### Regra dos 30 dias (atualizada em 01/08/2026 e refinada em 03/08/2026, validada com a gestão)
 - **Titular (qualquer escala):** trabalhou tudo → **30 dias**. Faltou → **30 − faltas**.
 - **Titular com férias ou afastado coberto por substituto:** os dias cobertos saem da conta dele → **30 − faltas − dias transferidos**.
-  - No **12×36**: o substituto cobre os dias de ESCALA do titular, mas o adicional do 12×36 é pago em trabalhado + folga — então **cada dia de escala coberto transfere também a folga pareada** (o dia seguinte, se também for férias/afastado). Ex.: cobrir os 9 dias de escala de um bloco de 18 transfere os 18 (caso Mariana/Marcelo, 01/08/2026: titular 12 = 6 trabalhados + 6 folgas de 8–19/07; substituto 18).
+  - No **12×36**: o adicional é pago em trabalhado + folga, e o par do 12×36 é (dia de escala, folga seguinte) — se o substituto trabalhou **qualquer dia do par**, o par inteiro transfere (cada dia apenas se estiver no bloco de férias/afastado). O ritmo do substituto NÃO precisa coincidir com a escala do titular (ajuste fino de 03/08/2026, caso Mariana/Marcelo: ele trabalhou as folgas dela + 04 e 07/07 — os 9 dias tocam os 9 pares → 18 transferidos → titular 12, substituto 18).
   - Nas **demais escalas**: transferem os dias cobertos (dias corridos da "outra parte do mês").
   - Férias/afastado **sem substituto registrado** não transferem dias — o titular mantém 30 − faltas.
   - Falta antes das férias **desconta** da parte do titular (decisão confirmada em 01/08/2026).

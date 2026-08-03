@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Loader2, Eye, EyeOff, ShieldCheck, Building2, BarChart3, Users } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BrandHug } from '@/components/BrandHug'
 import { LogoMarca } from '@/components/LogoMarca'
+import { recuperarSenha } from '@/lib/auth'
 
 interface LoginPageProps {
   onLogin: (email: string, senha: string) => Promise<void>
@@ -15,10 +17,28 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
+  const [recuperando, setRecuperando] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     await onLogin(email, senha)
+  }
+
+  const handleEsqueciSenha = async () => {
+    if (!email.trim()) {
+      toast.warning('Digite seu e-mail no campo acima para recuperar a senha')
+      return
+    }
+    setRecuperando(true)
+    try {
+      await recuperarSenha(email.trim())
+      toast.success('Se o e-mail estiver cadastrado, você receberá o link para redefinir a senha.')
+    } catch (err) {
+      console.error('Erro ao enviar recuperação de senha:', err)
+      toast.error('Não foi possível enviar o e-mail de recuperação. Fale com o administrador.')
+    } finally {
+      setRecuperando(false)
+    }
   }
 
   return (
@@ -157,6 +177,17 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
                 'Entrar'
               )}
             </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleEsqueciSenha}
+                disabled={recuperando}
+                className="text-sm text-[#0F6CBD] hover:underline disabled:opacity-50"
+              >
+                {recuperando ? 'Enviando...' : 'Esqueci a senha'}
+              </button>
+            </div>
           </form>
 
           <div className="p-4 rounded-xl bg-slate-100 border border-slate-200">

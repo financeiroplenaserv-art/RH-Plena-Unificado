@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X, Trash2, ArrowDownAZ, ArrowUpAZ } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -144,6 +144,8 @@ export function AdicionaisCalendarioPage() {
   const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.calendario.departamento', 'todos')
   const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.calendario.adicional', 'todos')
   const [busca, setBusca] = useFiltroPersistente('adicionais.calendario.busca', '')
+  // Ordenação dos cartões de vínculo (setinha A→Z / Z→A)
+  const [ordenacaoCards, setOrdenacaoCards] = useFiltroPersistente<{ campo: 'colaborador' | 'departamento' | 'adicional'; direcao: 'asc' | 'desc' }>('adicionais.calendario.ordenacao', { campo: 'colaborador', direcao: 'asc' })
   const [feriados, setFeriados] = useState<Feriado[]>([])
   const [alteracoes, setAlteracoes] = useState<Record<string, DiaCalendarioAdicional>>({})
   const [modalSubstituto, setModalSubstituto] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
@@ -200,6 +202,12 @@ export function AdicionaisCalendarioPage() {
     ;(colaboradores || []).forEach(c => m.set(c.id, { nome: c.nome_completo, matricula: c.matricula }))
     return m
   }, [colaboradores])
+
+  const mapDepartamento = useMemo(() => {
+    const m = new Map<string, string>()
+    ;(departamentos || []).forEach(d => m.set(d.id, nomeDepartamento(d)))
+    return m
+  }, [departamentos])
 
   const diasDoPeriodo = useMemo(() => {
     const dias: string[] = []
@@ -295,8 +303,29 @@ export function AdicionaisCalendarioPage() {
         )
       )
     }
-    return lista
-  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, adicionalFiltro, busca, mapColaborador, mapContrato, statusFiltro, diasDoPeriodo, getDia, precisaSubstituto])
+    // Ordenação dos cartões (colaborador, departamento ou adicional; A→Z / Z→A)
+    const dir = ordenacaoCards.direcao === 'asc' ? 1 : -1
+    const nomeColab = (v: VinculoAdicional) => mapColaborador.get(v.colaborador_id)?.nome || v.colaborador_nome || ''
+    const chaveOrdenacao = (v: VinculoAdicional): string => {
+      if (ordenacaoCards.campo === 'departamento') {
+        const contrato = mapContrato.get(v.contrato_id)
+        return (contrato?.departamento_id && mapDepartamento.get(contrato.departamento_id)) || ''
+      }
+      if (ordenacaoCards.campo === 'adicional') {
+        // Adicionais do próprio vínculo; vínculo antigo sem lista cai nos flags do contrato
+        if (v.adicionais && v.adicionais.length > 0) return [...v.adicionais].sort().join(',')
+        const contrato = mapContrato.get(v.contrato_id)
+        return contrato?.adicionais
+          ? Object.keys(contrato.adicionais).filter(k => contrato.adicionais[k as keyof typeof contrato.adicionais]).sort().join(',')
+          : ''
+      }
+      return nomeColab(v)
+    }
+    return [...lista].sort((a, b) =>
+      chaveOrdenacao(a).localeCompare(chaveOrdenacao(b), 'pt-BR', { sensitivity: 'base' }) * dir
+      || nomeColab(a).localeCompare(nomeColab(b), 'pt-BR', { sensitivity: 'base' })
+    )
+  }, [vinculosAtivosNoPeriodo, vinculoFiltro, departamentoFiltro, adicionalFiltro, busca, mapColaborador, mapContrato, mapDepartamento, statusFiltro, diasDoPeriodo, getDia, precisaSubstituto, ordenacaoCards])
 
   /* ============================================================
      CORREÇÃO: getDia agora recebe o vinculo completo e aplica
@@ -605,6 +634,33 @@ export function AdicionaisCalendarioPage() {
                 <SelectItem value="feriado">Feriado</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="w-full lg:w-56">
+            <Label style={{ color: '#1F2937' }}>Ordenar por</Label>
+            <div className="flex gap-1.5">
+              <Select
+                value={ordenacaoCards.campo}
+                onValueChange={(campo) => setOrdenacaoCards(o => ({ ...o, campo: campo as typeof o.campo }))}
+              >
+                <SelectTrigger className="rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="colaborador">Colaborador</SelectItem>
+                  <SelectItem value="departamento">Departamento</SelectItem>
+                  <SelectItem value="adicional">Adicional</SelectItem>
+                </SelectContent>
+              </Select>
+              <ModuleButton
+                variant="outline"
+                size="icon"
+                onClick={() => setOrdenacaoCards(o => ({ ...o, direcao: o.direcao === 'asc' ? 'desc' : 'asc' }))}
+                title={ordenacaoCards.direcao === 'asc' ? 'Ordem A → Z (clique para inverter)' : 'Ordem Z → A (clique para inverter)'}
+              >
+                {ordenacaoCards.direcao === 'asc' ? <ArrowDownAZ className="w-4 h-4" /> : <ArrowUpAZ className="w-4 h-4" />}
+              </ModuleButton>
+            </div>
           </div>
 
           <div className="relative flex-1">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileSpreadsheet, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FileSpreadsheet, FileText, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -49,6 +49,9 @@ interface RelatorioAdicionalAgregado {
   ferias: number
   afastados: number
 }
+
+/** Colunas ordenáveis da tabela do relatório (texto + colunas de adicional). */
+type ColunaOrdenacaoRelatorio = 'colaborador_nome' | 'departamento' | 'dias_noturno' | 'dias_periculosidade' | 'dias_insalubridade' | 'dias_intrajornada' | 'dias_feriado'
 
 function exportarCSV(linhas: RelatorioAdicionalAgregado[]) {
   const headers = ['Colaborador', 'Contrato', 'Departamento', 'Trabalhados', 'Noturno', 'Periculosidade', 'Insalubridade', 'Intrajornada', 'Feriado', 'Folgas', 'Faltas', 'Férias', 'Afastados']
@@ -202,6 +205,13 @@ export function AdicionaisRelatorioPage() {
   const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.relatorio.departamento', 'todos')
   const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.relatorio.adicional', 'todos')
   const [busca, setBusca] = useFiltroPersistente('adicionais.relatorio.busca', '')
+  // Ordenação da tabela (setinha A→Z / Z→A nos cabeçalhos)
+  const [ordenacao, setOrdenacao] = useFiltroPersistente<{ coluna: ColunaOrdenacaoRelatorio; direcao: 'asc' | 'desc' }>('adicionais.relatorio.ordenacao', { coluna: 'colaborador_nome', direcao: 'asc' })
+  const alternarOrdenacao = (coluna: ColunaOrdenacaoRelatorio) => {
+    setOrdenacao(prev => prev.coluna === coluna
+      ? { coluna, direcao: prev.direcao === 'asc' ? 'desc' : 'asc' }
+      : { coluna, direcao: coluna === 'colaborador_nome' || coluna === 'departamento' ? 'asc' : 'desc' })
+  }
   const [feriados, setFeriados] = useState<Feriado[]>([])
 
   const inicioMes = useMemo(() => {
@@ -520,8 +530,33 @@ export function AdicionaisRelatorioPage() {
         l.departamento.toLowerCase().includes(termo)
       )
     }
-    return lista
-  }, [linhasAgregadas, departamentoFiltro, adicionalFiltro, busca, mapDepartamento, mapContrato])
+    // Ordenação pelo cabeçalho clicado (texto: A→Z; números: maior→menor no 1º clique)
+    const dir = ordenacao.direcao === 'asc' ? 1 : -1
+    const col = ordenacao.coluna
+    return [...lista].sort((a, b) => {
+      if (col === 'colaborador_nome' || col === 'departamento') {
+        return a[col].localeCompare(b[col], 'pt-BR', { sensitivity: 'base' }) * dir
+          || a.colaborador_nome.localeCompare(b.colaborador_nome, 'pt-BR', { sensitivity: 'base' })
+      }
+      return (a[col] - b[col]) * dir
+        || a.colaborador_nome.localeCompare(b.colaborador_nome, 'pt-BR', { sensitivity: 'base' })
+    })
+  }, [linhasAgregadas, departamentoFiltro, adicionalFiltro, busca, mapDepartamento, mapContrato, ordenacao])
+
+  /** Cabeçalho de coluna ordenável: clique alterna A→Z / Z→A. */
+  const cabecalhoOrdenavel = (coluna: ColunaOrdenacaoRelatorio, rotulo: string) => (
+    <button
+      type="button"
+      onClick={() => alternarOrdenacao(coluna)}
+      className="inline-flex items-center gap-1 hover:text-[#0F6CBD] transition-colors"
+      title={`Ordenar por ${rotulo}`}
+    >
+      {rotulo}
+      {ordenacao.coluna === coluna && (
+        ordenacao.direcao === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+      )}
+    </button>
+  )
 
   return (
     <AdicionaisShell>
@@ -617,15 +652,15 @@ export function AdicionaisRelatorioPage() {
             <Table>
               <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
                 <TableRow>
-                  <TableHead style={{ color: '#1F2937' }}>Colaborador</TableHead>
+                  <TableHead style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('colaborador_nome', 'Colaborador')}</TableHead>
                   <TableHead style={{ color: '#1F2937' }}>Contrato</TableHead>
-                  <TableHead style={{ color: '#1F2937' }}>Departamento</TableHead>
+                  <TableHead style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('departamento', 'Departamento')}</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Trabalhados</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>Noturno</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>Periculosidade</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>Insalubridade</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>Intrajornada</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>Feriado</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_noturno', 'Noturno')}</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_periculosidade', 'Periculosidade')}</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_insalubridade', 'Insalubridade')}</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_intrajornada', 'Intrajornada')}</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_feriado', 'Feriado')}</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Folgas</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Faltas</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Férias</TableHead>

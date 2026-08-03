@@ -98,9 +98,10 @@ describe('periculosidadeSubstituto (só férias/afastado)', () => {
   })
 })
 
-// Regra 12×36 da gestão (01/08/2026): o substituto cobre os dias de ESCALA
-// do titular, mas recebe trabalhado + folga pareada — cada dia de escala
-// coberto transfere 2 (o dia + a folga seguinte, se também for férias).
+// Regra 12×36 da gestão (01/08/2026; ajuste fino 03/08/2026): o par do
+// 12×36 é (dia de escala, folga seguinte) — se o substituto trabalhou
+// QUALQUER dia do par, o par inteiro transfere (cada dia, apenas se estiver
+// no bloco de férias/afastado).
 const BLOCO_FERIAS = [
   '2026-06-20', '2026-06-21', '2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25',
   '2026-06-26', '2026-06-27', '2026-06-28', '2026-06-29', '2026-06-30',
@@ -121,8 +122,18 @@ describe('contarDiasTransferidos (12×36: trabalhado + folga pareada)', () => {
   it('um dia de escala coberto transfere o dia + a folga seguinte', () => {
     expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(['2026-06-20']))).toBe(2)
   })
-  it('dia de FOLGA coberto transfere só ele (a folga não gera novo par)', () => {
-    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(['2026-06-21']))).toBe(1)
+  it('uma FOLGA coberta transfere o dia + o dia de escala anterior do par', () => {
+    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(['2026-06-21']))).toBe(2)
+  })
+  it('folga coberta no início do bloco: dia de escala fora do bloco não conta', () => {
+    const dias = [{ data: '2026-06-21', comSubstituto: true }]
+    expect(contarDiasTransferidos('12x36', '2026-06-20', dias)).toBe(1)
+  })
+  it('caso Marcelo (03/08/2026): ritmo inverso ao do titular toca os 9 pares → 18', () => {
+    // Dias que o Marcelo realmente trabalhou na cobertura das férias da
+    // Mariana: as folgas dela (ímpares do bloco) + 04 e 07/07
+    const DIAS_MARCELO = ['2026-06-21', '2026-06-23', '2026-06-25', '2026-06-27', '2026-06-29', '2026-07-01', '2026-07-03', '2026-07-04', '2026-07-07']
+    expect(contarDiasTransferidos('12x36', '2026-06-20', diasComSubstitutoEm(DIAS_MARCELO))).toBe(18)
   })
   it('dia de escala no fim do bloco: folga fora do bloco não conta', () => {
     const dias = [{ data: '2026-07-06', comSubstituto: true }]

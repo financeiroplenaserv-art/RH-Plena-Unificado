@@ -81,16 +81,20 @@ export function periculosidadeSubstituto(diasFeriasAfastado: number): number {
 
 /**
  * Dias de férias/afastado transferidos do titular para o substituto
- * (regra da gestão, 01/08/2026):
+ * (regra da gestão, 01/08/2026; ajuste fino em 03/08/2026):
  * - Demais escalas: cada dia com substituto registrado transfere (a "outra
  *   parte do mês" em dias corridos).
- * - 12×36: o substituto cobre os dias de ESCALA do titular, mas a
- *   insalubridade/periculosidade do 12×36 é paga em trabalhado + folga —
- *   então cada dia de escala coberto transfere TAMBÉM a folga pareada (o dia
- *   seguinte, se também for férias/afastado). Ex.: cobrir os 9 dias de
- *   escala de um bloco de 18 transfere os 18.
+ * - 12×36: o adicional é pago em trabalhado + folga, e o par do 12×36 é
+ *   (dia de escala, folga seguinte). Se o substituto trabalhou QUALQUER dia
+ *   do par, o par inteiro transfere: dia de escala coberto transfere também
+ *   a folga seguinte; folga coberta transfere também o dia de escala
+ *   anterior (cada um, apenas se estiver no bloco de férias/afastado).
+ *   O ritmo do substituto pode não coincidir com a escala do titular
+ *   (caso Mariana/Marcelo, 03/08/2026: Marcelo trabalhou os dias ímpares do
+ *   bloco + 04 e 07/07 — os 9 dias tocam os 9 pares → 18 transferidos →
+ *   titular 12, substituto 18).
  * A entrada `dias` deve conter TODOS os dias de férias/afastado do vínculo
- * no período (com e sem substituto) — a folga pareada só transfere se
+ * no período (com e sem substituto) — o dia pareado só transfere se
  * também estiver no bloco.
  */
 export function contarDiasTransferidos(
@@ -100,15 +104,26 @@ export function contarDiasTransferidos(
 ): number {
   const datasNoBloco = new Set(dias.map(d => d.data))
   const transferidos = new Set<string>()
+  const somar = (iso: string, n: number): string => {
+    const d = new Date(iso + 'T00:00:00')
+    d.setDate(d.getDate() + n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
   for (const dia of dias) {
     if (!dia.comSubstituto) continue
     transferidos.add(dia.data)
-    // Folga pareada do 12×36 (12x36 é o regime padrão quando indefinido)
-    if ((regime === '12x36' || regime === undefined) && escaladoParaTrabalhar('12x36', dataInicioVinculo, dia.data)) {
-      const prox = new Date(dia.data + 'T00:00:00')
-      prox.setDate(prox.getDate() + 1)
-      const proxStr = `${prox.getFullYear()}-${String(prox.getMonth() + 1).padStart(2, '0')}-${String(prox.getDate()).padStart(2, '0')}`
-      if (datasNoBloco.has(proxStr)) transferidos.add(proxStr)
+    // Par 12×36 (12x36 é o regime padrão quando indefinido)
+    if (regime !== '12x36' && regime !== undefined) continue
+    if (escaladoParaTrabalhar('12x36', dataInicioVinculo, dia.data)) {
+      // Dia de escala coberto → transfere também a folga seguinte
+      const prox = somar(dia.data, 1)
+      if (datasNoBloco.has(prox)) transferidos.add(prox)
+    } else {
+      // Folga coberta → transfere também o dia de escala anterior do par
+      const ant = somar(dia.data, -1)
+      if (datasNoBloco.has(ant) && escaladoParaTrabalhar('12x36', dataInicioVinculo, ant)) {
+        transferidos.add(ant)
+      }
     }
   }
   return transferidos.size

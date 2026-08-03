@@ -23,3 +23,9 @@ export async function recuperarSenha(email: string) {
   })
   if (error) throw error
 }
+
+/** Define a nova senha durante o fluxo de recuperação (sessão PASSWORD_RECOVERY). */
+export async function atualizarSenha(novaSenha: string) {
+  const { error } = await supabase.auth.updateUser({ password: novaSenha })
+  if (error) throw error
+}
