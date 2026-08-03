@@ -391,6 +391,11 @@ npx vitest
 - Edge Functions: deploy via `supabase functions deploy <nome>` (`econtador`, `suporte`).
 - Migrations: aplicar **manualmente** (SQL Editor ou `npx supabase db query --linked`). **Nunca usar `supabase db push`** — as migrations foram aplicadas manualmente e não constam no histórico remoto; o push tentaria reaplicar tudo. Nota: o CLI falha ao parsear o `.env` local — renomear temporariamente (`mv .env .env.bak && <comando>; mv .env.bak .env`).
 - **Netlify: cada deploy de produção custa 15 créditos** (plano Personal = 1.000/mês). Regra de ouro: **1–2 deploys por dia de trabalho, agrupando mudanças**. Deploy preview (sem `--prod`) é grátis.
+- **⚠️ Netlify — site certo (armadilha dos dois sites):** a conta tem DOIS sites — produção é **`plena-corh`** (id `2a90aecb-278e-4472-b7ff-b07dc521ce25`); **NUNCA** deployar em `sweet-nasturtium-fa7dc4` (id `f0b43221-5d2d-4493-bb96-4897d797311f`). O `.netlify/state.json` já está linkado no `plena-corh` — se um deploy cair no site errado, confira o state.json. Comando: `npx netlify deploy --prod --dir=dist` (ou com `--site 2a90aecb-278e-4472-b7ff-b07dc521ce25` explícito). **Após CADA deploy, verificar que produção serve o bundle novo** (erro de 03/08/2026: dois deploys perdidos no site errado, 30 créditos):
+  ```bash
+  curl -s https://plena-corh.netlify.app/ | grep -o 'assets/index-[^"]*\.js' | head -1
+  grep -o 'assets/index-[^"]*\.js' dist/index.html | head -1   # os dois hashes devem ser IGUAIS
+  ```
 - Backup: antes de deploy/migrations, faça backup do banco (plano Free não tem backup automático; usar `scripts/backup_supabase_free.sql` no SQL Editor).
 
 ---
