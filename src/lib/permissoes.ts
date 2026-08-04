@@ -59,7 +59,7 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
   },
   extras: {
     editar: ['mesa', 'inspetoria'],
-    excluir: ['mesa'],
+    excluir: ['mesa', 'inspetoria'],
     editar_categoria: ['mesa', 'inspetoria', 'financeiro'],
     excluir_categoria: ['mesa', 'financeiro'],
     gerenciar_recibo: ['mesa', 'dp1', 'financeiro', 'inspetoria'],

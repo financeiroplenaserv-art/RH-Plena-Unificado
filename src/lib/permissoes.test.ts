@@ -9,6 +9,7 @@ import {
   podeEditarColaboradorCompleto,
   podeCadastrarColaborador,
   podeEditarExtra,
+  podeExcluirExtra,
   podeMarcarExtraComoPago,
   podeGerenciarVR,
   podeEditarContratoAdicional,
@@ -92,6 +93,12 @@ describe('Permissões de colaboradores', () => {
 describe('Permissões de extras', () => {
   it('somente mesa e inspetoria editam extras', () => {
     expect(perfisQuePermitem(podeEditarExtra).sort()).toEqual(
+      ['admin', 'adm', 'mesa', 'inspetoria'].sort()
+    )
+  })
+
+  it('somente mesa e inspetoria excluem extras (lançamento errado)', () => {
+    expect(perfisQuePermitem(podeExcluirExtra).sort()).toEqual(
       ['admin', 'adm', 'mesa', 'inspetoria'].sort()
     )
   })
