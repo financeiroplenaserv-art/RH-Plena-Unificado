@@ -103,7 +103,8 @@ export function CeuEntregaFormPage() {
     setDropdownAberto(false)
   }
 
-  const itensDisponiveis = useMemo(() => itens, [itens])
+  // Itens inativos (cadastro sem movimentação) não podem receber nova entrega
+  const itensDisponiveis = useMemo(() => itens.filter((i) => i.situacao !== 'I'), [itens])
 
   const selecionadosArray = useMemo(
     () => Object.values(itensSelecionados),
@@ -739,7 +740,7 @@ export function CeuEntregaFormPage() {
                 </p>
               </div>
               <div className="flex justify-center gap-3">
-                <ModuleButton variant="outline" onClick={() => navigate('/ceu/movimentacoes')}>
+                <ModuleButton variant="outline" onClick={() => navigate('/ceu/movimentacoes', { state: { entregaCriada: true } })}>
                   Ver entregas
                 </ModuleButton>
                 <ModuleButton onClick={abrirRecibo}>

@@ -36,6 +36,7 @@ Proibido degradê em formulários, tabelas, cards comuns, sidebar e modais.
 | `Filters` | Card de filtros com botões **Limpar** (ghost) + **Aplicar** (primário) |
 | `DataTable` | Wrapper de tabela: título com contador, `overflow-x-auto`, `min-w-[720px]` |
 | `StatusBadge` | Badges de status com dot (success/warning/danger/info/neutral) |
+| `FiltrosAtivosBadge` | Pill "N filtros ativos" + botão Limpar; obrigatório em telas com filtro persistido (`useFiltroPersistente`) — sem ele, o filtro restaurado fica invisível e parece "vazar" de outra tela |
 | `EmptyState` | Ícone em `bg-accent`, mensagem e CTA primário |
 | `ConfirmDialog` | AlertDialog padrão: ícone circular, título centralizado, Cancelar + Confirmar |
 | `ModuleTabs` | Abas com borda inferior, ativa `border-primary text-primary` |
@@ -50,7 +51,7 @@ Proibido degradê em formulários, tabelas, cards comuns, sidebar e modais.
 
 ## Regras principais
 
-1. **Botão de executar filtro chama-se sempre "Aplicar"** (nunca "Filtrar" ou "Buscar").
+1. **Botão de executar filtro chama-se sempre "Aplicar"** (nunca "Filtrar" ou "Buscar"). Padrão das telas: rascunho (inputs) + aplicado (alimenta a consulta); quando o rascunho diverge do aplicado, mostrar o hint "Alterações não aplicadas". Tela com filtro persistido deve exibir o `FiltrosAtivosBadge` — inclusive com o painel de filtros fechado (ex.: contador no botão "Filtros").
 2. **CTA principal usa `bg-brand-gradient-soft`**; exportações e importações são secundárias (outline).
 3. **Exclusão na linha da tabela**: botão-ícone discreto (`text-muted-foreground hover:text-red-600`), nunca botão vermelho cheio. O vermelho sólido `bg-red-600` existe apenas no diálogo de confirmação.
 4. **Toda confirmação passa pelo `ConfirmDialog`** (ou AlertDialog com ícone circular + título centralizado); overlay sempre `bg-black/60`.

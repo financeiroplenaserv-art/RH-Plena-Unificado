@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import {
   Search,
-  Filter,
   X,
   FileSpreadsheet,
   FileJson,
@@ -17,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
+import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import type { Colaborador, EntregaCEU, ItemCEU } from '@/types/database'
 import type { EntregaComSnapshot } from './relatorios.utils'
 import type { FiltrosRelatorio } from './useFiltrosRelatorio'
@@ -25,6 +25,8 @@ interface FiltrosRelatorioCardProps {
   filtros: FiltrosRelatorio
   colaboradoresUnicos: Colaborador[]
   dadosItens: ItemCEU[]
+  /** Subconjunto de dadosItens com pelo menos uma entrega — usado no select de Item. */
+  itensComMovimentacao: ItemCEU[]
   dadosEntregas: EntregaCEU[]
   onExportarExcel: () => void
   onExportarTSV: () => void
@@ -34,6 +36,7 @@ export function FiltrosRelatorioCard({
   filtros,
   colaboradoresUnicos,
   dadosItens,
+  itensComMovimentacao,
   dadosEntregas,
   onExportarExcel,
   onExportarTSV,
@@ -55,6 +58,8 @@ export function FiltrosRelatorioCard({
     setInputStatus,
     aplicarFiltros,
     limparFiltros,
+    totalFiltrosAtivos,
+    temRascunhoPendente,
   } = filtros
 
   const tiposUnicos = useMemo(() => {
@@ -69,7 +74,15 @@ export function FiltrosRelatorioCard({
   }, [dadosItens, dadosEntregas])
 
   return (
-    <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
+    <ModuleCard
+      title={
+        <>
+          Filtros
+          <FiltrosAtivosBadge total={totalFiltrosAtivos} onLimpar={limparFiltros} />
+        </>
+      }
+      icon={<Search className="w-4 h-4" />}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="data_inicio">Data inicial</Label>
@@ -113,7 +126,7 @@ export function FiltrosRelatorioCard({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
-              {dadosItens.map((i) => (
+              {itensComMovimentacao.map((i) => (
                 <SelectItem key={i.id} value={i.id}>
                   {i.nome}
                 </SelectItem>
@@ -165,15 +178,18 @@ export function FiltrosRelatorioCard({
           </Select>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 mt-4">
+      <div className="flex flex-wrap items-center gap-2 mt-4">
         <ModuleButton size="sm" onClick={aplicarFiltros}>
-          <Filter className="w-3.5 h-3.5 mr-1.5" />
-          Filtrar
+          <Search className="w-3.5 h-3.5 mr-1.5" />
+          Aplicar
         </ModuleButton>
         <ModuleButton size="sm" onClick={limparFiltros}>
           <X className="w-3.5 h-3.5 mr-1.5" />
           Limpar
         </ModuleButton>
+        {temRascunhoPendente && (
+          <span className="text-xs text-amber-600">Alterações não aplicadas</span>
+        )}
         <ModuleButton variant="outline" size="sm" onClick={onExportarExcel}>
           <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
           Exportar Excel

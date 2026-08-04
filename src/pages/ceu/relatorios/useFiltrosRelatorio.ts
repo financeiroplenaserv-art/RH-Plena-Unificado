@@ -114,8 +114,32 @@ export function useFiltrosRelatorio(dadosEntregas: EntregaCEU[]) {
     setFiltroStatus('todos')
   }
 
+  const totalFiltrosAtivos = useMemo(
+    () =>
+      (filtroDataInicio !== '' ? 1 : 0) +
+      (filtroDataFim !== '' ? 1 : 0) +
+      (filtroColaborador !== 'todos' ? 1 : 0) +
+      (filtroItem !== 'todos' ? 1 : 0) +
+      (filtroTipo !== 'todos' ? 1 : 0) +
+      (filtroDepartamento !== 'todos' ? 1 : 0) +
+      (filtroStatus !== 'todos' ? 1 : 0),
+    [filtroDataInicio, filtroDataFim, filtroColaborador, filtroItem, filtroTipo, filtroDepartamento, filtroStatus]
+  )
+
+  // O rascunho de departamento é texto livre; no aplicado, vazio vira 'todos'.
+  const temRascunhoPendente =
+    inputDataInicio !== filtroDataInicio ||
+    inputDataFim !== filtroDataFim ||
+    inputColaborador !== filtroColaborador ||
+    inputItem !== filtroItem ||
+    inputTipo !== filtroTipo ||
+    (inputDepartamento.trim() || 'todos') !== filtroDepartamento ||
+    inputStatus !== filtroStatus
+
   return {
     entregasFiltradas,
+    totalFiltrosAtivos,
+    temRascunhoPendente,
     inputDataInicio,
     inputDataFim,
     inputColaborador,

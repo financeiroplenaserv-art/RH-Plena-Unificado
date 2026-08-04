@@ -97,6 +97,8 @@ export function CeuLancamentoRapidoPage() {
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { itens, listar: listarItens } = useCEUItens()
   const { criar } = useCEUEntregas()
+  // Itens inativos (cadastro sem movimentação) não entram em novos lançamentos
+  const itensAtivos = useMemo(() => itens.filter((i) => i.situacao !== 'I'), [itens])
   const [linhas, setLinhas] = useState<LinhaLancamento[]>(carregarRascunho)
   const [salvando, setSalvando] = useState(false)
   const [dropdownAberto, setDropdownAberto] = useState<string | null>(null)
@@ -121,29 +123,29 @@ export function CeuLancamentoRapidoPage() {
 
   const mapaItensPorCodigo = useMemo(() => {
     const map = new Map<string, ItemCEU>()
-    itens.forEach((item) => {
+    itensAtivos.forEach((item) => {
       if (item.codigo) map.set(normalizarCodigo(item.codigo), item)
       if (item.ca) map.set(normalizarCodigo(item.ca), item)
       map.set(normalizarCodigo(item.id), item)
     })
     return map
-  }, [itens])
+  }, [itensAtivos])
 
   const mapaItensPorId = useMemo(() => {
     const map = new Map<string, ItemCEU>()
-    itens.forEach((item) => map.set(item.id, item))
+    itensAtivos.forEach((item) => map.set(item.id, item))
     return map
-  }, [itens])
+  }, [itensAtivos])
 
   const mapaItensPorTipoENome = useMemo(() => {
     const map = new Map<string, ItemCEU[]>()
-    itens.forEach((item) => {
+    itensAtivos.forEach((item) => {
       const chave = `${item.tipo?.toLowerCase() || ''}-${item.nome.toLowerCase()}`
       if (!map.has(chave)) map.set(chave, [])
       map.get(chave)!.push(item)
     })
     return map
-  }, [itens])
+  }, [itensAtivos])
 
   function colaboradoresSugeridos(input: string) {
     const termo = input.trim().toLowerCase()
@@ -161,7 +163,7 @@ export function CeuLancamentoRapidoPage() {
   function itensSugeridos(linha: LinhaLancamento) {
     const termo = linha.produto.trim().toLowerCase()
     if (!termo) return []
-    return itens
+    return itensAtivos
       .filter(
         (i) =>
           (!linha.tipo || i.tipo === linha.tipo) &&
@@ -402,7 +404,7 @@ export function CeuLancamentoRapidoPage() {
       } else {
         localStorage.removeItem(CHAVE_RASCUNHO)
         setLinhas(Array.from({ length: 5 }, () => criarLinhaVazia()))
-        navigate('/ceu/movimentacoes')
+        navigate('/ceu/movimentacoes', { state: { entregaCriada: true } })
       }
     }
   }

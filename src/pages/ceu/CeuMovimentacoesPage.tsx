@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Search, Trash2, RotateCcw, Package, Receipt, FileText, Upload, Filter } from 'lucide-react'
 import {
   Table,
@@ -25,6 +25,7 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
@@ -60,6 +61,7 @@ function corPorTipo(tipo: string | undefined) {
 
 export function CeuMovimentacoesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const perfil = user?.nivel_acesso
   const podeRegistrar = perfil ? podeRegistrarEntregaCEU(perfil) : false
@@ -69,14 +71,24 @@ export function CeuMovimentacoesPage() {
   const podeImportar = perfil ? podeImportarCEU(perfil) : false
   const { entregas, loading, paginacao, listar, listarPaginado, devolver, remover, proximoNumeroRecibo, registrarEmissaoRecibo } = useCEUEntregas()
   const { itens, listar: listarItens } = useCEUItens()
+  // Filtros APLICADOS (alimentam a consulta) — as chaves sem ".draft" já
+  // existiam na sessão dos usuários; não renomear para não perder o estado.
   const [busca, setBusca] = useFiltroPersistente('ceu.movimentacoes.busca', '')
   const [filtroItem, setFiltroItem] = useFiltroPersistente('ceu.movimentacoes.item', 'todos')
   const [filtroStatus, setFiltroStatus] = useFiltroPersistente<'todos' | 'em_aberto' | 'devolvido'>('ceu.movimentacoes.status', 'todos')
   const [filtroDataInicio, setFiltroDataInicio] = useFiltroPersistente('ceu.movimentacoes.data_inicio', '')
   const [filtroDataFim, setFiltroDataFim] = useFiltroPersistente('ceu.movimentacoes.data_fim', '')
   const [filtroDepartamento, setFiltroDepartamento] = useFiltroPersistente('ceu.movimentacoes.departamento', 'todos')
+  // Rascunhos dos inputs: só viram filtro ao clicar "Aplicar" (padrão das
+  // telas de Itens e Relatórios). O valor inicial é o aplicado atual, para
+  // a primeira visita após esta mudança não descasar rascunho e lista.
+  const [buscaInput, setBuscaInput] = useFiltroPersistente('ceu.movimentacoes.draft.busca', () => busca)
+  const [filtroItemInput, setFiltroItemInput] = useFiltroPersistente('ceu.movimentacoes.draft.item', () => filtroItem)
+  const [filtroStatusInput, setFiltroStatusInput] = useFiltroPersistente<'todos' | 'em_aberto' | 'devolvido'>('ceu.movimentacoes.draft.status', () => filtroStatus)
+  const [filtroDataInicioInput, setFiltroDataInicioInput] = useFiltroPersistente('ceu.movimentacoes.draft.data_inicio', () => filtroDataInicio)
+  const [filtroDataFimInput, setFiltroDataFimInput] = useFiltroPersistente('ceu.movimentacoes.draft.data_fim', () => filtroDataFim)
+  const [filtroDepartamentoInput, setFiltroDepartamentoInput] = useFiltroPersistente('ceu.movimentacoes.draft.departamento', () => filtroDepartamento)
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
-  const [chaveFiltro, setChaveFiltro] = useState(0)
   const [ordem, setOrdem] = useFiltroPersistente<{ coluna: 'data' | 'colaborador' | 'itens' | 'qtdTotal'; direcao: 'asc' | 'desc' }>(
     'ceu.movimentacoes.ordem',
     {
@@ -101,6 +113,44 @@ export function CeuMovimentacoesPage() {
     listarItens()
   }, [listarItens])
 
+  const aplicarFiltros = () => {
+    setBusca(buscaInput)
+    setFiltroItem(filtroItemInput)
+    setFiltroStatus(filtroStatusInput)
+    setFiltroDataInicio(filtroDataInicioInput)
+    setFiltroDataFim(filtroDataFimInput)
+    setFiltroDepartamento(filtroDepartamentoInput)
+    setPagina(0)
+  }
+
+  const limparFiltros = () => {
+    setBuscaInput('')
+    setFiltroItemInput('todos')
+    setFiltroStatusInput('todos')
+    setFiltroDataInicioInput('')
+    setFiltroDataFimInput('')
+    setFiltroDepartamentoInput('todos')
+    setBusca('')
+    setFiltroItem('todos')
+    setFiltroStatus('todos')
+    setFiltroDataInicio('')
+    setFiltroDataFim('')
+    setFiltroDepartamento('todos')
+    setPagina(0)
+  }
+
+  // Vindo da criação de entregas (Nova Entrega ou Lançamento Rápido): limpa
+  // os filtros persistidos para a entrega recém-criada aparecer na listagem —
+  // um filtro esquecido (ex.: período antigo) a esconderia e pareceria que
+  // não salvou. Declarado ANTES do effect de listagem para limpar primeiro.
+  useEffect(() => {
+    if ((location.state as { entregaCriada?: boolean } | null)?.entregaCriada) {
+      limparFiltros()
+      navigate(location.pathname, { replace: true, state: null })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const buildFiltrosPaginacao = () => ({
     itemId: filtroItem !== 'todos' ? filtroItem : undefined,
     emAberto: filtroStatus === 'em_aberto' ? true : undefined,
@@ -115,13 +165,27 @@ export function CeuMovimentacoesPage() {
     setPagina(0)
     listarPaginado(buildFiltrosPaginacao(), { pagina: 0, tamanho: 50 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chaveFiltro, filtroItem, filtroStatus, filtroDataInicio, filtroDataFim, listarPaginado])
+  }, [busca, filtroItem, filtroStatus, filtroDataInicio, filtroDataFim, filtroDepartamento, listarPaginado])
 
-  const entregasFiltradas = entregas
+  const totalFiltrosAtivos =
+    (busca.trim() !== '' ? 1 : 0) +
+    (filtroItem !== 'todos' ? 1 : 0) +
+    (filtroStatus !== 'todos' ? 1 : 0) +
+    (filtroDataInicio !== '' ? 1 : 0) +
+    (filtroDataFim !== '' ? 1 : 0) +
+    (filtroDepartamento !== 'todos' ? 1 : 0)
+
+  const temRascunhoPendente =
+    buscaInput !== busca ||
+    filtroItemInput !== filtroItem ||
+    filtroStatusInput !== filtroStatus ||
+    filtroDataInicioInput !== filtroDataInicio ||
+    filtroDataFimInput !== filtroDataFim ||
+    filtroDepartamentoInput !== filtroDepartamento
 
   const movimentacoesAgrupadas = useMemo(() => {
     const grupos = new Map<string, EntregaCEU[]>()
-    entregasFiltradas.forEach((e) => {
+    entregas.forEach((e) => {
       const chave = `${e.data_entrega}|${e.colaborador_id}`
       if (!grupos.has(chave)) grupos.set(chave, [])
       grupos.get(chave)!.push(e)
@@ -157,7 +221,7 @@ export function CeuMovimentacoesPage() {
     })
 
     return lista
-  }, [entregasFiltradas, ordem])
+  }, [entregas, ordem])
 
   const handleOrdenar = (coluna: 'data' | 'colaborador' | 'itens' | 'qtdTotal') => {
     setOrdem((atual) => ({
@@ -169,22 +233,6 @@ export function CeuMovimentacoesPage() {
   const renderSetaOrdenacao = (coluna: 'data' | 'colaborador' | 'itens' | 'qtdTotal') => {
     if (ordem.coluna !== coluna) return <span className="inline-block w-3 h-3 text-slate-300 ml-1">↕</span>
     return <span className="inline-block w-3 h-3 text-[#3B82F6] ml-1">{ordem.direcao === 'desc' ? '↓' : '↑'}</span>
-  }
-
-  const aplicarFiltros = () => {
-    setPagina(0)
-    setChaveFiltro((k) => k + 1)
-  }
-
-  const limparFiltros = () => {
-    setBusca('')
-    setFiltroItem('todos')
-    setFiltroStatus('todos')
-    setFiltroDataInicio('')
-    setFiltroDataFim('')
-    setFiltroDepartamento('todos')
-    setPagina(0)
-    setChaveFiltro((k) => k + 1)
   }
 
   const handleDevolver = async () => {
@@ -265,7 +313,7 @@ export function CeuMovimentacoesPage() {
 
   return (
     <CeuShell>
-      <PageHeader backTo="/ceu/movimentacoes" title="Movimentações" description="Registro de entregas e devoluções">
+      <PageHeader title="Movimentações" description="Registro de entregas e devoluções">
         {podeRecibo && (
           <ModuleButton variant="outline" onClick={() => setModalLote(true)}>
             <FileText className="w-4 h-4 mr-2" />
@@ -281,6 +329,11 @@ export function CeuMovimentacoesPage() {
         <ModuleButton variant="outline" onClick={() => setMostrarFiltros((v) => !v)}>
           <Filter className="w-4 h-4 mr-2" />
           Filtros
+          {totalFiltrosAtivos > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-[#0F6CBD] px-1.5 min-w-5 h-5 text-[11px] font-semibold text-white">
+              {totalFiltrosAtivos}
+            </span>
+          )}
         </ModuleButton>
         {podeRegistrar && (
           <ModuleButton onClick={() => navigate('/ceu/movimentacoes/novo')}>
@@ -297,42 +350,42 @@ export function CeuMovimentacoesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input
                 placeholder="Colaborador ou matrícula..."
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
+                value={buscaInput}
+                onChange={(e) => setBuscaInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && aplicarFiltros()}
                 className="pl-10"
               />
             </div>
             <Input
               type="date"
-              value={filtroDataInicio}
-              onChange={(e) => setFiltroDataInicio(e.target.value)}
+              value={filtroDataInicioInput}
+              onChange={(e) => setFiltroDataInicioInput(e.target.value)}
               placeholder="Data inicial"
             />
             <Input
               type="date"
-              value={filtroDataFim}
-              onChange={(e) => setFiltroDataFim(e.target.value)}
+              value={filtroDataFimInput}
+              onChange={(e) => setFiltroDataFimInput(e.target.value)}
               placeholder="Data final"
             />
-            <Select value={filtroItem} onValueChange={setFiltroItem}>
+            <Select value={filtroItemInput} onValueChange={setFiltroItemInput}>
               <SelectTrigger>
                 <SelectValue placeholder="Item" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os itens</SelectItem>
-                {itens.map((i) => (
+                {itens.filter((i) => i.situacao !== 'I').map((i) => (
                   <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <DepartamentoAutocomplete
-              value={filtroDepartamento}
-              onChange={setFiltroDepartamento}
+              value={filtroDepartamentoInput}
+              onChange={setFiltroDepartamentoInput}
               mode="nome_curto"
               placeholder="Departamento..."
             />
-            <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}>
+            <Select value={filtroStatusInput} onValueChange={(v) => setFiltroStatusInput(v as typeof filtroStatusInput)}>
               <SelectTrigger>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -343,7 +396,7 @@ export function CeuMovimentacoesPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap items-center gap-2 mt-4">
             <ModuleButton size="sm" onClick={limparFiltros}>
               Limpar
             </ModuleButton>
@@ -351,6 +404,10 @@ export function CeuMovimentacoesPage() {
               <Search className="w-3.5 h-3.5 mr-1.5" />
               Aplicar
             </ModuleButton>
+            {temRascunhoPendente && (
+              <span className="text-xs text-amber-600">Alterações não aplicadas</span>
+            )}
+            <FiltrosAtivosBadge total={totalFiltrosAtivos} onLimpar={limparFiltros} />
           </div>
         </ModuleCard>
       )}

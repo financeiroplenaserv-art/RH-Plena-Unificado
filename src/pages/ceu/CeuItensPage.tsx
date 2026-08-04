@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, Search, Trash2, Edit, Package, Hash, X, Filter } from 'lucide-react'
+import { Plus, Search, Trash2, Edit, Package, Hash, X } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import { Input } from '@/components/ui/input'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
@@ -95,6 +96,16 @@ export function CeuItensPage() {
     setFiltroFornecedor('todos')
   }
 
+  const totalFiltrosAtivos =
+    (busca.trim() !== '' ? 1 : 0) +
+    (filtroTipo !== 'todos' ? 1 : 0) +
+    (filtroFornecedor !== 'todos' ? 1 : 0)
+
+  const temRascunhoPendente =
+    buscaInput !== busca ||
+    filtroTipoInput !== filtroTipo ||
+    filtroFornecedorInput !== filtroFornecedor
+
   // Vindo do cadastro de um item novo: limpa os filtros persistidos para o
   // item recém-criado aparecer na listagem — um filtro esquecido (ex.: busca
   // que não cobre o nome novo) esconderia o item e pareceria que não salvou.
@@ -127,7 +138,15 @@ export function CeuItensPage() {
         )}
       </PageHeader>
 
-      <ModuleCard title="Filtros" icon={<Search className="w-4 h-4" />}>
+      <ModuleCard
+        title={
+          <>
+            Filtros
+            <FiltrosAtivosBadge total={totalFiltrosAtivos} onLimpar={handleLimpar} />
+          </>
+        }
+        icon={<Search className="w-4 h-4" />}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -165,15 +184,18 @@ export function CeuItensPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap gap-2 mt-4">
+        <div className="flex flex-wrap items-center gap-2 mt-4">
           <ModuleButton onClick={handleFiltrar}>
-            <Filter className="w-4 h-4 mr-2" />
-            Filtrar
+            <Search className="w-4 h-4 mr-2" />
+            Aplicar
           </ModuleButton>
           <ModuleButton onClick={handleLimpar}>
             <X className="w-4 h-4 mr-2" />
             Limpar
           </ModuleButton>
+          {temRascunhoPendente && (
+            <span className="text-xs text-amber-600">Alterações não aplicadas</span>
+          )}
         </div>
       </ModuleCard>
 

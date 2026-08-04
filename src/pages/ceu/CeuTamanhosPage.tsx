@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
@@ -167,7 +168,14 @@ export function CeuTamanhosPage() {
         </ModuleCard>
       )}
 
-      <ModuleCard title={`Colaboradores ativos (${linhasFiltradas.length})`}>
+      <ModuleCard
+        title={
+          <>
+            Colaboradores ativos ({linhasFiltradas.length})
+            <FiltrosAtivosBadge total={busca.trim() !== '' ? 1 : 0} onLimpar={() => setBusca('')} />
+          </>
+        }
+      >
         <div className="mb-4 max-w-md relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94A3B8' }} />
           <Input

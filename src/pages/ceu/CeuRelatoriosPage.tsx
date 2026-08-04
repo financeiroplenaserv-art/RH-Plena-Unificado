@@ -51,6 +51,13 @@ export function CeuRelatoriosPage() {
     return Array.from(map.values()).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo))
   }, [dadosEntregas])
 
+  // O select de Item do filtro mostra apenas itens com movimentação — item de
+  // cadastro sem nenhuma entrega só levaria a "Nenhum resultado encontrado".
+  const itensComMovimentacao = useMemo(() => {
+    const ids = new Set(dadosEntregas.map((e) => e.item_id))
+    return dadosItens.filter((i) => ids.has(i.id))
+  }, [dadosItens, dadosEntregas])
+
   const handleExportarExcel = () => exportarExcel(abaAtiva, entregasFiltradas, dadosItens)
   const handleExportarTSV = () => exportarTSV(abaAtiva, entregasFiltradas, dadosItens)
 
@@ -128,6 +135,7 @@ export function CeuRelatoriosPage() {
           filtros={filtros}
           colaboradoresUnicos={colaboradoresUnicos}
           dadosItens={dadosItens}
+          itensComMovimentacao={itensComMovimentacao}
           dadosEntregas={dadosEntregas}
           onExportarExcel={handleExportarExcel}
           onExportarTSV={handleExportarTSV}

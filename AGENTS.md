@@ -226,6 +226,7 @@ import type { Perfil } from '@/types/database'
 - Degradês permitidos em apenas 3 lugares: painel do login, cartão de boas-vindas do dashboard e botões primários (`.bg-brand-gradient-soft`).
 - Use componentes de `src/components/corh/` para manter consistência: `PageHeader`, `Filters`, `DataTable`, `StatusBadge`, `EmptyState`, `ConfirmDialog`, `ModuleTabs`, `Button`.
 - Botões de filtro devem se chamar **"Aplicar"**, nunca "Filtrar" ou "Buscar".
+- Tela com filtro persistido (`useFiltroPersistente`) deve indicar filtros ativos com `FiltrosAtivosBadge` (`src/components/corh/`) — inclusive com o painel fechado; sem isso o filtro restaurado fica invisível e parece "vazar" de outra tela.
 - Tabelas: `min-w-[720px]`, cabeçalho small-caps, hover `bg-accent/40`, números/datas `tabular-nums`.
 
 ### Regras de ESLint
