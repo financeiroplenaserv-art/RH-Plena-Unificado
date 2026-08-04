@@ -24,7 +24,7 @@ import type { CeuTamanhos, Colaborador, ItemCEU } from '@/types/database'
 const TIPOS = ['EPI', 'Uniforme', 'Crachá'] as const
 type TipoItem = (typeof TIPOS)[number]
 
-const STATUS_OPCOES = ['Novo', 'Substituição', 'Devolução'] as const
+const STATUS_OPCOES = ['Troca', 'Novo', 'Substituição', 'Devolução'] as const
 type StatusLancamento = (typeof STATUS_OPCOES)[number]
 
 interface LinhaLancamento {
@@ -51,7 +51,8 @@ function gerarId() {
  * (fill-down); com `copiarColaborador`, herda também o colaborador — fluxo
  * "mesma pessoa, vários itens". Tipo, código, produto e quantidade nunca
  * são copiados (decisão da usuária: repetir só data e nome); status volta
- * ao padrão "Novo".
+ * ao padrão "Troca" (a maioria das entregas é troca; "Novo" é manual,
+ * para admissão — decisão da gestão, 04/08/2026).
  */
 function criarLinhaVazia(base?: LinhaLancamento, copiarColaborador = false): LinhaLancamento {
   return {
@@ -65,7 +66,7 @@ function criarLinhaVazia(base?: LinhaLancamento, copiarColaborador = false): Lin
     produto: '',
     itemId: '',
     quantidade: 1,
-    status: 'Novo',
+    status: 'Troca',
   }
 }
 
@@ -373,6 +374,9 @@ export function CeuLancamentoRapidoPage() {
           item_id: linha.itemId,
           data_entrega: linha.data,
           quantidade: linha.quantidade,
+          // situacao alimenta o recibo (antes só ia para observacao e o
+          // recibo saía sempre "Novo"); observacao mantida por compatibilidade.
+          situacao: linha.status || 'Troca',
           observacao: linha.status,
           snapshot_item: item
             ? {

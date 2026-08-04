@@ -148,7 +148,9 @@ export function CeuEntregaFormPage() {
       if (next[item.id]) {
         delete next[item.id]
       } else {
-        next[item.id] = { item, quantidade: 1, situacao: 'Novo' }
+        // Padrão "Troca": a maioria das entregas é troca; "Novo" fica para
+        // admissão, escolhido manualmente (decisão da gestão, 04/08/2026).
+        next[item.id] = { item, quantidade: 1, situacao: 'Troca' }
       }
       return next
     })

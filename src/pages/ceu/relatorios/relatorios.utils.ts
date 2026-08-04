@@ -63,7 +63,9 @@ export function tipoItem(e: EntregaComSnapshot) {
 }
 
 export function caItem(e: EntregaComSnapshot) {
-  return e.item?.ca || e.snapshot_item?.ca || '—'
+  // CA do snapshot (data da entrega) tem prioridade: o CA do cadastro muda
+  // ao longo do tempo e não pode reescrever o histórico exibido.
+  return e.snapshot_item?.ca || e.item?.ca || '—'
 }
 
 export function prazoUsoItem(e: EntregaComSnapshot) {

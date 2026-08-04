@@ -10,8 +10,10 @@ import { buscarEmpresaPorId } from '@/lib/empresas'
    - Recibo separado para EPI e para Uniforme/Crachá
    - Número sequencial (migration 073): reemissão reutiliza o
      número gravado na entrega; 1ª emissão grava o próximo
-   - CA vem do snapshot da entrega (recibos antigos não mudam
-     quando o CA do item é atualizado no cadastro)
+   - CA vem SEMPRE do snapshot da entrega (foto do item na data
+     da entrega): recibos antigos não mudam quando o CA do item
+     é atualizado no cadastro. O cadastro do item só serve de
+     fallback para entregas antigas sem CA no snapshot.
    - Situação gravada na entrega (Novo/Substituição/Troca/…)
    ============================================================ */
 
@@ -61,7 +63,7 @@ function montarDadosEntrega(lista: EntregaCEU[], numero: string): DadosEntrega {
       grupo: tipoDe(e),
       subgrupo: e.item?.subgrupo || snap(e).subgrupo || '—',
       quantidade: e.quantidade || 1,
-      ca: e.item?.ca || snap(e).ca || null,
+      ca: snap(e).ca || e.item?.ca || null,
       // Item devolvido sai como "Devolvido" no recibo (controle do que
       // ainda está com o colaborador); em aberto, mostra a situação da entrega.
       situacao: e.data_devolucao ? 'Devolvido' : e.situacao || 'Novo',
@@ -127,7 +129,7 @@ export async function gerarRecibosLoteHTML(
       entregas: entregasDoColab.map((e) => ({
         item: {
           descricao: e.item?.nome || snap(e).nome || '—',
-          numero_ca: e.item?.ca || snap(e).ca || null,
+          numero_ca: snap(e).ca || e.item?.ca || null,
           grupo_macro: tipoDe(e),
           subgrupo: e.item?.subgrupo || snap(e).subgrupo || '—',
         },
