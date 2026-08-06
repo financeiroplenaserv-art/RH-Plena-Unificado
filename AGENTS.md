@@ -107,7 +107,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 98 migrations SQL (numeradas 001 a 098)
+├── migrations/             # 100 migrations SQL (numeradas 001 a 100)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -271,7 +271,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **98 migrations** em `supabase/migrations/` (numeradas `001_*` a `098_*`).
+- Existem **100 migrations** em `supabase/migrations/` (numeradas `001_*` a `100_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -315,6 +315,7 @@ npx vitest
   - `097_feriados.sql` (decisão da gestão em 31/07/2026: o flag `adicionais.feriado` do contrato existia sem efeito — não havia datas nem cálculo. Tabela `feriados` (data única + nome) com seed dos 10 feriados nacionais de 2026; municipais/datas de contrato entram pela nova aba **Adicionais → Feriados** (`/adicionais/feriados`). RLS: SELECT autenticado, INSERT/UPDATE `is_editor()`, DELETE admin. **Regra de contagem:** o adicional conta APENAS para vínculos cujo contrato tem o flag E cuja escala prevê trabalho no feriado (substituto/cobertura não recebe — não estava previamente escalado). Relatório de Adicionais ganha a coluna "Feriado" (tela, CSV, Excel e filtro); lógica pura testada em `src/lib/adicionais/calculoAdicionais.ts` (`escaladoParaTrabalhar`, `contarDiasFeriadoEscalado`). Aplicada via `db query --linked` em 31/07/2026)
   - `098_financeiro_ocorrencias.sql` (decisão da gestão em 01/08/2026: financeiro acessa o quadro do colaborador, **insere** ocorrências e **vê o CPF completo**. `pode_ver_ocorrencias()` +financeiro (SELECT em `ocorrencias` e tabelas filhas), INSERT de `ocorrencias` +financeiro (UPDATE/DELETE não), linhas dinâmicas `rota.ocorrencias`, `menu.rh`, `ocorrencia.criar`, `ocorrencia.ver_detalhes` e `colaborador.ver_cpf_completo` = true; `PERMISSOES_PADRAO` espelhado (nova ação `colaborador.ver_cpf_completo`: gestor/rh/dp1/dp2/financeiro — listagem e ficha usam essa ação; mesa/inspetoria/visualizador seguem com CPF mascarado). O detalhe do colaborador já abria para ele (rota + SELECT de colaboradores existiam) — a seção de ocorrências é que zerava em silêncio. Na UI, o botão "Nova Ocorrência" da ficha passou de `ocorrencia.editar` para `ocorrencia.criar`. Limitação conhecida: `reset_permissoes_perfil` (054) tem lista fixa — "Restaurar padrão" do financeiro remove as concessões. Aplicada via `db query --linked` em 01/08/2026)
   - `099_extras_excluir_inspetoria.sql` (decisão da gestão em 04/08/2026: inspetoria pode excluir extra lançado errado — ex.: lançou e o extra não aconteceu. A concessão já estava na tela Permissões (linha dinâmica `inspetoria/extras/excluir` = true), mas a policy de DELETE de `extras` (082) só aceitava admin/mesa — o inspetor via a lixeira e levava erro de permissão. DELETE passa a aceitar `inspetoria`; `PERMISSOES_PADRAO` espelhado (`extras.excluir`: mesa + inspetoria) e teste adicionado em `permissoes.test.ts`. Aplicada via `db query --linked` em 04/08/2026)
+  - `100_escala_arquivos.sql` (espelha a 094 para o módulo Escalas: persiste o Excel de marcações do Flit para reutilização entre operadores — bucket privado `escala-arquivos` (xlsx/xls, 50 MB) + tabela `escala_arquivos` (metadados). RLS: SELECT/INSERT com `is_editor()`, DELETE só `is_admin()`. A tela Escalas → Importar salva o Excel ao importar e mostra o card "Arquivos já enviados" com "Usar este arquivo", mesmo padrão do Adicionais → Importar Ponto. Aplicada via `db query --linked` em 06/08/2026)
 
 ### Edge Function `econtador`
 
@@ -340,7 +341,7 @@ npx vitest
 
 ### Storage
 
-- Buckets principais: `ocorrencia-anexos`, `vr-arquivos`.
+- Buckets principais: `ocorrencia-anexos`, `vr-arquivos`, `ponto-espelhos` (PDF do Flit — migration 094), `escala-arquivos` (Excel do Flit — migration 100).
 - Políticas de RLS definidas nas migrations `010` a `011` e `058`/`059`.
 
 ---

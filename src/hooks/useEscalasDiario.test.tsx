@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useEscalasDiario } from './useEscalasDiario'
+import { parseExcelFlit, encontrarColaborador } from '@/lib/escalas/importarFlit'
+import { inferirLocalTrabalho } from '@/lib/escalas/inferirLocalTrabalho'
+import { toast } from 'sonner'
 
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
@@ -18,6 +21,15 @@ vi.mock('sonner', () => ({
     error: vi.fn(),
     info: vi.fn(),
   },
+}))
+
+vi.mock('@/lib/escalas/importarFlit', () => ({
+  parseExcelFlit: vi.fn(),
+  encontrarColaborador: vi.fn(),
+}))
+
+vi.mock('@/lib/escalas/inferirLocalTrabalho', () => ({
+  inferirLocalTrabalho: vi.fn(),
 }))
 
 function criarQueryBuilder(retorno: unknown[] = []) {
@@ -103,5 +115,86 @@ describe('useEscalasDiario', () => {
 
     const eqCalls = chamadas.filter((c) => c.metodo === 'eq')
     expect(eqCalls).toHaveLength(0)
+  })
+})
+
+describe('useEscalasDiario — preservação de confirmações manuais na reimportação', () => {
+  function criarQueryBuilderImportacao(retorno: unknown[]) {
+    const chamadas: { metodo: string; args: unknown[] }[] = []
+
+    const chain: Record<string, unknown> = {}
+    const registrar = (nome: string) =>
+      vi.fn().mockImplementation((...args: unknown[]) => {
+        chamadas.push({ metodo: nome, args })
+        return chain
+      })
+    chain.select = registrar('select')
+    chain.in = registrar('in')
+    chain.gte = registrar('gte')
+    chain.lte = registrar('lte')
+    chain.eq = registrar('eq')
+    chain.range = registrar('range')
+    chain.upsert = vi.fn().mockImplementation((...args: unknown[]) => {
+      chamadas.push({ metodo: 'upsert', args })
+      return Promise.resolve({ error: null })
+    })
+    chain.then = vi.fn().mockImplementation((cb: (v: { data: unknown[]; error: null }) => unknown) =>
+      Promise.resolve(cb({ data: retorno, error: null }))
+    )
+
+    return { chain, chamadas }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('consulta as confirmações com filtro fonte=manual e não sobrescreve dias confirmados manualmente', async () => {
+    // O Excel traz 1 dia do colaborador c1; no banco esse mesmo dia já está
+    // confirmado manualmente — ele deve ser preservado (sem upsert).
+    const { chain, chamadas } = criarQueryBuilderImportacao([
+      { colaborador_id: 'c1', data: '2026-07-01' },
+    ])
+    mockFrom.mockReturnValue(chain)
+
+    vi.mocked(parseExcelFlit).mockResolvedValue([
+      {
+        nomeColaborador: 'FULANO',
+        matricula: '000001',
+        data: '2026-07-01',
+        tipoDispositivo: null,
+        nomeDispositivo: null,
+        perimetro: null,
+        departamento: null,
+        turno: null,
+        localTrabalhoNome: null,
+      },
+    ] as never)
+    vi.mocked(encontrarColaborador).mockReturnValue({ id: 'c1' } as never)
+    vi.mocked(inferirLocalTrabalho).mockReturnValue(null as never)
+
+    const { result } = renderHook(() => useEscalasDiario())
+
+    let resultado!: Awaited<ReturnType<typeof result.current.importarExcelFlit>>
+    await act(async () => {
+      resultado = await result.current.importarExcelFlit(
+        new File(['x'], 'escala.xlsx'),
+        [],
+        [],
+        [],
+        null
+      )
+    })
+
+    // A consulta de confirmações filtra fonte='manual' direto no banco
+    // (e pagina via range) para não perder confirmações além de 1000 linhas.
+    expect(chamadas).toContainEqual({ metodo: 'eq', args: ['fonte', 'manual'] })
+    expect(chamadas.some((c) => c.metodo === 'range')).toBe(true)
+
+    // O dia confirmado manualmente não vai para o upsert
+    expect(chamadas.some((c) => c.metodo === 'upsert')).toBe(false)
+    expect(resultado.preservados).toBe(1)
+    expect(resultado.sucesso).toBe(0)
+    expect(toast.success).toHaveBeenCalled()
   })
 })

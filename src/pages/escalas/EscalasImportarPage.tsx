@@ -12,9 +12,19 @@ import { useEscalasDiario, calcularCompetencia, type Competencia } from '@/hooks
 import { useEscalasMapeamento } from '@/hooks/useEscalasMapeamento'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
+import { useAuth } from '@/hooks/useAuth'
 import { parseExcelFlit, type DiaFlit } from '@/lib/escalas/importarFlit'
-import { Upload, AlertCircle, Calendar } from 'lucide-react'
+import {
+  listarArquivos,
+  salvarArquivo,
+  baixarArquivo,
+  excluirArquivo,
+  type EscalaArquivo,
+} from '@/lib/escalas/escalaArquivos'
+import { toast } from 'sonner'
+import { Upload, AlertCircle, Calendar, FileSpreadsheet, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { EscalasShell } from './EscalasShell'
 
@@ -38,6 +48,8 @@ export function EscalasImportarPage() {
   const { mapeamentos, listar: listarMapeamentos } = useEscalasMapeamento()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { locais, listar: listarLocais } = useEscalasLocais()
+  const { user } = useAuth()
+  const isAdmin = user?.nivel_acesso === 'admin' || user?.nivel_acesso === 'adm'
 
   const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')
   const [arquivo, setArquivo] = useState<File | null>(null)
@@ -46,11 +58,23 @@ export function EscalasImportarPage() {
   const [resumo, setResumo] = useState<{ sucesso: number; identificados: number; pendentes: number; preservados: number; naoEncontrados: string[] } | null>(null)
   const [preview, setPreview] = useState<DiaFlit[] | null>(null)
   const [erroPreview, setErroPreview] = useState<string | null>(null)
+  const [arquivosEnviados, setArquivosEnviados] = useState<EscalaArquivo[]>([])
+  const [baixandoArquivoId, setBaixandoArquivoId] = useState<string | null>(null)
+  const [confirmarExclusaoArquivo, setConfirmarExclusaoArquivo] = useState<EscalaArquivo | null>(null)
+
+  const carregarArquivosEnviados = async () => {
+    try {
+      setArquivosEnviados(await listarArquivos())
+    } catch (err) {
+      console.error('Erro ao listar arquivos de escala enviados:', err)
+    }
+  }
 
   useEffect(() => {
     listarMapeamentos()
     listarColaboradores()
     listarLocais()
+    carregarArquivosEnviados()
   }, [listarMapeamentos, listarColaboradores, listarLocais])
 
   const competencia = calcularCompetencia(ano, mes)
@@ -84,8 +108,48 @@ export function EscalasImportarPage() {
       filtroCompetencia = calcularCompetenciaOntem()
     }
 
+    // Salva o Excel no servidor para reutilização por qualquer operador;
+    // se o salvamento falhar, a importação segue normalmente.
+    if (user) {
+      try {
+        await salvarArquivo(arquivo, user.id)
+        carregarArquivosEnviados()
+      } catch (err) {
+        console.error('Erro ao salvar Excel de escala para reutilização:', err)
+        toast.warning('O Excel será processado, mas não foi possível salvá-lo no servidor para reutilização.')
+      }
+    }
+
     const resultado = await importarExcelFlit(arquivo, colaboradores, mapeamentos, locais, filtroCompetencia)
     setResumo(resultado)
+  }
+
+  /** Reaproveita um Excel já enviado: baixa do servidor e roda a mesma pipeline. */
+  const handleUsarArquivo = async (item: EscalaArquivo) => {
+    setBaixandoArquivoId(item.id)
+    try {
+      const file = await baixarArquivo(item)
+      await handleArquivoSelecionado(file)
+    } catch (err) {
+      console.error('Erro ao baixar Excel de escala salvo:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao baixar o arquivo salvo')
+    } finally {
+      setBaixandoArquivoId(null)
+    }
+  }
+
+  const handleExcluirArquivo = async () => {
+    if (!confirmarExclusaoArquivo) return
+    try {
+      await excluirArquivo(confirmarExclusaoArquivo)
+      toast.success('Arquivo removido')
+      carregarArquivosEnviados()
+    } catch (err) {
+      console.error('Erro ao excluir Excel de escala:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir o arquivo')
+    } finally {
+      setConfirmarExclusaoArquivo(null)
+    }
   }
 
   return (
@@ -201,6 +265,66 @@ export function EscalasImportarPage() {
           </ModuleButton>
         </div>
       </ModuleCard>
+
+      {!arquivo && arquivosEnviados.length > 0 && (
+        <ModuleCard title="Arquivos já enviados">
+          <p className="text-xs mb-3" style={{ color: '#64748B' }}>
+            Estes Excels já foram enviados e estão salvos no servidor — qualquer operador pode reaproveitá-los sem precisar do arquivo em mãos.
+          </p>
+          <div className="space-y-2">
+            {arquivosEnviados.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-lg border"
+                style={{ borderColor: '#F1F5F9' }}
+              >
+                <div className="flex items-center gap-2 text-sm min-w-0" style={{ color: '#1F2937' }}>
+                  <FileSpreadsheet className="w-4 h-4 shrink-0" style={{ color: '#0F6CBD' }} />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{item.nome_arquivo}</div>
+                    <div className="text-xs" style={{ color: '#94A3B8' }}>
+                      {new Date(item.created_at).toLocaleString('pt-BR')}
+                      {item.enviado_por_nome ? ` — enviado por ${item.enviado_por_nome}` : ''}
+                      {item.tamanho_bytes ? ` — ${(item.tamanho_bytes / 1024 / 1024).toFixed(1)} MB` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <ModuleButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleUsarArquivo(item)}
+                    disabled={baixandoArquivoId !== null || importando}
+                  >
+                    {baixandoArquivoId === item.id ? 'Baixando...' : 'Usar este arquivo'}
+                  </ModuleButton>
+                  {isAdmin && (
+                    <button
+                      className="p-1.5 rounded-md hover:bg-red-50 text-red-600"
+                      onClick={() => setConfirmarExclusaoArquivo(item)}
+                      title="Excluir arquivo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ModuleCard>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmarExclusaoArquivo}
+        onOpenChange={() => setConfirmarExclusaoArquivo(null)}
+        icon={<Trash2 className="w-6 h-6" />}
+        iconClassName="bg-red-50 text-red-600"
+        title="Excluir arquivo?"
+        description={confirmarExclusaoArquivo ? `O arquivo "${confirmarExclusaoArquivo.nome_arquivo}" será removido do servidor e não poderá mais ser reutilizado.` : ''}
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={handleExcluirArquivo}
+      />
 
       {preview && preview.length > 0 && (
         <ModuleCard title="Pré-visualização (primeiras linhas)">

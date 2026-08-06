@@ -426,6 +426,16 @@ export interface PontoEspelhoArquivoRow {
   created_at: string
 }
 
+/** Excel de marcações do Flit salvo para reutilização — módulo Escalas (migration 100). */
+export interface EscalaArquivoRow {
+  id: string
+  nome_arquivo: string
+  storage_path: string
+  tamanho_bytes: number | null
+  enviado_por: string | null
+  created_at: string
+}
+
 /** Medidas de uniforme/EPI do colaborador — gerenciadas no módulo CEU (migration 096). */
 export interface CeuTamanhos {
   colaborador_id: string
@@ -560,6 +570,12 @@ export type Database = {
         Row: PontoEspelhoArquivoRow & Record<string, unknown>
         Insert: Partial<PontoEspelhoArquivoRow> & Record<string, unknown>
         Update: Partial<PontoEspelhoArquivoRow> & Record<string, unknown>
+        Relationships: []
+      }
+      escala_arquivos: {
+        Row: EscalaArquivoRow & Record<string, unknown>
+        Insert: Partial<EscalaArquivoRow> & Record<string, unknown>
+        Update: Partial<EscalaArquivoRow> & Record<string, unknown>
         Relationships: []
       }
       ceu_tamanhos: {

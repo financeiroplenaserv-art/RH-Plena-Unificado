@@ -293,22 +293,33 @@ export function useEscalasDiario() {
       }
 
       // Preserva confirmações manuais já feitas pelo usuário.
+      // Filtra fonte='manual' no banco e pagina: sem isso o PostgREST truncava
+      // em 1000 linhas e confirmações manuais além desse limite eram
+      // sobrescritas silenciosamente na reimportação.
       const datas = Array.from(new Set(registros.map((r) => r.data))).sort()
       const colaboradorIds = Array.from(new Set(registros.map((r) => r.colaborador_id)))
 
-      const { data: existentes, error: erroExistentes } = await supabase
-        .from('locais_trabalho_diario')
-        .select('colaborador_id, data, fonte')
-        .in('colaborador_id', colaboradorIds)
-        .gte('data', datas[0])
-        .lte('data', datas[datas.length - 1])
-
-      if (erroExistentes) throw erroExistentes
+      const PAGE_SIZE = 1000
+      const manuais: { colaborador_id: string; data: string }[] = []
+      let inicio = 0
+      while (true) {
+        const { data: pagina, error: erroExistentes } = await supabase
+          .from('locais_trabalho_diario')
+          .select('colaborador_id, data')
+          .in('colaborador_id', colaboradorIds)
+          .gte('data', datas[0])
+          .lte('data', datas[datas.length - 1])
+          .eq('fonte', 'manual')
+          .range(inicio, inicio + PAGE_SIZE - 1)
+        if (erroExistentes) throw erroExistentes
+        if (!pagina || pagina.length === 0) break
+        manuais.push(...pagina)
+        if (pagina.length < PAGE_SIZE) break
+        inicio += PAGE_SIZE
+      }
 
       const chavesManuais = new Set(
-        (existentes || [])
-          .filter((e) => e.fonte === 'manual')
-          .map((e) => `${e.colaborador_id}|${e.data}`)
+        manuais.map((e) => `${e.colaborador_id}|${e.data}`)
       )
 
       const registrosParaUpsert = registros.filter(
