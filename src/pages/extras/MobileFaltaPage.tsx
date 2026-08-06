@@ -8,9 +8,11 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
 import { mascaraMoeda, mascaraMoedaInput, parseMoeda, nomeDepartamento, formatarData } from '@/lib/utils'
-import type { Extra, TurnoExtra, MotivoExtra, ComunicacaoTipo } from '@/types/extras'
+import type { Extra, TurnoExtra, MotivoExtra, ComunicacaoTipo, CategoriaOcorrencia } from '@/types/extras'
+import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
 const TURNOS: TurnoExtra[] = ['Dia', 'Manhã', 'Tarde', 'Noite', 'Noite anterior']
+const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
 const MOTIVOS: MotivoExtra[] = [
   'Atestado',
   'Falta sem justificativa',
@@ -28,7 +30,7 @@ const MOTIVOS: MotivoExtra[] = [
 const MEIOS_COMUNICACAO: ComunicacaoTipo[] = ['WhatsApp', 'Email', 'Não se aplica']
 
 const PASSOS = [
-  { num: 1, titulo: 'Ocorrência', descricao: 'Data, turno, departamento e motivo' },
+  { num: 1, titulo: 'Ocorrência', descricao: 'Data, turno, departamento, categoria e motivo' },
   { num: 2, titulo: 'Pessoas', descricao: 'Quem faltou e quem substituiu' },
   { num: 3, titulo: 'Valor', descricao: 'Valor a pagar e tipo de extra' },
   { num: 4, titulo: 'Comunicação', descricao: 'Cliente foi comunicado?' },
@@ -69,6 +71,7 @@ interface BuscaColaboradorProps {
   opcoesDestaque?: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }[]
   placeholder: string
   naoAplica?: boolean
+  semNome?: boolean
   onChange: (valor: string) => void
   erro?: string
   desabilitado?: boolean
@@ -81,6 +84,7 @@ function BuscaColaborador({
   opcoesDestaque,
   placeholder,
   naoAplica = false,
+  semNome = false,
   onChange,
   erro,
   desabilitado = false,
@@ -121,7 +125,8 @@ function BuscaColaborador({
   }, [aberto])
 
   const exibirTexto = () => {
-    if (naoAplica && valor === '__nao_aplica__') return 'Não se aplica'
+    if (naoAplica && valor === '__nao_aplica__') return 'Não tem colaborador ausente'
+    if (semNome && valor === '__sem_nome__') return 'Não tem colaborador substituto'
     return selecionado?.nome_completo || ''
   }
 
@@ -178,7 +183,22 @@ function BuscaColaborador({
                   valor === '__nao_aplica__' ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
                 }`}
               >
-                Não se aplica
+                Não tem colaborador ausente
+              </button>
+            )}
+
+            {semNome && (
+              <button
+                type="button"
+                onMouseDown={() => {
+                  onChange('__sem_nome__')
+                  setAberto(false)
+                }}
+                className={`w-full text-left px-4 py-3 text-sm border-b border-slate-100 last:border-0 ${
+                  valor === '__sem_nome__' ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+                }`}
+              >
+                Não tem colaborador substituto
               </button>
             )}
 
@@ -231,6 +251,7 @@ export function MobileFaltaPage() {
   const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
   const [turno, setTurno] = useState<TurnoExtra>('Dia')
   const [departamentoId, setDepartamentoId] = useState('')
+  const [categoria, setCategoria] = useState<CategoriaOcorrencia | ''>('')
   const [motivo, setMotivo] = useState<MotivoExtra>('Falta sem justificativa')
   const [ausenteId, setAusenteId] = useState('')
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
@@ -296,22 +317,21 @@ export function MobileFaltaPage() {
   const handleCategoriaValorChange = (id: string) => {
     setCategoriaValorId(id)
     const cat = getCategoriaValor(id)
-    if (cat?.valor_padrao) {
+    // Com "Não gera extra" o valor fica 0 (sem pagamento) — a categoria
+    // serve só para classificar, sem puxar o preço padrão para a tela.
+    if (geraExtra && cat?.valor_padrao) {
       setValorInput(mascaraMoeda(cat.valor_padrao))
     }
   }
 
-  // "Não gera extra" = falta de controle interno: trava categoria Faltista
-  // (única que permite R$ 0,00), zera o valor e desmarca o faturado.
+  // "Gera extra = Não" (06/08/2026): marca que o registro NÃO entra no
+  // balanço/recibos de pagamento. Não força categoria "Faltista" — mas zera
+  // o valor na tela, pois sem pagamento o valor não tem efeito (o submit
+  // também força valor 0, como garantia). O campo segue editável e R$ 0,00
+  // é permitido em "Valor acordado".
   const handleGeraExtra = (gera: boolean) => {
     setGeraExtra(gera)
-    if (!gera) {
-      const faltista = categorias.find(c => c.nome.toLowerCase() === 'faltista')
-      if (faltista) setCategoriaValorId(faltista.id)
-      setValorInput('R$ 0,00')
-      setExtraFaturado(false)
-      if (erros.valor) setErros(prev => ({ ...prev, valor: '' }))
-    }
+    if (!gera) setValorInput('R$ 0,00')
   }
 
   const limpar = () => {
@@ -319,6 +339,7 @@ export function MobileFaltaPage() {
     setData(new Date().toISOString().split('T')[0])
     setTurno('Dia')
     setDepartamentoId('')
+    setCategoria('')
     setMotivo('Falta sem justificativa')
     setAusenteId('')
     setAusenteNaoAplica(false)
@@ -341,16 +362,16 @@ export function MobileFaltaPage() {
     if (p === 1) {
       if (!data) novosErros.data = 'Informe a data'
       if (!departamentoId) novosErros.departamento = 'Selecione o departamento'
+      if (!categoria) novosErros.categoria = 'Selecione a categoria'
       if (!motivo) novosErros.motivo = 'Selecione o motivo'
     }
     if (p === 2) {
-      if (!ausenteNaoAplica && !ausenteId) novosErros.ausente = 'Selecione quem faltou ou marque "Não se aplica"'
-      if (!substitutoId) novosErros.substituto = 'Selecione o substituto'
+      if (!ausenteNaoAplica && !ausenteId) novosErros.ausente = 'Selecione quem faltou ou marque "Não tem colaborador ausente"'
+      if (!substitutoId) novosErros.substituto = 'Selecione o substituto ou marque "Não tem colaborador substituto"'
     }
     if (p === 3) {
-      // Valor obrigatório só quando gera extra; falta de controle interno
-      // (categoria Faltista) fica com R$ 0,00.
-      if (geraExtra && (!valorInput || parseMoeda(valorInput) <= 0)) novosErros.valor = 'Informe o valor a pagar'
+      // R$ 0,00 é permitido (decisão 06/08/2026) — só exige o campo preenchido.
+      if (geraExtra && !valorInput) novosErros.valor = 'Informe o valor (pode ser R$ 0,00)'
     }
     return novosErros
   }
@@ -394,13 +415,16 @@ export function MobileFaltaPage() {
 
     const dept = getDepartamento(departamentoId)
     const ausente = ausenteNaoAplica ? undefined : getColaborador(ausenteId)
-    const substituto = getColaborador(substitutoId)
+    // '__sem_nome__': falta sem ninguém cobrindo — grava o texto SEM NOME
+    // para ficar anotado nos relatórios (substituto_id fica null).
+    const semNome = substitutoId === '__sem_nome__'
+    const substituto = semNome ? undefined : getColaborador(substitutoId)
     const catValor = getCategoriaValor(categoriaValorId)
 
     const payload: Omit<Extra, 'id' | 'created_at' | 'updated_at'> = {
       data_ocorrencia: data,
       turno,
-      categoria: 'Operacional',
+      categoria: categoria || 'Operacional',
       posto: dept?.nome_curto || dept?.nome || '',
       departamento_id: dept?.id || null,
       departamento_nome: dept ? nomeDepartamento(dept) : null,
@@ -409,12 +433,15 @@ export function MobileFaltaPage() {
       colaborador_ausente_id: ausente?.id || null,
       colaborador_ausente_nome: ausente?.nome_completo || null,
       substituto_id: substituto?.id || null,
-      substituto_nome: substituto?.nome_completo || null,
+      substituto_nome: semNome ? SUBSTITUTO_SEM_NOME : (substituto?.nome_completo || null),
       motivo,
+      // "Não gera extra" grava sempre valor 0 (não há pagamento ao
+      // colaborador). O "extra_faturado" NÃO é tocado: é a cobrança do
+      // cliente — um faltista sem pagamento pode ser faturado (06/08/2026).
       extra_faturado: extraFaturado,
       gera_extra: geraExtra,
       reforco_contratual: reforcoContratual,
-      valor: parseMoeda(valorInput),
+      valor: geraExtra ? parseMoeda(valorInput) : 0,
       categoria_valor_id: catValor?.id || null,
       categoria_valor_nome: catValor?.nome || null,
       comunicacao_tipo: meioComunicacao,
@@ -550,6 +577,23 @@ export function MobileFaltaPage() {
             </div>
 
             <div>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Categoria</label>
+              <select
+                value={categoria}
+                onChange={e => {
+                  setCategoria(e.target.value as CategoriaOcorrencia)
+                  if (erros.categoria) setErros(prev => ({ ...prev, categoria: '' }))
+                }}
+                className={`w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white ${erros.categoria ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}
+                required
+              >
+                <option value="">Selecione a categoria...</option>
+                {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <ErroCampo mensagem={erros.categoria} />
+            </div>
+
+            <div>
               <label className="block text-base font-semibold text-slate-800 mb-2">Motivo</label>
               <select
                 value={motivo}
@@ -600,6 +644,7 @@ export function MobileFaltaPage() {
               valor={substitutoId}
               opcoes={colaboradoresAtivos}
               placeholder="Selecione o substituto..."
+              semNome
               onChange={val => {
                 setSubstitutoId(val)
                 if (erros.substituto) setErros(prev => ({ ...prev, substituto: '' }))
@@ -622,15 +667,14 @@ export function MobileFaltaPage() {
                   onClick={() => handleGeraExtra(true)}
                 />
                 <BotaoOpcao
-                  label="Não — controle interno"
+                  label="Não"
                   selecionado={!geraExtra}
                   onClick={() => handleGeraExtra(false)}
                 />
               </div>
               {!geraExtra && (
                 <p className="text-sm text-slate-500 mt-2">
-                  Controle interno: aparece no relatório diário de WhatsApp, mas não entra no balanço de pagamento.
-                  Categoria "Faltista" e valor R$ 0,00 aplicados.
+                  Não gera pagamento: aparece no relatório diário de WhatsApp, mas não entra no balanço nem nos recibos.
                 </p>
               )}
             </div>
@@ -640,7 +684,6 @@ export function MobileFaltaPage() {
               <select
                 value={categoriaValorId}
                 onChange={e => handleCategoriaValorChange(e.target.value)}
-                disabled={!geraExtra}
                 className="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-slate-300 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white disabled:bg-slate-100 disabled:text-slate-500"
               >
                 <option value="acordado">Valor acordado</option>
@@ -668,23 +711,21 @@ export function MobileFaltaPage() {
               <ErroCampo mensagem={erros.valor} />
             </div>
 
-            {geraExtra && (
-              <div>
-                <label className="block text-base font-semibold text-slate-800 mb-2">Tipo</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <BotaoOpcao
-                    label="Extra normal"
-                    selecionado={!extraFaturado}
-                    onClick={() => setExtraFaturado(false)}
-                  />
-                  <BotaoOpcao
-                    label="Extra faturado"
-                    selecionado={extraFaturado}
-                    onClick={() => setExtraFaturado(true)}
-                  />
-                </div>
+            <div>
+              <label className="block text-base font-semibold text-slate-800 mb-2">Tipo (cobrança do cliente)</label>
+              <div className="grid grid-cols-2 gap-3">
+                <BotaoOpcao
+                  label="Extra normal"
+                  selecionado={!extraFaturado}
+                  onClick={() => setExtraFaturado(false)}
+                />
+                <BotaoOpcao
+                  label="Extra faturado"
+                  selecionado={extraFaturado}
+                  onClick={() => setExtraFaturado(true)}
+                />
               </div>
-            )}
+            </div>
 
             <div>
               <label className="block text-base font-semibold text-slate-800 mb-2">Reforço Contratual?</label>
@@ -792,22 +833,26 @@ export function MobileFaltaPage() {
                 <span className="text-sm text-slate-500 block">Motivo</span>
                 <span className="font-medium text-slate-800 break-words">{motivo}</span>
               </div>
+              <div>
+                <span className="text-sm text-slate-500 block">Categoria</span>
+                <span className="font-medium text-slate-800 break-words">{categoria || '—'}</span>
+              </div>
               <hr className="border-slate-200" />
               <div>
                 <span className="text-sm text-slate-500 block">Ausente</span>
                 <span className="font-medium text-slate-800 break-words">
-                  {ausenteNaoAplica ? 'Não se aplica (reforço extra/faturado)' : (getColaborador(ausenteId)?.nome_completo || '—')}
+                  {ausenteNaoAplica ? 'Não tem colaborador ausente (reforço extra/faturado)' : (getColaborador(ausenteId)?.nome_completo || '—')}
                 </span>
               </div>
               <div>
                 <span className="text-sm text-slate-500 block">Substituto</span>
-                <span className="font-medium text-slate-800 break-words">{getColaborador(substitutoId)?.nome_completo || '—'}</span>
+                <span className="font-medium text-slate-800 break-words">{substitutoId === '__sem_nome__' ? 'Não tem colaborador substituto' : (getColaborador(substitutoId)?.nome_completo || '—')}</span>
               </div>
               <hr className="border-slate-200" />
               <div>
                 <span className="text-sm text-slate-500 block">Registro</span>
                 <span className="font-medium text-slate-800">
-                  {geraExtra ? 'Extra (com pagamento)' : 'Falta — controle interno (sem pagamento)'}
+                  {geraExtra ? 'Extra (com pagamento)' : 'Não gera extra (sem pagamento)'}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3">

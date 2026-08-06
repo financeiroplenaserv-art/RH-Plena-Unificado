@@ -21,6 +21,7 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo } from '@/types/extras'
+import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
 const TURNOS: TurnoExtra[] = ['Dia', 'Manhã', 'Tarde', 'Noite', 'Noite anterior']
 const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
@@ -76,6 +77,7 @@ export function ExtrasPlantaoPage() {
 
   const [form, setForm] = useState<Omit<Extra, 'id' | 'created_at' | 'updated_at'>>(extraVazio())
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
+  const [substitutoSemNome, setSubstitutoSemNome] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [valorInput, setValorInput] = useState(mascaraMoedaInput(String(form.valor)))
 
@@ -119,7 +121,21 @@ export function ExtrasPlantaoPage() {
       substituto_id: colaborador?.id || null,
       substituto_nome: colaborador?.nome_completo || null,
     }))
+    if (colaborador) setSubstitutoSemNome(false)
   }, [])
+
+  // "SEM NOME": falta registrada sem ninguém cobrindo — fica anotado nos
+  // relatórios em vez de o campo sair em branco (parecendo esquecimento).
+  const handleToggleSubstitutoSemNome = (checked: boolean) => {
+    setSubstitutoSemNome(checked)
+    if (checked) {
+      setForm(prev => ({
+        ...prev,
+        substituto_id: null,
+        substituto_nome: null,
+      }))
+    }
+  }
 
   const handleToggleAusenteNaoAplica = (checked: boolean) => {
     setAusenteNaoAplica(checked)
@@ -135,6 +151,7 @@ export function ExtrasPlantaoPage() {
   const limparFormulario = () => {
     setForm(extraVazio())
     setAusenteNaoAplica(false)
+    setSubstitutoSemNome(false)
     setValorInput(mascaraMoedaInput('0'))
   }
 
@@ -152,8 +169,8 @@ export function ExtrasPlantaoPage() {
       toast.error('Selecione o motivo')
       return
     }
-    if (!form.substituto_id) {
-      toast.error('Selecione o substituto')
+    if (!form.substituto_id && !substitutoSemNome) {
+      toast.error('Selecione o substituto ou marque "Não tem colaborador substituto"')
       return
     }
 
@@ -162,6 +179,10 @@ export function ExtrasPlantaoPage() {
     if (ausenteNaoAplica) {
       payload.colaborador_ausente_id = null
       payload.colaborador_ausente_nome = null
+    }
+    if (substitutoSemNome) {
+      payload.substituto_id = null
+      payload.substituto_nome = SUBSTITUTO_SEM_NOME
     }
 
     const sucesso = await criar(payload)
@@ -234,6 +255,7 @@ export function ExtrasPlantaoPage() {
                     substituto_nome: null,
                   }))
                   setAusenteNaoAplica(false)
+                  setSubstitutoSemNome(false)
                 }}
               >
                 <SelectTrigger className="rounded-lg h-12 text-base">
@@ -258,7 +280,7 @@ export function ExtrasPlantaoPage() {
                     onChange={e => handleToggleAusenteNaoAplica(e.target.checked)}
                     className="size-4 rounded border-input"
                   />
-                  Não se aplica
+                  Não tem colaborador ausente
                 </label>
               </div>
               {!ausenteNaoAplica ? (
@@ -271,18 +293,35 @@ export function ExtrasPlantaoPage() {
                 />
               ) : (
                 <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  Não se aplica
+                  Não tem colaborador ausente
                 </div>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Substituto</Label>
-              <AutocompleteColaborador
-                value={form.substituto_id || undefined}
-                onChange={handleSubstitutoChange}
-                placeholder="Buscar substituto..."
-              />
+              <div className="flex items-center justify-between">
+                <Label>Substituto</Label>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={substitutoSemNome}
+                    onChange={e => handleToggleSubstitutoSemNome(e.target.checked)}
+                    className="size-4 rounded border-input"
+                  />
+                  Não tem colaborador substituto
+                </label>
+              </div>
+              {!substitutoSemNome ? (
+                <AutocompleteColaborador
+                  value={form.substituto_id || undefined}
+                  onChange={handleSubstitutoChange}
+                  placeholder="Buscar substituto..."
+                />
+              ) : (
+                <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  SEM NOME — ninguém substituiu
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

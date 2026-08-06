@@ -21,6 +21,7 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData, valorNaLista } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
+import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
 const TURNOS: TurnoExtra[] = ['Dia', 'Manhã', 'Tarde', 'Noite', 'Noite anterior']
 const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
@@ -85,6 +86,7 @@ export function ExtrasFormPage() {
 
   const [form, setForm] = useState<ExtraForm>(extraVazio())
   const [ausenteNaoAplica, setAusenteNaoAplica] = useState(false)
+  const [substitutoSemNome, setSubstitutoSemNome] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [valorInput, setValorInput] = useState(mascaraMoedaInput(String(form.valor)))
 
@@ -132,6 +134,7 @@ export function ExtrasFormPage() {
             empresa_id: extra.empresa_id,
           })
           setAusenteNaoAplica(!extra.colaborador_ausente_id)
+          setSubstitutoSemNome(!extra.substituto_id && extra.substituto_nome === SUBSTITUTO_SEM_NOME)
         }
       }
       carregar()
@@ -148,25 +151,21 @@ export function ExtrasFormPage() {
       ...prev,
       categoria_valor_id: categoriaId,
       categoria_valor_nome: cat?.nome || null,
-      valor: cat?.valor_padrao ?? prev.valor,
+      // Com "Não gera extra" o valor fica 0 (sem pagamento) — a categoria
+      // serve só para classificar, sem puxar o preço padrão para a tela.
+      valor: prev.gera_extra ? (cat?.valor_padrao ?? prev.valor) : 0,
     }))
   }
 
-  // "Não gera extra" = falta de controle interno: trava categoria Faltista
-  // (única que permite R$ 0,00), zera o valor e desmarca o faturado.
+  // "Gera extra = Não" (06/08/2026): o registro NÃO gera pagamento ao
+  // colaborador — zera e TRAVA o valor (o submit também força valor 0, como
+  // garantia). Não mexe na categoria (livre para classificar a falta) nem no
+  // "Extra faturado": faturado é a COBRANÇA DO CLIENTE, independente do
+  // pagamento — um faltista que já está na folha pode não receber pelo
+  // serviço e mesmo assim ser faturado ao cliente. Com "Sim", R$ 0,00 é
+  // permitido.
   const handleGeraExtra = (gera: boolean) => {
-    setForm(prev => {
-      if (gera) return { ...prev, gera_extra: true }
-      const faltista = categorias.find(c => c.nome.toLowerCase() === 'faltista')
-      return {
-        ...prev,
-        gera_extra: false,
-        categoria_valor_id: faltista?.id || prev.categoria_valor_id,
-        categoria_valor_nome: faltista?.nome || prev.categoria_valor_nome,
-        valor: 0,
-        extra_faturado: false,
-      }
-    })
+    setForm(prev => (gera ? { ...prev, gera_extra: true } : { ...prev, gera_extra: false, valor: 0 }))
   }
 
   const handleAusenteChange = (colaborador: Colaborador | null) => {
@@ -184,6 +183,20 @@ export function ExtrasFormPage() {
       substituto_id: colaborador?.id || null,
       substituto_nome: colaborador?.nome_completo || null,
     }))
+    if (colaborador) setSubstitutoSemNome(false)
+  }
+
+  // "SEM NOME": falta registrada sem ninguém cobrindo — fica anotado nos
+  // relatórios em vez de o campo sair em branco (parecendo esquecimento).
+  const handleToggleSubstitutoSemNome = (checked: boolean) => {
+    setSubstitutoSemNome(checked)
+    if (checked) {
+      setForm(prev => ({
+        ...prev,
+        substituto_id: null,
+        substituto_nome: null,
+      }))
+    }
   }
 
   const handleToggleAusenteNaoAplica = (checked: boolean) => {
@@ -211,11 +224,10 @@ export function ExtrasFormPage() {
       toast.error('Selecione o motivo')
       return
     }
-    // Valor obrigatório > 0, exceto para a categoria "Faltista"
-    // (controle interno — única que permite R$ 0,00).
-    const ehFaltista = (form.categoria_valor_nome || '').toLowerCase() === 'faltista'
-    if (!ehFaltista && (!form.valor || form.valor <= 0)) {
-      toast.error('Informe um valor maior que zero')
+    // R$ 0,00 é permitido (decisão 06/08/2026) — ex.: falta sem pagamento
+    // lançada com "Gera extra = Não" e "Valor acordado".
+    if (form.valor == null || form.valor < 0) {
+      toast.error('Informe um valor igual ou maior que zero')
       return
     }
     setSalvando(true)
@@ -225,6 +237,16 @@ export function ExtrasFormPage() {
     if (ausenteNaoAplica) {
       payload.colaborador_ausente_id = null
       payload.colaborador_ausente_nome = null
+    }
+    if (substitutoSemNome) {
+      payload.substituto_id = null
+      payload.substituto_nome = SUBSTITUTO_SEM_NOME
+    }
+    // "Não gera extra" grava sempre valor 0 (não há pagamento ao colaborador)
+    // — evita registro sem pagamento exibindo valor na listagem (06/08/2026).
+    // O "extra_faturado" NÃO é tocado: é cobrança do cliente, independente.
+    if (!payload.gera_extra) {
+      payload.valor = 0
     }
 
     if (!id) {
@@ -287,13 +309,12 @@ export function ExtrasFormPage() {
                       : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
                   }`}
                 >
-                  Não — falta (controle interno)
+                  Não
                 </button>
               </div>
               {!form.gera_extra && (
                 <p className="text-xs text-slate-500">
-                  Controle interno: aparece no relatório diário de WhatsApp, mas não entra no balanço de pagamento.
-                  Categoria "Faltista" e valor R$ 0,00 aplicados automaticamente.
+                  Não gera pagamento: aparece no relatório diário de WhatsApp, mas não entra no balanço nem nos recibos.
                 </p>
               )}
             </div>
@@ -351,6 +372,7 @@ export function ExtrasFormPage() {
                     substituto_nome: null,
                   }))
                   setAusenteNaoAplica(false)
+                  setSubstitutoSemNome(false)
                 }}
               >
                 <SelectTrigger className="rounded-lg">
@@ -384,7 +406,7 @@ export function ExtrasFormPage() {
                     onChange={e => handleToggleAusenteNaoAplica(e.target.checked)}
                     className="rounded border-input"
                   />
-                  Não se aplica
+                  Não tem colaborador ausente
                 </label>
               </div>
               {!ausenteNaoAplica ? (
@@ -397,18 +419,35 @@ export function ExtrasFormPage() {
                 />
               ) : (
                 <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  Não se aplica
+                  Não tem colaborador ausente
                 </div>
               )}
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label>Substituto</Label>
-              <AutocompleteColaborador
-                value={form.substituto_id || undefined}
-                onChange={handleSubstitutoChange}
-                placeholder="Buscar substituto..."
-              />
+              <div className="flex items-center justify-between">
+                <Label>Substituto</Label>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={substitutoSemNome}
+                    onChange={e => handleToggleSubstitutoSemNome(e.target.checked)}
+                    className="rounded border-input"
+                  />
+                  Não tem colaborador substituto
+                </label>
+              </div>
+              {!substitutoSemNome ? (
+                <AutocompleteColaborador
+                  value={form.substituto_id || undefined}
+                  onChange={handleSubstitutoChange}
+                  placeholder="Buscar substituto..."
+                />
+              ) : (
+                <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+                  SEM NOME — ninguém substituiu
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -429,7 +468,6 @@ export function ExtrasFormPage() {
               <Select
                 value={form.categoria_valor_id || 'acordado'}
                 onValueChange={handleCategoriaValorChange}
-                disabled={!form.gera_extra}
               >
                 <SelectTrigger className="rounded-lg">
                   <SelectValue />
@@ -466,7 +504,6 @@ export function ExtrasFormPage() {
                   type="checkbox"
                   id="extra_faturado"
                   checked={form.extra_faturado}
-                  disabled={!form.gera_extra}
                   onChange={e => setField('extra_faturado', e.target.checked)}
                   className="size-4 rounded border-input"
                 />

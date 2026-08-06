@@ -34,6 +34,14 @@ export type MotivoExtra =
 
 export type ComunicacaoTipo = 'WhatsApp' | 'Email' | 'Não se aplica'
 
+/**
+ * Substituto "SEM NOME" (04/08/2026): falta registrada sem ninguém cobrindo.
+ * Gravado como texto em `substituto_nome` (com `substituto_id` null) para
+ * ficar anotado nos relatórios; o grupo "SEM NOME" não gera recibo de
+ * pagamento (não há quem assinar).
+ */
+export const SUBSTITUTO_SEM_NOME = 'SEM NOME'
+
 export interface CategoriaExtra {
   id: string
   nome: string

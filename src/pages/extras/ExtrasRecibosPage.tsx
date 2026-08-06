@@ -38,6 +38,7 @@ import {
   podeCancelarReciboExtra,
 } from '@/lib/permissoes'
 import type { Extra, ReciboExtra } from '@/types/extras'
+import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
 function formatarDataBR(data: string | null) {
   if (!data) return '—'
@@ -167,7 +168,9 @@ export function ExtrasRecibosPage() {
       })
 
     let lista = Array.from(mapa.values())
-      .filter(g => g.substituto_nome !== 'Não informado')
+      // "SEM NOME" (falta sem ninguém cobrindo) não gera recibo — não há
+      // quem assinar; fica só anotado nos relatórios.
+      .filter(g => g.substituto_nome !== 'Não informado' && g.substituto_nome !== SUBSTITUTO_SEM_NOME)
       // Grupos com total R$ 0,00 (ex.: reforço contratual sem valor) não
       // geram recibo — não faz sentido exibi-los nem oferecer "Gerar e assinar".
       .filter(g => g.valorTotal > 0)
