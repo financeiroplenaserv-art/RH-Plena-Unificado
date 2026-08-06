@@ -40,6 +40,7 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 - Edição: mantida pela função `is_editor()`.
 - Exclusão: apenas **adm**.
 - Após gerar o PDF, registra-se **como o documento foi assinado** (`forma_assinatura`: papel ou Youk — opcional) e o impresso assinado pode ser anexado como **"Documento assinado"** (`tipo_documento` no anexo). Decisão de 2026-07-23.
+- **Documentos obrigatórios para ativar (status Pendente → Ativa):** em geral são 2 — o **documento comprobatório do motivo da sanção** e o **documento assinado pelo colaborador**. **Exceção (decisão da gestão, 06/08/2026):** as ocorrências nascidas de atestado médico — **Falta Justificada (atestado)**, **Licença Médica (até 15 dias)** e **Licença Médica (acima 15 dias — INSS)** — exigem **apenas o documento comprobatório** (o próprio atestado); o documento de assinatura não é obrigatório. Lógica em `src/lib/ocorrencias/tiposOcorrencia.ts` (`TIPOS_SEM_ASSINATURA_OBRIGATORIA`, `exigeDocumentoAssinado`), com testes.
 
 ### Colaboradores (quadro de informações)
 - A tela de detalhes (`/rh/colaboradores/:id`) é acessível ao **financeiro** desde o seed (rota + SELECT já existiam); em 01/08/2026 a seção de ocorrências passou a funcionar para ele (migration 098) e o botão "Nova Ocorrência" passou a seguir a permissão `ocorrencia.criar`.

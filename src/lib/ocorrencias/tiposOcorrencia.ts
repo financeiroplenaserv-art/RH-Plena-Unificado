@@ -478,3 +478,16 @@ export const TIPOS_COM_DOCUMENTO_OBRIGATORIO = TIPOS_OCORRENCIA.filter((t) => t.
 export function exigeDocumento(tipo: string): boolean {
   return TIPOS_COM_DOCUMENTO_OBRIGATORIO.includes(tipo)
 }
+
+// Tipos nascidos de atestado médico: exigem apenas o documento comprobatório
+// (o próprio atestado) — o documento assinado pelo colaborador NÃO é obrigatório
+// (decisão da gestão, 06/08/2026).
+export const TIPOS_SEM_ASSINATURA_OBRIGATORIA = [
+  'Falta Justificada (atestado)',
+  'Licença Médica (até 15 dias)',
+  'Licença Médica (acima 15 dias — INSS)',
+]
+
+export function exigeDocumentoAssinado(tipo: string): boolean {
+  return exigeDocumento(tipo) && !TIPOS_SEM_ASSINATURA_OBRIGATORIA.includes(tipo)
+}

@@ -27,6 +27,7 @@ interface DetailHeaderProps {
 
 import {
   TIPOS_COM_DOCUMENTO_OBRIGATORIO,
+  exigeDocumentoAssinado,
 } from '@/lib/ocorrencias/tiposOcorrencia'
 
 function fmtDate(d: string) {
@@ -53,12 +54,13 @@ export function DetailHeader({
   const isPendente = ocorrencia.status === 'Pendente'
   const isAtiva = ocorrencia.status === 'Ativa'
 
-  const podeAtivar = temDocAssinado && temDocComprobatorio
+  const exigeAssinado = exigeDocumentoAssinado(ocorrencia.tipo_penalidade || '')
+  const podeAtivar = temDocComprobatorio && (!exigeAssinado || temDocAssinado)
   const tooltipAtivar = podeAtivar
     ? 'Ativar ocorrência'
-    : !temDocAssinado && !temDocComprobatorio
+    : exigeAssinado && !temDocAssinado && !temDocComprobatorio
       ? 'Anexe o documento assinado e o documento comprobatório do motivo da sanção para ativar'
-      : !temDocAssinado
+      : exigeAssinado && !temDocAssinado
         ? 'Falta anexar o documento assinado para ativar'
         : 'Falta anexar o documento comprobatório do motivo da sanção para ativar'
 

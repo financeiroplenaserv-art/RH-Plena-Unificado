@@ -21,6 +21,7 @@ interface AnexosTabProps {
   podeAnexar: boolean
   isPendente: boolean
   isCancelada: boolean
+  exigeDocAssinado: boolean
   descricaoUpload: string
   tipoDocumentoUpload: TipoDocumentoAnexo
   fileInputRef: React.RefObject<HTMLInputElement>
@@ -41,6 +42,7 @@ export function AnexosTab({
   podeAnexar,
   isPendente,
   isCancelada,
+  exigeDocAssinado,
   descricaoUpload,
   tipoDocumentoUpload,
   fileInputRef,
@@ -126,8 +128,9 @@ export function AnexosTab({
             Nenhum documento anexado.
             {isPendente && (
               <p className="text-xs text-orange-500 mt-1">
-                Anexe o documento assinado e o documento comprobatório do motivo da sanção para
-                ativar esta ocorrência.
+                {exigeDocAssinado
+                  ? 'Anexe o documento assinado e o documento comprobatório do motivo da sanção para ativar esta ocorrência.'
+                  : 'Anexe o documento comprobatório (atestado médico) para ativar esta ocorrência — o documento assinado não é exigido neste tipo.'}
               </p>
             )}
           </div>

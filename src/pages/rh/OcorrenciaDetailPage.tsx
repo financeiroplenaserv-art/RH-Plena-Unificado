@@ -19,6 +19,7 @@ import {
   Clock,
 } from 'lucide-react'
 import type { OcorrenciaAnexo } from '@/types/database'
+import { exigeDocumentoAssinado } from '@/lib/ocorrencias/tiposOcorrencia'
 import { DetailHeader } from '@/components/ocorrencias/ocorrencia-detail/DetailHeader'
 import { StatusBanner } from '@/components/ocorrencias/ocorrencia-detail/StatusBanner'
 import { ColaboradorCard } from '@/components/ocorrencias/ocorrencia-detail/ColaboradorCard'
@@ -105,6 +106,7 @@ export function OcorrenciaDetailPage() {
 
   const temDocAssinado = anexos.some((a) => a.tipo_documento === 'documento_assinado')
   const temDocComprobatorio = anexos.some((a) => a.tipo_documento === 'comprovante')
+  const exigeAssinado = exigeDocumentoAssinado(ocorrencia.tipo_penalidade || '')
 
   return (
     <RhShell>
@@ -172,6 +174,7 @@ export function OcorrenciaDetailPage() {
                 podeAnexar={podeAnexar}
                 isPendente={isPendente}
                 isCancelada={isCancelada}
+                exigeDocAssinado={exigeAssinado}
                 descricaoUpload={descricaoUpload}
                 tipoDocumentoUpload={tipoDocumentoUpload}
                 fileInputRef={fileInputRef}

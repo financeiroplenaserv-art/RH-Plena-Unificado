@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAnexos } from '@/hooks/useAnexos'
 import { getOcorrenciaAnexoUrl } from '@/lib/storage'
+import { exigeDocumentoAssinado } from '@/lib/ocorrencias/tiposOcorrencia'
 import { useTestemunhas } from '@/hooks/useTestemunhas'
 import { useAuditoria } from '@/hooks/useAuditoria'
 import type { Ocorrencia, Colaborador, FormaAssinaturaOcorrencia, TipoDocumentoAnexo } from '@/types/database'
@@ -194,14 +195,15 @@ export function useOcorrenciaDetalhe() {
 
     const temDocAssinado = anexos.some((a) => a.tipo_documento === 'documento_assinado')
     const temDocComprobatorio = anexos.some((a) => a.tipo_documento === 'comprovante')
+    const exigeAssinado = exigeDocumentoAssinado(ocorrencia.tipo_penalidade || '')
 
-    if (!temDocAssinado && !temDocComprobatorio) {
+    if (exigeAssinado && !temDocAssinado && !temDocComprobatorio) {
       toast.error(
         'Para ativar, anexe o documento assinado e o documento comprobatório do motivo da sanção.'
       )
       return
     }
-    if (!temDocAssinado) {
+    if (exigeAssinado && !temDocAssinado) {
       toast.error('Para ativar, falta anexar o documento assinado pelo colaborador.')
       return
     }

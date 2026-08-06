@@ -410,6 +410,7 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 - **e-Contador / Importação Alterdata**: apenas perfis `adm`, `dp1`, `dp2`.
 - **Extras**: visualização `adm, mesa, financeiro, dp1`; edição por `is_editor()`; exclusão por `adm`, `mesa` e `inspetoria` (lançamento errado — migrations 082 e 099).
 - **Ocorrências**: visualização restrita; exclusão apenas `adm`.
+- **Ocorrências — documentos para ativar (decisão da gestão, 06/08/2026)**: ocorrência Pendente com anexo obrigatório (`exigeAnexo`) em geral exige 2 anexos para ativar — **comprobatório** + **documento assinado**. Exceção: os tipos nascidos de atestado médico (`Falta Justificada (atestado)`, `Licença Médica (até 15 dias)`, `Licença Médica (acima 15 dias — INSS)`) exigem **apenas o comprobatório** — o documento de assinatura não é obrigatório. Lógica em `src/lib/ocorrencias/tiposOcorrencia.ts` (`TIPOS_SEM_ASSINATURA_OBRIGATORIA`, `exigeDocumentoAssinado`), aplicada em `useOcorrenciaDetalhe`, `DetailHeader`, `StatusBanner` e `AnexosTab`, com testes.
 - **Recibos de Extras**: ficam no sistema (`recibos_extras`), não são enviados para Youk.
 - **Assinatura digital**: simples (canvas/base64), sem valor jurídico pleno; valor jurídico via Youk.
 - **CEU**: recibos de entrega podem ser datados no **1º dia do mês** por prática operacional. Não altere para "hoje" automaticamente.

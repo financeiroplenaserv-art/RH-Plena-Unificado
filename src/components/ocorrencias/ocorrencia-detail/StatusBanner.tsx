@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle } from 'lucide-react'
 import type { Ocorrencia } from '@/types/database'
+import { exigeDocumentoAssinado } from '@/lib/ocorrencias/tiposOcorrencia'
 
 interface StatusBannerProps {
   ocorrencia: Ocorrencia
@@ -15,8 +16,9 @@ export function StatusBanner({
   temDocComprobatorio,
 }: StatusBannerProps) {
   if (ocorrencia.status === 'Pendente') {
+    const exigeAssinado = exigeDocumentoAssinado(ocorrencia.tipo_penalidade || '')
     const pendencias: string[] = []
-    if (!temDocAssinado) pendencias.push('documento assinado')
+    if (exigeAssinado && !temDocAssinado) pendencias.push('documento assinado')
     if (!temDocComprobatorio) pendencias.push('documento comprobatório do motivo da sanção')
     return (
       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
@@ -24,9 +26,20 @@ export function StatusBanner({
         <div className="flex-1">
           <p className="text-sm font-medium text-orange-800">Documentos pendentes (controle interno)</p>
           <p className="text-xs text-orange-700 mt-1">
-            Para ocorrências do tipo <strong>{ocorrencia.tipo_penalidade}</strong>, é obrigatório
-            anexar o documento assinado e o documento comprobatório do motivo da sanção. O PDF para
-            assinatura do colaborador não mostra o status "Pendente" — isso é controle interno do RH.
+            {exigeAssinado ? (
+              <>
+                Para ocorrências do tipo <strong>{ocorrencia.tipo_penalidade}</strong>, é obrigatório
+                anexar o documento assinado e o documento comprobatório do motivo da sanção.
+              </>
+            ) : (
+              <>
+                Para ocorrências do tipo <strong>{ocorrencia.tipo_penalidade}</strong>, é obrigatório
+                anexar apenas o documento comprobatório (atestado médico) — o documento assinado pelo
+                colaborador não é exigido neste tipo.
+              </>
+            )}{' '}
+            O PDF para assinatura do colaborador não mostra o status "Pendente" — isso é controle
+            interno do RH.
           </p>
           <p className="text-xs text-orange-600 mt-2">
             Anexos atuais: <strong>{anexosCount}</strong>
