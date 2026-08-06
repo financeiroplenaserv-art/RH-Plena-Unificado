@@ -30,9 +30,18 @@ function formatarData(dataStr: string | null): string {
   return new Date(dataStr).toLocaleDateString('pt-BR')
 }
 
+/**
+ * CPF SEMPRE no formato 000.000.000-00 nos recibos (regra do programa de
+ * assinatura, 04/08/2026): CPFs gravados sem o zero à esquerda na base
+ * (importação de planilha) chegavam com 10 dígitos e saíam sem máscara,
+ * misturando formatos no mesmo lote e fazendo o programa agrupar páginas.
+ */
 function formatarCPF(cpf: string): string {
-  if (!cpf || cpf.length !== 11) return cpf || '—'
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+  const limpo = (cpf || '').replace(/\D/g, '')
+  if (!limpo) return '—'
+  const completo = limpo.padStart(11, '0')
+  if (completo.length !== 11) return limpo
+  return completo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
 }
 
 interface ReciboItem {
@@ -64,6 +73,85 @@ export interface ReciboData {
   numeroRecibo: string
   nomeEmpresa: string
   cnpjEmpresa: string
+}
+
+/* ============================================================
+   COMPACTAÇÃO — recibo com muitos itens deve caber em 1 página A4.
+   Medido com impressão headless (Chrome) em 04/08/2026: o layout
+   normal do EPI estoura a página a partir de ~8 itens com CA
+   (a linha do item ganha uma 2ª linha com o CA); o de Uniforme,
+   a partir de ~12. Recibo de 2 páginas faz o programa de
+   assinatura juntar a página de continuação com a anterior,
+   gerando "arquivo com as páginas N e N+1".
+   ============================================================ */
+
+/** Altura útil da página A4 com margens de 1.5cm, ~96dpi: (297 − 30)mm */
+const ALTURA_UTIL_PAGINA_PX = 1009
+
+/** Altura fixa estimada de cada template (cabeçalho, seções, declaração, assinatura, rodapé). */
+const ALTURA_FIXA_EPI_PX = 820
+const ALTURA_FIXA_UNIFORME_PX = 640
+
+function alturaItensPx(entregas: ReciboEntrega[]): number {
+  // Linha com CA ocupa 2 linhas de texto (~37px); sem CA, ~24px.
+  return entregas.reduce((acc, e) => acc + (e.item.numero_ca ? 37 : 24), 0)
+}
+
+const CSS_COMPACTO = `
+    /* Compactação automática: recibo com muitos itens, para manter 1 página */
+    body { font-size: 8.5pt !important; line-height: 1.25 !important; }
+    .container { padding: 4px !important; }
+    .header { padding: 8px 12px !important; margin-bottom: 8px !important; }
+    .header h1 { font-size: 13pt !important; }
+    .header p { font-size: 8pt !important; margin-top: 2px !important; }
+    .empresa-info { padding: 5px 10px !important; margin-bottom: 6px !important; }
+    .empresa-nome { font-size: 9.5pt !important; }
+    .empresa-cnpj { font-size: 8pt !important; }
+    .section { padding: 6px 8px !important; margin-bottom: 6px !important; }
+    .section-title { font-size: 9pt !important; margin-bottom: 4px !important; padding-bottom: 2px !important; }
+    .info-grid { gap: 2px 12px !important; }
+    .info-item { margin-bottom: 1px !important; }
+    table { margin-top: 4px !important; }
+    th, td { padding: 3px 4px !important; font-size: 8.5pt !important; }
+    td span { font-size: 7.5pt !important; padding: 2px 5px !important; }
+    .treinamento { padding: 5px 8px !important; margin: 5px 0 !important; }
+    .declaracao { padding: 5px 8px !important; margin: 5px 0 !important; }
+    .declaracao p { margin-bottom: 4px !important; }
+    .declaracao ul { font-size: 6.5pt !important; line-height: 1.35 !important; padding-left: 14px !important; }
+    .assinatura { margin-top: 12px !important; }
+    .footer { margin-top: 8px !important; padding-top: 4px !important; }`
+
+const CSS_ULTRA_COMPACTO = `
+    body { font-size: 7.5pt !important; line-height: 1.15 !important; }
+    .header { padding: 6px 10px !important; margin-bottom: 6px !important; }
+    .header h1 { font-size: 12pt !important; }
+    th, td { padding: 2px 3px !important; font-size: 7.5pt !important; }
+    td span { font-size: 6.5pt !important; padding: 1px 4px !important; }
+    .declaracao ul { font-size: 6pt !important; }
+    .assinatura { margin-top: 8px !important; }
+    .footer { margin-top: 6px !important; }`
+
+/**
+ * CSS de compactação injetado no fim do <style> do recibo, escolhido pela
+ * altura estimada do conteúdo. O nível compacto reduz fontes/espaçamentos;
+ * quando a estimativa fica perto do limite da página, aplica ainda um zoom
+ * calculado como margem de segurança (Chromium aplica zoom na impressão);
+ * listas muito longas recebem o nível ultra compacto.
+ */
+function cssCompactacao(entregas: ReciboEntrega[], alturaFixa: number): string {
+  const alturaItens = alturaItensPx(entregas)
+  if (alturaFixa + alturaItens <= ALTURA_UTIL_PAGINA_PX) return ''
+
+  // Estimativa conservadora da altura no modo compacto (calibrada por
+  // medição real com impressão headless: o fixo encolhe ~15%, a linha ~28%).
+  const alturaEstimada = alturaFixa * 0.85 + alturaItens * 0.72
+  const limite = ALTURA_UTIL_PAGINA_PX * 0.93
+  const zoom = alturaEstimada > limite
+    ? Math.max(0.6, limite / alturaEstimada)
+    : 1
+  const ultra = zoom < 0.85 ? `\n${CSS_ULTRA_COMPACTO}` : ''
+  const zoomCss = zoom < 1 ? `\n    .container { zoom: ${zoom.toFixed(3)}; }` : ''
+  return `${CSS_COMPACTO}${ultra}${zoomCss}`
 }
 
 /* ============================================================
@@ -258,6 +346,7 @@ export function gerarReciboEPIColorido(data: ReciboData): string {
       padding-top: 8px;
       border-top: 1px solid #FED7AA;
     }
+    ${cssCompactacao(entregas, ALTURA_FIXA_EPI_PX)}
   </style>
 </head>
 <body>
@@ -505,6 +594,7 @@ export function gerarReciboEPIPB(data: ReciboData): string {
       border-top: 1px solid #333;
       padding-top: 6px;
     }
+    ${cssCompactacao(entregas, ALTURA_FIXA_EPI_PX)}
   </style>
 </head>
 <body>
@@ -760,6 +850,7 @@ export function gerarReciboUniformeColorido(data: ReciboData): string {
       padding-top: 8px;
       border-top: 1px solid #BBF7D0;
     }
+    ${cssCompactacao(entregas, ALTURA_FIXA_UNIFORME_PX)}
   </style>
 </head>
 <body>
@@ -896,6 +987,7 @@ export function gerarReciboUniformePB(data: ReciboData): string {
     .assinatura { margin-top: 12px; text-align: center; }
     .assinatura-line { border-top: 1px solid #000; margin: 0 auto; padding-top: 4px; font-size: 8pt; max-width: 250px; }
     .footer { margin-top: 12px; font-size: 7pt; text-align: center; border-top: 1px solid #333; padding-top: 6px; }
+    ${cssCompactacao(entregas, ALTURA_FIXA_UNIFORME_PX)}
   </style>
 </head>
 <body>
