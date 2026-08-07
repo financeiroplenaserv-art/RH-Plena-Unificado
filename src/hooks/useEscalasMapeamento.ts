@@ -44,8 +44,51 @@ export function useEscalasMapeamento() {
       return data as unknown as MapeamentoFlitLocalTrabalho
     } catch (err: unknown) {
       console.error('Erro ao criar mapeamento:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar mapeamento')
+      // 23505 = violação da UNIQUE (tipo_match, valor_flit): traduz para o usuário
+      const codigo = (err as { code?: string } | null)?.code
+      toast.error(
+        codigo === '23505'
+          ? 'Este mapeamento já existe (mesmo tipo e valor no Flit)'
+          : err instanceof Error
+            ? err.message
+            : 'Erro ao criar mapeamento'
+      )
       return null
+    }
+  }, [listar])
+
+  const atualizar = useCallback(async (
+    id: string,
+    dados: { local_trabalho_id: string; tipo_match: MapeamentoFlitLocalTrabalho['tipo_match']; valor_flit: string }
+  ) => {
+    try {
+      // .select('id') após o update: UPDATE bloqueado por RLS retorna 0 linhas
+      // SEM erro — sem essa checagem o toast fingiria sucesso.
+      const { data, error } = await supabase
+        .from('mapeamento_flit_local_trabalho')
+        .update(dados as Partial<MapeamentoFlitLocalTrabalho>)
+        .eq('id', id)
+        .select('id')
+      if (error) throw error
+      if (!data || data.length === 0) {
+        toast.error('Sem permissão para atualizar este mapeamento')
+        return false
+      }
+      toast.success('Mapeamento atualizado')
+      await listar()
+      return true
+    } catch (err: unknown) {
+      console.error('Erro ao atualizar mapeamento:', err)
+      // 23505 = violação da UNIQUE (tipo_match, valor_flit): traduz para o usuário
+      const codigo = (err as { code?: string } | null)?.code
+      toast.error(
+        codigo === '23505'
+          ? 'Já existe outro mapeamento com este tipo e valor no Flit'
+          : err instanceof Error
+            ? err.message
+            : 'Erro ao atualizar mapeamento'
+      )
+      return false
     }
   }, [listar])
 
@@ -73,5 +116,5 @@ export function useEscalasMapeamento() {
     }
   }, [listar])
 
-  return { mapeamentos, loading, listar, criar, remover }
+  return { mapeamentos, loading, listar, criar, atualizar, remover }
 }

@@ -41,6 +41,7 @@ export function inferirLocalTrabalho(
     nomeDispositivo,
     perimetro,
     departamento,
+    turno,
   } = dados
 
   const tipoDispositivoNormalizado = normalizarTexto(tipoDispositivo)
@@ -74,7 +75,36 @@ export function inferirLocalTrabalho(
     }
   }
 
-  // 3. Departamento mapeado como local de trabalho
+  // 3. Nome do horário (turno) — regra decidida com a gestão (06/08/2026):
+  // o turno diz onde a pessoa trabalhou NAQUELE DIA. Vem ANTES do departamento
+  // porque faltistas têm departamento fixo/genérico (ex.: "PLENA EA FACILITIES"),
+  // mas trabalham em postos diferentes a cada dia — só o horário registra o posto real.
+  // Em empate de prioridade, o valor mais longo (mais específico) vence, para um
+  // valor genérico nunca roubar o match de um específico (ex.: "CBO" vs "CBO MACAÉ").
+  const turnoNormalizado = normalizarTexto(turno)
+  if (turnoNormalizado) {
+    const match = mapeamentos
+      .filter((m) => m.ativo !== false && m.tipo_match === 'turno_departamento')
+      .sort(
+        (a, b) =>
+          (a.prioridade ?? 100) - (b.prioridade ?? 100) ||
+          normalizarTexto(b.valor_flit).length - normalizarTexto(a.valor_flit).length
+      )
+      .find((m) => {
+        const valorFlit = normalizarTexto(m.valor_flit)
+        return valorFlit && turnoNormalizado.includes(valorFlit)
+      })
+
+    if (match) {
+      return {
+        localTrabalhoId: match.local_trabalho_id,
+        fonte: 'turno_departamento',
+        confianca: 'media',
+      }
+    }
+  }
+
+  // 4. Departamento mapeado como local de trabalho (double check final)
   const departamentoNormalizado = normalizarTexto(departamento)
 
   if (departamentoNormalizado) {

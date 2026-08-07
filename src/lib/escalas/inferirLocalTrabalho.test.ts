@@ -56,7 +56,7 @@ describe('inferirLocalTrabalho', () => {
     expect(resultado?.fonte).toBe('perimetro')
   })
 
-  it('encontra local pelo turno quando o turno contém o departamento do colaborador', () => {
+  it('encontra local pelo nome do horário (turno) quando ele contém o valor mapeado', () => {
     const resultado = inferirLocalTrabalho(mapeamentos, {
       tipoDispositivo: 'flit',
       nomeDispositivo: '',
@@ -71,16 +71,49 @@ describe('inferirLocalTrabalho', () => {
     expect(resultado?.confianca).toBe('media')
   })
 
-  it('não faz match pelo turno quando ele não contém o departamento do colaborador', () => {
+  it('turno tem prioridade sobre departamento: faltista de departamento genérico vai para o posto do horário do dia', () => {
+    // Caso real (06/08/2026): faltista com depto "PLENA EA FACILITIES" trabalha
+    // em postos diferentes a cada dia — quem diz a verdade do dia é o turno.
+    const maps = [...mapeamentos, mapeamento('loc-plena', 'turno_departamento', 'PLENA EA FACILITIES')]
+    const resultado = inferirLocalTrabalho(maps, {
+      tipoDispositivo: 'flit',
+      nomeDispositivo: '',
+      perimetro: '',
+      departamento: 'PLENA EA FACILITIES',
+      turno: '7h às 15:20h CASCAIS ASG 2',
+    })
+
+    expect(resultado?.localTrabalhoId).toBe('loc-cascais')
+    expect(resultado?.fonte).toBe('turno_departamento')
+  })
+
+  it('usa o departamento como double check quando o turno não casa com nada', () => {
     const resultado = inferirLocalTrabalho(mapeamentos, {
       tipoDispositivo: 'flit',
       nomeDispositivo: '',
       perimetro: '',
-      departamento: 'Matizes',
-      turno: '8h às 17h CASCAIS',
+      departamento: 'Cascais Limpeza',
+      turno: '8h às 17h',
     })
 
-    expect(resultado).toBeNull()
+    expect(resultado?.localTrabalhoId).toBe('loc-cascais')
+    expect(resultado?.fonte).toBe('turno_departamento')
+  })
+
+  it('no turno, o valor mais específico vence o genérico (CBO MACAÉ vs CBO)', () => {
+    const maps = [
+      mapeamento('loc-cbo', 'turno_departamento', 'CBO'),
+      mapeamento('loc-cbo-macae', 'turno_departamento', 'CBO MACAÉ'),
+    ]
+    const resultado = inferirLocalTrabalho(maps, {
+      tipoDispositivo: 'flit',
+      nomeDispositivo: '',
+      perimetro: '',
+      departamento: '',
+      turno: '19 às 7h CBO MACAÉ VIGIA N. PAR',
+    })
+
+    expect(resultado?.localTrabalhoId).toBe('loc-cbo-macae')
   })
 
   it('prioriza dispositivo fixo sobre perímetro e turno', () => {
