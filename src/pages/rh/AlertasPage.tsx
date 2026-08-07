@@ -166,12 +166,12 @@ export function AlertasPage() {
             Todos
           </ModuleButton>
         </div>
-        <Select value={filtroSeveridade} onValueChange={setFiltroSeveridade}>
+        <Select value={filtroSeveridade || 'todas'} onValueChange={(v) => setFiltroSeveridade(v === 'todas' ? '' : v)}>
           <SelectTrigger className="h-8 text-xs w-full sm:w-44">
             <SelectValue placeholder="Todas severidades" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas severidades</SelectItem>
+            <SelectItem value="todas">Todas severidades</SelectItem>
             <SelectItem value="critica">Crítica</SelectItem>
             <SelectItem value="alta">Alta</SelectItem>
             <SelectItem value="media">Média</SelectItem>
