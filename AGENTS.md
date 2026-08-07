@@ -449,6 +449,7 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 - `docs/AGENTES_RH_PLENA.md` — prompts para agentes de avaliação (atenção: contém informações parcialmente desatualizadas, como React 18).
 - `src/pages/ceu/AGENTS.md` — exceção específica do módulo CEU sobre datas de recibo.
 - `docs/CORH — Design System (para Kimi Code).md` — especificação visual completa.
+- `docs/manual/` — Manual do Usuário (Word + PDF) gerado a partir de `scripts/manual/` (capítulos em Markdown + screenshots automáticos com dados fictícios; ver `scripts/manual/README.md` para atualizar).
 
 ---
 
