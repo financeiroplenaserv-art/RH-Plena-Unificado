@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
+import { deveIgnorarErroImportacao } from '@/lib/econtador'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
 import { useColaboradores } from './useColaboradores'
@@ -399,6 +400,13 @@ export function useEContador() {
         if (resultado.acao === 'criado') importados++
         else atualizados++
       } catch (err: unknown) {
+        // Inativo/demitido sem correspondência no CORH e com matrícula já em
+        // uso por outro colaborador: registro histórico antigo — ignora em
+        // silêncio (não conta como erro). Ver src/lib/econtador.ts.
+        if (deveIgnorarErroImportacao(err, f)) {
+          console.info('Importação e-Contador: ignorado (inativo com matrícula já em uso no CORH):', f.nome)
+          continue
+        }
         erros++
         let mensagem = 'Erro desconhecido'
         let erroSerializado = String(err)
