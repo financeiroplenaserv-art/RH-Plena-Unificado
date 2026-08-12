@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
-import { deveIgnorarErroImportacao } from '@/lib/econtador'
+import { deveIgnorarErroImportacao, extrairMensagemErro } from '@/lib/econtador'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
 import { useColaboradores } from './useColaboradores'
@@ -193,18 +193,29 @@ export function useEContador() {
 
   const listarHistorico = useCallback(async () => {
     try {
-      const { data: userData, error: erroAuth } = await supabase.auth.getUser()
-      if (erroAuth) throw erroAuth
-
+      // Histórico compartilhado (decisão da gestão, 12/08/2026): todos os perfis
+      // com permissão de importação veem todas as importações — ver migration 101.
       const { data, error } = await supabase
         .from('historico_importacoes_econtador')
         .select(COLUNAS_HISTORICO_IMPORTACAO)
-        .eq('usuario_id', userData.user?.id)
         .order('created_at', { ascending: false })
         .limit(10)
 
       if (error) throw error
-      setHistorico(data || [])
+
+      const linhas = data || []
+      const usuarioIds = Array.from(new Set(linhas.map(l => l.usuario_id).filter(Boolean))) as string[]
+      let nomesPorId = new Map<string, string>()
+      if (usuarioIds.length > 0) {
+        const { data: perfis } = await supabase
+          .from('perfis')
+          .select('id, nome, email')
+          .in('id', usuarioIds)
+        nomesPorId = new Map(
+          (perfis || []).map(p => [p.id, p.nome || p.email || '—'] as const)
+        )
+      }
+      setHistorico(linhas.map(l => ({ ...l, usuario_nome: l.usuario_id ? nomesPorId.get(l.usuario_id) || '—' : '—' })))
     } catch (err: unknown) {
       const mensagem = err instanceof Error ? err.message : 'Erro ao listar histórico de importações'
       console.error('Erro ao listar histórico:', err)
@@ -408,20 +419,15 @@ export function useEContador() {
           continue
         }
         erros++
-        let mensagem = 'Erro desconhecido'
+        const mensagem = extrairMensagemErro(err)
         let erroSerializado = String(err)
-        if (err instanceof Error) {
-          mensagem = err.message
-          erroSerializado = JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
-        } else if (typeof err === 'string') {
-          mensagem = err
-        } else if (err && typeof err === 'object') {
+        if (err && typeof err === 'object') {
           try {
-            erroSerializado = JSON.stringify(err, null, 2)
-            mensagem = erroSerializado.slice(0, 500)
+            erroSerializado = err instanceof Error
+              ? JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
+              : JSON.stringify(err, null, 2)
           } catch {
             erroSerializado = 'Erro não serializável'
-            mensagem = erroSerializado
           }
         }
         detalhesErros.push({ nome: f.nome, erro: mensagem })

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import {
   Download, Upload, Loader2, Users, Building2, Search, FileSpreadsheet,
-  FileText, History, RefreshCw, ChevronLeft, ChevronRight, Trash2, Filter
+  FileText, History, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Filter
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useEContador } from '@/hooks/useEContador'
 import { cn, formatarCPF, mascararCPF } from '@/lib/utils'
+import { extrairMensagemErro } from '@/lib/econtador'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { TOKEN_SALVO_NA_EDGE_FUNCTION } from '@/services/econtadorApi'
 import { toast } from 'sonner'
@@ -169,6 +170,7 @@ export function ImportarEContadorPage() {
   const [confirmarLimparHistorico, setConfirmarLimparHistorico] = useState(false)
   const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [errosExpandidos, setErrosExpandidos] = useState<Set<string>>(new Set())
 
   const tokenSalvoNaEdge = token === TOKEN_SALVO_NA_EDGE_FUNCTION
 
@@ -282,6 +284,15 @@ export function ImportarEContadorPage() {
   const limparHistoricoLocal = () => {
     setConfirmarLimparHistorico(false)
     toast.info('Histórico visual limpo. Para remover do banco, utilize o Supabase.')
+  }
+
+  const toggleErrosExpandidos = (id: string) => {
+    setErrosExpandidos(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   return (
@@ -681,41 +692,93 @@ export function ImportarEContadorPage() {
                       <TableHead style={{ color: '#1F2937' }}>Novos</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Atualizados</TableHead>
                       <TableHead style={{ color: '#1F2937' }}>Erros</TableHead>
+                      <TableHead style={{ color: '#1F2937' }}>Importado por</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {historico.map((h) => (
-                      <TableRow key={h.id} className="hover:bg-slate-50">
-                        <TableCell style={{ color: '#1F2937' }}>
-                          {h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '—'}
-                        </TableCell>
-                        <TableCell style={{ color: '#1F2937' }}>{h.empresa_nome || '—'}</TableCell>
-                        <TableCell style={{ color: '#64748B' }}>{h.quantidade}</TableCell>
-                        <TableCell className="text-emerald-600">{h.importados}</TableCell>
-                        <TableCell className="text-blue-600">{h.atualizados}</TableCell>
-                        <TableCell className={h.erros > 0 ? 'text-red-600' : ''} style={{ color: h.erros > 0 ? undefined : '#64748B' }}>
-                          {h.erros}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleReimportar(h)}
-                            disabled={loading || reimportandoId === h.id}
-                            className="rounded-lg"
-                            style={{ borderColor: '#1F2937', color: '#1F2937' }}
-                          >
-                            {reimportandoId === h.id ? (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                            )}
-                            Reimportar
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {historico.map((h) => {
+                      const detalhes = h.detalhes_erros || []
+                      const temDetalhes = h.erros > 0 && detalhes.length > 0
+                      const expandido = !!h.id && errosExpandidos.has(h.id)
+                      return (
+                        <Fragment key={h.id}>
+                          <TableRow className="hover:bg-slate-50">
+                            <TableCell style={{ color: '#1F2937' }}>
+                              {h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '—'}
+                            </TableCell>
+                            <TableCell style={{ color: '#1F2937' }}>{h.empresa_nome || '—'}</TableCell>
+                            <TableCell style={{ color: '#64748B' }}>{h.quantidade}</TableCell>
+                            <TableCell className="text-emerald-600">{h.importados}</TableCell>
+                            <TableCell className="text-blue-600">{h.atualizados}</TableCell>
+                            <TableCell>
+                              {temDetalhes ? (
+                                <button
+                                  type="button"
+                                  onClick={() => h.id && toggleErrosExpandidos(h.id)}
+                                  className="inline-flex items-center gap-1 text-red-600 hover:underline"
+                                  title="Ver detalhes dos erros"
+                                >
+                                  {h.erros}
+                                  {expandido ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                </button>
+                              ) : (
+                                <span className={h.erros > 0 ? 'text-red-600' : ''} style={{ color: h.erros > 0 ? undefined : '#64748B' }}>
+                                  {h.erros}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell style={{ color: '#64748B' }}>{h.usuario_nome || '—'}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleReimportar(h)}
+                                disabled={loading || reimportandoId === h.id}
+                                className="rounded-lg"
+                                style={{ borderColor: '#1F2937', color: '#1F2937' }}
+                              >
+                                {reimportandoId === h.id ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                )}
+                                Reimportar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                          {expandido && (
+                            <TableRow className="hover:bg-transparent">
+                              <TableCell colSpan={8} className="p-0">
+                                <div className="border-t overflow-hidden" style={{ borderColor: '#FECACA' }}>
+                                  <div className="px-4 py-2 text-sm font-medium" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+                                    Detalhes dos erros
+                                  </div>
+                                  <div className="max-h-48 overflow-auto">
+                                    <Table>
+                                      <TableHeader style={{ backgroundColor: '#FEF2F2' }}>
+                                        <TableRow>
+                                          <TableHead className="text-xs" style={{ color: '#7F1D1D' }}>Colaborador</TableHead>
+                                          <TableHead className="text-xs" style={{ color: '#7F1D1D' }}>Erro</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {detalhes.map((e, i) => (
+                                          <TableRow key={i}>
+                                            <TableCell className="text-sm font-medium" style={{ color: '#1F2937' }}>{e.nome}</TableCell>
+                                            <TableCell className="text-sm" style={{ color: '#64748B' }}>{extrairMensagemErro(e.erro)}</TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
