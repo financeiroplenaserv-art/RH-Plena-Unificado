@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Plus, Trash2, Search, Calendar, Copy, AlertTriangle, Pencil, X, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -230,42 +231,55 @@ export function AdicionaisVinculosPage() {
 
   const handleCopiarPeriodoAnterior = async () => {
     const hoje = new Date()
-    const ano = hoje.getFullYear()
-    const mes = hoje.getMonth() + 1
-    const { inicio: inicioMesAtual, fim: fimMesAtual } = boundsDoMes(ano, mes)
+    const anterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+    const { inicio: inicioMesAnterior, fim: fimMesAnterior } = boundsDoMes(anterior.getFullYear(), anterior.getMonth() + 1)
 
-    const vinculosAtuais = vinculos.filter(
-      v => v.data_inicio <= fimMesAtual && v.data_fim >= inicioMesAtual
+    const vinculosAnteriores = vinculos.filter(
+      v => v.data_inicio <= fimMesAnterior && v.data_fim >= inicioMesAnterior
     )
 
-    if (vinculosAtuais.length === 0) {
+    if (vinculosAnteriores.length === 0) {
       setModalCopiar(false)
+      toast.info('Nenhum vínculo ativo no mês anterior para copiar.')
       return
     }
 
     setCopiando(true)
+    let criados = 0
+    let ignorados = 0
+    let erros = 0
     try {
-      for (const v of vinculosAtuais) {
+      // Chaves dos vínculos já existentes — evita duplicar tanto contra o banco
+      // quanto contra os criados nesta mesma cópia
+      const chavesExistentes = new Set(
+        vinculos.map(v => `${v.colaborador_id}|${v.contrato_id}|${v.data_inicio}|${v.data_fim}`)
+      )
+      for (const v of vinculosAnteriores) {
         const novaInicio = deslocarMes(v.data_inicio, 1)
         const novaFim = deslocarMes(v.data_fim, 1)
-        const jaExiste = vinculos.some(
-          existente =>
-            existente.colaborador_id === v.colaborador_id &&
-            existente.contrato_id === v.contrato_id &&
-            existente.data_inicio === novaInicio &&
-            existente.data_fim === novaFim
-        )
-        if (!jaExiste) {
-          const dados = montarVinculoCompleto({
-            contrato_id: v.contrato_id,
-            colaborador_id: v.colaborador_id,
-            data_inicio: novaInicio,
-            data_fim: novaFim,
-          })
-          await criarVinculo(dados)
+        const chave = `${v.colaborador_id}|${v.contrato_id}|${novaInicio}|${novaFim}`
+        if (chavesExistentes.has(chave)) {
+          ignorados++
+          continue
+        }
+        const dados = montarVinculoCompleto({
+          contrato_id: v.contrato_id,
+          colaborador_id: v.colaborador_id,
+          data_inicio: novaInicio,
+          data_fim: novaFim,
+        })
+        const criado = await criarVinculo(dados, { silencioso: true })
+        if (criado) {
+          criados++
+          chavesExistentes.add(chave)
+        } else {
+          erros++
         }
       }
       await listarVinculos()
+      if (criados > 0) toast.success(`${criados} vínculo(s) copiado(s) do mês anterior para o mês atual.`)
+      if (ignorados > 0) toast.info(`${ignorados} vínculo(s) já existia(m) no mês atual e foi/foram ignorado(s).`)
+      if (erros > 0) toast.error(`${erros} vínculo(s) não puderam ser copiados — veja o console.`)
     } finally {
       setCopiando(false)
       setModalCopiar(false)
@@ -537,7 +551,7 @@ export function AdicionaisVinculosPage() {
           <DialogHeader>
             <DialogTitle className="text-base" style={{ color: '#1F2937' }}>Copiar do período anterior</DialogTitle>
             <DialogDescription className="text-xs" style={{ color: '#94A3B8' }}>
-              Serão criados novos vínculos no mês seguinte aos vínculos ativos do mês atual. Vínculos já existentes no destino serão ignorados.
+              Serão criados no mês atual novos vínculos a partir dos vínculos ativos do mês anterior. Vínculos já existentes no destino serão ignorados.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-start gap-3 text-sm p-3 rounded-lg" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>

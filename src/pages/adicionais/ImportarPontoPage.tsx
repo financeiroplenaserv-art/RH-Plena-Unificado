@@ -360,7 +360,10 @@ export function ImportarPontoPage() {
       carregarArquivosEnviados()
     } catch (err) {
       console.error('Erro ao salvar espelho de ponto para reutilização:', err)
-      toast.warning('O PDF será processado, mas não foi possível salvá-lo no servidor para reutilização.')
+      const detalhe = err instanceof Error
+        ? err.message
+        : (err as { message?: string } | null)?.message || ''
+      toast.warning(`O PDF será processado, mas não foi possível salvá-lo no servidor para reutilização.${detalhe ? ` Motivo: ${detalhe}.` : ''}`)
     }
     await processarArquivo(arquivo)
   }

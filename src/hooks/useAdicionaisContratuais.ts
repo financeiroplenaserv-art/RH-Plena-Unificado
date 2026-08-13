@@ -278,7 +278,7 @@ export function useAdicionaisContratuais() {
     }
   }, [])
 
-  const criarVinculo = useCallback(async (dados: Omit<VinculoAdicional, 'id' | 'created_at'>) => {
+  const criarVinculo = useCallback(async (dados: Omit<VinculoAdicional, 'id' | 'created_at'>, opcoes?: { silencioso?: boolean }) => {
     try {
       if (MODO_MOCK) {
         const lista = lerMock<VinculoAdicional>('vinculos')
@@ -287,7 +287,7 @@ export function useAdicionaisContratuais() {
         const atualizada = [...lista, novo]
         salvarMock('vinculos', atualizada)
         setVinculos(atualizada)
-        toast.success('Vínculo criado')
+        if (!opcoes?.silencioso) toast.success('Vínculo criado')
         return novo
       }
       const payload = {
@@ -298,12 +298,16 @@ export function useAdicionaisContratuais() {
       }
       const { data, error } = await supabase.from('vinculos_adicionais').insert(payload).select(COLUNAS_VINCULO).single()
       if (error) throw error
-      toast.success('Vínculo criado')
-      await listarVinculos()
+      if (!opcoes?.silencioso) {
+        toast.success('Vínculo criado')
+        await listarVinculos()
+      }
       return data as VinculoAdicional
     } catch (err: unknown) {
       console.error('Erro ao criar vínculo:', err)
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar vínculo')
+      if (!opcoes?.silencioso) {
+        toast.error(err instanceof Error ? err.message : 'Erro ao criar vínculo')
+      }
       return null
     }
   }, [listarVinculos])

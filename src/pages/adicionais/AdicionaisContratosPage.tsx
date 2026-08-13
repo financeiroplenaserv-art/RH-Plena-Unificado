@@ -197,20 +197,14 @@ export function AdicionaisContratosPage() {
           </div>
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Departamento</Label>
-            <Select
-              value={form.departamento_id || 'null'}
-              onValueChange={v => setForm(prev => ({ ...prev, departamento_id: v === 'null' ? null : v }))}
-            >
-              <SelectTrigger className="rounded-lg">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="null">Sem departamento</SelectItem>
-                {departamentos.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{nomeDepartamento(d)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DepartamentoAutocomplete
+              value={form.departamento_id || ''}
+              onChange={v => setForm(prev => ({ ...prev, departamento_id: v || null }))}
+              mode="id"
+              placeholder="Digite para buscar o departamento..."
+              clearValue=""
+              clearLabel="Sem departamento"
+            />
           </div>
           <div className="space-y-2">
             <Label style={{ color: '#1F2937' }}>Quantidade de colaboradores</Label>

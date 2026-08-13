@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 const BUCKET = 'ponto-espelhos'
 const TABELA = 'ponto_espelho_arquivos'
 const LIMITE_LISTAGEM = 10
+/** Limite de tamanho do bucket ponto-espelhos (50 MB — migration 094 e teto do plano Free). */
+export const LIMITE_BYTES_ESPELHO = 50 * 1024 * 1024
 
 export interface PontoEspelhoArquivo {
   id: string
@@ -64,6 +66,11 @@ export async function buscarArquivoIdentico(file: File): Promise<PontoEspelhoArq
  * com `reenviar = true`, sempre grava um novo registro.
  */
 export async function salvarArquivo(file: File, userId: string, reenviar = false): Promise<PontoEspelhoArquivo> {
+  if (file.size > LIMITE_BYTES_ESPELHO) {
+    const mb = (file.size / 1024 / 1024).toFixed(1).replace('.', ',')
+    throw new Error(`o PDF tem ${mb} MB e o limite do servidor é 50 MB`)
+  }
+
   if (!reenviar) {
     const existente = await buscarArquivoIdentico(file)
     if (existente) return existente
@@ -73,10 +80,13 @@ export async function salvarArquivo(file: File, userId: string, reenviar = false
   const pasta = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
   const storagePath = `${pasta}/${crypto.randomUUID()}_${file.name}`
 
-  const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, file, {
-    contentType: 'application/pdf',
-    upsert: false,
-  })
+  const opcoesUpload = { contentType: 'application/pdf', upsert: false }
+  let { error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, file, opcoesUpload)
+  if (erroUpload) {
+    // Espelhos têm dezenas de MB — uma nova tentativa absorve instabilidade de rede
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    ;({ error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, file, opcoesUpload))
+  }
   if (erroUpload) throw erroUpload
 
   const { data, error: erroInsert } = await supabase

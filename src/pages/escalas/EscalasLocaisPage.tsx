@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
+import { removerAcentos } from '@/lib/utils'
 import type { LocalTrabalho } from '@/types/database'
-import { Plus, Trash2, Building2 } from 'lucide-react'
+import { Plus, Trash2, Building2, Search } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
@@ -16,10 +17,20 @@ export function EscalasLocaisPage() {
   const [editando, setEditando] = useState<LocalTrabalho | null>(null)
   const [importando, setImportando] = useState(false)
   const [confirmarExclusao, setConfirmarExclusao] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
 
   useEffect(() => {
     listar()
   }, [listar])
+
+  const locaisFiltrados = useMemo(() => {
+    const termo = removerAcentos(busca.trim().toLowerCase())
+    if (!termo) return locais
+    return locais.filter((l) =>
+      removerAcentos(l.nome.toLowerCase()).includes(termo) ||
+      removerAcentos((l.nome_curto || '').toLowerCase()).includes(termo)
+    )
+  }, [locais, busca])
 
   const handleCriar = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,13 +92,31 @@ export function EscalasLocaisPage() {
       </ModuleCard>
 
       <ModuleCard title="Locais cadastrados">
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              className="pl-9"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome ou nome curto..."
+            />
+          </div>
+
+          {busca.trim() && !loading && locais.length > 0 && (
+            <p className="text-xs text-slate-500 mb-2">
+              Exibindo {locaisFiltrados.length} de {locais.length} local(is)
+            </p>
+          )}
+
           {loading ? (
             <p className="text-slate-500">Carregando...</p>
           ) : locais.length === 0 ? (
             <p className="text-slate-500">Nenhum local de trabalho cadastrado.</p>
+          ) : locaisFiltrados.length === 0 ? (
+            <p className="text-slate-500">Nenhum local encontrado para a busca.</p>
           ) : (
             <div className="divide-y">
-              {locais.map((local) => (
+              {locaisFiltrados.map((local) => (
                 <div key={local.id} className="py-3 flex items-center justify-between gap-4">
                   {editando?.id === local.id ? (
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
