@@ -64,7 +64,11 @@ function filtrarPorModo(funcionarios: EContadorFuncionario[], modo: ModoImportac
   return funcionarios.filter((f) => {
     if (!f) return false
     const dias = diferencaDias(f[campo])
-    return dias !== null && dias >= 0 && dias <= 15
+    if (dias === null) return false
+    // Admissão: inclui datas futuras (dias negativos) — ex.: funcionário já
+    // cadastrado no e-Contador com admissão amanhã. Demissão: só passado.
+    if (modo === 'admissao15dias') return dias <= 15
+    return dias >= 0 && dias <= 15
   })
 }
 
@@ -313,7 +317,7 @@ export function ImportarEContadorPage() {
                   {modoImportacao === 'todos' && 'Total de funcionários'}
                   {modoImportacao === 'ativos' && 'Funcionários ativos'}
                   {modoImportacao === 'demissao15dias' && 'Demitidos até 15 dias'}
-                  {modoImportacao === 'admissao15dias' && 'Admitidos até 15 dias'}
+                  {modoImportacao === 'admissao15dias' && 'Admitidos há 15 dias ou com admissão futura'}
                 </p>
                 <p className="text-3xl font-bold" style={{ color: '#1F2937' }}>{totalFuncionarios}</p>
               </CardContent>
@@ -445,7 +449,7 @@ export function ImportarEContadorPage() {
                 {funcionariosFiltrados.length} funcionário{funcionariosFiltrados.length !== 1 ? 's' : ''} encontrado{funcionariosFiltrados.length !== 1 ? 's' : ''}
                 {modoImportacao === 'ativos' && ' (ativos)'}
                 {modoImportacao === 'demissao15dias' && ' (demitidos até 15 dias)'}
-                {modoImportacao === 'admissao15dias' && ' (admitidos até 15 dias)'}
+                {modoImportacao === 'admissao15dias' && ' (admitidos há 15 dias ou com admissão futura)'}
                 {selecionados.size > 0 && (
                   <span className="ml-2 text-emerald-600">
                     • {selecionados.size} selecionado{selecionados.size !== 1 ? 's' : ''}
@@ -477,7 +481,7 @@ export function ImportarEContadorPage() {
                     <SelectItem value="todos">Importar todos</SelectItem>
                     <SelectItem value="ativos">Importar somente ativos</SelectItem>
                     <SelectItem value="demissao15dias">Importar demitidos nos últimos 15 dias</SelectItem>
-                    <SelectItem value="admissao15dias">Importar admitidos nos últimos 15 dias</SelectItem>
+                    <SelectItem value="admissao15dias">Importar admitidos nos últimos 15 dias ou com admissão futura</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative flex-1">

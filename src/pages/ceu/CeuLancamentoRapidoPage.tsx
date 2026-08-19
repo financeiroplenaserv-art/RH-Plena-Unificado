@@ -47,6 +47,21 @@ function gerarId() {
 }
 
 /**
+ * Data de hoje no fuso LOCAL (não usar new Date().toISOString() aqui: ele
+ * devolve a data em UTC e, a partir das 21h no horário de Brasília, já
+ * aponta para o dia seguinte).
+ */
+function hojeLocalISO(): string {
+  const agora = new Date()
+  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`
+}
+
+/** Linha com qualquer conteúdo digitado (ignora os defaults de data/qtd/status). */
+function linhaTemConteudo(linha: LinhaLancamento) {
+  return !!(linha.colaboradorInput || linha.colaboradorId || linha.codigo || linha.produto)
+}
+
+/**
  * Cria uma linha nova. Com `base`, herda apenas a DATA da linha anterior
  * (fill-down); com `copiarColaborador`, herda também o colaborador — fluxo
  * "mesma pessoa, vários itens". Tipo, código, produto e quantidade nunca
@@ -57,7 +72,7 @@ function gerarId() {
 function criarLinhaVazia(base?: LinhaLancamento, copiarColaborador = false): LinhaLancamento {
   return {
     id: gerarId(),
-    data: base?.data || new Date().toISOString().split('T')[0],
+    data: base?.data || hojeLocalISO(),
     colaboradorId: copiarColaborador && base ? base.colaboradorId : '',
     colaboradorInput: copiarColaborador && base ? base.colaboradorInput : '',
     tamanhos: copiarColaborador && base ? base.tamanhos : null,
@@ -83,8 +98,17 @@ function carregarRascunho(): LinhaLancamento[] {
     if (salvo) {
       const parsed = JSON.parse(salvo)
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Rascunhos antigos (antes do ceu_tamanhos) não têm o campo `tamanhos`
-        return parsed.map((l) => ({ tamanhos: null, ...l }))
+        // Rascunhos antigos (antes do ceu_tamanhos) não têm o campo `tamanhos`.
+        // Linhas sem nenhum conteúdo digitado são apenas as linhas vazias
+        // padrão que o rascunho persistiu — nelas a data é sempre a de HOJE;
+        // caso contrário a tela abriria com a data do dia em que a página foi
+        // visitada pela última vez (o rascunho grava até as linhas vazias).
+        // Linhas com conteúdo mantêm a data escolhida (pode ser 1º do mês —
+        // ver src/pages/ceu/AGENTS.md).
+        return parsed.map((l) => {
+          const linha = { tamanhos: null, ...l } as LinhaLancamento
+          return linhaTemConteudo(linha) ? linha : { ...linha, data: hojeLocalISO() }
+        })
       }
     }
   } catch {
@@ -349,11 +373,6 @@ export function CeuLancamentoRapidoPage() {
       linha.quantidade > 0 &&
       linha.status
     )
-  }
-
-  /** Linha com qualquer conteúdo digitado (ignora os defaults de data/qtd/status). */
-  function linhaTemConteudo(linha: LinhaLancamento) {
-    return !!(linha.colaboradorInput || linha.colaboradorId || linha.codigo || linha.produto)
   }
 
   async function handleSalvar() {
