@@ -143,6 +143,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'permissoes', label: 'Ver menu Permissões', grupo: 'Menus' },
   { recurso: 'menu', acao: 'relatorios', label: 'Ver menu Relatórios', grupo: 'Menus' },
   { recurso: 'menu', acao: 'ferias', label: 'Ver menu Férias', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'bi', label: 'Ver menu PerformanceLab', grupo: 'Menus' },
 
   // Rotas
   { recurso: 'rota', acao: 'colaboradores', label: 'Acessar rotas de colaboradores', grupo: 'Rotas' },
@@ -161,6 +162,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'rota', acao: 'relatorios', label: 'Acessar relatórios', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'ferias', label: 'Acessar férias', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'mobile_falta', label: 'Acessar lançamento mobile de falta', grupo: 'Rotas' },
+  { recurso: 'rota', acao: 'bi', label: 'Acessar PerformanceLab', grupo: 'Rotas' },
 ]
 
 export function PermissoesPage() {

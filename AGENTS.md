@@ -17,6 +17,7 @@
 - **e-Contador** — importação de empresas e funcionários da API Alterdata e-Contador.
 - **Escalas** — locais de trabalho, mapeamento FLIT e importação de escala.
 - **Férias** — períodos por colaborador (gozo/agendado/previsto), importação da planilha Flit, painel CLT e notificações.
+- **PerformanceLab (BI)** — dashboard de checklists, visitas dos inspetores e eventos, alimentado 1x ao dia da API PerformanceLab pela Edge Function `sync-performancelab` (tabelas `bi_*`).
 
 O backend (banco, autenticação, storage, edge functions) roda no **Supabase**. O frontend é uma SPA/PWA estática gerada pelo **Vite**.
 
@@ -37,6 +38,7 @@ O backend (banco, autenticação, storage, edge functions) roda no **Supabase**.
 | Backend | Supabase (Auth + PostgreSQL + RLS + Storage + Edge Functions) |
 | Cliente Supabase | `@supabase/supabase-js` |
 | PDF/Excel | `jspdf`, `jspdf-autotable`, `pdfjs-dist`, `@e965/xlsx` |
+| Gráficos | `chart.js` 4 (módulo PerformanceLab; wrapper em `src/components/bi/Grafico.tsx`) |
 | Testes | Vitest 4 + jsdom + `@testing-library/react` + `@testing-library/jest-dom` |
 | Scripts utilitários | `tsx` com `tsconfig.scripts.json` |
 | PWA | `vite-plugin-pwa` (modo `injectManifest`, service worker em `src/sw.ts`) |
@@ -107,7 +109,7 @@ src/
     └── setup.ts          # Setup do Vitest (polyfill DOMMatrix para pdfjs-dist)
 
 supabase/
-├── migrations/             # 100 migrations SQL (numeradas 001 a 100)
+├── migrations/             # 103 migrations SQL (numeradas 001 a 103)
 └── functions/              # Edge Functions Deno: `econtador` (integração e-Contador) e `suporte` (e-mail de ajuda via Resend)
 
 scripts/                  # Scripts utilitários e SQL de manutenção (migração de dados, análises, etc.)
@@ -271,7 +273,7 @@ npx vitest
 
 ### Migrations
 
-- Existem **100 migrations** em `supabase/migrations/` (numeradas `001_*` a `100_*`).
+- Existem **103 migrations** em `supabase/migrations/` (numeradas `001_*` a `103_*`).
 - Aplique migrations via Supabase CLI ou SQL Editor.
 - Antes de qualquer alteração estrutural no banco, **faça backup** (veja `docs/AGENTES_RH_PLENA.md`, regra de ouro).
 - Migrations recentes e críticas para segurança:
@@ -316,6 +318,8 @@ npx vitest
   - `098_financeiro_ocorrencias.sql` (decisão da gestão em 01/08/2026: financeiro acessa o quadro do colaborador, **insere** ocorrências e **vê o CPF completo**. `pode_ver_ocorrencias()` +financeiro (SELECT em `ocorrencias` e tabelas filhas), INSERT de `ocorrencias` +financeiro (UPDATE/DELETE não), linhas dinâmicas `rota.ocorrencias`, `menu.rh`, `ocorrencia.criar`, `ocorrencia.ver_detalhes` e `colaborador.ver_cpf_completo` = true; `PERMISSOES_PADRAO` espelhado (nova ação `colaborador.ver_cpf_completo`: gestor/rh/dp1/dp2/financeiro — listagem e ficha usam essa ação; mesa/inspetoria/visualizador seguem com CPF mascarado). O detalhe do colaborador já abria para ele (rota + SELECT de colaboradores existiam) — a seção de ocorrências é que zerava em silêncio. Na UI, o botão "Nova Ocorrência" da ficha passou de `ocorrencia.editar` para `ocorrencia.criar`. Limitação conhecida: `reset_permissoes_perfil` (054) tem lista fixa — "Restaurar padrão" do financeiro remove as concessões. Aplicada via `db query --linked` em 01/08/2026)
   - `099_extras_excluir_inspetoria.sql` (decisão da gestão em 04/08/2026: inspetoria pode excluir extra lançado errado — ex.: lançou e o extra não aconteceu. A concessão já estava na tela Permissões (linha dinâmica `inspetoria/extras/excluir` = true), mas a policy de DELETE de `extras` (082) só aceitava admin/mesa — o inspetor via a lixeira e levava erro de permissão. DELETE passa a aceitar `inspetoria`; `PERMISSOES_PADRAO` espelhado (`extras.excluir`: mesa + inspetoria) e teste adicionado em `permissoes.test.ts`. Aplicada via `db query --linked` em 04/08/2026)
   - `100_escala_arquivos.sql` (espelha a 094 para o módulo Escalas: persiste o Excel de marcações do Flit para reutilização entre operadores — bucket privado `escala-arquivos` (xlsx/xls, 50 MB) + tabela `escala_arquivos` (metadados). RLS: SELECT/INSERT com `is_editor()`, DELETE só `is_admin()`. A tela Escalas → Importar salva o Excel ao importar e mostra o card "Arquivos já enviados" com "Usar este arquivo", mesmo padrão do Adicionais → Importar Ponto. Aplicada via `db query --linked` em 06/08/2026)
+  - `102_bi_performancelab.sql` (módulo **PerformanceLab (BI)**: tabelas `bi_locais`, `bi_checklists`, `bi_checklist_qas`, `bi_coletas`, `bi_eventos`, `bi_eventos_analises` alimentadas pela Edge Function `sync-performancelab` (service_role; sem policies de escrita para autenticados). RLS de leitura via nova função `pode_ver_bi_performancelab()` — admin/adm/gestor/inspetoria/mesa (decisão da gestão, 19/08/2026). Seeds `menu.bi`/`rota.bi` em `permissoes_perfil` (true: gestor/inspetoria/mesa; false: rh/dp1/dp2/financeiro/visualizador). Aplicada via `db query --linked` em 19/08/2026; agendamento do sync em `docs/APLICAR_MIGRATION_102.md`)
+  - `103_bi_sync_log_e_limpeza.sql` (BI: tabela `bi_sync_log` — um registro por execução do sync (sucesso ou erro), lido pela página para o selo "Sincronizado em ..." e o alerta amarelo quando a última execução falhou ou o último sucesso tem mais de 26h (`statusSync` em `src/lib/bi/agregacoes.ts`); função `bi_limpar_dados_antigos()` (SECURITY DEFINER, só service_role) chamada pela Edge Function ao fim do sync — retém 90 dias (o sync cobre 35). Na mesma sessão a function foi corrigida: a API do PerformanceLab devolve horário de Brasília sem fuso e o `dt()` gravava como UTC (tudo 3h adiantado — confirmado pelos turnos reais dos inspetores, 06–17h e 14–23h); agora grava `-03:00` e o upsert corrigiu a janela de 35 dias retroativamente. `diaDe()` passou a usar o dia civil local (recortar o ISO pegava o dia UTC). Aplicada via `db query --linked` em 20/08/2026; detalhes em `docs/APLICAR_MIGRATION_103.md`)
 
 ### Edge Function `econtador`
 
@@ -337,6 +341,17 @@ npx vitest
 - Deploy:
   ```bash
   supabase functions deploy suporte --project-ref jmdjdogskvybsdjtmpmb
+  ```
+
+### Edge Function `sync-performancelab`
+
+- Local: `supabase/functions/sync-performancelab/index.ts`.
+- Sincroniza a API pública do PerformanceLab (checklists, visitas dos inspetores e eventos) para as tabelas `bi_*` — janela de 35 dias, só locais do grupo PLENA. Alimenta a aba **PerformanceLab** (`/bi`, grupo Operacional).
+- **Job de máquina**: exige `Authorization: Bearer <SYNC_CRON_KEY>` (chave aleatória dedicada — o projeto usa as novas API keys `sb_secret_`/`sb_publishable`, então a guarda não usa a service role; verificação de JWT do gateway desativada só nesta function). Agendada 1x ao dia via pg_cron (06h30 BRT = `30 9 * * *` UTC) — passo a passo em `docs/APLICAR_MIGRATION_102.md`.
+- Requer os secrets `PLAB_LOGIN`, `PLAB_SENHA` e `PLAB_TOKEN` (valores com a Elaine; nunca no código) e `SYNC_CRON_KEY`.
+- Deploy (**sempre com `--no-verify-jwt`**, senão o gateway rejeita a chave do cron):
+  ```bash
+  supabase functions deploy sync-performancelab --no-verify-jwt --project-ref jmdjdogskvybsdjtmpmb
   ```
 
 ### Storage
@@ -454,4 +469,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-08-01*
+*Atualizado em: 2026-08-20*

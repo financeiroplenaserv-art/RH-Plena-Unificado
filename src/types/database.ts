@@ -5,6 +5,7 @@ import type {
   DiaCalendarioAdicional,
 } from '@/types/adicionais'
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
+import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiSyncLog } from '@/types/bi'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -684,6 +685,42 @@ export type Database = {
         Row: HistoricoLocalTrabalhoDiario & Record<string, unknown>
         Insert: Partial<HistoricoLocalTrabalhoDiario> & Record<string, unknown>
         Update: Partial<HistoricoLocalTrabalhoDiario> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_checklists: {
+        Row: BiChecklist & Record<string, unknown>
+        Insert: Partial<BiChecklist> & Record<string, unknown>
+        Update: Partial<BiChecklist> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_checklist_qas: {
+        Row: BiChecklistQa & Record<string, unknown>
+        Insert: Partial<BiChecklistQa> & Record<string, unknown>
+        Update: Partial<BiChecklistQa> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_coletas: {
+        Row: BiColeta & Record<string, unknown>
+        Insert: Partial<BiColeta> & Record<string, unknown>
+        Update: Partial<BiColeta> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_eventos: {
+        Row: BiEvento & Record<string, unknown>
+        Insert: Partial<BiEvento> & Record<string, unknown>
+        Update: Partial<BiEvento> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_eventos_analises: {
+        Row: BiAnalise & Record<string, unknown>
+        Insert: Partial<BiAnalise> & Record<string, unknown>
+        Update: Partial<BiAnalise> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_sync_log: {
+        Row: BiSyncLog & Record<string, unknown>
+        Insert: Partial<BiSyncLog> & Record<string, unknown>
+        Update: Partial<BiSyncLog> & Record<string, unknown>
         Relationships: []
       }
     }

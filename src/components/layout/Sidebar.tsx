@@ -21,6 +21,7 @@ import {
   ChevronDown,
   FolderOpen,
   CalendarClock,
+  ChartColumn,
   HeartPulse,
   ShieldCheck,
   Menu,
@@ -74,6 +75,7 @@ const groups: MenuGroup[] = [
       { path: '/escalas', label: 'Escalas', icon: CalendarDays, permissao: { recurso: 'menu', acao: 'escalas' } },
       { path: '/extras', label: 'Extras', icon: Banknote, permissao: { recurso: 'menu', acao: 'extras' } },
       { path: '/mobile/falta', label: 'Lançar Falta', icon: Smartphone, permissao: { recurso: 'rota', acao: 'mobile_falta' } },
+      { path: '/bi', label: 'PerformanceLab', icon: ChartColumn, permissao: { recurso: 'menu', acao: 'bi' } },
     ],
   },
   {

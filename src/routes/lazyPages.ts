@@ -62,6 +62,9 @@ export const FeriasPage = lazyNamed(() => import('@/pages/ferias/FeriasPage'), '
 export const FeriasImportarPage = lazyNamed(() => import('@/pages/ferias/FeriasImportarPage'), 'FeriasImportarPage')
 export const FeriasNotificacoesPage = lazyNamed(() => import('@/pages/ferias/FeriasNotificacoesPage'), 'FeriasNotificacoesPage')
 
+// BI
+export const BiPerformanceLabPage = lazyNamed(() => import('@/pages/bi/BiPerformanceLabPage'), 'BiPerformanceLabPage')
+
 // Outros
 export const RelatoriosPage = lazyNamed(() => import('@/pages/RelatoriosPage'), 'RelatoriosPage')
 export const DepartamentosPage = lazyNamed(() => import('@/pages/DepartamentosPage'), 'DepartamentosPage')

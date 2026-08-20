@@ -64,6 +64,7 @@ import {
   ExtrasCategoriasPage,
   ExtrasPlantaoPage,
   MobileFaltaPage,
+  BiPerformanceLabPage,
 } from '@/routes/lazyPages'
 
 function SidebarWrapper({ user, isOpen, onToggle, onLogout, mobileOpen, setMobileOpen }: {
@@ -663,6 +664,14 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
                     <FeriasNotificacoesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/bi"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'bi' }}>
+                    <BiPerformanceLabPage />
                   </ProtectedRoute>
                 }
               />
