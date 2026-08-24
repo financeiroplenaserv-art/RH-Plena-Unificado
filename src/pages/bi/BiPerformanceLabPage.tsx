@@ -76,13 +76,12 @@ const TODOS = 'todos'
 const TAMANHO_PAGINA = 1000
 
 function periodoPadrao(): { di: string; df: string } {
-  const hoje = new Date()
-  const inicio = new Date(hoje)
-  // 90 dias: mesmo período retido no banco (bi_limpar_dados_antigos, migration 103)
-  inicio.setDate(inicio.getDate() - 90)
-  const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  return { di: iso(inicio), df: iso(hoje) }
+  // Dia de Brasília (não o do dispositivo) como limite do período
+  const df = diaDe(new Date().toISOString())
+  const inicio = new Date(`${df}T12:00:00-03:00`)
+  // Últimos 5 dias, inclusive hoje; o banco mantém até 90 dias para consultas manuais
+  inicio.setUTCDate(inicio.getUTCDate() - 4)
+  return { di: diaDe(inicio.toISOString()), df }
 }
 
 /** PostgREST limita a resposta em 1000 linhas — pagina até esgotar */

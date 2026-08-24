@@ -37,13 +37,60 @@ const dt = (s: unknown): string | null => {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 
+const diaSeguinte = (dia: string) => {
+  const d = new Date(`${dia}T12:00:00-03:00`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return iso(d)
+}
+
 async function getPlab(endpoint: string, auth: string, token: string, params: Record<string, string> = {}): Promise<Registro[]> {
   const url = new URL(`${BASE}/${endpoint}/${token}/.json`)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   const r = await fetch(url.toString(), { headers: { Authorization: auth } })
-  if (!r.ok) throw new Error(`${endpoint}: HTTP ${r.status}`)
+  if (!r.ok) {
+    // A API responde 404 com corpo {"status":false,"message":"Não foram
+    // encontrados ..."} quando a consulta não retorna linhas — isso NÃO é
+    // erro: significa lista vazia no período (em 23/08/2026 o sync passou a
+    // falhar porque nenhum checklist restava na janela de 35 dias).
+    if (r.status === 404) {
+      const corpo = await r.text().catch(() => '')
+      if (corpo.includes('Não foram encontrad')) return []
+    }
+    throw new Error(`${endpoint}: HTTP ${r.status}`)
+  }
   const j: unknown = await r.json()
   return Array.isArray(j) ? (j as Registro[]) : []
+}
+
+/** Remove do espelho os registros da janela que já não existem no PL. */
+async function reconciliar(
+  supabase: ReturnType<typeof createClient>,
+  tabela: string,
+  colunaData: string,
+  inicio: string,
+  fim: string,
+  idsPl: number[],
+): Promise<number> {
+  const { data, error } = await supabase
+    .from(tabela)
+    .select('id')
+    .gte(colunaData, `${inicio}T00:00:00-03:00`)
+    .lt(colunaData, `${fim}T00:00:00-03:00`)
+  if (error) throw new Error(`reconciliação ${tabela}: ${error.message}`)
+
+  const idsAtuais = new Set(idsPl)
+  const idsRemover = (data ?? [])
+    .map((linha) => Number(linha.id))
+    .filter((id) => !idsAtuais.has(id))
+
+  let removidos = 0
+  for (let inicioLote = 0; inicioLote < idsRemover.length; inicioLote += 500) {
+    const lote = idsRemover.slice(inicioLote, inicioLote + 500)
+    const { error: erroDelete } = await supabase.from(tabela).delete().in('id', lote)
+    if (erroDelete) throw new Error(`reconciliação ${tabela}: ${erroDelete.message}`)
+    removidos += lote.length
+  }
+  return removidos
 }
 
 Deno.serve(async (req: Request) => {
@@ -76,9 +123,10 @@ Deno.serve(async (req: Request) => {
 
   try {
     const fim = new Date()
-    const ini = new Date(Date.now() - 35 * 864e5)
+    const ini = new Date(Date.now() - 90 * 864e5)
     const P = { data_inicial: iso(ini), data_final: iso(fim) }
     const Pck = { data_inicio: iso(ini), data_final: iso(fim) }
+    const fimRecon = diaSeguinte(P.data_final)
 
     // 1) Locais + filtro do grupo PLENA
     const locais = await getPlab('local', AUTH, TOKEN)
@@ -111,6 +159,10 @@ Deno.serve(async (req: Request) => {
         url: str(c.url),
       })),
     )
+    const removidosCk = await reconciliar(
+      supabase, 'bi_checklists', 'data_inicio', Pck.data_inicio, fimRecon,
+      cks.map((c) => Number(c.id)).filter(Number.isFinite),
+    )
 
     // 3) Perguntas/respostas (1 chamada por checklist_id)
     const idsCk = [...new Set(cks.map((c) => Number(c.checklist_id)).filter(Boolean))]
@@ -140,6 +192,10 @@ Deno.serve(async (req: Request) => {
         tempo_minutos: num(v.tempo_minutos),
       })),
     )
+    const removidosColetas = await reconciliar(
+      supabase, 'bi_coletas', 'data_local', P.data_inicial, fimRecon,
+      coletas.map((v) => Number(v.id)).filter(Number.isFinite),
+    )
 
     // 5) Eventos + análises
     const eventos = (await getPlab('eventos', AUTH, TOKEN, P))
@@ -157,6 +213,10 @@ Deno.serve(async (req: Request) => {
         acoes_realizadas_finalizacao: str(e.acoes_realizadas_finalizacao),
       })),
     )
+    const removidosEventos = await reconciliar(
+      supabase, 'bi_eventos', 'data_evento', P.data_inicial, fimRecon,
+      eventos.map((e) => Number(e.id)).filter(Number.isFinite),
+    )
 
     const analises = await getPlab('eventos_analises', AUTH, TOKEN, P)
     await supabase.from('bi_eventos_analises').upsert(
@@ -166,8 +226,12 @@ Deno.serve(async (req: Request) => {
         descricao: str(a.descricao), data_analise: dt(a.data_analise),
       })),
     )
+    const removidosAnalises = await reconciliar(
+      supabase, 'bi_eventos_analises', 'data_analise', P.data_inicial, fimRecon,
+      analises.map((a) => Number(a.id)).filter(Number.isFinite),
+    )
 
-    // 6) Limpeza: retém 90 dias de histórico (o sync cobre os últimos 35)
+    // 6) Limpeza: retém 90 dias de histórico, mesma janela do sync
     const { data: limpeza, error: erroLimpeza } = await supabase.rpc('bi_limpar_dados_antigos')
     if (erroLimpeza) console.error('limpeza:', erroLimpeza)
     else console.log('limpeza:', limpeza)
@@ -179,6 +243,7 @@ Deno.serve(async (req: Request) => {
       coletas: coletas.length,
       eventos: eventos.length,
       analises: analises.length,
+      removidos: removidosCk + removidosColetas + removidosEventos + removidosAnalises,
     }
     await supabase.from('bi_sync_log').insert({ ok: true, ...totais })
 

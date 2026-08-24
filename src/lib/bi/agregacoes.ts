@@ -75,15 +75,27 @@ export function opcoesLocais(cks: BiChecklist[], vis: BiColeta[], evs: BiEvento[
 // Helpers de data/hora (timestamptz chega como ISO 8601)
 // ---------------------------------------------------------------------------
 
-/** Dia civil local (YYYY-MM-DD) de uma data ISO; '' quando ausente */
+// O módulo BI é todo da operação Brasil: datas/horas são SEMPRE exibidas e
+// agrupadas no fuso de Brasília, independente do fuso do dispositivo — um
+// navegador fora do BRT chegou a exibir visitas com horário errado (24/08/2026).
+const TZ_BR = 'America/Sao_Paulo'
+const FMT_DIA_BR = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ_BR, year: 'numeric', month: '2-digit', day: '2-digit',
+})
+const FMT_HORA_BR = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: TZ_BR, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+
+/** Dia civil de Brasília (YYYY-MM-DD) de uma data ISO; '' quando ausente */
 export function diaDe(iso: string | null | undefined): string {
   if (!iso) return ''
   const d = new Date(iso)
   // Fallback para o recorte da string quando a data não parseia
   if (isNaN(d.getTime())) return iso.slice(0, 10)
-  // O dia exibido/agrupado é o do fuso local do navegador — cortar o ISO
-  // pegaria o dia UTC, que vira o dia seguinte para visitas após 21h (BRT)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  // Não recortar o ISO nem usar o fuso do navegador: o dia é o de Brasília
+  // (visita de 22h BRT é 01h UTC do dia seguinte; dispositivo fora do BRT
+  // deslocava o dia/hora exibidos)
+  return FMT_DIA_BR.format(d)
 }
 
 /** YYYY-MM-DD -> DD/MM/YYYY */
@@ -103,15 +115,15 @@ export function fmtDs(dia: string | null | undefined): string {
   return `${fmtD(dia)} (${SEMANAS[d.getDay()]})`
 }
 
-/** Hora local HH:MM de uma data ISO; '-' quando ausente/inválida */
+/** Hora de Brasília HH:MM de uma data ISO; '-' quando ausente/inválida */
 export function horaDe(iso: string | null | undefined): string {
   if (!iso) return '-'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '-'
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return FMT_HORA_BR.format(d)
 }
 
-/** DD/MM/YYYY HH:MM (hora local) */
+/** DD/MM/YYYY HH:MM (hora de Brasília) */
 export function fmtDT(iso: string | null | undefined): string {
   if (!iso) return '-'
   const d = new Date(iso)

@@ -11,6 +11,7 @@ import {
   filtrarEventos,
   filtrarPor,
   fmtMin,
+  horaDe,
   kpisChecklists,
   kpisEventos,
   kpisVisitas,
@@ -154,14 +155,19 @@ describe('filtros por período/pessoa/local', () => {
     expect(diaDe(null)).toBe('')
   })
 
-  it('diaDe usa o dia civil do fuso local, não o UTC', () => {
-    // Independente do fuso da máquina: o resultado deve ser o dia local
-    // que new Date() enxerga (visita de 22h BRT é 01h UTC do dia seguinte)
-    const iso = '2026-08-19T01:30:00+00:00'
-    const d = new Date(iso)
-    const esperado = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    expect(diaDe(iso)).toBe(esperado)
+  it('diaDe usa o dia civil de Brasília, não o UTC nem o do dispositivo', () => {
+    // 01h30 UTC = 22h30 BRT do dia anterior — independente do fuso da máquina
+    expect(diaDe('2026-08-19T01:30:00+00:00')).toBe('2026-08-18')
+    expect(diaDe('2026-08-19T02:59:00+00:00')).toBe('2026-08-18')
+    expect(diaDe('2026-08-19T03:00:00+00:00')).toBe('2026-08-19')
     expect(diaDe('data-invalida')).toBe('data-inval')
+  })
+
+  it('horaDe exibe a hora de Brasília', () => {
+    expect(horaDe('2026-08-22T02:09:00+00:00')).toBe('23:09') // visita de 23h09 BRT do dia 21
+    expect(horaDe('2026-08-19T13:00:00+00:00')).toBe('10:00')
+    expect(horaDe(null)).toBe('-')
+    expect(horaDe('lixo')).toBe('-')
   })
 })
 
