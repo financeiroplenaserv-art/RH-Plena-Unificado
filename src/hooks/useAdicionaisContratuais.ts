@@ -14,7 +14,7 @@ const MODO_MOCK = false
 
 const COLUNAS_CONTRATO = 'id, nome, departamento_id, quantidade_colaboradores, regime_trabalho, adicionais, dias_intrajornada, created_at, updated_at'
 const COLUNAS_VINCULO = 'id, contrato_id, colaborador_id, data_inicio, data_fim, created_at'
-const COLUNAS_CALENDARIO = 'id, vinculo_id, data, status, intrajornada, substituto_colaborador_id, substituto_colaborador_nome, created_at, updated_at'
+const COLUNAS_CALENDARIO = 'id, vinculo_id, data, status, intrajornada, substituto_colaborador_id, substituto_colaborador_nome, substituto_sem_adicional, created_at, updated_at'
 
 function mockKey(tabela: string) {
   return `mock_${tabela}_adicionais`
@@ -419,6 +419,12 @@ export function useAdicionaisContratuais() {
   }, [listarVinculos])
 
   // Calendário
+  // O período de um mês já passa de 1.700 linhas (27/08/2026) e o PostgREST
+  // corta em 1.000 por padrão — SEM paginação, os vínculos além do corte
+  // apareciam como "fallback" (sem dados) na tela e no relatório. Por isso a
+  // leitura é feita em páginas de 1.000 até esgotar (bug do Deleon: a
+  // importação gravou os 2 vínculos, mas a tela só mostrava 1).
+  const PAGINA_CALENDARIO = 1000
   const listarCalendario = useCallback(async (filtro?: { dataInicio: string; dataFim: string }) => {
     setLoading(true)
     try {
@@ -432,12 +438,22 @@ export function useAdicionaisContratuais() {
         setCalendario(dados)
         return dados
       }
-      let query = supabase.from('calendario_adicionais').select(COLUNAS_CALENDARIO)
-      if (filtro) query = query.gte('data', filtro.dataInicio).lte('data', filtro.dataFim)
-      const { data, error } = await query
-      if (error) throw error
-      setCalendario(data || [])
-      return data || []
+      const acumulado: DiaCalendarioAdicional[] = []
+      for (let desde = 0; ; desde += PAGINA_CALENDARIO) {
+        let query = supabase
+          .from('calendario_adicionais')
+          .select(COLUNAS_CALENDARIO)
+          .order('data')
+          .order('vinculo_id')
+          .range(desde, desde + PAGINA_CALENDARIO - 1)
+        if (filtro) query = query.gte('data', filtro.dataInicio).lte('data', filtro.dataFim)
+        const { data, error } = await query
+        if (error) throw error
+        acumulado.push(...((data || []) as DiaCalendarioAdicional[]))
+        if (!data || data.length < PAGINA_CALENDARIO) break
+      }
+      setCalendario(acumulado)
+      return acumulado
     } catch (err: unknown) {
       console.error('Erro ao carregar calendário:', err)
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar calendário')
@@ -481,6 +497,9 @@ export function useAdicionaisContratuais() {
     substitutoColaboradorId: string,
     substitutoColaboradorNome: string,
     statusAtual: StatusDiaAdicional = 'falta',
+    /** true = controle interno: o substituto cobre o posto, mas não recebe o
+     *  adicional nem aparece no relatório (decisão da gestão, 27/08/2026) */
+    semAdicional = false,
     /** true na substituição em lote: o resumo é exibido uma única vez ao final */
     silenciarToast = false
   ) => {
@@ -495,6 +514,7 @@ export function useAdicionaisContratuais() {
                   status: statusAtual,
                   substituto_colaborador_id: substitutoColaboradorId,
                   substituto_colaborador_nome: substitutoColaboradorNome,
+                  substituto_sem_adicional: semAdicional,
                   updated_at: new Date().toISOString(),
                 }
               : d)
@@ -507,6 +527,7 @@ export function useAdicionaisContratuais() {
                 intrajornada: false,
                 substituto_colaborador_id: substitutoColaboradorId,
                 substituto_colaborador_nome: substitutoColaboradorNome,
+                substituto_sem_adicional: semAdicional,
                 id: gerarId(),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -527,6 +548,7 @@ export function useAdicionaisContratuais() {
             intrajornada: false,
             substituto_colaborador_id: substitutoColaboradorId,
             substituto_colaborador_nome: substitutoColaboradorNome,
+            substituto_sem_adicional: semAdicional,
           },
           { onConflict: 'vinculo_id,data' }
         )
@@ -545,7 +567,7 @@ export function useAdicionaisContratuais() {
       if (MODO_MOCK) {
         const lista = lerMock<DiaCalendarioAdicional>('calendario').map(d => {
           if (d.vinculo_id === vinculoOriginalId && d.data === data) {
-            return { ...d, substituto_colaborador_id: null, substituto_colaborador_nome: null }
+            return { ...d, substituto_colaborador_id: null, substituto_colaborador_nome: null, substituto_sem_adicional: false }
           }
           return d
         })
@@ -556,7 +578,7 @@ export function useAdicionaisContratuais() {
       }
       const { error } = await supabase
         .from('calendario_adicionais')
-        .update({ substituto_colaborador_id: null, substituto_colaborador_nome: null })
+        .update({ substituto_colaborador_id: null, substituto_colaborador_nome: null, substituto_sem_adicional: false })
         .eq('vinculo_id', vinculoOriginalId)
         .eq('data', data)
       if (error) throw error

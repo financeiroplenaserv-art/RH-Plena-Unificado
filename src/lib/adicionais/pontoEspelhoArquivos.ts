@@ -6,6 +6,21 @@ const LIMITE_LISTAGEM = 10
 /** Limite de tamanho do bucket ponto-espelhos (50 MB — migration 094 e teto do plano Free). */
 export const LIMITE_BYTES_ESPELHO = 50 * 1024 * 1024
 
+/**
+ * crypto.randomUUID não existe em navegadores antigos — sem este fallback o
+ * upload falhava em silêncio para quem usava um browser desatualizado.
+ */
+function idUnico(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+}
+
+/** Nome seguro para a chave do storage (acentos e caracteres especiais podem ser rejeitados pelo bucket). */
+function nomeSeguro(nome: string): string {
+  return nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
 export interface PontoEspelhoArquivo {
   id: string
   nome_arquivo: string
@@ -78,7 +93,7 @@ export async function salvarArquivo(file: File, userId: string, reenviar = false
 
   const agora = new Date()
   const pasta = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
-  const storagePath = `${pasta}/${crypto.randomUUID()}_${file.name}`
+  const storagePath = `${pasta}/${idUnico()}_${nomeSeguro(file.name)}`
 
   const opcoesUpload = { contentType: 'application/pdf', upsert: false }
   let { error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, file, opcoesUpload)

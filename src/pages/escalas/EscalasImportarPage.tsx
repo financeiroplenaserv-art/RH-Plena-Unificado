@@ -110,13 +110,21 @@ export function EscalasImportarPage() {
 
     // Salva o Excel no servidor para reutilização por qualquer operador;
     // se o salvamento falhar, a importação segue normalmente.
+    // O erro é vermelho e persistente para não passar despercebido no meio
+    // dos toasts do processamento (caso da mesa, 27/08/2026).
     if (user) {
       try {
         await salvarArquivo(arquivo, user.id)
         carregarArquivosEnviados()
       } catch (err) {
         console.error('Erro ao salvar Excel de escala para reutilização:', err)
-        toast.warning('O Excel será processado, mas não foi possível salvá-lo no servidor para reutilização.')
+        const detalhe = err instanceof Error
+          ? err.message
+          : (err as { message?: string } | null)?.message || ''
+        toast.error(
+          `O Excel será processado, mas NÃO foi salvo no servidor para reutilização.${detalhe ? ` Motivo: ${detalhe}.` : ''} Avise o suporte se repetir.`,
+          { duration: Infinity }
+        )
       }
     }
 

@@ -37,6 +37,7 @@ import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/type
 import type { Departamento } from '@/types/database'
 import { nomeDepartamento } from '@/lib/utils'
 import { podeEditarContratoAdicional } from '@/lib/permissoes'
+import { contarVinculosUnicosPorContrato } from '@/lib/adicionais/calculoAdicionais'
 
 const REGIMES_TRABALHO: { value: RegimeTrabalho; label: string }[] = [
   { value: '12x36', label: '12 × 36 (dia sim, dia não)' },
@@ -104,11 +105,12 @@ export function AdicionaisContratosPage() {
   const mapDept = new Map<string, Departamento>()
   departamentos.forEach(d => mapDept.set(d.id, d))
 
-  const vinculosPorContrato = new Map<string, number>()
+  const vinculosPorContrato = contarVinculosUnicosPorContrato(vinculos)
   const colaboradoresPorContrato = new Map<string, { id: string; nome: string; matricula: string; periodo: string }[]>()
   vinculos.forEach(v => {
-    vinculosPorContrato.set(v.contrato_id, (vinculosPorContrato.get(v.contrato_id) || 0) + 1)
     const lista = colaboradoresPorContrato.get(v.contrato_id) || []
+    const jaExiste = lista.some(c => c.id === v.colaborador_id)
+    if (jaExiste) return
     lista.push({
       id: v.colaborador_id,
       nome: v.colaborador_nome || '—',

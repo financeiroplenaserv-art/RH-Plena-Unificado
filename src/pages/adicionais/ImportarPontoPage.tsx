@@ -359,11 +359,18 @@ export function ImportarPontoPage() {
       await salvarArquivo(arquivo, user.id, reenviar)
       carregarArquivosEnviados()
     } catch (err) {
+      // O processamento dispara um toast por colaborador logo em seguida — um
+      // warning comum era soterrado e ninguém via o motivo da falha (caso da
+      // mesa, 27/08/2026: "não dá erro, só não aparece"). Por isso o erro de
+      // salvamento é vermelho e fica na tela até ser dispensado.
       console.error('Erro ao salvar espelho de ponto para reutilização:', err)
       const detalhe = err instanceof Error
         ? err.message
         : (err as { message?: string } | null)?.message || ''
-      toast.warning(`O PDF será processado, mas não foi possível salvá-lo no servidor para reutilização.${detalhe ? ` Motivo: ${detalhe}.` : ''}`)
+      toast.error(
+        `O PDF será processado, mas NÃO foi salvo no servidor para reutilização.${detalhe ? ` Motivo: ${detalhe}.` : ''} Avise o suporte se repetir.`,
+        { duration: Infinity }
+      )
     }
     await processarArquivo(arquivo)
   }

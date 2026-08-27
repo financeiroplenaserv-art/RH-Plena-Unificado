@@ -46,6 +46,9 @@ export interface DiaCalendarioAdicional {
   intrajornada: boolean
   substituto_colaborador_id?: string | null
   substituto_colaborador_nome?: string | null
+  /** Substituição de controle interno: cobre o posto, mas não gera adicional
+   *  para o substituto nem o coloca no relatório (decisão da gestão, 27/08/2026). */
+  substituto_sem_adicional?: boolean | null
   created_at?: string
   updated_at?: string
 }

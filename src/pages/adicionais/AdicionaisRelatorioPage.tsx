@@ -27,7 +27,7 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
-import { diaIntrajornada, contarDiasFeriadoEscalado, adicionalTitular30, insalubridadeSubstituto, periculosidadeSubstituto, contarDiasTransferidos } from '@/lib/adicionais/calculoAdicionais'
+import { diaIntrajornada, contarDiasFeriadoEscalado, adicionalTitular30, insalubridadeSubstituto, periculosidadeSubstituto, contarDiasTransferidos, substituicaoGeraAdicional } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
@@ -163,6 +163,7 @@ interface DiaCalendarioBasico {
   status: StatusDiaAdicional
   substituto_colaborador_id?: string | null
   substituto_colaborador_nome?: string | null
+  substituto_sem_adicional?: boolean | null
 }
 
 function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, regime: string | undefined, data: string, calendarioUnico: DiaCalendarioBasico[]): DiaCalendarioBasico {
@@ -174,6 +175,7 @@ function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, regime: str
       status: normalizarStatus(salvo.status),
       substituto_colaborador_id: salvo.substituto_colaborador_id,
       substituto_colaborador_nome: salvo.substituto_colaborador_nome,
+      substituto_sem_adicional: salvo.substituto_sem_adicional,
     }
   }
   return {
@@ -182,6 +184,7 @@ function getDiaEfetivo(vinculo: { id: string; data_inicio: string }, regime: str
     status: calcularStatusPorRegime(regime, vinculo.data_inicio, data),
     substituto_colaborador_id: null,
     substituto_colaborador_nome: null,
+    substituto_sem_adicional: null,
   }
 }
 
@@ -408,8 +411,12 @@ export function AdicionaisRelatorioPage() {
           registro!.afastados += 1
         }
 
-        // Se há substituto em dia de ausência, conta como trabalhado para o substituto
-        const temSubstituto = dia.substituto_colaborador_id &&
+        // Se há substituto em dia de ausência, conta como trabalhado para o
+        // substituto. Exceção (decisão da gestão, 27/08/2026): substituição
+        // "sem adicional" (controle interno — substituto pago por fora) não
+        // gera linha nem dias para o substituto; o dia sai do titular e não
+        // é pago a ninguém (a transferência do titular acima não muda).
+        const temSubstituto = substituicaoGeraAdicional(dia) &&
           (status === 'falta' || status === 'ferias' || status === 'afastado' || status === 'folga_substituicao')
 
         if (temSubstituto) {
@@ -462,9 +469,12 @@ export function AdicionaisRelatorioPage() {
     //   substituto. No 12×36, cada dia de escala coberto transfere também a
     //   folga pareada (trabalhado + folga); nas demais, só os dias cobertos.
     //   Férias/afastado SEM substituto não transferem (titular mantém 30 − faltas).
+    //   Substituição "sem adicional" (27/08/2026) transfere do titular da
+    //   mesma forma — os dias se perdem para ambos (ninguém recebe).
     // - SUBSTITUTO PURO: insalubridade = todos os dias cobertos (com a folga
     //   pareada do 12×36); periculosidade = apenas férias/afastado cobertos
-    //   (cobertura de falta NÃO gera periculosidade).
+    //   (cobertura de falta NÃO gera periculosidade). Substituição "sem
+    //   adicional" nunca cria linha de substituto (ver temSubstituto acima).
     resultado.forEach(registro => {
       const contrato = mapContrato.get(registro.contrato_id)
       if (!contrato) return

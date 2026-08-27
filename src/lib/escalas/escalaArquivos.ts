@@ -7,6 +7,21 @@ const LIMITE_LISTAGEM = 10
 const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const MIME_XLS = 'application/vnd.ms-excel'
 
+/**
+ * crypto.randomUUID não existe em navegadores antigos — sem este fallback o
+ * upload falhava em silêncio para quem usava um browser desatualizado.
+ */
+function idUnico(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+}
+
+/** Nome seguro para a chave do storage (acentos e caracteres especiais podem ser rejeitados pelo bucket). */
+function nomeSeguro(nome: string): string {
+  return nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
 export interface EscalaArquivo {
   id: string
   nome_arquivo: string
@@ -74,7 +89,7 @@ export async function salvarArquivo(file: File, userId: string): Promise<EscalaA
 
   const agora = new Date()
   const pasta = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
-  const storagePath = `${pasta}/${crypto.randomUUID()}_${file.name}`
+  const storagePath = `${pasta}/${idUnico()}_${nomeSeguro(file.name)}`
 
   const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, file, {
     contentType: file.type || mimePorNome(file.name),

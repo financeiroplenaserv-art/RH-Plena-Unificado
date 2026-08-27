@@ -5,7 +5,9 @@ import {
   adicionalTitular30,
   insalubridadeSubstituto,
   periculosidadeSubstituto,
+  substituicaoGeraAdicional,
   contarDiasTransferidos,
+  contarVinculosUnicosPorContrato,
 } from './calculoAdicionais'
 
 const FERIADOS = new Set(['2026-06-04', '2026-06-24', '2026-12-25'])
@@ -146,5 +148,36 @@ describe('contarDiasTransferidos (12×36: trabalhado + folga pareada)', () => {
     const dias = ['2026-06-22', '2026-06-23', '2026-06-24'].map(data => ({ data, comSubstituto: true }))
     expect(contarDiasTransferidos('5x2', undefined, dias)).toBe(3)
     expect(contarDiasTransferidos('6x1', '2026-06-20', dias)).toBe(3)
+  })
+})
+
+describe('substituicaoGeraAdicional', () => {
+  it('sem substituto → false', () => {
+    expect(substituicaoGeraAdicional({})).toBe(false)
+    expect(substituicaoGeraAdicional({ substituto_colaborador_id: null })).toBe(false)
+  })
+  it('substituto normal → true', () => {
+    expect(substituicaoGeraAdicional({ substituto_colaborador_id: 'abc' })).toBe(true)
+    expect(substituicaoGeraAdicional({ substituto_colaborador_id: 'abc', substituto_sem_adicional: false })).toBe(true)
+    expect(substituicaoGeraAdicional({ substituto_colaborador_id: 'abc', substituto_sem_adicional: null })).toBe(true)
+  })
+  it('substituto "sem adicional" (controle interno) → false', () => {
+    expect(substituicaoGeraAdicional({ substituto_colaborador_id: 'abc', substituto_sem_adicional: true })).toBe(false)
+  })
+})
+
+describe('contarVinculosUnicosPorContrato', () => {
+  it('não acumula o mesmo colaborador em períodos diferentes do mesmo contrato', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'u1', data_inicio: '2026-07-01', data_fim: '2026-07-31' },
+      { contrato_id: 'c1', colaborador_id: 'u1', data_inicio: '2026-08-01', data_fim: '2026-08-31' },
+      { contrato_id: 'c1', colaborador_id: 'u2', data_inicio: '2026-08-01', data_fim: '2026-08-31' },
+      { contrato_id: 'c2', colaborador_id: 'u1', data_inicio: '2026-08-01', data_fim: '2026-08-31' },
+    ]
+
+    expect(contarVinculosUnicosPorContrato(vinculos)).toEqual(new Map([
+      ['c1', 2],
+      ['c2', 1],
+    ]))
   })
 })

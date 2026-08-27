@@ -161,6 +161,11 @@ export function AdicionaisCalendarioPage() {
   const [buscaSubstitutoLote, setBuscaSubstitutoLote] = useState('')
   const [substitutoLoteSelecionado, setSubstitutoLoteSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [salvandoLote, setSalvandoLote] = useState(false)
+  // Controle interno (decisão da gestão, 27/08/2026): substituto cobre o posto
+  // sem receber o adicional e sem aparecer no relatório (ex.: pago por fora).
+  // Definido só na criação da substituição — para mudar, remove e recria.
+  const [semAdicional, setSemAdicional] = useState(false)
+  const [semAdicionalLote, setSemAdicionalLote] = useState(false)
 
   const periodoInicio = useMemo(() => {
     const data = new Date(periodoAno, periodoMes - 1, 20)
@@ -383,6 +388,7 @@ export function AdicionaisCalendarioPage() {
         ...d,
         substituto_colaborador_id: d.substituto_colaborador_id ?? salvo?.substituto_colaborador_id ?? null,
         substituto_colaborador_nome: d.substituto_colaborador_nome ?? salvo?.substituto_colaborador_nome ?? null,
+        substituto_sem_adicional: d.substituto_sem_adicional ?? salvo?.substituto_sem_adicional ?? false,
       })
     }
     setAlteracoes({})
@@ -433,7 +439,8 @@ export function AdicionaisCalendarioPage() {
       data,
       substitutoSelecionado.id,
       substitutoSelecionado.nome,
-      statusAtual
+      statusAtual,
+      semAdicional
     )
     if (resultado) {
       const chave = `${vinculo.id}|${data}`
@@ -443,11 +450,13 @@ export function AdicionaisCalendarioPage() {
           ...getDia(vinculo, data),
           substituto_colaborador_id: substitutoSelecionado.id,
           substituto_colaborador_nome: substitutoSelecionado.nome,
+          substituto_sem_adicional: semAdicional,
         },
       }))
       await listarCalendario({ dataInicio: periodoInicio, dataFim: periodoFim })
       setBuscaSubstituto('')
       setSubstitutoSelecionado(null)
+      setSemAdicional(false)
       setModalSubstituto(null)
     }
   }
@@ -455,6 +464,7 @@ export function AdicionaisCalendarioPage() {
   const handleAbrirModalSubstituto = (vinculo: VinculoAdicional, data: string) => {
     setBuscaSubstituto('')
     setSubstitutoSelecionado(null)
+    setSemAdicional(false)
     setModalSubstituto({ vinculo, data })
   }
 
@@ -466,6 +476,7 @@ export function AdicionaisCalendarioPage() {
     setDiasLote(new Set(diasPendentesVinculo(vinculo)))
     setBuscaSubstitutoLote('')
     setSubstitutoLoteSelecionado(null)
+    setSemAdicionalLote(false)
     setModalLote({ vinculo })
   }
 
@@ -499,6 +510,7 @@ export function AdicionaisCalendarioPage() {
         substitutoLoteSelecionado.id,
         substitutoLoteSelecionado.nome,
         getDia(modalLote.vinculo, data).status,
+        semAdicionalLote,
         true // um toast por dia viraria spam — o resumo vem ao final
       )
       if (resultado) ok++
@@ -514,6 +526,7 @@ export function AdicionaisCalendarioPage() {
     setModalLote(null)
     setSubstitutoLoteSelecionado(null)
     setBuscaSubstitutoLote('')
+    setSemAdicionalLote(false)
   }
 
   const alertasSubstituicao: { contrato: string; data: string; colaborador: string }[] = []
@@ -801,7 +814,7 @@ export function AdicionaisCalendarioPage() {
                     const emoji = isFallback ? '' : EMOJI_STATUS[dia.status]
                     const estilo = STATUS_STYLE[dia.status]
                     const tooltip = substituto
-                      ? `${formatarDataBR(data)} — Substituído por ${substituto.substituto_colaborador_nome || mapColaborador.get(substituto.substituto_colaborador_id || '')?.nome || '—'}`
+                      ? `${formatarDataBR(data)} — Substituído por ${substituto.substituto_colaborador_nome || mapColaborador.get(substituto.substituto_colaborador_id || '')?.nome || '—'}${substituto.substituto_sem_adicional ? ' (sem adicional — controle interno)' : ''}`
                       : substituido
                         ? `${formatarDataBR(data)} — Substituindo ${substituido.nome}`
                         : isFallback
@@ -1010,6 +1023,17 @@ export function AdicionaisCalendarioPage() {
                 <p className="text-sm text-center py-4" style={{ color: '#94A3B8' }}>Nenhum colaborador encontrado.</p>
               )}
             </div>
+            <label className="flex cursor-pointer items-start gap-2 text-xs" style={{ color: '#1F2937' }}>
+              <input
+                type="checkbox"
+                checked={semAdicional}
+                onChange={e => setSemAdicional(e.target.checked)}
+                className="rounded border-input mt-0.5"
+              />
+              <span>
+                <strong>Não gerar adicional (controle interno)</strong> — o substituto cobre o posto, mas não recebe o adicional nem aparece no relatório (ex.: pago via extra por fora). Os dias saem do titular e não são pagos a ninguém.
+              </span>
+            </label>
           </div>
           <DialogFooter className="gap-2">
             {modalSubstituto && (
@@ -1115,6 +1139,18 @@ export function AdicionaisCalendarioPage() {
                   )}
                 </div>
               </div>
+
+              <label className="flex cursor-pointer items-start gap-2 text-xs" style={{ color: '#1F2937' }}>
+                <input
+                  type="checkbox"
+                  checked={semAdicionalLote}
+                  onChange={e => setSemAdicionalLote(e.target.checked)}
+                  className="rounded border-input mt-0.5"
+                />
+                <span>
+                  <strong>Não gerar adicional (controle interno)</strong> — o substituto cobre o posto, mas não recebe o adicional nem aparece no relatório (ex.: pago via extra por fora). Os dias saem do titular e não são pagos a ninguém.
+                </span>
+              </label>
             </div>
           )}
           <DialogFooter className="gap-2">

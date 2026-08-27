@@ -80,6 +80,41 @@ export function periculosidadeSubstituto(diasFeriasAfastado: number): number {
 }
 
 /**
+ * A substituição gera adicional para o substituto? Não quando marcada como
+ * "sem adicional" (controle interno — decisão da gestão, 27/08/2026): o
+ * substituto cobre o posto (ex.: pago via extra por fora), mas não recebe o
+ * adicional nem aparece no relatório. O dia continua saindo da conta do
+ * titular — os dias se perdem para ambos.
+ */
+export function substituicaoGeraAdicional(dia: {
+  substituto_colaborador_id?: string | null
+  substituto_sem_adicional?: boolean | null
+}): boolean {
+  return !!dia.substituto_colaborador_id && !dia.substituto_sem_adicional
+}
+
+/**
+ * Conta colaboradores únicos por contrato no período. O mesmo colaborador não
+ * pode ser contado duas vezes só porque aparece em mais de um vínculo do mesmo
+ * contrato em períodos diferentes. A contagem deve refletir o momento atual da
+ * tela/relatório e não o histórico acumulado de todos os períodos.
+ */
+export function contarVinculosUnicosPorContrato(
+  vinculos: Array<{ contrato_id: string; colaborador_id: string }>
+): Map<string, number> {
+  const mapa = new Map<string, Set<string>>()
+
+  for (const vinculo of vinculos) {
+    if (!vinculo.contrato_id || !vinculo.colaborador_id) continue
+    const set = mapa.get(vinculo.contrato_id) ?? new Set<string>()
+    set.add(vinculo.colaborador_id)
+    mapa.set(vinculo.contrato_id, set)
+  }
+
+  return new Map(Array.from(mapa.entries()).map(([contratoId, ids]) => [contratoId, ids.size]))
+}
+
+/**
  * Dias de férias/afastado transferidos do titular para o substituto
  * (regra da gestão, 01/08/2026; ajuste fino em 03/08/2026):
  * - Demais escalas: cada dia com substituto registrado transfere (a "outra
