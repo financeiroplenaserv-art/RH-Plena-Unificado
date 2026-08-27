@@ -285,7 +285,7 @@ export function AdicionaisRelatorioPage() {
     // Regra da gestão (01/08/2026) — estruturas da divisão titular/substituto:
     const chavesVinculos = new Set(vinculosAtivosNoMes.map(v => `${v.colaborador_id}|${v.contrato_id}`))
     const chavesSubstitutoPuro = new Set<string>() // linhas que existem só por cobertura (sem vínculo próprio)
-    const feriasAfastPorVinculo = new Map<string, { data: string; substitutoId: string | null }[]>() // bloco de férias/afastado por vínculo (com e sem substituto — a folga pareada do 12×36 é calculada no fechamento)
+    const diasTransferiveisPorVinculo = new Map<string, { data: string; substitutoId: string | null }[]>() // férias/afastado e folga com substituição por vínculo (a folga pareada do 12×36 é calculada no fechamento)
     const cobertosFaltaFolgaPorChave = new Map<string, number>() // substituto: dias de falta/folga cobertos
 
     // Inicializa todos os vínculos ativos no período
@@ -386,13 +386,13 @@ export function AdicionaisRelatorioPage() {
         const dia = getDiaEfetivo(vinculo, regime, data, calendarioUnico)
         const status = statusEfetivo(vinculo, regime, data)
 
-        // Bloco de férias/afastado do vínculo (com e sem substituto): a
-        // transferência titular→substituto (com a folga pareada do 12×36)
-        // é calculada no fechamento por contarDiasTransferidos.
-        if (status === 'ferias' || status === 'afastado') {
-          const lista = feriasAfastPorVinculo.get(vinculo.id) ?? []
+        // Dias que saem da conta do titular quando há substituição: férias,
+        // afastamento e folga com substituição. A folga pareada do 12×36 é
+        // calculada no fechamento por contarDiasTransferidos.
+        if (status === 'ferias' || status === 'afastado' || status === 'folga_substituicao') {
+          const lista = diasTransferiveisPorVinculo.get(vinculo.id) ?? []
           lista.push({ data, substitutoId: dia.substituto_colaborador_id ?? null })
-          feriasAfastPorVinculo.set(vinculo.id, lista)
+          diasTransferiveisPorVinculo.set(vinculo.id, lista)
         }
 
         if (status === 'trabalhou') {
@@ -454,7 +454,7 @@ export function AdicionaisRelatorioPage() {
           if (diaIntrajornada(contrato, data)) registroSubst.dias_intrajornada += 1
           // Insalubridade/periculosidade do substituto são calculadas no
           // fechamento (regra 01/08/2026); aqui só marcamos a cobertura de
-          // falta/folga (férias/afastado entram via feriasAfastPorVinculo).
+          // falta/folga (férias/afastado entram via diasTransferiveisPorVinculo).
           if (status !== 'ferias' && status !== 'afastado') {
             cobertosFaltaFolgaPorChave.set(chaveSubst, (cobertosFaltaFolgaPorChave.get(chaveSubst) ?? 0) + 1)
           }
@@ -483,7 +483,7 @@ export function AdicionaisRelatorioPage() {
       if (chavesSubstitutoPuro.has(chave)) {
         // Soma o que ESTE substituto cobriu em cada vínculo deste contrato
         let feriasAfast = 0
-        feriasAfastPorVinculo.forEach((lista, vinculoId) => {
+        diasTransferiveisPorVinculo.forEach((lista, vinculoId) => {
           const vinc = vinculosAtivosNoMes.find(v => v.id === vinculoId)
           if (vinc?.contrato_id !== registro.contrato_id) return
           feriasAfast += contarDiasTransferidos(regime, vinc?.data_inicio, lista.map(d => ({
@@ -501,7 +501,7 @@ export function AdicionaisRelatorioPage() {
         return
       }
       const vinc = vinculosAtivosNoMes.find(v => `${v.colaborador_id}|${v.contrato_id}` === chave)
-      const lista = vinc ? feriasAfastPorVinculo.get(vinc.id) ?? [] : []
+      const lista = vinc ? diasTransferiveisPorVinculo.get(vinc.id) ?? [] : []
       const transferidos = contarDiasTransferidos(regime, vinc?.data_inicio, lista.map(d => ({
         data: d.data,
         comSubstituto: !!d.substitutoId,

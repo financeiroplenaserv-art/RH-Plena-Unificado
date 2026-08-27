@@ -166,6 +166,19 @@ describe('substituicaoGeraAdicional', () => {
   })
 })
 
+describe('transferência de folga com substituição', () => {
+  it('reduz o titular e mantém os 30 dias totais entre titular e substituto', () => {
+    const dias = Array.from({ length: 13 }, (_, indice) => ({
+      data: `2026-08-${String(indice + 7).padStart(2, '0')}`,
+      comSubstituto: true,
+    }))
+
+    const transferidos = contarDiasTransferidos('5x2', undefined, dias)
+    expect(adicionalTitular30(0, transferidos)).toBe(17)
+    expect(insalubridadeSubstituto(0, transferidos)).toBe(13)
+  })
+})
+
 describe('contarVinculosUnicosPorContrato', () => {
   it('não acumula o mesmo colaborador em períodos diferentes do mesmo contrato', () => {
     const vinculos = [
