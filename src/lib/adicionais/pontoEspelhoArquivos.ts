@@ -95,16 +95,16 @@ export async function salvarArquivo(file: File, userId: string, reenviar = false
   const pasta = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
   const storagePath = `${pasta}/${idUnico()}_${nomeSeguro(file.name)}`
 
-  // O storage-js envia o MIME do próprio Blob/File quando o corpo é um
-  // arquivo; nesse caso, contentType nas opções não substitui file.type.
+  // Quando o corpo é File/Blob, o storage-js envia o MIME do próprio objeto.
   // Alguns navegadores associam erroneamente um PDF ao MIME de planilha.
-  const arquivoPdf = new File([file], file.name, { type: 'application/pdf' })
+  // ArrayBuffer força o SDK a usar contentType diretamente nos headers.
+  const conteudoPdf = await file.arrayBuffer()
   const opcoesUpload = { contentType: 'application/pdf', upsert: false }
-  let { error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, arquivoPdf, opcoesUpload)
+  let { error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, conteudoPdf, opcoesUpload)
   if (erroUpload) {
     // Espelhos têm dezenas de MB — uma nova tentativa absorve instabilidade de rede
     await new Promise((resolve) => setTimeout(resolve, 2000))
-    ;({ error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, arquivoPdf, opcoesUpload))
+    ;({ error: erroUpload } = await supabase.storage.from(BUCKET).upload(storagePath, conteudoPdf, opcoesUpload))
   }
   if (erroUpload) throw erroUpload
 
