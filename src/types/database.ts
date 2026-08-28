@@ -766,6 +766,29 @@ export type Database = {
         Args: Record<string, never>
         Returns: string
       }
+      buscar_log_auditoria: {
+        Args: {
+          p_tabela?: string | null
+          p_registro_id?: string | null
+          p_busca?: string | null
+          p_usuario_ids?: string[] | null
+          p_data_inicio?: string | null
+          p_data_fim?: string | null
+          p_limite?: number
+          p_offset?: number
+        }
+        Returns: {
+          id: string
+          tabela: string
+          registro_id: string
+          operacao: string
+          dados_anteriores: Record<string, unknown> | null
+          dados_novos: Record<string, unknown> | null
+          usuario_id: string | null
+          created_at: string
+          total_count: number
+        }[]
+      }
       registrar_extra_plantao: {
         Args: {
           p_payload: Record<string, unknown>

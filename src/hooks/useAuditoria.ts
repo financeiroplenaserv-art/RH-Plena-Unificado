@@ -3,8 +3,6 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { AuditoriaLog } from '@/types/database'
 
-const COLUNAS_AUDITORIA = 'id, tabela, registro_id, operacao, dados_anteriores, dados_novos, usuario_id, created_at'
-
 export interface FiltrosAuditoria {
   tabela?: string
   registroId?: string
@@ -20,6 +18,8 @@ export interface FiltrosAuditoria {
   porPagina?: number
 }
 
+type LinhaAuditoria = AuditoriaLog & { total_count: number }
+
 export function useAuditoria() {
   const [logs, setLogs] = useState<AuditoriaLog[]>([])
   const [total, setTotal] = useState(0)
@@ -29,37 +29,30 @@ export function useAuditoria() {
     setLoading(true)
     const pagina = filtros.pagina ?? 0
     const porPagina = filtros.porPagina ?? 50
-    let query = supabase
-      .from('log_auditoria')
-      .select(COLUNAS_AUDITORIA, { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(pagina * porPagina, (pagina + 1) * porPagina - 1)
 
-    if (filtros.tabela) query = query.eq('tabela', filtros.tabela)
-    if (filtros.registroId) query = query.eq('registro_id', filtros.registroId)
-    if (filtros.dataInicio) query = query.gte('created_at', `${filtros.dataInicio}T00:00:00`)
-    if (filtros.dataFim) query = query.lte('created_at', `${filtros.dataFim}T23:59:59.999`)
-    if (filtros.busca?.trim()) {
-      // Remove caracteres especiais do PostgREST para não quebrar a expressão .or()
-      const termo = filtros.busca.trim().replace(/[%(),.]/g, ' ').replace(/\s+/g, ' ')
-      const condicoes = [
-        `tabela.ilike.%${termo}%`,
-        `operacao.ilike.%${termo}%`,
-        `registro_id.ilike.%${termo}%`,
-      ]
-      if (filtros.idsUsuariosBusca?.length) {
-        condicoes.push(`usuario_id.in.(${filtros.idsUsuariosBusca.join(',')})`)
-      }
-      query = query.or(condicoes.join(','))
-    }
+    // A listagem vai por RPC (migration 108): a busca com ILIKE sob RLS não usava
+    // os índices (barreira de segurança das funções não-leakproof da policy) e a
+    // query ORDER BY + LIMIT varria a tabela inteira — timeout de 8s do PostgREST.
+    // SECURITY DEFINER + índices trigram (migration 107) → ~10ms.
+    const termo = filtros.busca?.trim() || null
 
-    const { data, error, count } = await query
+    const { data, error } = await supabase.rpc('buscar_log_auditoria', {
+      p_tabela: filtros.tabela ?? null,
+      p_registro_id: filtros.registroId ?? null,
+      p_busca: termo,
+      p_usuario_ids: filtros.idsUsuariosBusca?.length ? filtros.idsUsuariosBusca : null,
+      p_data_inicio: filtros.dataInicio ? `${filtros.dataInicio}T00:00:00` : null,
+      p_data_fim: filtros.dataFim ? `${filtros.dataFim}T23:59:59.999` : null,
+      p_limite: porPagina,
+      p_offset: pagina * porPagina,
+    })
 
     if (error) {
       toast.error('Erro ao carregar auditoria: ' + error.message)
     } else {
-      setLogs((data as AuditoriaLog[]) || [])
-      setTotal(count ?? 0)
+      const linhas = (data as LinhaAuditoria[] | null) ?? []
+      setLogs(linhas)
+      setTotal(linhas[0]?.total_count ?? 0)
     }
     setLoading(false)
   }, [])

@@ -80,6 +80,19 @@ Causa raiz em DUAS camadas (a primeira não bastou):
 existe em várias policies antigas — só dói em tabelas grandes (log_auditoria
 era a única). Se outra tela pesada aparecer, aplicar o mesmo wrapper.
 
+### Persistiu com busca — causa final (migrations 107 + 108)
+
+Depois do vacuum + InitPlan, o usuário ainda tomava timeout — **na busca por
+texto**. A consulta com `ILIKE '%termo%'` não usava índice: o planner andava o
+índice de `created_at` filtrando linha a linha (15-20s). Criei índices GIN
+trigram (107) — e descobri que sob RLS eles **não eram usados**: a policy com
+função não-leakproof cria barreira de segurança no planner (com a policy:
+15-20s; sem: 25ms; LEAKPROOF exige superuser, que o Supabase não concede).
+Solução definitiva (108): RPC `buscar_log_auditoria` SECURITY DEFINER — o
+`useAuditoria` agora chama a RPC em vez de consultar a tabela direto. Busca
+"maciel": **15-20s → ~12ms**. A policy da 106 permanece protegendo acessos
+diretos à tabela.
+
 ### Relatório de Adicionais com colunas coloridas
 
 `AdicionaisRelatorioPage.tsx`: as 5 colunas de adicional (Noturno,
