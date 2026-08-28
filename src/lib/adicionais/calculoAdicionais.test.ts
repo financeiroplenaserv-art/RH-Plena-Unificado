@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   escaladoParaTrabalhar,
+  diaExigeSubstituto,
   contarDiasFeriadoEscalado,
   adicionalTitular30,
   insalubridadeSubstituto,
@@ -29,6 +30,28 @@ describe('escaladoParaTrabalhar', () => {
   })
 })
 
+describe('diaExigeSubstituto (alerta "precisa de substituto")', () => {
+  it('falta sempre exige substituto', () => {
+    expect(diaExigeSubstituto('falta', '12x36', '2026-06-20', '2026-06-21')).toBe(true)
+  })
+  it('folga com substituição sempre exige substituto', () => {
+    expect(diaExigeSubstituto('folga_substituicao', '12x36', '2026-06-20', '2026-06-21')).toBe(true)
+  })
+  it('trabalhou/folga nunca exigem substituto', () => {
+    expect(diaExigeSubstituto('trabalhou', '12x36', '2026-06-20', '2026-06-20')).toBe(false)
+    expect(diaExigeSubstituto('folga', '12x36', '2026-06-20', '2026-06-21')).toBe(false)
+  })
+  it('férias/afastado só exigem em dia de escala (12x36)', () => {
+    // início 20/06: 20/06 é escala, 21/06 é folga
+    expect(diaExigeSubstituto('ferias', '12x36', '2026-06-20', '2026-06-20')).toBe(true)
+    expect(diaExigeSubstituto('ferias', '12x36', '2026-06-20', '2026-06-21')).toBe(false)
+    expect(diaExigeSubstituto('afastado', '12x36', '2026-06-20', '2026-06-21')).toBe(false)
+  })
+  it('férias em fim de semana de escala 5x2 não exigem', () => {
+    expect(diaExigeSubstituto('ferias', '5x2', undefined, '2026-06-27')).toBe(false) // sábado
+    expect(diaExigeSubstituto('ferias', '5x2', undefined, '2026-06-24')).toBe(true) // quarta
+  })
+})
 describe('contarDiasFeriadoEscalado (regra: só feriado com escala prevista)', () => {
   it('conta apenas feriados em dia de trabalho previsto no 12x36', () => {
     // vínculo iniciado 20/06: trabalha diferenças pares — 04/06, 24/06 e 25/12 caem em dia de trabalho

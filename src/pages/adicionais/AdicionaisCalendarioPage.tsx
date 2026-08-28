@@ -29,7 +29,7 @@ import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos } from '@/lib/adicionais/calculoAdicionais'
+import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos, diaExigeSubstituto } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional, AdicionalTipo } from '@/types/adicionais'
 
@@ -263,10 +263,13 @@ export function AdicionaisCalendarioPage() {
 
   const precisaSubstituto = useCallback((vinculo: VinculoAdicional, data: string) => {
     const dia = getDia(vinculo, data)
-    const ausente = ['falta', 'ferias', 'afastado', 'folga_substituicao'].includes(dia.status)
+    const contrato = mapContrato.get(vinculo.contrato_id)
+    // Férias/afastado em dia de FOLGA da escala não exigem substituto (ninguém
+    // trabalha a folga; no 12×36 o par já transfere pelo dia de escala coberto)
+    const ausente = diaExigeSubstituto(dia.status, contrato?.regime_trabalho, vinculo.data_inicio, data)
     const chave = `${vinculo.id}|${data}`
     return ausente && !getSubstituto(vinculo.id, data) && !ignorados.has(chave)
-  }, [getDia, getSubstituto, ignorados])
+  }, [getDia, getSubstituto, ignorados, mapContrato])
 
   const vinculosFiltrados = useMemo(() => {
     let lista = vinculosAtivosNoPeriodo

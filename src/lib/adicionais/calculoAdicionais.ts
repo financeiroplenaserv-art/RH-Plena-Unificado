@@ -1,4 +1,4 @@
-import type { ContratoAdicional } from '@/types/adicionais'
+import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 
 export function diaIntrajornada(contrato: ContratoAdicional | undefined | null, dataStr: string): boolean {
   if (!contrato || !contrato.adicionais?.intrajornada) return false
@@ -22,6 +22,25 @@ export function escaladoParaTrabalhar(regime: string | undefined, dataInicioVinc
   if (regime === '6x1') return diffDias % 7 < 6
   // 12x36 (padrão): dia sim, dia não
   return diffDias % 2 === 0
+}
+
+/**
+ * O dia exige substituto? (alerta "precisa de substituto" no calendário)
+ * Falta e folga com substituição sempre exigem. Férias/afastado só exigem em
+ * dia de ESCALA — na folga do 12×36 dentro das férias ninguém trabalha, e o
+ * par já transfere pelo dia de escala coberto (caso Alcemir, 28/08/2026:
+ * férias com substituto nos dias de escala ainda alertavam nas folgas).
+ */
+export function diaExigeSubstituto(
+  status: StatusDiaAdicional,
+  regime: string | undefined,
+  dataInicioVinculo: string | undefined,
+  data: string
+): boolean {
+  if (status === 'ferias' || status === 'afastado') {
+    return escaladoParaTrabalhar(regime, dataInicioVinculo, data)
+  }
+  return status === 'falta' || status === 'folga_substituicao'
 }
 
 /**
