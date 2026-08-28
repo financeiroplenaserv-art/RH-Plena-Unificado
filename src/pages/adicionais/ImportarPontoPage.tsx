@@ -222,16 +222,33 @@ export function ImportarPontoPage() {
     )
   }
 
-  const handleSelecionarArquivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelecionarArquivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setArquivo(file)
-      setDados([])
-      setResumoImportacao(null)
-      setExistentesOcorrencias([])
-      setDesmarcadasOcorrencias(new Set())
-      setDesmarcadosDias(new Set())
+    if (!file) return
+    // O Chrome invalida a referência do File quando o arquivo muda no disco
+    // depois da seleção (pasta sincronizada do OneDrive/Google Drive, PDF
+    // ainda sendo exportado pelo Flit ou baixado de novo) — a leitura tardia
+    // falha com "The requested file could not be read, typically due to
+    // permission problems...". Lê os bytes já na seleção e guarda uma cópia
+    // em memória, imune a mudanças no disco.
+    let arquivoMemoria: File
+    try {
+      const bytes = await file.arrayBuffer()
+      arquivoMemoria = new File([bytes], file.name, { type: 'application/pdf' })
+    } catch (err) {
+      console.error('Erro ao ler o PDF selecionado:', err)
+      toast.error(
+        'Não foi possível ler o arquivo. Se ele estiver em pasta sincronizada (OneDrive/Google Drive) ou tiver acabado de ser exportado/baixado, aguarde a conclusão e selecione novamente.',
+        { duration: Infinity }
+      )
+      return
     }
+    setArquivo(arquivoMemoria)
+    setDados([])
+    setResumoImportacao(null)
+    setExistentesOcorrencias([])
+    setDesmarcadasOcorrencias(new Set())
+    setDesmarcadosDias(new Set())
   }
 
   /** Chave do colaborador na prévia para a seleção de importação dos dias. */

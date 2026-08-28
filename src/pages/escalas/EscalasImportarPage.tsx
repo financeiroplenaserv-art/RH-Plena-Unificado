@@ -80,15 +80,32 @@ export function EscalasImportarPage() {
   const competencia = calcularCompetencia(ano, mes)
 
   const handleArquivoSelecionado = async (file: File | null) => {
-    setArquivo(file)
+    setArquivo(null)
     setPreview(null)
     setErroPreview(null)
     setResumo(null)
 
     if (!file) return
 
+    // Mesmo motivo do Importar Ponto (Adicionais): o Chrome invalida a
+    // referência do File se o arquivo muda no disco depois da seleção (pasta
+    // sincronizada, arquivo recém-baixado). Lê os bytes já na seleção e
+    // guarda uma cópia em memória, imune a mudanças no disco.
+    let arquivoMemoria: File
     try {
-      const batidas = await parseExcelFlit(file)
+      const bytes = await file.arrayBuffer()
+      arquivoMemoria = new File([bytes], file.name, { type: file.type })
+    } catch (err) {
+      console.error('Erro ao ler o Excel selecionado:', err)
+      setErroPreview(
+        'Não foi possível ler o arquivo. Se ele estiver em pasta sincronizada (OneDrive/Google Drive) ou tiver acabado de ser baixado, aguarde a conclusão e selecione novamente.'
+      )
+      return
+    }
+    setArquivo(arquivoMemoria)
+
+    try {
+      const batidas = await parseExcelFlit(arquivoMemoria)
       setPreview(batidas.slice(0, 5))
     } catch (err: unknown) {
       const mensagem = err instanceof Error ? err.message : 'Erro ao ler o arquivo Excel'
