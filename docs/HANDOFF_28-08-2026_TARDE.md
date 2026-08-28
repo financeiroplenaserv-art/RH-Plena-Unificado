@@ -57,7 +57,28 @@ Se ainda assim não gravar, investigar com ela ao vivo.
 - `npm run lint`: passa.
 - `npm run build`: passa.
 
+## Sessão 2 (noite) — timeout na Auditoria + heatmap de adicionais
+
+### Erro "canceling statement due to statement timeout" na Auditoria
+
+Causa raiz: a página usa `count: 'exact'` (contagem exata para a paginação) e a
+tabela `log_auditoria` (~150 mil linhas, 214 MB) nunca tinha sido vacuumada —
+o index-only scan fazia 66 mil heap fetches e o `count(*)` levava **8,3s**
+(estoura o timeout de 8s do PostgREST). Rodei `VACUUM (ANALYZE)` na tabela:
+o count caiu para **~120ms**. Se voltar a acontecer daqui a meses (a tabela
+cresce via triggers a cada importação), repetir o VACUUM ou considerar
+`count: 'estimated'` no hook `useAuditoria`.
+
+### Relatório de Adicionais com colunas coloridas
+
+`AdicionaisRelatorioPage.tsx`: as 5 colunas de adicional (Noturno,
+Periculosidade, Insalubridade, Intrajornada, Feriado) ganharam cor própria
+(indigo/laranja/esmeralda/azul/roxo) — cabeçalho tingido e célula destacada
+quando o contrato tem o flag e o valor é > 0; contrato sem o adicional mostra
+"—" apagado em vez de "o 0". Só apresentação — exportação CSV/Excel inalterada.
+
 ## Docs atualizados
 
 - `docs/REGRAS_NEGOCIO.md` — regra do alerta só em dia de escala.
 - `AGENTS.md` — mesma nota na seção de regras de negócio.
+- Deploys do dia: manhã (`index-BGeq_OVK.js`) e noite (`index-Bn63UAcw.js`).

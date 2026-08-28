@@ -29,7 +29,7 @@ import * as XLSX from '@e965/xlsx'
 import { nomeDepartamento } from '@/lib/utils'
 import { diaIntrajornada, contarDiasFeriadoEscalado, adicionalTitular30, insalubridadeSubstituto, periculosidadeSubstituto, contarDiasTransferidos, substituicaoGeraAdicional } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
-import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
+import type { ContratoAdicional, StatusDiaAdicional, AdicionalTipo } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
 
 interface RelatorioAdicionalAgregado {
@@ -568,6 +568,36 @@ export function AdicionaisRelatorioPage() {
     </button>
   )
 
+  // Cores por tipo de adicional: o olho vai direto ao cruzamento
+  // colaborador × adicional que gera direito (contrato tem o flag E dias > 0).
+  const ADICIONAL_ESTILO: Record<AdicionalTipo, { bg: string; fg: string }> = {
+    noturno: { bg: '#EEF2FF', fg: '#4338CA' },
+    periculosidade: { bg: '#FFF7ED', fg: '#C2410C' },
+    insalubridade: { bg: '#ECFDF5', fg: '#047857' },
+    intrajornada: { bg: '#EFF6FF', fg: '#1D4ED8' },
+    feriado: { bg: '#FAF5FF', fg: '#7E22CE' },
+  }
+
+  const celulaAdicional = (chave: AdicionalTipo, valor: number, contrato: ContratoAdicional | undefined) => {
+    const ativo = contrato?.adicionais?.[chave] === true
+    const estilo = ADICIONAL_ESTILO[chave]
+      if (!ativo) {
+      return <TableCell className="text-center" style={{ color: '#CBD5E1' }}>—</TableCell>
+    }
+    return (
+      <TableCell
+        className="text-center tabular-nums"
+        style={{
+          backgroundColor: valor > 0 ? estilo.bg : undefined,
+          color: valor > 0 ? estilo.fg : '#94A3B8',
+          fontWeight: valor > 0 ? 600 : 400,
+        }}
+      >
+        {valor}
+      </TableCell>
+    )
+  }
+
   return (
     <AdicionaisShell>
       <PageHeader backTo="/adicionais/contratos" title="Relatório de Adicionais" description="Visualize e exporte os adicionais contratuais por colaborador" />
@@ -666,11 +696,11 @@ export function AdicionaisRelatorioPage() {
                   <TableHead style={{ color: '#1F2937' }}>Contrato</TableHead>
                   <TableHead style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('departamento', 'Departamento')}</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Trabalhados</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_noturno', 'Noturno')}</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_periculosidade', 'Periculosidade')}</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_insalubridade', 'Insalubridade')}</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_intrajornada', 'Intrajornada')}</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}>{cabecalhoOrdenavel('dias_feriado', 'Feriado')}</TableHead>
+                  <TableHead className="text-center" style={{ color: ADICIONAL_ESTILO.noturno.fg, backgroundColor: ADICIONAL_ESTILO.noturno.bg }}>{cabecalhoOrdenavel('dias_noturno', 'Noturno')}</TableHead>
+                  <TableHead className="text-center" style={{ color: ADICIONAL_ESTILO.periculosidade.fg, backgroundColor: ADICIONAL_ESTILO.periculosidade.bg }}>{cabecalhoOrdenavel('dias_periculosidade', 'Periculosidade')}</TableHead>
+                  <TableHead className="text-center" style={{ color: ADICIONAL_ESTILO.insalubridade.fg, backgroundColor: ADICIONAL_ESTILO.insalubridade.bg }}>{cabecalhoOrdenavel('dias_insalubridade', 'Insalubridade')}</TableHead>
+                  <TableHead className="text-center" style={{ color: ADICIONAL_ESTILO.intrajornada.fg, backgroundColor: ADICIONAL_ESTILO.intrajornada.bg }}>{cabecalhoOrdenavel('dias_intrajornada', 'Intrajornada')}</TableHead>
+                  <TableHead className="text-center" style={{ color: ADICIONAL_ESTILO.feriado.fg, backgroundColor: ADICIONAL_ESTILO.feriado.bg }}>{cabecalhoOrdenavel('dias_feriado', 'Feriado')}</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Folgas</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Faltas</TableHead>
                   <TableHead className="text-center" style={{ color: '#1F2937' }}>Férias</TableHead>
@@ -678,23 +708,26 @@ export function AdicionaisRelatorioPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {linhasFiltradas.map((l, idx) => (
+                {linhasFiltradas.map((l, idx) => {
+                  const contrato = mapContrato.get(l.contrato_id)
+                  return (
                   <TableRow key={idx} className="hover:bg-slate-50">
                     <TableCell className="font-medium" style={{ color: '#1F2937' }}>{l.colaborador_nome}</TableCell>
                     <TableCell style={{ color: '#1F2937' }}>{l.contrato_nome}</TableCell>
                     <TableCell style={{ color: '#1F2937' }}>{l.departamento}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_trabalhados}</TableCell>
-                    <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_noturno}</TableCell>
-                    <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_periculosidade}</TableCell>
-                    <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_insalubridade}</TableCell>
-                    <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_intrajornada}</TableCell>
-                    <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.dias_feriado}</TableCell>
+                    {celulaAdicional('noturno', l.dias_noturno, contrato)}
+                    {celulaAdicional('periculosidade', l.dias_periculosidade, contrato)}
+                    {celulaAdicional('insalubridade', l.dias_insalubridade, contrato)}
+                    {celulaAdicional('intrajornada', l.dias_intrajornada, contrato)}
+                    {celulaAdicional('feriado', l.dias_feriado, contrato)}
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.folgas}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.faltas}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.ferias}</TableCell>
                     <TableCell className="text-center" style={{ color: '#1F2937' }}>{l.afastados}</TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
