@@ -61,13 +61,24 @@ Se ainda assim não gravar, investigar com ela ao vivo.
 
 ### Erro "canceling statement due to statement timeout" na Auditoria
 
-Causa raiz: a página usa `count: 'exact'` (contagem exata para a paginação) e a
-tabela `log_auditoria` (~150 mil linhas, 214 MB) nunca tinha sido vacuumada —
-o index-only scan fazia 66 mil heap fetches e o `count(*)` levava **8,3s**
-(estoura o timeout de 8s do PostgREST). Rodei `VACUUM (ANALYZE)` na tabela:
-o count caiu para **~120ms**. Se voltar a acontecer daqui a meses (a tabela
-cresce via triggers a cada importação), repetir o VACUUM ou considerar
-`count: 'estimated'` no hook `useAuditoria`.
+Causa raiz em DUAS camadas (a primeira não bastou):
+
+1. A página usa `count: 'exact'` (contagem exata para a paginação) e a tabela
+   `log_auditoria` (~150 mil linhas, 214 MB) nunca tinha sido vacuumada — o
+   index-only scan fazia 66 mil heap fetches e o `count(*)` levava **8,3s**
+   (estoura o timeout de 8s do PostgREST). `VACUUM (ANALYZE)` derrubou para
+   ~120ms, **mas o erro persistiu** porque havia uma segunda camada:
+2. A policy RLS usava `is_admin() OR is_editor()` direto no qual — funções
+   SECURITY DEFINER não são inlined e eram avaliadas **por linha** (~4s para
+   150 mil linhas, mesmo com o count otimizado). Corrigido pela **migration
+   106** (`106_perf_rls_log_auditoria.sql`): a policy passou a usar
+   `(select public.is_admin()) or (select public.is_editor())` — o planner
+   vira InitPlan e avalia UMA vez por query. Count com RLS: **~170ms**.
+   Aplicada via `db query --linked` em 28/08/2026.
+
+**Lição/pendente:** o padrão `is_admin() OR is_editor()` sem `(select ...)`
+existe em várias policies antigas — só dói em tabelas grandes (log_auditoria
+era a única). Se outra tela pesada aparecer, aplicar o mesmo wrapper.
 
 ### Relatório de Adicionais com colunas coloridas
 
