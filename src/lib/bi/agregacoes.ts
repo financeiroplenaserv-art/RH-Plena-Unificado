@@ -193,6 +193,30 @@ export function respEv(e: Pick<BiEvento, 'usuario_ultimo_nome' | 'usuario_nome'>
   return e.usuario_ultimo_nome || e.usuario_nome || '—'
 }
 
+/** Responsável exibido do evento: a pessoa citada na análise mais recente
+ *  (decisão da gestão, 01/09/2026 — ex.: Eliane abriu o evento, mas a análise
+ *  designou o Alexandre; quem responde pelo evento é o Alexandre).
+ *  Sem análise com responsável, cai para respEv (quem trata / quem abriu). */
+export function responsavelEvento(e: BiEvento, analises: BiAnalise[]): string {
+  const comResp = analises
+    .filter((a) => a.responsavel_nome)
+    .sort((a, b) => ((a.data_analise || '') < (b.data_analise || '') ? -1 : 1))
+  return comResp[comResp.length - 1]?.responsavel_nome || respEv(e)
+}
+
+/** Devolve a lista de eventos com o responsável das análises aplicado em
+ *  `usuario_ultimo_nome`, para tabela, filtro "Pessoa" e gráfico por
+ *  responsável seguirem todos a mesma regra (responsavelEvento). */
+export function aplicarResponsavelAnalise(
+  eventos: BiEvento[],
+  mapa: Record<number, BiAnalise[]>,
+): BiEvento[] {
+  return eventos.map((e) => {
+    const resp = responsavelEvento(e, mapa[e.id] || [])
+    return resp === respEv(e) ? e : { ...e, usuario_ultimo_nome: resp }
+  })
+}
+
 function contar<T>(arr: T[], fn: (x: T) => string): Record<string, number> {
   const m: Record<string, number> = {}
   arr.forEach((x) => {

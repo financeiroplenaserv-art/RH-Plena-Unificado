@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   analisesDoEvento,
+  aplicarResponsavelAnalise,
   buscaTextual,
   diaDe,
   eventosPorAssunto,
@@ -24,6 +25,7 @@ import {
   opcoesPessoas,
   producaoPorDiaInspetor,
   respEv,
+  responsavelEvento,
   slaEventos,
   statusSync,
   varianteConclusao,
@@ -404,6 +406,37 @@ describe('eventos', () => {
     expect(mapa[7]).toHaveLength(2)
     expect(analisesDoEvento(mapa, 7).map((a) => a.descricao)).toEqual(['a', 'b'])
     expect(analisesDoEvento(mapa, 999)).toEqual([])
+  })
+
+  it('responsavelEvento usa a pessoa da análise mais recente (decisão 01/09/2026)', () => {
+    const ev = evento({ usuario_nome: 'Eliane Azevedo', usuario_ultimo_nome: 'Eliane Azevedo' })
+    const ans = [
+      { id: 1, evento_id: 1, responsavel_nome: 'Carlos', tipo_analise_nome: 'Nota', descricao: null, data_analise: '2026-08-01T10:00:00+00:00' },
+      { id: 2, evento_id: 1, responsavel_nome: 'Alexandre Avila', tipo_analise_nome: 'Em Análise', descricao: null, data_analise: '2026-09-01T09:50:00+00:00' },
+    ]
+    expect(responsavelEvento(ev, ans)).toBe('Alexandre Avila')
+    // fora de ordem na entrada: vale a mais recente pela data
+    expect(responsavelEvento(ev, [ans[1], ans[0]])).toBe('Alexandre Avila')
+    // sem análise: cai para quem trata/abriu o evento
+    expect(responsavelEvento(ev, [])).toBe('Eliane Azevedo')
+    // análise sem responsável preenchido é ignorada
+    expect(
+      responsavelEvento(ev, [
+        { id: 3, evento_id: 1, responsavel_nome: null, tipo_analise_nome: 'Nota', descricao: null, data_analise: '2026-09-02T10:00:00+00:00' },
+      ])
+    ).toBe('Eliane Azevedo')
+  })
+
+  it('aplicarResponsavelAnalise aplica o responsável da análise preservando o autor', () => {
+    const ev = evento({ id: 7, usuario_nome: 'Eliane Azevedo', usuario_ultimo_nome: 'Eliane Azevedo' })
+    const mapa = mapaAnalises([
+      { id: 1, evento_id: 7, responsavel_nome: 'Alexandre Avila', tipo_analise_nome: 'Em Análise', descricao: null, data_analise: '2026-09-01T09:50:00+00:00' },
+    ])
+    const [r] = aplicarResponsavelAnalise([ev], mapa)
+    expect(r.usuario_ultimo_nome).toBe('Alexandre Avila')
+    expect(r.usuario_nome).toBe('Eliane Azevedo')
+    // sem análise com responsável: retorna o próprio objeto, sem cópia
+    expect(aplicarResponsavelAnalise([ev], {})[0]).toBe(ev)
   })
 })
 

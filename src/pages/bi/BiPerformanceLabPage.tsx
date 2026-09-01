@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Search } from 'lucide-react'
+import { CalendarClock, ClipboardCheck, ExternalLink, MapPin, Search } from 'lucide-react'
 import type { ChartConfiguration } from 'chart.js'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
@@ -12,7 +13,7 @@ import { PageLoading } from '@/components/PageLoading'
 import { Grafico } from '@/components/bi/Grafico'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import {
 import {
   agruparQas,
   analisesDoEvento,
+  aplicarResponsavelAnalise,
   buscaTextual,
   diaDe,
   eventosPorAssunto,
@@ -74,6 +76,13 @@ const COR_RUIM = '#DC2626'
 
 const TODOS = 'todos'
 const TAMANHO_PAGINA = 1000
+
+// Abas internas da página (estado local; mesma cara das abas do ModuleShell)
+const ABAS = [
+  { valor: 'checklists', label: 'Checklists', icon: ClipboardCheck },
+  { valor: 'visitas', label: 'Visitas dos Inspetores', icon: MapPin },
+  { valor: 'eventos', label: 'Eventos da Equipe', icon: CalendarClock },
+]
 
 function periodoPadrao(): { di: string; df: string } {
   // Dia de Brasília (não o do dispositivo) como limite do período
@@ -224,6 +233,8 @@ export function BiPerformanceLabPage() {
   const [evAssunto, setEvAssunto] = useState('')
   const [ckAbertos, setCkAbertos] = useState<Set<number>>(new Set())
   const [evAbertos, setEvAbertos] = useState<Set<number>>(new Set())
+  // Aba ativa (a barra segue o padrão visual do ModuleShell, com estado interno)
+  const [aba, setAba] = useState('checklists')
 
   const carregar = useCallback(async (di: string) => {
     setLoading(true)
@@ -309,17 +320,22 @@ export function BiPerformanceLabPage() {
     [periodo, pessoa, local]
   )
 
+  const qasMap = useMemo(() => mapaQas(qas), [qas])
+  const anMap = useMemo(() => mapaAnalises(analises), [analises])
+
+  // Eventos com o responsável da análise mais recente aplicado (decisão da
+  // gestão, 01/09/2026): a tabela, o filtro "Pessoa" e o gráfico por
+  // responsável passam a mostrar quem consta na análise, não quem abriu
+  const eventosResp = useMemo(() => aplicarResponsavelAnalise(eventos, anMap), [eventos, anMap])
+
   // Opções dos selects derivadas dos dados carregados
-  const pessoas = useMemo(() => opcoesPessoas(checklists, coletas, eventos), [checklists, coletas, eventos])
+  const pessoas = useMemo(() => opcoesPessoas(checklists, coletas, eventosResp), [checklists, coletas, eventosResp])
   const locais = useMemo(() => opcoesLocais(checklists, coletas, eventos), [checklists, coletas, eventos])
 
   // Conjuntos filtrados (período + pessoa + local)
   const cks = useMemo(() => filtrarChecklists(checklists, filtros), [checklists, filtros])
   const vis = useMemo(() => filtrarColetas(coletas, filtros), [coletas, filtros])
-  const evs = useMemo(() => filtrarEventos(eventos, filtros), [eventos, filtros])
-
-  const qasMap = useMemo(() => mapaQas(qas), [qas])
-  const anMap = useMemo(() => mapaAnalises(analises), [analises])
+  const evs = useMemo(() => filtrarEventos(eventosResp, filtros), [eventosResp, filtros])
 
   // ---------------- Checklists ----------------
   const kpiCk = useMemo(() => kpisChecklists(cks), [cks])
@@ -594,12 +610,31 @@ export function BiPerformanceLabPage() {
         </div>
       )}
 
-      <Tabs defaultValue="checklists" className="mt-4">
-        <TabsList>
-          <TabsTrigger value="checklists">Checklists</TabsTrigger>
-          <TabsTrigger value="visitas">Visitas dos Inspetores</TabsTrigger>
-          <TabsTrigger value="eventos">Eventos da Equipe</TabsTrigger>
-        </TabsList>
+      <Tabs value={aba} onValueChange={setAba} className="mt-4">
+        {/* Barra de abas no padrão dos demais módulos (ModuleShell): sublinhado
+            primário na aba ativa, com ícone — aqui com estado interno porque a
+            página não tem sub-rotas */}
+        <div className="flex flex-wrap gap-1 border-b border-border pb-2">
+          {ABAS.map((t) => {
+            const Icon = t.icon
+            return (
+              <button
+                key={t.valor}
+                type="button"
+                onClick={() => setAba(t.valor)}
+                className={cn(
+                  'flex items-center gap-2 border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors',
+                  aba === t.valor
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                )}
+              >
+                <Icon className="size-4" strokeWidth={1.8} />
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
 
         <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
           <div className="space-y-1.5">

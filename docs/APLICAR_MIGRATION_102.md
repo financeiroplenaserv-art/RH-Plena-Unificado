@@ -50,11 +50,23 @@ select cron.schedule(
       'Authorization', 'Bearer <SYNC_CRON_KEY>',
       'Content-Type', 'application/json'
     ),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    -- OBRIGATÓRIO (correção de 01/09/2026): o sync leva ~35-40s (janela de 90
+    -- dias) e o timeout padrão do pg_net é 5s — sem este parâmetro o cron
+    -- aborta a requisição antes da function rodar e o sync para em silêncio
+    -- (o job aparece "succeeded" em cron.job_run_details, mas nada é gravado).
+    timeout_milliseconds := 150000
   );
   $$
 );
 ```
+
+**Correção aplicada em 01/09/2026:** o job foi atualizado com
+`select cron.alter_job(job_id := 1, command := '...')` incluindo
+`timeout_milliseconds := 150000`. Sempre que recriar/alterar o job, manter o
+timeout. Diagnóstico completo: `net._http_response` mostrava
+"Timeout of 5000 ms reached" em todas as execuções desde 25/08/2026 e
+`bi_sync_log` não recebia linhas (a function nem era alcançada).
 
 Verificar se agendou: `select jobid, jobname, schedule, active from cron.job;`
 Ver execuções: `select * from cron.job_run_details order by start_time desc limit 10;`

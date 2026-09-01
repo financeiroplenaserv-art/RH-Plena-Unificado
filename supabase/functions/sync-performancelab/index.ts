@@ -237,17 +237,20 @@ Deno.serve(async (req: Request) => {
     else console.log('limpeza:', limpeza)
 
     // 7) Log da execução (lido pela página para mostrar "Atualizado em ...")
+    const removidos = removidosCk + removidosColetas + removidosEventos + removidosAnalises
     const totais = {
       locais: locaisPlena.length,
       checklists: cks.length,
       coletas: coletas.length,
       eventos: eventos.length,
       analises: analises.length,
-      removidos: removidosCk + removidosColetas + removidosEventos + removidosAnalises,
     }
-    await supabase.from('bi_sync_log').insert({ ok: true, ...totais })
+    // bi_sync_log não tem coluna `removidos` — inserir só as colunas da tabela,
+    // senão o PostgREST rejeita o insert e o sucesso nunca é registrado
+    const { error: erroLogOk } = await supabase.from('bi_sync_log').insert({ ok: true, ...totais })
+    if (erroLogOk) console.error('falha ao gravar bi_sync_log:', erroLogOk)
 
-    return new Response(JSON.stringify({ ok: true, ...totais }), {
+    return new Response(JSON.stringify({ ok: true, ...totais, removidos }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (e) {
