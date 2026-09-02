@@ -19,18 +19,21 @@ export type CategoriaOcorrencia =
   | 'Outros'
 
 export type MotivoExtra =
+  | 'Afastamento INSS'
   | 'Atestado'
+  | 'Cobertura férias extra faturadas'
+  | 'Extra faturado'
   | 'Falta sem justificativa'
   | 'Folga'
   | 'Férias'
-  | 'Extra faturado'
+  | 'Limpeza interna'
+  | 'Movimentação Operacional'
+  | 'Outros'
+  | 'Pedido de demissão'
   | 'Reforço estratégico'
   | 'Reforço faturado'
-  | 'Limpeza interna'
-  | 'Cobertura férias extra faturadas'
-  | 'Outros'
+  | 'Suspensão'
   | 'Treinamento'
-  | 'Movimentação Operacional'
 
 export type ComunicacaoTipo = 'WhatsApp' | 'Email' | 'Não se aplica'
 

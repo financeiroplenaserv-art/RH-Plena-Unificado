@@ -405,6 +405,7 @@ npx vitest
 ## 10. Deploy
 
 - Veja o roteiro completo em `docs/DEPLOY.md`.
+- **PWA — ciclo de atualização do service worker (02/09/2026)**: `src/sw.ts` usa `skipWaiting()` + `clientsClaim()` (workbox-core) e `src/main.tsx` ouve `controllerchange` para recarregar a aba **uma vez** quando o SW novo assume (guarda `recarregando`); no `load`, chama `reg.update()` e repete a cada 60 min. Sem o trecho do `main.tsx`, o `registerSW.js` do vite-plugin-pwa apenas registra o SW e quem mantém a aba aberta fica preso no build antigo após o deploy. **Não remova nenhum dos dois lados** — trabalham em par.
 - O banco de dados continua no **Supabase**; o VPS serve apenas o frontend estático.
 - Build de produção: `npm ci && npm run build` → gera `dist/`.
 - Servir `dist/` com nginx/caddy, configurando fallback SPA para `index.html`.
@@ -449,6 +450,7 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 - **Extras — duplicidade**: lançamento com "Gera extra = Sim" + ausente "Não se aplica" **não checa duplicidade** de cliente/data (permite equipe extra no mesmo serviço). Com ausente informado ou "Não — falta (controle interno)", a checagem continua.
 - **Extras — "Gera extra?" simplificado (decisão da gestão, 06/08/2026)**: os botões são apenas **Sim** e **Não** (sem "falta/controle interno" no rótulo). O **Não apenas exclui o registro do pagamento ao colaborador** (balanço/recibos) — não força mais a categoria "Faltista" (Faltista virou categoria comum, selecionável manualmente). Como não há pagamento, clicar em Não **zera e TRAVA o campo Valor** e o submit **grava sempre `valor = 0`** — registro sem pagamento nunca exibe valor na listagem. **R$ 0,00 é permitido** em "Valor acordado" com Sim (a validação de valor > 0 caiu). **"Extra faturado" é independente do Sim/Não** (correção da gestão, 06/08/2026): faturado é a **cobrança do cliente**, não o pagamento ao colaborador — um faltista que já está na folha pode não receber pelo serviço (Não) e mesmo assim ser faturado ao cliente; o campo fica sempre visível e editável, e o submit nunca o altera. Checkboxes renomeados para **"Não tem colaborador ausente"** e **"Não tem colaborador substituto"** nas 3 telas de lançamento.
 - **Extras — substituto "SEM NOME" (06/08/2026)**: quando há falta e ninguém substituiu, o lançamento deve marcar a opção **"Não tem colaborador substituto"** no campo Substituto — grava `substituto_nome = 'SEM NOME'` (constante `SUBSTITUTO_SEM_NOME` em `src/types/extras.ts`) com `substituto_id` null, para a falta ficar anotada nos relatórios em vez de o campo sair em branco. Disponível nas 3 telas de lançamento (Novo Extra, Registro de Plantão e Falta Mobile — nesta, opção no seletor de substituto). O grupo "SEM NOME" **não gera recibo de pagamento** (filtrado em `ExtrasRecibosPage`, como "Não informado" — não há quem assinar).
+- **Extras — motivos do dropdown (02/09/2026)**: a lista `MotivoExtra` (`src/types/extras.ts`) e os arrays `MOTIVOS` das 3 telas de lançamento (`ExtrasFormPage`, `ExtrasPlantaoPage`, `MobileFaltaPage`) ficam em **ordem alfabética** e devem ser mantidos iguais entre si. A coluna `extras.motivo` no banco é texto livre (sem CHECK), então incluir motivo novo não exige migration — só os 4 arquivos.
 
 ---
 
@@ -478,4 +480,4 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 ---
 
-*Atualizado em: 2026-08-20*
+*Atualizado em: 2026-09-02*

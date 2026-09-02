@@ -25,7 +25,7 @@ import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
 const TURNOS: TurnoExtra[] = ['Dia', 'Manhã', 'Tarde', 'Noite', 'Noite anterior']
 const CATEGORIAS: CategoriaOcorrencia[] = ['Limpeza', 'Portaria', 'Operacional', 'Zelador', 'Jardinagem', 'Medidas disciplinares', 'Outros']
-const MOTIVOS: MotivoExtra[] = ['Atestado', 'Falta sem justificativa', 'Folga', 'Férias', 'Extra faturado', 'Reforço estratégico', 'Reforço faturado', 'Limpeza interna', 'Cobertura férias extra faturadas', 'Outros', 'Treinamento', 'Movimentação Operacional']
+const MOTIVOS: MotivoExtra[] = ['Afastamento INSS', 'Atestado', 'Cobertura férias extra faturadas', 'Extra faturado', 'Falta sem justificativa', 'Folga', 'Férias', 'Limpeza interna', 'Movimentação Operacional', 'Outros', 'Pedido de demissão', 'Reforço estratégico', 'Reforço faturado', 'Suspensão', 'Treinamento']
 const COMUNICACOES: ComunicacaoTipo[] = ['WhatsApp', 'Email', 'Não se aplica']
 
 const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
