@@ -352,14 +352,12 @@ npx vitest
 
 - Local: `supabase/functions/sync-performancelab/index.ts`.
 - Sincroniza a API pública do PerformanceLab (checklists, visitas dos inspetores e eventos) para as tabelas `bi_*` — janela de 35 dias, só locais do grupo PLENA. Alimenta a aba **PerformanceLab** (`/bi`, grupo Operacional).
-- **Job de máquina**: exige `Authorization: Bearer <SYNC_CRON_KEY>` (chave aleatória dedicada — o projeto usa as novas API keys `sb_secret_`/`sb_publishable`, então a guarda não usa a service role; verificação de JWT do gateway desativada só nesta function). Agendada 1x ao dia via pg_cron (06h30 BRT = `30 9 * * *` UTC) — passo a passo em `docs/APLICAR_MIGRATION_102.md`.
+- **Job de máquina**: exige `Authorization: Bearer <SYNC_CRON_KEY>` (chave aleatória dedicada — o projeto usa as novas API keys `sb_secret_`/`sb_publishable`, então a guarda não usa a service role; verificação de JWT do gateway desativada só nesta function). Agendada 1x ao dia via pg_cron (03h00 BRT = `0 6 * * *` UTC, desde 03/09/2026; antes 06h30) — passo a passo em `docs/APLICAR_MIGRATION_102.md`.
 - Requer os secrets `PLAB_LOGIN`, `PLAB_SENHA` e `PLAB_TOKEN` (valores com a Elaine; nunca no código) e `SYNC_CRON_KEY`.
 - **A API do PerformanceLab responde 404 com corpo `{"status":false,"message":"Não foram encontrados ..."}` quando a consulta não retorna linhas** — isso NÃO é erro: o `getPlab` trata esse 404 como lista vazia (correção de 24/08/2026, quando a janela de 35 dias ficou sem checklists e o sync quebrou dois dias seguidos). Um 404 com outro corpo continua sendo erro.
 - **A sincronização do PerformanceLab espelha os últimos 90 dias**: além de inserir/atualizar, a Edge Function remove das tabelas `bi_*` os registros da janela que não são mais retornados pelo PL, incluindo respostas de checklists e análises de eventos. O filtro padrão da tela continua em 5 dias, mas permite consultar os 90 dias retidos.
-- Deploy (**sempre com `--no-verify-jwt`**, senão o gateway rejeita a chave do cron):
-  ```bash
-  supabase functions deploy sync-performancelab --no-verify-jwt --project-ref jmdjdogskvybsdjtmpmb
-  ```
+- **Só importa checklists ATIVOS (decisão da gestão, 03/09/2026)**: a API marca com o campo numérico `ativo` (1 = ativo, 0 = inativo — o toggle "Status" da tela do PL). Os inativos são removidos do espelho `bi_checklists` explicitamente por id (antes da reconciliação — os nunca iniciados têm `data_inicio` NULL e o filtro de data não os alcançaria); os QAs órfãos saem no `bi_limpar_dados_antigos()`. Registro sem o campo é considerado ativo (fail-open). A chamada com corpo `{"debug": true}` devolve os campos e a distribuição de `ativo` na resposta.
+- Deploy: **o CLI está bloqueado nesta máquina (Device Guard)** — usar `powershell scripts/lib/implantar-edge-function.ps1 -Slug sync-performancelab -Arquivo supabase/functions/sync-performancelab/index.ts` (deploy pela Management API, já sai com `verify_jwt: false`). Se o CLI voltar a funcionar: `supabase functions deploy sync-performancelab --no-verify-jwt --project-ref jmdjdogskvybsdjtmpmb` (**sempre com `--no-verify-jwt`**, senão o gateway rejeita a chave do cron).
 
 ### Storage
 
@@ -415,7 +413,7 @@ npx vitest
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - CSP ajustada conforme o ambiente.
 - Edge Functions: deploy via `supabase functions deploy <nome>` (`econtador`, `suporte`).
-- Migrations: aplicar **manualmente** (SQL Editor ou `npx supabase db query --linked`). **Nunca usar `supabase db push`** — as migrations foram aplicadas manualmente e não constam no histórico remoto; o push tentaria reaplicar tudo. Nota: o CLI falha ao parsear o `.env` local — renomear temporariamente (`mv .env .env.bak && <comando>; mv .env.bak .env`).
+- Migrations: aplicar **manualmente** (SQL Editor ou `npx supabase db query --linked`). **Nunca usar `supabase db push`** — as migrations foram aplicadas manualmente e não constam no histórico remoto; o push tentaria reaplicar tudo. Nota: o CLI falha ao parsear o `.env` local — renomear temporariamente (`mv .env .env.bak && <comando>; mv .env.bak .env`). **Desde 03/09/2026 o executável do Supabase CLI (`supabase.exe`) é bloqueado nesta máquina pelo Device Guard/Smart App Control do Windows** (binário sem editor confirmado) — fallback: `scripts/lib/executar-sql-management-api.ps1 -Query "..."`, que lê o token do CLI no Gerenciador de Credenciais do Windows e executa SQL pela Management API (`POST /v1/projects/<ref>/database/query`).
 - **Netlify: cada deploy de produção custa 15 créditos** (plano Personal = 1.000/mês). Regra de ouro: **1–2 deploys por dia de trabalho, agrupando mudanças**. Deploy preview (sem `--prod`) é grátis.
 - **⚠️ Netlify — site certo (armadilha dos dois sites):** a conta tem DOIS sites — produção é **`plena-corh`** (id `2a90aecb-278e-4472-b7ff-b07dc521ce25`); **NUNCA** deployar em `sweet-nasturtium-fa7dc4` (id `f0b43221-5d2d-4493-bb96-4897d797311f`). O `.netlify/state.json` já está linkado no `plena-corh` — se um deploy cair no site errado, confira o state.json. Comando: `npx netlify deploy --prod --dir=dist` (ou com `--site 2a90aecb-278e-4472-b7ff-b07dc521ce25` explícito). **Após CADA deploy, verificar que produção serve o bundle novo** (erro de 03/08/2026: dois deploys perdidos no site errado, 30 créditos):
   ```bash

@@ -93,6 +93,15 @@ async function reconciliar(
   return removidos
 }
 
+/** Checklist ativo no PL: campo `ativo` numérico (1 = ativo, 0 = inativo) —
+ *  confirmado via debug em 03/09/2026 (os inativos da tela do PL chegam com
+ *  ativo: 0). Sem o campo, considera ativo (fail-open). */
+function checklistAtivo(c: Registro): boolean {
+  if (typeof c.ativo === 'number') return c.ativo === 1
+  if (typeof c.ativo === 'boolean') return c.ativo
+  return true
+}
+
 Deno.serve(async (req: Request) => {
   // Guarda de acesso: apenas chamadas de máquina com a chave dedicada do cron.
   const cronKey = Deno.env.get('SYNC_CRON_KEY')
@@ -103,6 +112,11 @@ Deno.serve(async (req: Request) => {
       headers: { 'Content-Type': 'application/json' },
     })
   }
+
+  // Corpo opcional: {"debug": true} devolve amostra dos campos do checklist
+  // na resposta (usado para mapear campos novos da API; o cron manda '{}')
+  const corpo: Registro = await req.json().catch(() => ({})) as Registro
+  const debug = corpo?.debug === true
 
   const LOGIN = Deno.env.get('PLAB_LOGIN')
   const SENHA = Deno.env.get('PLAB_SENHA')
@@ -145,9 +159,14 @@ Deno.serve(async (req: Request) => {
       })),
     )
 
-    // 2) Checklists
-    const cks = (await getPlab('checklistlab', AUTH, TOKEN, Pck))
+    // 2) Checklists — SOMENTE os ativos (decisão da gestão, 03/09/2026): no PL
+    // o cadastro tem o toggle "Status" (Ativo/Inativo) e os inativos não
+    // interessam ao painel. A API marca com o campo numérico `ativo`
+    // (1 = ativo, 0 = inativo — confirmado via debug).
+    const cksRaw = (await getPlab('checklistlab', AUTH, TOKEN, Pck))
       .filter((c) => plena.has(Number(c.local_id)))
+    const cks = cksRaw.filter(checklistAtivo)
+    console.log(`checklists: ${cksRaw.length} na janela, ${cks.length} ativos`)
     await supabase.from('bi_checklists').upsert(
       cks.map((c) => ({
         id: Number(c.id), numero: num(c.numero), ano: num(c.ano),
@@ -159,7 +178,22 @@ Deno.serve(async (req: Request) => {
         url: str(c.url),
       })),
     )
-    const removidosCk = await reconciliar(
+    // Remoção explícita dos inativos ANTES da reconciliação: os nunca
+    // iniciados têm data_inicio NULL e o filtro de data da reconciliação não
+    // os alcança (ficariam congelados no espelho até a limpeza de 90 dias).
+    // Os QAs órfãos são removidos pelo bi_limpar_dados_antigos no passo 6.
+    const idsInativos = cksRaw
+      .filter((c) => !checklistAtivo(c))
+      .map((c) => Number(c.id))
+      .filter(Number.isFinite)
+    let removidosInativos = 0
+    for (let i = 0; i < idsInativos.length; i += 500) {
+      const lote = idsInativos.slice(i, i + 500)
+      const { error: erroInativos } = await supabase.from('bi_checklists').delete().in('id', lote)
+      if (erroInativos) throw new Error(`remoção de checklists inativos: ${erroInativos.message}`)
+      removidosInativos += lote.length
+    }
+    const removidosCk = removidosInativos + await reconciliar(
       supabase, 'bi_checklists', 'data_inicio', Pck.data_inicio, fimRecon,
       cks.map((c) => Number(c.id)).filter(Number.isFinite),
     )
@@ -250,7 +284,23 @@ Deno.serve(async (req: Request) => {
     const { error: erroLogOk } = await supabase.from('bi_sync_log').insert({ ok: true, ...totais })
     if (erroLogOk) console.error('falha ao gravar bi_sync_log:', erroLogOk)
 
-    return new Response(JSON.stringify({ ok: true, ...totais, removidos }), {
+    // Diagnóstico pontual ({"debug": true}): campos do checklist e
+    // distribuição de `status`, para confirmar o campo de ativo/inativo
+    let debugInfo: Registro | undefined
+    if (debug) {
+      const dist: Record<string, number> = {}
+      cksRaw.forEach((c) => {
+        const k = String(c.ativo ?? '(sem campo)')
+        dist[k] = (dist[k] || 0) + 1
+      })
+      debugInfo = {
+        campos_checklist: Object.keys(cksRaw[0] || {}),
+        dist_ativo_checklist: dist,
+        exemplo_checklist: cksRaw[0] || null,
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, ...totais, removidos, ...(debugInfo ? { debug: debugInfo } : {}) }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (e) {

@@ -362,27 +362,46 @@ export interface ProducaoDiaInspetor {
   qtd: number
   minutos: number
   locais: number
+  /** Intervalo 1ª chegada → última saída do dia, em minutos (inclui
+   *  deslocamentos entre locais); null quando não há horários válidos */
+  jornada: number | null
 }
 
 /**
- * Produção por dia × inspetor: visitas, locais distintos e soma das
- * permanências. Ordenado por data desc, depois inspetor asc.
+ * Produção por dia × inspetor: visitas, locais distintos, soma das
+ * permanências e jornada ponta a ponta (1ª chegada → última saída).
+ * Ordenado por data desc, depois inspetor asc.
  */
 export function producaoPorDiaInspetor(lista: BiColeta[], inspetor = ''): ProducaoDiaInspetor[] {
-  const prod: Record<string, { dia: string; inspetor: string; qtd: number; minutos: number; locais: Set<string> }> = {}
+  const prod: Record<
+    string,
+    { dia: string; inspetor: string; qtd: number; minutos: number; locais: Set<string>; primeira: number | null; ultima: number | null }
+  > = {}
   lista.forEach((v) => {
     const dia = diaDe(v.data_local)
     const insp = v.funcionario || '—'
     const chave = `${dia}|${insp}`
-    if (!prod[chave]) prod[chave] = { dia, inspetor: insp, qtd: 0, minutos: 0, locais: new Set() }
-    prod[chave].qtd++
+    if (!prod[chave]) prod[chave] = { dia, inspetor: insp, qtd: 0, minutos: 0, locais: new Set(), primeira: null, ultima: null }
+    const p = prod[chave]
+    p.qtd++
     const m = minDe(v)
-    if (m != null) prod[chave].minutos += m
-    if (v.site_nome) prod[chave].locais.add(v.site_nome)
+    if (m != null) p.minutos += m
+    if (v.site_nome) p.locais.add(v.site_nome)
+    const ini = v.data_local ? new Date(v.data_local).getTime() : NaN
+    if (!isNaN(ini) && (p.primeira == null || ini < p.primeira)) p.primeira = ini
+    const fim = v.data_termino ? new Date(v.data_termino).getTime() : NaN
+    if (!isNaN(fim) && (p.ultima == null || fim > p.ultima)) p.ultima = fim
   })
   return Object.values(prod)
     .filter((r) => !inspetor || r.inspetor === inspetor)
-    .map((r) => ({ dia: r.dia, inspetor: r.inspetor, qtd: r.qtd, minutos: r.minutos, locais: r.locais.size }))
+    .map((r) => ({
+      dia: r.dia,
+      inspetor: r.inspetor,
+      qtd: r.qtd,
+      minutos: r.minutos,
+      locais: r.locais.size,
+      jornada: r.primeira != null && r.ultima != null ? Math.max(0, (r.ultima - r.primeira) / 6e4) : null,
+    }))
     .sort((a, b) => (a.dia === b.dia ? (a.inspetor < b.inspetor ? -1 : 1) : a.dia < b.dia ? 1 : -1))
 }
 

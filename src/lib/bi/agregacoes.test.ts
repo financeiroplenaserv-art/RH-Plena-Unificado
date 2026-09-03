@@ -241,8 +241,8 @@ describe('fmtMin / media', () => {
 
 describe('visitas', () => {
   const visitas = [
-    coleta({ id: 1, data_local: '2026-08-10T10:00:00+00:00', tempo_minutos: 60 }),
-    coleta({ id: 2, data_local: '2026-08-10T14:00:00+00:00', tempo_minutos: 30, site_nome: 'CBO Macaé' }),
+    coleta({ id: 1, data_local: '2026-08-10T10:00:00+00:00', data_termino: '2026-08-10T11:00:00+00:00', tempo_minutos: 60 }),
+    coleta({ id: 2, data_local: '2026-08-10T14:00:00+00:00', data_termino: '2026-08-10T14:30:00+00:00', tempo_minutos: 30, site_nome: 'CBO Macaé' }),
     coleta({ id: 3, data_local: '2026-08-11T09:00:00+00:00', tempo_minutos: null, data_termino: null, funcionario: 'Duda' }),
   ]
 
@@ -270,11 +270,14 @@ describe('visitas', () => {
     ])
   })
 
-  it('produção por dia×inspetor soma tempo e conta locais distintos', () => {
+  it('produção por dia×inspetor soma tempo, conta locais distintos e calcula a jornada', () => {
     const prod = producaoPorDiaInspetor(visitas)
     expect(prod).toEqual([
-      { dia: '2026-08-11', inspetor: 'Duda', qtd: 1, minutos: 0, locais: 1 },
-      { dia: '2026-08-10', inspetor: 'Carlos', qtd: 2, minutos: 90, locais: 2 },
+      // Duda não tem data_termino: sem jornada (null), não zero
+      { dia: '2026-08-11', inspetor: 'Duda', qtd: 1, minutos: 0, locais: 1, jornada: null },
+      // Carlos: 1ª chegada 10:00Z, última saída 14:30Z -> 270min ponta a ponta
+      // (as permanências somam 90min; a diferença são os deslocamentos)
+      { dia: '2026-08-10', inspetor: 'Carlos', qtd: 2, minutos: 90, locais: 2, jornada: 270 },
     ])
   })
 

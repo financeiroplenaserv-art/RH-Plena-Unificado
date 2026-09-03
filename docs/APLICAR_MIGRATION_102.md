@@ -29,9 +29,9 @@ curl -X POST "https://jmdjdogskvybsdjtmpmb.supabase.co/functions/v1/sync-perform
 Resposta esperada: `{"ok":true,"locais":N,"checklists":N,"coletas":N,"eventos":N,"analises":N}`.
 Sem a chave correta retorna 401 (por desenho — é um job de máquina).
 
-## 3. Agendamento diário (06h30, horário de Brasília) — já aplicado em 19/08/2026
+## 3. Agendamento diário (03h00, horário de Brasília — era 06h30 até 03/09/2026)
 
-Job `sync-performancelab-diario` (id 1, `30 9 * * *` UTC = 06h30 BRT) criado via
+Job `sync-performancelab-diario` (id 1, `0 6 * * *` UTC = 03h00 BRT) criado via
 pg_cron. **Nota:** `alter database ... set app.sync_cron_key` foi negado por
 permissão no Supabase hospedado — a `SYNC_CRON_KEY` vai **embutida no comando do
 job** (tabela `cron.job`, só visível no banco), não como setting. SQL usado:
@@ -42,7 +42,7 @@ create extension if not exists pg_net;
 
 select cron.schedule(
   'sync-performancelab-diario',
-  '30 9 * * *',   -- UTC: 06h30 em Brasília
+  '0 6 * * *',   -- UTC: 03h00 em Brasília (era '30 9 * * *' = 06h30 até 03/09/2026)
   $$
   select net.http_post(
     url := 'https://jmdjdogskvybsdjtmpmb.supabase.co/functions/v1/sync-performancelab',
@@ -68,6 +68,14 @@ timeout. Diagnóstico completo: `net._http_response` mostrava
 "Timeout of 5000 ms reached" em todas as execuções desde 25/08/2026 e
 `bi_sync_log` não recebia linhas (a function nem era alcançada).
 
+**Alteração de horário em 03/09/2026:** `schedule` mudou de `30 9 * * *`
+(06h30 BRT) para `0 6 * * *` (03h00 BRT) via
+`select cron.alter_job(job_id := 1, schedule := '0 6 * * *')` — o comando
+(com o timeout de 150s) foi preservado. Executado pela Management API
+(`scripts/lib/executar-sql-management-api.ps1`), porque o executável do
+Supabase CLI passou a ser bloqueado pelo Device Guard/Smart App Control do
+Windows nesta máquina.
+
 Verificar se agendou: `select jobid, jobname, schedule, active from cron.job;`
 Ver execuções: `select * from cron.job_run_details order by start_time desc limit 10;`
 Desagendar: `select cron.unschedule('sync-performancelab-diario');`
@@ -76,4 +84,4 @@ Se trocar a `SYNC_CRON_KEY` algum dia, é preciso recriar o job com a chave nova
 (unschedule + schedule).
 
 Fallback sem pg_cron: Agendador de Tarefas do Windows / GitHub Actions chamando
-a URL do passo 2 todo dia 06h30.
+a URL do passo 2 todo dia 03h00.

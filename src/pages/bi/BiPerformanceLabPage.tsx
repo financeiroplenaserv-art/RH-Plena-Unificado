@@ -362,11 +362,18 @@ export function BiPerformanceLabPage() {
   const visBuscadas = useMemo(
     () =>
       filtrarPor(
-        filtrarPor(buscaTextual(vis, buscaVis), (v) => v.tipo_coleta, visTipo),
-        (v) => v.motivo_visita,
-        visMotivo
+        filtrarPor(
+          filtrarPor(buscaTextual(vis, buscaVis), (v) => v.tipo_coleta, visTipo),
+          (v) => v.motivo_visita,
+          visMotivo
+        ),
+        // O inspetor escolhido no card "Produção por dia e inspetor" também
+        // restringe o detalhe — senão a lista mostra os demais inspetores
+        // e parece que o filtro não funcionou
+        (v) => v.funcionario,
+        prodInsp
       ),
-    [vis, buscaVis, visTipo, visMotivo]
+    [vis, buscaVis, visTipo, visMotivo, prodInsp]
   )
 
   const cfgVisitasDia = useMemo<ChartConfiguration>(
@@ -568,13 +575,42 @@ export function BiPerformanceLabPage() {
     </TableHeader>
   )
 
+  // Barra de abas no padrão dos demais módulos (ModuleShell): fica ACIMA do
+  // PageHeader, com sublinhado primário na aba ativa e ícone — aqui com estado
+  // interno porque a página não tem sub-rotas
+  const barraAbas = (
+    <div className="flex flex-wrap gap-1 border-b border-border pb-2">
+      {ABAS.map((t) => {
+        const Icon = t.icon
+        return (
+          <button
+            key={t.valor}
+            type="button"
+            onClick={() => setAba(t.valor)}
+            className={cn(
+              'flex items-center gap-2 border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors',
+              aba === t.valor
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+            )}
+          >
+            <Icon className="size-4" strokeWidth={1.8} />
+            {t.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   if (loading && checklists.length === 0 && coletas.length === 0 && eventos.length === 0) {
     return (
       <div>
+        {barraAbas}
         <PageHeader
           title="PerformanceLab"
           description="Checklists, visitas dos inspetores e eventos da equipe"
           showBackButton={false}
+          className="mt-4"
         />
         <PageLoading />
       </div>
@@ -585,10 +621,13 @@ export function BiPerformanceLabPage() {
 
   return (
     <div>
+      {barraAbas}
+
       <PageHeader
         title="PerformanceLab"
         description={`Base: ${fmtD(periodo.di)} a ${fmtD(periodo.df)} · checklists, visitas dos inspetores e eventos da equipe`}
         showBackButton={false}
+        className="mt-4"
       />
 
       {syncLog && (
@@ -611,31 +650,6 @@ export function BiPerformanceLabPage() {
       )}
 
       <Tabs value={aba} onValueChange={setAba} className="mt-4">
-        {/* Barra de abas no padrão dos demais módulos (ModuleShell): sublinhado
-            primário na aba ativa, com ícone — aqui com estado interno porque a
-            página não tem sub-rotas */}
-        <div className="flex flex-wrap gap-1 border-b border-border pb-2">
-          {ABAS.map((t) => {
-            const Icon = t.icon
-            return (
-              <button
-                key={t.valor}
-                type="button"
-                onClick={() => setAba(t.valor)}
-                className={cn(
-                  'flex items-center gap-2 border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors',
-                  aba === t.valor
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
-                )}
-              >
-                <Icon className="size-4" strokeWidth={1.8} />
-                {t.label}
-              </button>
-            )
-          })}
-        </div>
-
         <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
           <div className="space-y-1.5">
             <Label>Data inicial</Label>
@@ -786,11 +800,14 @@ export function BiPerformanceLabPage() {
                   <TableHead className={thClass}>Visitas</TableHead>
                   <TableHead className={thClass}>Locais</TableHead>
                   <TableHead className={thClass}>Tempo de produção</TableHead>
+                  <TableHead className={thClass} title="Intervalo entre a primeira chegada e a última saída do dia (inclui deslocamentos)">
+                    Jornada total
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {producao.length === 0 ? (
-                  <CelulaVazia colSpan={5} texto="Nenhuma visita no período." />
+                  <CelulaVazia colSpan={6} texto="Nenhuma visita no período." />
                 ) : (
                   producao.map((r) => (
                     <TableRow key={`${r.dia}|${r.inspetor}`} className="hover:bg-accent/40">
@@ -799,6 +816,7 @@ export function BiPerformanceLabPage() {
                       <TableCell className="tabular-nums">{r.qtd}</TableCell>
                       <TableCell className="tabular-nums">{r.locais}</TableCell>
                       <TableCell className="font-semibold tabular-nums">{fmtMin(r.minutos)}</TableCell>
+                      <TableCell className="tabular-nums">{fmtMin(r.jornada)}</TableCell>
                     </TableRow>
                   ))
                 )}
