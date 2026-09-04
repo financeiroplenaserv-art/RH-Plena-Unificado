@@ -233,6 +233,20 @@ export function buscaTextual<T>(lista: T[], termo: string): T[] {
   return lista.filter((x) => JSON.stringify(x).toLowerCase().includes(t))
 }
 
+/** Busca da aba Eventos — restrita aos campos visíveis na tabela
+ *  (decisão da gestão, 04/09/2026): a busca genérica (JSON do registro) casava
+ *  o termo também em "aberto por" (usuario_nome), observação e ações, então
+ *  pesquisar "Maciel" trazia eventos que ele só abriu, sem ser o responsável.
+ *  Aqui casam apenas número/ano, assunto, subtipo, local e o responsável exibido. */
+export function buscaEventos(lista: BiEvento[], termo: string): BiEvento[] {
+  const t = termo.trim().toLowerCase()
+  if (!t) return lista
+  return lista.filter((e) =>
+    [e.numero, e.ano, e.evento_nome, e.subtipo_nome, e.site_nome, e.site_cidade, respEv(e)]
+      .some((v) => v != null && String(v).toLowerCase().includes(t))
+  )
+}
+
 /** Valores distintos (não vazios) de um campo, ordenados — opções de select */
 export function opcoesDe<T>(lista: T[], campo: (x: T) => string | null | undefined): string[] {
   return [...new Set(lista.map(campo).filter((v): v is string => !!v))].sort()

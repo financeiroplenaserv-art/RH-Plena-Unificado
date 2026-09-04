@@ -33,8 +33,10 @@ import {
   agruparQas,
   analisesDoEvento,
   aplicarResponsavelAnalise,
+  buscaEventos,
   buscaTextual,
   diaDe,
+  eventoFinalizado,
   eventosPorAssunto,
   eventosPorResponsavel,
   filaAprovacao,
@@ -76,6 +78,12 @@ const COR_RUIM = '#DC2626'
 
 const TODOS = 'todos'
 const TAMANHO_PAGINA = 1000
+
+// Opções extras do filtro de status da aba Eventos: agrupam por situação —
+// "aberto"/"finalizado" seguem a regra do KPI, ou seja, a existência de
+// data_finalizacao (eventoFinalizado), não o nome do status
+const STATUS_EM_ABERTO = 'Em aberto (todos)'
+const STATUS_FINALIZADOS = 'Finalizados (todos)'
 
 // Abas internas da página (estado local; mesma cara das abas do ModuleShell)
 const ABAS = [
@@ -417,19 +425,20 @@ export function BiPerformanceLabPage() {
   const opcoesStatusEv = useMemo(() => opcoesDe(evs, (e) => e.status_texto), [evs])
   const opcoesSla = useMemo(() => opcoesDe(evs, (e) => e.sla), [evs])
   const opcoesAssunto = useMemo(() => opcoesDe(evs, (e) => (e.evento_nome || '').trim() || null), [evs])
-  const evsBuscados = useMemo(
-    () =>
-      filtrarPor(
-        filtrarPor(
-          filtrarPor(buscaTextual(evs, buscaEv), (e) => e.status_texto, evStatus),
-          (e) => e.sla,
-          evSla
-        ),
-        (e) => (e.evento_nome || '').trim() || null,
-        evAssunto
-      ),
-    [evs, buscaEv, evStatus, evSla, evAssunto]
-  )
+  const evsBuscados = useMemo(() => {
+    const base = buscaEventos(evs, buscaEv)
+    const porStatus =
+      evStatus === STATUS_EM_ABERTO
+        ? base.filter((e) => !eventoFinalizado(e))
+        : evStatus === STATUS_FINALIZADOS
+          ? base.filter(eventoFinalizado)
+          : filtrarPor(base, (e) => e.status_texto, evStatus)
+    return filtrarPor(
+      filtrarPor(porStatus, (e) => e.sla, evSla),
+      (e) => (e.evento_nome || '').trim() || null,
+      evAssunto
+    )
+  }, [evs, buscaEv, evStatus, evSla, evAssunto])
 
   const cfgSla = useMemo<ChartConfiguration>(
     () => ({
@@ -954,7 +963,7 @@ export function BiPerformanceLabPage() {
                 value={evStatus}
                 onChange={setEvStatus}
                 placeholder="Todos os status"
-                opcoes={opcoesStatusEv}
+                opcoes={[STATUS_EM_ABERTO, STATUS_FINALIZADOS, ...opcoesStatusEv]}
               />
               <FiltroSelect
                 value={evSla}

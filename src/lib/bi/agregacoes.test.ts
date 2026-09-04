@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   analisesDoEvento,
   aplicarResponsavelAnalise,
+  buscaEventos,
   buscaTextual,
   diaDe,
   eventosPorAssunto,
@@ -452,6 +453,39 @@ describe('buscaTextual', () => {
     const lista = [ck({ id: 1, site_nome: 'CBO Macaé' }), ck({ id: 2, site_nome: 'CBO Niterói' })]
     expect(buscaTextual(lista, 'macaé').map((c) => c.id)).toEqual([1])
     expect(buscaTextual(lista, '  ')).toHaveLength(2)
+  })
+})
+
+describe('buscaEventos', () => {
+  it('casa só nos campos visíveis: nº/ano, assunto, subtipo, local e responsável', () => {
+    const lista = [
+      evento({ id: 1, evento_nome: 'Comportamento de colaborador' }),
+      evento({ id: 2, site_nome: 'CBO Macaé', site_cidade: 'Macaé' }),
+      evento({ id: 3, usuario_ultimo_nome: 'José Maciel' }),
+      evento({ id: 4, numero: 854 }),
+    ]
+    expect(buscaEventos(lista, 'comportamento').map((e) => e.id)).toEqual([1])
+    expect(buscaEventos(lista, 'macaé').map((e) => e.id)).toEqual([2])
+    expect(buscaEventos(lista, '854').map((e) => e.id)).toEqual([4])
+    expect(buscaEventos(lista, '')).toHaveLength(4)
+  })
+
+  it('NÃO casa em "aberto por", observação ou ações (caso Maciel, 04/09/2026)', () => {
+    // Evento aberto pelo Maciel, mas com outro responsável: buscar "maciel"
+    // não pode trazer este registro (era o comportamento da buscaTextual)
+    const abertoPeloMaciel = evento({
+      id: 1,
+      usuario_nome: 'José Maciel',
+      usuario_ultimo_nome: 'Alexandre Avila',
+    })
+    const citadoNaObservacao = evento({
+      id: 2,
+      usuario_nome: 'Bruno',
+      observacao: 'Caso tratado com José Maciel na portaria',
+      acoes_realizadas_finalizacao: 'Acionado o Maciel',
+    })
+    const responsavelMaciel = evento({ id: 3, usuario_nome: 'Bruno', usuario_ultimo_nome: 'José Maciel' })
+    expect(buscaEventos([abertoPeloMaciel, citadoNaObservacao, responsavelMaciel], 'maciel').map((e) => e.id)).toEqual([3])
   })
 })
 
