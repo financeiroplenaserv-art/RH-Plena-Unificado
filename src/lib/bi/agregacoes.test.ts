@@ -4,6 +4,9 @@ import {
   aplicarResponsavelAnalise,
   buscaEventos,
   buscaTextual,
+  cascataChecklists,
+  cascataEventos,
+  cascataVisitas,
   diaDe,
   eventosPorAssunto,
   eventosPorResponsavel,
@@ -12,6 +15,7 @@ import {
   filtrarColetas,
   filtrarEventos,
   filtrarPor,
+  filtrarStatusEvento,
   fmtMin,
   horaDe,
   kpisChecklists,
@@ -29,6 +33,8 @@ import {
   responsavelEvento,
   slaEventos,
   statusSync,
+  STATUS_EV_EM_ABERTO,
+  STATUS_EV_FINALIZADOS,
   varianteConclusao,
   varianteSla,
   VARIANTES_CONCLUSAO,
@@ -137,14 +143,15 @@ describe('filtros por período/pessoa/local', () => {
     expect(filtrarColetas(lista, { ...F, local: 'CBO Macaé' }).map((v) => v.id)).toEqual([4])
   })
 
-  it('eventos: pessoa casa com responsável atual OU com quem abriu', () => {
+  it('eventos: pessoa casa apenas com o responsável exibido (04/09/2026)', () => {
     const lista = [
       evento({ id: 1 }), // resp Ana, aberto por Bruno
       evento({ id: 2, usuario_ultimo_nome: null }), // resp cai para Bruno
       evento({ id: 3, data_evento: '2026-07-15T09:00:00+00:00' }),
     ]
     expect(filtrarEventos(lista, F).map((e) => e.id)).toEqual([1, 2])
-    expect(filtrarEventos(lista, { ...F, pessoa: 'Bruno' }).map((e) => e.id)).toEqual([1, 2])
+    // Bruno abriu o evento 1 mas não é o responsável — não casa mais
+    expect(filtrarEventos(lista, { ...F, pessoa: 'Bruno' }).map((e) => e.id)).toEqual([2])
     expect(filtrarEventos(lista, { ...F, pessoa: 'Ana' }).map((e) => e.id)).toEqual([1])
   })
 
@@ -486,6 +493,95 @@ describe('buscaEventos', () => {
     })
     const responsavelMaciel = evento({ id: 3, usuario_nome: 'Bruno', usuario_ultimo_nome: 'José Maciel' })
     expect(buscaEventos([abertoPeloMaciel, citadoNaObservacao, responsavelMaciel], 'maciel').map((e) => e.id)).toEqual([3])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Cascatas de filtros das abas (04/09/2026)
+// ---------------------------------------------------------------------------
+
+describe('filtrarStatusEvento', () => {
+  const aberto = evento({ id: 1, status_texto: 'Em Análise', data_finalizacao: null })
+  const critico = evento({ id: 2, status_texto: 'Crítico', data_finalizacao: null })
+  const concluido = evento({ id: 3, status_texto: 'Concluído' }) // fixture tem data_finalizacao
+
+  it('sentinelas agrupam por data_finalizacao, não pelo nome do status', () => {
+    expect(filtrarStatusEvento([aberto, critico, concluido], STATUS_EV_EM_ABERTO).map((e) => e.id)).toEqual([1, 2])
+    expect(filtrarStatusEvento([aberto, critico, concluido], STATUS_EV_FINALIZADOS).map((e) => e.id)).toEqual([3])
+  })
+
+  it('status exato e vazio seguem a regra de igualdade', () => {
+    expect(filtrarStatusEvento([aberto, critico, concluido], 'Crítico').map((e) => e.id)).toEqual([2])
+    expect(filtrarStatusEvento([aberto, critico, concluido], '')).toHaveLength(3)
+  })
+})
+
+describe('cascataEventos', () => {
+  // Fixture: todos com sla DENTRO, assunto "Lâmpada queimada", resp Ana
+  const lista = [
+    evento({ id: 1, status_texto: 'Em Análise', data_finalizacao: null }),
+    evento({ id: 2, status_texto: 'Crítico', data_finalizacao: null, sla: 'FORA' }),
+    evento({ id: 3, status_texto: 'Concluído', evento_nome: 'Rescisão' }),
+    evento({ id: 4, status_texto: 'Em Análise', data_finalizacao: null, usuario_ultimo_nome: 'Maciel' }),
+  ]
+  const vazio = { busca: '', status: '', sla: '', assunto: '', responsavel: '' }
+
+  it('sem filtros, todos os estágios têm a lista inteira', () => {
+    const c = cascataEventos(lista, vazio)
+    expect(c.porResponsavel).toHaveLength(4)
+  })
+
+  it('cada estágio acumula um filtro, na ordem status → sla → assunto → responsável', () => {
+    const c = cascataEventos(lista, { ...vazio, status: STATUS_EV_EM_ABERTO, sla: 'DENTRO', assunto: 'Lâmpada queimada', responsavel: 'Ana' })
+    expect(c.porStatus.map((e) => e.id)).toEqual([1, 2, 4])
+    expect(c.porSla.map((e) => e.id)).toEqual([1, 4])
+    expect(c.porAssunto.map((e) => e.id)).toEqual([1, 4])
+    expect(c.porResponsavel.map((e) => e.id)).toEqual([1])
+  })
+
+  it('o estágio que alimenta um seletor desconta o filtro dele mesmo (não colapsa)', () => {
+    // Filtrando responsável Maciel, a tabela "por responsável" (porAssunto)
+    // ainda mostra os demais responsáveis para permitir trocar a seleção
+    const c = cascataEventos(lista, { ...vazio, responsavel: 'Maciel' })
+    expect(c.porAssunto).toHaveLength(4)
+    expect(c.porResponsavel.map((e) => e.id)).toEqual([4])
+  })
+})
+
+describe('cascataVisitas', () => {
+  const lista = [
+    coleta({ id: 1, funcionario: 'Carlos', data_local: '2026-08-10T10:00:00+00:00' }),
+    coleta({ id: 2, funcionario: 'Diana', data_local: '2026-08-11T10:00:00+00:00' }),
+    coleta({ id: 3, funcionario: 'Carlos', tipo_coleta: 'Auditoria', data_local: '2026-08-11T15:00:00+00:00' }),
+  ]
+  const vazio = { busca: '', tipo: '', motivo: '', inspetor: '', dia: '' }
+
+  it('estágios acumulam tipo → motivo → inspetor → dia', () => {
+    const c = cascataVisitas(lista, { ...vazio, tipo: 'Inspeção', inspetor: 'Carlos', dia: '2026-08-10' })
+    expect(c.porTipo.map((v) => v.id)).toEqual([1, 2])
+    expect(c.porInspetor.map((v) => v.id)).toEqual([1])
+    expect(c.porDia.map((v) => v.id)).toEqual([1])
+    // com o dia solto: porInspetor traz os 2 dias do Carlos para o gráfico de dias
+    const c2 = cascataVisitas(lista, { ...vazio, inspetor: 'Carlos' })
+    expect(c2.porInspetor.map((v) => v.id)).toEqual([1, 3])
+  })
+})
+
+describe('cascataChecklists', () => {
+  const lista = [
+    ck({ id: 1, conclusao_nome: 'Aguardando Autorização' }),
+    ck({ id: 2, checklist_nome: 'Checklist Semanal', conclusao_nome: 'Reprovado' }),
+    ck({ id: 3 }),
+  ]
+  const vazio = { busca: '', modelo: '', conclusao: '' }
+
+  it('estágio final alimenta detalhe, KPIs e fila de aprovação', () => {
+    const c = cascataChecklists(lista, { ...vazio, modelo: 'Checklist Diário' })
+    expect(c.porModelo.map((x) => x.id)).toEqual([1, 3])
+    expect(filaAprovacao(c.porConclusao).map((x) => x.id)).toEqual([1])
+    const c2 = cascataChecklists(lista, { ...vazio, conclusao: 'Reprovado' })
+    expect(c2.porConclusao.map((x) => x.id)).toEqual([2])
+    expect(filaAprovacao(c2.porConclusao)).toHaveLength(0)
   })
 })
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarClock, ClipboardCheck, ExternalLink, MapPin, Search } from 'lucide-react'
-import type { ChartConfiguration } from 'chart.js'
+import type { ChartConfiguration, ChartEvent, ActiveElement } from 'chart.js'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -33,17 +33,16 @@ import {
   agruparQas,
   analisesDoEvento,
   aplicarResponsavelAnalise,
-  buscaEventos,
-  buscaTextual,
+  cascataChecklists,
+  cascataEventos,
+  cascataVisitas,
   diaDe,
-  eventoFinalizado,
   eventosPorAssunto,
   eventosPorResponsavel,
   filaAprovacao,
   filtrarChecklists,
   filtrarColetas,
   filtrarEventos,
-  filtrarPor,
   fmtD,
   fmtDT,
   fmtDs,
@@ -62,6 +61,8 @@ import {
   respEv,
   slaEventos,
   statusSync,
+  STATUS_EV_EM_ABERTO,
+  STATUS_EV_FINALIZADOS,
   varianteConclusao,
   varianteSla,
   varianteStatusEvento,
@@ -78,12 +79,6 @@ const COR_RUIM = '#DC2626'
 
 const TODOS = 'todos'
 const TAMANHO_PAGINA = 1000
-
-// Opções extras do filtro de status da aba Eventos: agrupam por situação —
-// "aberto"/"finalizado" seguem a regra do KPI, ou seja, a existência de
-// data_finalizacao (eventoFinalizado), não o nome do status
-const STATUS_EM_ABERTO = 'Em aberto (todos)'
-const STATUS_FINALIZADOS = 'Finalizados (todos)'
 
 // Abas internas da página (estado local; mesma cara das abas do ModuleShell)
 const ABAS = [
@@ -118,9 +113,30 @@ async function buscarTudo<T>(
   return linhas
 }
 
-function Kpi({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+function Kpi({
+  label,
+  value,
+  sub,
+  onClick,
+  ativo,
+}: {
+  label: string
+  value: React.ReactNode
+  sub?: string
+  /** Cross-filter (04/09/2026): KPI clicável aplica/desfaz o filtro da aba */
+  onClick?: () => void
+  ativo?: boolean
+}) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <div
+      onClick={onClick}
+      title={onClick ? 'Clique para filtrar; clique de novo para desfazer' : undefined}
+      className={cn(
+        'rounded-2xl border bg-card p-4 shadow-sm',
+        onClick && 'cursor-pointer transition-colors hover:border-primary/60',
+        ativo ? 'border-primary ring-1 ring-primary' : 'border-border'
+      )}
+    >
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
       {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
@@ -174,6 +190,20 @@ function CampoBusca({ value, onChange, placeholder }: { value: string; onChange:
   )
 }
 
+/** Chip de filtro aplicado por clique em gráfico, sem select próprio (ex.: dia) */
+function ChipFiltro({ texto, onLimpar }: { texto: string; onLimpar: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onLimpar}
+      title="Remover filtro"
+      className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-[13px] font-medium text-primary hover:bg-primary/20"
+    >
+      {texto} ✕
+    </button>
+  )
+}
+
 /** Select de filtro por aba: '' (TODOS) = sem filtro. flex-1 para distribuição uniforme na linha */
 function FiltroSelect({
   value,
@@ -207,6 +237,12 @@ function FiltroSelect({
 
 const thClass = 'font-semibold uppercase tracking-wider text-muted-foreground'
 
+/** Cursor de mão ao passar sobre barra/fatia clicável dos gráficos (cross-filter) */
+function hoverClicavel(e: ChartEvent, elementos: ActiveElement[]) {
+  const alvo = e.native?.target as HTMLElement | undefined
+  if (alvo) alvo.style.cursor = elementos.length ? 'pointer' : 'default'
+}
+
 export function BiPerformanceLabPage() {
   const padrao = useMemo(() => periodoPadrao(), [])
 
@@ -239,6 +275,10 @@ export function BiPerformanceLabPage() {
   const [evStatus, setEvStatus] = useState('')
   const [evSla, setEvSla] = useState('')
   const [evAssunto, setEvAssunto] = useState('')
+  const [evResp, setEvResp] = useState('')
+  const [visDia, setVisDia] = useState('')
+  // Críticos abertos ANTES do período carregado (invisíveis na tela — alerta da aba Eventos)
+  const [criticosAntigos, setCriticosAntigos] = useState(0)
   const [ckAbertos, setCkAbertos] = useState<Set<number>>(new Set())
   const [evAbertos, setEvAbertos] = useState<Set<number>>(new Set())
   // Aba ativa (a barra segue o padrão visual do ModuleShell, com estado interno)
@@ -280,6 +320,18 @@ export function BiPerformanceLabPage() {
         .limit(1)
       if (erroLog) console.warn('bi_sync_log indisponível:', erroLog)
       else setSyncLog(logRows?.[0] ?? null)
+
+      // Críticos abertos ANTES do período carregado: ficam invisíveis na tela
+      // (ex.: os 27 de jun-ago/2026 na janela padrão de 5 dias) — a aba
+      // Eventos mostra alerta com botão para ampliar o período
+      const { count: qtdCriticos, error: erroCriticos } = await supabase
+        .from('bi_eventos')
+        .select('id', { count: 'exact', head: true })
+        .eq('status_texto', 'Crítico')
+        .is('data_finalizacao', null)
+        .lt('data_evento', gteIso)
+      if (erroCriticos) console.warn('contagem de críticos antigos indisponível:', erroCriticos)
+      else setCriticosAntigos(qtdCriticos ?? 0)
     } catch (err) {
       console.error('Erro ao carregar dados do PerformanceLab:', err)
       setErro('Não foi possível carregar os dados do PerformanceLab. Verifique sua permissão e tente novamente.')
@@ -317,6 +369,8 @@ export function BiPerformanceLabPage() {
     setEvStatus('')
     setEvSla('')
     setEvAssunto('')
+    setEvResp('')
+    setVisDia('')
     if (padrao.di !== periodo.di || padrao.df !== periodo.df) {
       setPeriodo(padrao)
       carregar(padrao.di)
@@ -327,6 +381,20 @@ export function BiPerformanceLabPage() {
     () => ({ di: periodo.di, df: periodo.df, pessoa, local }),
     [periodo, pessoa, local]
   )
+
+  /** Alerta de críticos antigos: amplia o período para toda a janela retida
+   *  (90 dias) e já aplica o filtro de status "Crítico" */
+  const verCriticosAntigos = () => {
+    const hoje = diaDe(new Date().toISOString())
+    const inicio = new Date(`${hoje}T12:00:00-03:00`)
+    inicio.setUTCDate(inicio.getUTCDate() - 89)
+    const di90 = diaDe(inicio.toISOString())
+    setDiInput(di90)
+    setDfInput(hoje)
+    setPeriodo({ di: di90, df: hoje })
+    setEvStatus('Crítico')
+    carregar(di90)
+  }
 
   const qasMap = useMemo(() => mapaQas(qas), [qas])
   const anMap = useMemo(() => mapaAnalises(analises), [analises])
@@ -346,43 +414,33 @@ export function BiPerformanceLabPage() {
   const evs = useMemo(() => filtrarEventos(eventosResp, filtros), [eventosResp, filtros])
 
   // ---------------- Checklists ----------------
-  const kpiCk = useMemo(() => kpisChecklists(cks), [cks])
-  const fila = useMemo(() => filaAprovacao(cks), [cks])
-  const opcoesConclusao = useMemo(() => opcoesDe(cks, (c) => c.conclusao_nome), [cks])
-  const opcoesModelo = useMemo(() => opcoesDe(cks, (c) => c.checklist_nome), [cks])
-  const cksBuscados = useMemo(
-    () =>
-      filtrarPor(
-        filtrarPor(buscaTextual(cks, buscaCk), (c) => c.checklist_nome, ckModelo),
-        (c) => c.conclusao_nome,
-        ckConclusao
-      ),
+  // Cascata (04/09/2026): os filtros da aba alimentam KPIs, fila e detalhe;
+  // as opções dos selects continuam derivadas do período (não colapsam)
+  const ckCascata = useMemo(
+    () => cascataChecklists(cks, { busca: buscaCk, modelo: ckModelo, conclusao: ckConclusao }),
     [cks, buscaCk, ckModelo, ckConclusao]
   )
+  const cksBuscados = ckCascata.porConclusao
+  const kpiCk = useMemo(() => kpisChecklists(cksBuscados), [cksBuscados])
+  const fila = useMemo(() => filaAprovacao(cksBuscados), [cksBuscados])
+  const opcoesConclusao = useMemo(() => opcoesDe(cks, (c) => c.conclusao_nome), [cks])
+  const opcoesModelo = useMemo(() => opcoesDe(cks, (c) => c.checklist_nome), [cks])
 
   // ---------------- Visitas ----------------
-  const kpiVis = useMemo(() => kpisVisitas(vis), [vis])
-  const visPorDia = useMemo(() => visitasPorDia(vis), [vis])
-  const visPorInspetor = useMemo(() => visitasPorInspetor(vis), [vis])
-  const producao = useMemo(() => producaoPorDiaInspetor(vis, prodInsp), [vis, prodInsp])
+  // Cascata (04/09/2026): cada gráfico desconta só o filtro que ele controla —
+  // "por inspetor" é o seletor do inspetor e "por dia" é o seletor do dia;
+  // detalhe, KPIs e produção recebem todos os filtros da aba
+  const visCascata = useMemo(
+    () => cascataVisitas(vis, { busca: buscaVis, tipo: visTipo, motivo: visMotivo, inspetor: prodInsp, dia: visDia }),
+    [vis, buscaVis, visTipo, visMotivo, prodInsp, visDia]
+  )
+  const visBuscadas = visCascata.porDia
+  const kpiVis = useMemo(() => kpisVisitas(visBuscadas), [visBuscadas])
+  const visPorDia = useMemo(() => visitasPorDia(visCascata.porInspetor), [visCascata])
+  const visPorInspetor = useMemo(() => visitasPorInspetor(visCascata.porMotivo), [visCascata])
+  const producao = useMemo(() => producaoPorDiaInspetor(visBuscadas), [visBuscadas])
   const opcoesTipo = useMemo(() => opcoesDe(vis, (v) => v.tipo_coleta), [vis])
   const opcoesMotivo = useMemo(() => opcoesDe(vis, (v) => v.motivo_visita), [vis])
-  const visBuscadas = useMemo(
-    () =>
-      filtrarPor(
-        filtrarPor(
-          filtrarPor(buscaTextual(vis, buscaVis), (v) => v.tipo_coleta, visTipo),
-          (v) => v.motivo_visita,
-          visMotivo
-        ),
-        // O inspetor escolhido no card "Produção por dia e inspetor" também
-        // restringe o detalhe — senão a lista mostra os demais inspetores
-        // e parece que o filtro não funcionou
-        (v) => v.funcionario,
-        prodInsp
-      ),
-    [vis, buscaVis, visTipo, visMotivo, prodInsp]
-  )
 
   const cfgVisitasDia = useMemo<ChartConfiguration>(
     () => ({
@@ -395,6 +453,11 @@ export function BiPerformanceLabPage() {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        onClick: (_e, elementos) => {
+          const dia = visPorDia[elementos[0]?.index]?.dia
+          if (dia) setVisDia((atual) => (atual === dia ? '' : dia))
+        },
+        onHover: hoverClicavel,
       },
     }),
     [visPorDia]
@@ -412,33 +475,34 @@ export function BiPerformanceLabPage() {
         indexAxis: 'y',
         plugins: { legend: { display: false } },
         scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        onClick: (_e, elementos) => {
+          const inspetor = visPorInspetor[elementos[0]?.index]?.inspetor
+          if (inspetor) setProdInsp((atual) => (atual === inspetor ? '' : inspetor))
+        },
+        onHover: hoverClicavel,
       },
     }),
     [visPorInspetor]
   )
 
   // ---------------- Eventos ----------------
-  const kpiEv = useMemo(() => kpisEventos(evs), [evs])
-  const sla = useMemo(() => slaEventos(evs), [evs])
-  const porAssunto = useMemo(() => eventosPorAssunto(evs), [evs])
-  const porResponsavel = useMemo(() => eventosPorResponsavel(evs), [evs])
+  const evCascata = useMemo(
+    () => cascataEventos(evs, { busca: buscaEv, status: evStatus, sla: evSla, assunto: evAssunto, responsavel: evResp }),
+    [evs, buscaEv, evStatus, evSla, evAssunto, evResp]
+  )
+  const evsBuscados = evCascata.porResponsavel
+  const kpiEv = useMemo(() => kpisEventos(evsBuscados), [evsBuscados])
+  // Cada visual desconta apenas o filtro que ele mesmo controla (seletor não colapsa)
+  const sla = useMemo(() => slaEventos(evCascata.porStatus), [evCascata])
+  const porAssunto = useMemo(() => eventosPorAssunto(evCascata.porSla), [evCascata])
+  const porResponsavel = useMemo(() => eventosPorResponsavel(evCascata.porAssunto), [evCascata])
   const opcoesStatusEv = useMemo(() => opcoesDe(evs, (e) => e.status_texto), [evs])
   const opcoesSla = useMemo(() => opcoesDe(evs, (e) => e.sla), [evs])
   const opcoesAssunto = useMemo(() => opcoesDe(evs, (e) => (e.evento_nome || '').trim() || null), [evs])
-  const evsBuscados = useMemo(() => {
-    const base = buscaEventos(evs, buscaEv)
-    const porStatus =
-      evStatus === STATUS_EM_ABERTO
-        ? base.filter((e) => !eventoFinalizado(e))
-        : evStatus === STATUS_FINALIZADOS
-          ? base.filter(eventoFinalizado)
-          : filtrarPor(base, (e) => e.status_texto, evStatus)
-    return filtrarPor(
-      filtrarPor(porStatus, (e) => e.sla, evSla),
-      (e) => (e.evento_nome || '').trim() || null,
-      evAssunto
-    )
-  }, [evs, buscaEv, evStatus, evSla, evAssunto])
+  const opcoesRespEv = useMemo(
+    () => [...new Set(evs.map(respEv).filter((r) => r && r !== '—'))].sort(),
+    [evs]
+  )
 
   const cfgSla = useMemo<ChartConfiguration>(
     () => ({
@@ -447,7 +511,17 @@ export function BiPerformanceLabPage() {
         labels: ['Dentro do SLA', 'Fora do SLA'],
         datasets: [{ data: [sla.dentro, sla.fora], backgroundColor: [COR_OK, COR_RUIM], borderWidth: 0 }],
       },
-      options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        onClick: (_e, elementos) => {
+          const i = elementos[0]?.index
+          if (i == null) return
+          const valor = i === 0 ? 'DENTRO' : 'FORA'
+          setEvSla((atual) => (atual === valor ? '' : valor))
+        },
+        onHover: hoverClicavel,
+      },
     }),
     [sla]
   )
@@ -464,6 +538,12 @@ export function BiPerformanceLabPage() {
         indexAxis: 'y',
         plugins: { legend: { display: false } },
         scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        onClick: (_e, elementos) => {
+          const assunto = porAssunto[elementos[0]?.index]?.assunto
+          // '—' = evento sem assunto: não é valor filtrável no select
+          if (assunto && assunto !== '—') setEvAssunto((atual) => (atual === assunto ? '' : assunto))
+        },
+        onHover: hoverClicavel,
       },
     }),
     [porAssunto]
@@ -715,9 +795,25 @@ export function BiPerformanceLabPage() {
         <TabsContent value="checklists" className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi label="Checklists" value={kpiCk.total} />
-            <Kpi label="Aguardando autorização" value={kpiCk.aguardando} sub="fila de aprovação" />
-            <Kpi label="Aprovados" value={kpiCk.aprovados} />
-            <Kpi label="Reprovados" value={kpiCk.reprovados} />
+            <Kpi
+              label="Aguardando autorização"
+              value={kpiCk.aguardando}
+              sub="fila de aprovação"
+              onClick={() => setCkConclusao((a) => (a === 'Aguardando Autorização' ? '' : 'Aguardando Autorização'))}
+              ativo={ckConclusao === 'Aguardando Autorização'}
+            />
+            <Kpi
+              label="Aprovados"
+              value={kpiCk.aprovados}
+              onClick={() => setCkConclusao((a) => (a === 'Aprovado' ? '' : 'Aprovado'))}
+              ativo={ckConclusao === 'Aprovado'}
+            />
+            <Kpi
+              label="Reprovados"
+              value={kpiCk.reprovados}
+              onClick={() => setCkConclusao((a) => (a === 'Reprovado' ? '' : 'Reprovado'))}
+              ativo={ckConclusao === 'Reprovado'}
+            />
           </div>
 
           <DataTable title="Fila de aprovação" count={fila.length}>
@@ -752,6 +848,19 @@ export function BiPerformanceLabPage() {
                 placeholder="Todas as conclusões"
                 opcoes={opcoesConclusao}
               />
+              {(buscaCk || ckModelo || ckConclusao) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuscaCk('')
+                    setCkModelo('')
+                    setCkConclusao('')
+                  }}
+                  className="text-[13px] font-medium text-primary hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              )}
             </div>
             <Table>
               {cabecalhoCk(false)}
@@ -777,10 +886,10 @@ export function BiPerformanceLabPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Painel title="Visitas por dia">
+            <Painel title="Visitas por dia" hint="clique numa barra para filtrar o dia">
               <Grafico config={cfgVisitasDia} />
             </Painel>
-            <Painel title="Visitas por inspetor">
+            <Painel title="Visitas por inspetor" hint="clique numa barra para filtrar">
               <Grafico config={cfgVisitasInspetor} />
             </Painel>
           </div>
@@ -852,6 +961,22 @@ export function BiPerformanceLabPage() {
                 placeholder="Todos os motivos"
                 opcoes={opcoesMotivo}
               />
+              {visDia && <ChipFiltro texto={`Dia: ${fmtDs(visDia)}`} onLimpar={() => setVisDia('')} />}
+              {(buscaVis || visTipo || visMotivo || prodInsp || visDia) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuscaVis('')
+                    setVisTipo('')
+                    setVisMotivo('')
+                    setProdInsp('')
+                    setVisDia('')
+                  }}
+                  className="text-[13px] font-medium text-primary hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              )}
             </div>
             <Table>
               <TableHeader>
@@ -892,10 +1017,33 @@ export function BiPerformanceLabPage() {
 
         {/* ==================== EVENTOS ==================== */}
         <TabsContent value="eventos" className="space-y-4">
+          {criticosAntigos > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span>
+                {criticosAntigos} evento(s) com status <strong>Crítico</strong> aberto(s) antes de {fmtD(periodo.di)}{' '}
+                não aparecem no período exibido.
+              </span>
+              <Button variant="outline" size="sm" onClick={verCriticosAntigos}>
+                Ampliar período e ver críticos
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi label="Eventos" value={kpiEv.total} />
-            <Kpi label="Em aberto" value={kpiEv.emAberto} sub="delegados e não finalizados" />
-            <Kpi label="Finalizados" value={kpiEv.finalizados} />
+            <Kpi
+              label="Em aberto"
+              value={kpiEv.emAberto}
+              sub="delegados e não finalizados"
+              onClick={() => setEvStatus((s) => (s === STATUS_EV_EM_ABERTO ? '' : STATUS_EV_EM_ABERTO))}
+              ativo={evStatus === STATUS_EV_EM_ABERTO}
+            />
+            <Kpi
+              label="Finalizados"
+              value={kpiEv.finalizados}
+              onClick={() => setEvStatus((s) => (s === STATUS_EV_FINALIZADOS ? '' : STATUS_EV_FINALIZADOS))}
+              ativo={evStatus === STATUS_EV_FINALIZADOS}
+            />
             <Kpi label="SLA dentro" value={`${kpiEv.slaPct}%`} sub={`${kpiEv.slaDentro} de ${kpiEv.total} (SLA PerformanceLab)`} />
             <Kpi
               label="Tempo médio"
@@ -905,10 +1053,10 @@ export function BiPerformanceLabPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Painel title="SLA dos eventos">
+            <Painel title="SLA dos eventos" hint="clique numa fatia para filtrar">
               <Grafico config={cfgSla} />
             </Painel>
-            <Painel title="Eventos por assunto" hint="top 12">
+            <Painel title="Eventos por assunto" hint="top 12 · clique numa barra para filtrar">
               <Grafico config={cfgAssunto} />
             </Painel>
           </div>
@@ -930,7 +1078,15 @@ export function BiPerformanceLabPage() {
                   <CelulaVazia colSpan={6} texto="Nenhum evento no período." />
                 ) : (
                   porResponsavel.map((r) => (
-                    <TableRow key={r.nome} className="hover:bg-accent/40">
+                    <TableRow
+                      key={r.nome}
+                      onClick={() => setEvResp((atual) => (atual === r.nome ? '' : r.nome))}
+                      title="Clique para filtrar os eventos deste responsável; clique de novo para desfazer"
+                      className={cn(
+                        'cursor-pointer hover:bg-accent/40',
+                        evResp === r.nome && 'bg-primary/10 hover:bg-primary/10'
+                      )}
+                    >
                       <TableCell>{r.nome}</TableCell>
                       <TableCell className="tabular-nums">{r.total}</TableCell>
                       <TableCell className="tabular-nums">{r.emAberto || '-'}</TableCell>
@@ -954,6 +1110,12 @@ export function BiPerformanceLabPage() {
                 placeholder="Buscar por assunto, responsável, local..."
               />
               <FiltroSelect
+                value={evResp}
+                onChange={setEvResp}
+                placeholder="Todos os responsáveis"
+                opcoes={opcoesRespEv}
+              />
+              <FiltroSelect
                 value={evAssunto}
                 onChange={setEvAssunto}
                 placeholder="Todos os assuntos"
@@ -963,7 +1125,7 @@ export function BiPerformanceLabPage() {
                 value={evStatus}
                 onChange={setEvStatus}
                 placeholder="Todos os status"
-                opcoes={[STATUS_EM_ABERTO, STATUS_FINALIZADOS, ...opcoesStatusEv]}
+                opcoes={[STATUS_EV_EM_ABERTO, STATUS_EV_FINALIZADOS, ...opcoesStatusEv]}
               />
               <FiltroSelect
                 value={evSla}
@@ -971,6 +1133,21 @@ export function BiPerformanceLabPage() {
                 placeholder="SLA: todos"
                 opcoes={opcoesSla}
               />
+              {(buscaEv || evResp || evAssunto || evStatus || evSla) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuscaEv('')
+                    setEvResp('')
+                    setEvAssunto('')
+                    setEvStatus('')
+                    setEvSla('')
+                  }}
+                  className="text-[13px] font-medium text-primary hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              )}
             </div>
             <Table>
               <TableHeader>

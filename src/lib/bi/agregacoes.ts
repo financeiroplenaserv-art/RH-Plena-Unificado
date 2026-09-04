@@ -45,7 +45,9 @@ export function filtrarEventos(lista: BiEvento[], f: FiltrosBi): BiEvento[] {
   return lista.filter(
     (e) =>
       dataNoPeriodo(diaDe(e.data_evento), f.di, f.df) &&
-      (!f.pessoa || respEv(e) === f.pessoa || e.usuario_nome === f.pessoa) &&
+      // Pessoa = responsável exibido (alinhado à buscaEventos, 04/09/2026):
+      // quem só abriu o evento não é mais retornado pelo filtro
+      (!f.pessoa || respEv(e) === f.pessoa) &&
       (!f.local || e.site_nome === f.local)
   )
 }
@@ -312,6 +314,30 @@ export function filaAprovacao(lista: BiChecklist[]): BiChecklist[] {
   return lista.filter((c) => c.conclusao_nome === 'Aguardando Autorização')
 }
 
+/** Filtros da aba Checklists (busca livre + selects de modelo e conclusão) */
+export interface FiltrosChecklistsAba {
+  busca: string
+  modelo: string
+  conclusao: string
+}
+
+/** Estágios da cascata de filtros da aba Checklists (04/09/2026): cada estágio
+ *  acumula um filtro a mais, para cada visual descontar apenas o filtro que
+ *  ele mesmo controla (o agregado não colapsa ao ser usado como seletor). */
+export interface CascataChecklists {
+  base: BiChecklist[]
+  porModelo: BiChecklist[]
+  /** Estágio final: detalhe, KPIs e fila de aprovação */
+  porConclusao: BiChecklist[]
+}
+
+export function cascataChecklists(lista: BiChecklist[], f: FiltrosChecklistsAba): CascataChecklists {
+  const base = buscaTextual(lista, f.busca)
+  const porModelo = filtrarPor(base, (c) => c.checklist_nome, f.modelo)
+  const porConclusao = filtrarPor(porModelo, (c) => c.conclusao_nome, f.conclusao)
+  return { base, porModelo, porConclusao }
+}
+
 /** Mapa checklist_id -> respostas (jsonb qas) */
 export function mapaQas(lista: BiChecklistQa[]): Record<number, BiQas> {
   const m: Record<number, BiQas> = {}
@@ -419,6 +445,39 @@ export function producaoPorDiaInspetor(lista: BiColeta[], inspetor = ''): Produc
     .sort((a, b) => (a.dia === b.dia ? (a.inspetor < b.inspetor ? -1 : 1) : a.dia < b.dia ? 1 : -1))
 }
 
+/** Filtros da aba Visitas (busca livre + tipo + motivo + inspetor + dia) */
+export interface FiltrosVisitasAba {
+  busca: string
+  tipo: string
+  motivo: string
+  inspetor: string
+  /** Dia civil (aaaa-mm-dd) clicado no gráfico "Visitas por dia"; vazio = todos */
+  dia: string
+}
+
+/** Estágios da cascata de filtros da aba Visitas (04/09/2026): cada estágio
+ *  acumula um filtro a mais, para cada visual descontar apenas o filtro que
+ *  ele mesmo controla (o agregado não colapsa ao ser usado como seletor). */
+export interface CascataVisitas {
+  base: BiColeta[]
+  porTipo: BiColeta[]
+  /** Até aqui: alimenta o gráfico "Visitas por inspetor" (seletor do inspetor) */
+  porMotivo: BiColeta[]
+  /** Até aqui: alimenta o gráfico "Visitas por dia" (seletor do dia) */
+  porInspetor: BiColeta[]
+  /** Estágio final: detalhe, KPIs e produção por dia e inspetor */
+  porDia: BiColeta[]
+}
+
+export function cascataVisitas(lista: BiColeta[], f: FiltrosVisitasAba): CascataVisitas {
+  const base = buscaTextual(lista, f.busca)
+  const porTipo = filtrarPor(base, (v) => v.tipo_coleta, f.tipo)
+  const porMotivo = filtrarPor(porTipo, (v) => v.motivo_visita, f.motivo)
+  const porInspetor = filtrarPor(porMotivo, (v) => v.funcionario, f.inspetor)
+  const porDia = filtrarPor(porInspetor, (v) => diaDe(v.data_local), f.dia)
+  return { base, porTipo, porMotivo, porInspetor, porDia }
+}
+
 // ---------------------------------------------------------------------------
 // Eventos
 // ---------------------------------------------------------------------------
@@ -426,6 +485,52 @@ export function producaoPorDiaInspetor(lista: BiColeta[], inspetor = ''): Produc
 /** Evento finalizado: tem data_finalizacao válida */
 export function eventoFinalizado(e: Pick<BiEvento, 'data_finalizacao'>): boolean {
   return !!e.data_finalizacao && !isNaN(new Date(e.data_finalizacao).getTime())
+}
+
+// Opções agregadas do filtro de status da aba Eventos (04/09/2026): agrupam
+// por situação — "aberto"/"finalizado" seguem a regra do KPI (existência de
+// data_finalizacao), não o nome do status_texto do PerformanceLab
+export const STATUS_EV_EM_ABERTO = 'Em aberto (todos)'
+export const STATUS_EV_FINALIZADOS = 'Finalizados (todos)'
+
+/** Filtro de status da aba Eventos: sentinelas agregadas ou status_texto exato */
+export function filtrarStatusEvento(lista: BiEvento[], status: string): BiEvento[] {
+  if (status === STATUS_EV_EM_ABERTO) return lista.filter((e) => !eventoFinalizado(e))
+  if (status === STATUS_EV_FINALIZADOS) return lista.filter(eventoFinalizado)
+  return filtrarPor(lista, (e) => e.status_texto, status)
+}
+
+/** Filtros da aba Eventos (busca livre + status + SLA + assunto + responsável) */
+export interface FiltrosEventosAba {
+  busca: string
+  status: string
+  sla: string
+  assunto: string
+  responsavel: string
+}
+
+/** Estágios da cascata de filtros da aba Eventos (04/09/2026): cada estágio
+ *  acumula um filtro a mais, para cada visual descontar apenas o filtro que
+ *  ele mesmo controla (o agregado não colapsa ao ser usado como seletor). */
+export interface CascataEventos {
+  base: BiEvento[]
+  /** Até aqui: alimenta o gráfico de SLA (seletor do SLA) */
+  porStatus: BiEvento[]
+  /** Até aqui: alimenta o gráfico "Eventos por assunto" (seletor do assunto) */
+  porSla: BiEvento[]
+  /** Até aqui: alimenta a tabela "Eventos por responsável" (seletor do responsável) */
+  porAssunto: BiEvento[]
+  /** Estágio final: detalhe e KPIs */
+  porResponsavel: BiEvento[]
+}
+
+export function cascataEventos(lista: BiEvento[], f: FiltrosEventosAba): CascataEventos {
+  const base = buscaEventos(lista, f.busca)
+  const porStatus = filtrarStatusEvento(base, f.status)
+  const porSla = filtrarPor(porStatus, (e) => e.sla, f.sla)
+  const porAssunto = filtrarPor(porSla, (e) => (e.evento_nome || '').trim() || null, f.assunto)
+  const porResponsavel = filtrarPor(porAssunto, (e) => respEv(e), f.responsavel)
+  return { base, porStatus, porSla, porAssunto, porResponsavel }
 }
 
 /** Dias entre abertura e finalização (frações de dia) */
