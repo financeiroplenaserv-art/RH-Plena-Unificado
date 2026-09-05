@@ -42,6 +42,7 @@ export function DepartamentoAutocomplete({
       const { data, error } = await supabase
         .from('departamentos')
         .select(COLUNAS_DEPARTAMENTO_AUTOCOMPLETE)
+        .eq('status', 'Ativo')
         .not('nome_curto', 'is', null)
         .neq('nome_curto', '')
         .order('nome_curto')
