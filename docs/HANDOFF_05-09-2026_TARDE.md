@@ -141,3 +141,21 @@ No matching fuzzy, um texto inédito "CBO MACAE..." sem linha própria no cadast
 ## Pendência de dados (decisão da gestão)
 
 Fundir as duplicadas de `departamentos`: 3 linhas Aliança (manter `6863ec8e` = "CBO"; inativar `6e2e9d11` e `8643771f`, reapontando colaboradores) e "CBO SERVICOS MARITIMOS" (`5e42bb43`, inativa) → fundir em `7503715c` ("CBO Macaé") — os 11 colaboradores com texto "CBO SERVICOS MARITIMOS" e `departamento_id` NULL hoje não aparecem no filtro "CBO Macaé" (resolvem para a linha inativa). Com backup em `dados-locais/` antes, como sempre.
+
+---
+
+# Parte 5 (noite) — fusão das duplicadas de departamentos (aplicada)
+
+> Decisão da gestão em 05/09/2026 (a usuária confirmou: os 11 "CBO SERVICOS MARITIMOS" são de **CBO Macaé**; os demais da Aliança/CBO). Executado via `scripts/fusao-departamentos-duplicados.mjs` (dry-run por padrão). Backup em `dados-locais/backup_fusao_departamentos_2026-09-05.json`.
+
+## O que mudou no banco
+
+- **Aliança/CBO (Niterói)**: linha oficial `6863ec8e` (nome_curto "CBO"). Os 17 colaboradores que apontavam para a duplicada `6e2e9d11` foram reapontados; `6e2e9d11` e `8643771f` inativadas.
+- **CBO Serviços Marítimos (Macaé)**: linha oficial `7503715c` (nome_curto "CBO MACAÉ"). Os 11 colaboradores que só tinham o texto legado (`departamento_id` NULL) foram ligados a ela; `5e42bb43` inativada.
+- `contratos_adicionais` e `extras` não referenciavam nenhuma linha absorvida (verificado antes).
+
+## Verificação pós-fusão
+
+- CBO: 17 colaboradores na linha oficial; CBO MACAÉ: 11. Zero colaboradores órfãos com texto "ALIANCA..."/"CBO SERVICOS..." sem `departamento_id`.
+- Linhas absorvidas ficam Inativas (nunca excluídas — histórico).
+- Com a fusão + `sincronizarDepartamentos` com match fuzzy (Parte 4), novas duplicadas não devem mais nascer nas importações do e-Contador.
