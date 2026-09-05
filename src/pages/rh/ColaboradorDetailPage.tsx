@@ -17,6 +17,7 @@ import { gerarPDFColaborador, gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAuth } from '@/hooks/useAuth'
 import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto, podeCriarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
 import { formatarCPF, mascararCPF, parseDataLocal } from '@/lib/utils'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import {
   ArrowLeft,
   Edit,
@@ -47,17 +48,23 @@ export function ColaboradorDetailPage() {
   const podeCancelarOc = perfil ? podeCancelarOcorrencia(perfil) : false
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [loading, setLoading] = useState(true)
   const [ocorrenciaParaExcluir, setOcorrenciaParaExcluir] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const { data: colab } = await supabase
-      .from('colaboradores')
-      .select('id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at')
-      .eq('id', id!)
-      .single()
+    // Lista completa (sem filtro de nome_curto) para resolver linhas duplicadas.
+    const [{ data: colab }, { data: departamentosData }] = await Promise.all([
+      supabase
+        .from('colaboradores')
+        .select('id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at')
+        .eq('id', id!)
+        .single(),
+      supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
+    ])
     setColaborador(colab as Colaborador)
+    setDepartamentos((departamentosData as DepartamentoFuzzy[]) || [])
     if (colab) {
       const { data: ocors } = await supabase
         .from('ocorrencias')
@@ -153,7 +160,9 @@ export function ColaboradorDetailPage() {
             </div>
             <div>
               <span className="text-slate-400 block">Departamento</span>
-              <span className="text-slate-800 font-medium">{colaborador.departamento || '—'}</span>
+              <span className="text-slate-800 font-medium">
+                {nomeCurtoDepartamentoFuzzy(departamentos, colaborador.departamento_id, colaborador.departamento, colaborador.empresa_id)}
+              </span>
             </div>
             <div>
               <span className="text-slate-400 block">Admissão</span>

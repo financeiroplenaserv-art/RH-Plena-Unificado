@@ -5,6 +5,7 @@ export interface DepartamentoFuzzy {
   nome: string
   nome_curto: string | null
   empresa_id?: string | null
+  status?: string | null
 }
 
 function normalizarTexto(texto: string): string {
@@ -110,6 +111,10 @@ export function encontrarDepartamentoFuzzy(
 
 /**
  * Retorna o nome curto do departamento encontrado, ou fallback para nome textual.
+ * Se a linha resolvida não tem nome_curto (duplicada legada), procura uma linha
+ * "irmã" com o mesmo nome normalizado que tenha nome_curto (prefere Ativa) —
+ * ex.: colaborador aponta para "ALIANCA S A INDUSTRIA..." sem nome_curto, mas
+ * exibimos "CBO" da linha irmã.
  */
 export function nomeCurtoDepartamentoFuzzy(
   departamentos: DepartamentoFuzzy[],
@@ -118,7 +123,17 @@ export function nomeCurtoDepartamentoFuzzy(
   empresaId?: string | null
 ): string {
   const dep = encontrarDepartamentoFuzzy(departamentos, departamentoId, nomeTextual, empresaId)
-  return dep?.nome_curto?.trim() || dep?.nome?.trim() || nomeTextual?.trim() || '—'
+  if (dep?.nome_curto?.trim()) return dep.nome_curto.trim()
+  if (dep) {
+    const chaveNome = normalizarTexto(dep.nome)
+    const irmaos = departamentos.filter(
+      (d) => d.id !== dep.id && d.nome_curto?.trim() && normalizarTexto(d.nome) === chaveNome
+    )
+    const irma = irmaos.find((d) => d.status === 'Ativo') || irmaos[0]
+    if (irma) return irma.nome_curto!.trim()
+    return dep.nome.trim()
+  }
+  return nomeTextual?.trim() || '—'
 }
 
 export interface ColaboradorDepartamento {

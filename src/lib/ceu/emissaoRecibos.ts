@@ -3,6 +3,7 @@ import type { DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import { gerarReciboEPIColorido, gerarReciboUniformeColorido, type ReciboData } from '@/lib/ceuRecibos'
 import { buscarEmpresaPorId } from '@/lib/empresas'
 import { hojeBrasil } from '@/lib/utils'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 
 /* ============================================================
    EMISSÃO DE RECIBOS CEU — lógica compartilhada
@@ -47,14 +48,16 @@ async function numeroDoGrupo(lista: EntregaCEU[], deps: EmissaoReciboDeps): Prom
   return numero
 }
 
-function montarDadosEntrega(lista: EntregaCEU[], numero: string): DadosEntrega {
+function montarDadosEntrega(lista: EntregaCEU[], numero: string, departamentos: DepartamentoFuzzy[]): DadosEntrega {
   const colab = lista[0].colaborador
   return {
     colaborador: {
       nome: colab?.nome_completo || '—',
       matricula: colab?.matricula || '—',
       cargo: colab?.cargo || '—',
-      departamento: colab?.departamento || '—',
+      // Decisão da gestão: recibos exibem APENAS o nome_curto resolvido
+      // (nunca o texto legado sem acentos de colaboradores.departamento).
+      departamento: nomeCurtoDepartamentoFuzzy(departamentos, colab?.departamento_id, colab?.departamento, colab?.empresa_id),
       cpf: colab?.cpf || '00000000000',
       data_admissao: colab?.data_admissao,
       empresa_id: colab?.empresa_id,
@@ -80,7 +83,8 @@ function montarDadosEntrega(lista: EntregaCEU[], numero: string): DadosEntrega {
  */
 export async function prepararGruposRecibo(
   entregasDoColaborador: EntregaCEU[],
-  deps: EmissaoReciboDeps
+  deps: EmissaoReciboDeps,
+  departamentos: DepartamentoFuzzy[] = []
 ): Promise<DadosEntrega[]> {
   const entregasEPI = entregasDoColaborador.filter((e) => tipoDe(e) === 'EPI')
   const entregasNaoEPI = entregasDoColaborador.filter((e) => tipoDe(e) !== 'EPI')
@@ -89,7 +93,7 @@ export async function prepararGruposRecibo(
   for (const lista of [entregasEPI, entregasNaoEPI]) {
     if (lista.length === 0) continue
     const numero = await numeroDoGrupo(lista, deps)
-    grupos.push(montarDadosEntrega(lista, numero))
+    grupos.push(montarDadosEntrega(lista, numero, departamentos))
   }
   return grupos
 }
@@ -100,7 +104,8 @@ export async function prepararGruposRecibo(
  */
 export async function gerarRecibosLoteHTML(
   entregas: EntregaCEU[],
-  deps: EmissaoReciboDeps
+  deps: EmissaoReciboDeps,
+  departamentos: DepartamentoFuzzy[] = []
 ): Promise<{ html: string; total: number }> {
   const grupos = new Map<string, EntregaCEU[]>()
   entregas.forEach((e) => {
@@ -123,7 +128,7 @@ export async function gerarRecibosLoteHTML(
         nome: colab.nome_completo || '—',
         matricula: colab.matricula || '—',
         funcao: colab.cargo || '—',
-        departamento: colab.departamento || '—',
+        departamento: nomeCurtoDepartamentoFuzzy(departamentos, colab.departamento_id, colab.departamento, colab.empresa_id),
         cpf: (colab.cpf || '').replace(/\D/g, ''),
         data_admissao: colab.data_admissao || null,
       },

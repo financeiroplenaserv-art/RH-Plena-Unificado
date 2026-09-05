@@ -20,6 +20,8 @@ import {
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
+import { type DepartamentoFuzzy } from '@/lib/departamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -108,9 +110,16 @@ export function CeuMovimentacoesPage() {
   const [dataFimLote, setDataFimLote] = useState('')
   const [gerandoLote, setGerandoLote] = useState(false)
   const [pagina, setPagina] = useState(0)
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
 
   useEffect(() => {
     listarItens()
+    // Lista SEM filtro de nome_curto: a resolução fuzzy do recibo precisa das
+    // linhas duplicadas sem nome_curto para achar a linha irmã que o tem.
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data }) => setDepartamentos((data || []) as DepartamentoFuzzy[]))
   }, [listarItens])
 
   const aplicarFiltros = () => {
@@ -262,7 +271,7 @@ export function CeuMovimentacoesPage() {
   }
 
   const handleEmitirRecibo = async (entregasDoGrupo: EntregaCEU[]) => {
-    const grupos = await prepararGruposRecibo(entregasDoGrupo, { proximoNumeroRecibo, registrarEmissaoRecibo })
+    const grupos = await prepararGruposRecibo(entregasDoGrupo, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
     setDadosRecibo(grupos.length === 1 ? grupos[0] : grupos)
     setModalRecibo(true)
   }
@@ -286,7 +295,7 @@ export function CeuMovimentacoesPage() {
       return
     }
 
-    const { html, total } = await gerarRecibosLoteHTML(entregasNoPeriodo, { proximoNumeroRecibo, registrarEmissaoRecibo })
+    const { html, total } = await gerarRecibosLoteHTML(entregasNoPeriodo, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
 
     if (total === 0) {
       toast.error('Nenhum recibo pôde ser gerado')

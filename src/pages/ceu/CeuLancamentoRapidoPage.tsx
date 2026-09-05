@@ -16,6 +16,8 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
+import { supabase } from '@/lib/supabase'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { cn, hojeBrasil } from '@/lib/utils'
 import { listarTamanhos, resumoTamanhos, tamanhoParaItem, tamanhoDoNomeItem } from '@/lib/ceu/tamanhos'
 import { toast } from 'sonner'
@@ -129,6 +131,7 @@ export function CeuLancamentoRapidoPage() {
   const [dropdownProdutoAberto, setDropdownProdutoAberto] = useState<string | null>(null)
   const [destaqueProduto, setDestaqueProduto] = useState(0)
   const [mapaTamanhos, setMapaTamanhos] = useState<Map<string, CeuTamanhos>>(new Map())
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -137,6 +140,12 @@ export function CeuLancamentoRapidoPage() {
     listarTamanhos()
       .then(setMapaTamanhos)
       .catch((err) => console.error('Erro ao carregar tamanhos do CEU:', err))
+    // Lista SEM filtro de nome_curto: a resolução fuzzy precisa das linhas
+    // duplicadas sem nome_curto para achar a linha irmã que o tem.
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data }) => setDepartamentos((data || []) as DepartamentoFuzzy[]))
   }, [listarColaboradores, listarItens])
 
   // Persiste o rascunho a cada alteração das linhas
@@ -554,7 +563,7 @@ export function CeuLancamentoRapidoPage() {
                                   )}
                                 >
                                   <p className="font-medium text-slate-900">{colab.nome_completo}</p>
-                                  <p className="text-slate-500">{colab.matricula} — {colab.departamento || '—'}</p>
+                                  <p className="text-slate-500">{colab.matricula} — {nomeCurtoDepartamentoFuzzy(departamentos, colab.departamento_id, colab.departamento, colab.empresa_id)}</p>
                                 </button>
                               ))}
                             </div>

@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { encontrarDepartamentoFuzzy, normalizarDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
+import { encontrarDepartamentoFuzzy, nomeCurtoDepartamentoFuzzy, normalizarDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { Colaborador } from '@/types/database'
 import { BadgeStatus } from './BadgeStatus'
 
@@ -37,6 +37,19 @@ export function AutocompleteColaborador({
   const [selecionado, setSelecionado] = useState<Colaborador | null>(null)
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false)
   const [carregando, setCarregando] = useState(false)
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
+  // IDs do grupo do departamento-alvo (linhas duplicadas agrupadas por nome
+  // normalizado), preenchidos pelas buscas quando departamentoId está ativo —
+  // usados no selo "(deste dept.)" do render.
+  const [idsGrupo, setIdsGrupo] = useState<Set<string> | null>(null)
+
+  useEffect(() => {
+    // Lista completa (sem filtro de nome_curto) para resolver linhas duplicadas.
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data }) => setDepartamentos((data as DepartamentoFuzzy[]) || []))
+  }, [])
 
   const carregarSelecionado = useCallback(async (id: string) => {
     const { data } = await supabase.from('colaboradores').select(COLUNAS_AUTOCOMPLETE).eq('id', id).single()
@@ -109,6 +122,7 @@ export function AutocompleteColaborador({
     let resultados = (data as Colaborador[]) || []
     if (departamentoId) {
       const grupo = await buscarIdsDoGrupo(departamentoId)
+      setIdsGrupo(new Set(grupo.ids))
       const { data: deptData } = await supabase.from('departamentos').select('id, nome, nome_curto, empresa_id')
       const departamentos = (deptData || []) as DepartamentoFuzzy[]
       const idsGrupo = new Set(grupo.ids)
@@ -122,6 +136,8 @@ export function AutocompleteColaborador({
         if (aDoDept !== bDoDept) return aDoDept - bDoDept
         return a.nome_completo.localeCompare(b.nome_completo)
       })
+    } else {
+      setIdsGrupo(null)
     }
     setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
@@ -133,6 +149,7 @@ export function AutocompleteColaborador({
     setCarregando(true)
 
     const grupo = await buscarIdsDoGrupo(departamentoId)
+    setIdsGrupo(new Set(grupo.ids))
     // Resolve o departamento de cada colaborador no cliente (fuzzy): o texto
     // legado de colaboradores.departamento não bate com o cadastro por
     // acentos/pontuação e o ILIKE do banco deixava colaboradores de fora.
@@ -271,7 +288,13 @@ export function AutocompleteColaborador({
                 )
               ) : (
                 <>
-                  {colaboradores.map((c) => (
+                  {colaboradores.map((c) => {
+                    // Selo "(deste dept.)" por grupo resolvido (fuzzy): o id
+                    // exato deixava de fora quem aponta para a linha duplicada
+                    // do mesmo departamento.
+                    const depColab = encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+                    const doGrupo = !!(departamentoId && idsGrupo && depColab && idsGrupo.has(depColab.id))
+                    return (
                     <div
                       key={c.id}
                       className="p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-0"
@@ -280,15 +303,16 @@ export function AutocompleteColaborador({
                       <div>
                         <p className="text-sm font-medium text-slate-700 break-words">{c.nome_completo}</p>
                         <p className="text-xs text-slate-500">
-                          {c.matricula} — {c.cargo || '—'} — {c.departamento || '—'}
-                          {departamentoId && c.departamento_id === departamentoId && (
+                          {c.matricula} — {c.cargo || '—'} — {nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)}
+                          {doGrupo && (
                             <span className="ml-1 text-green-600 font-medium">(deste dept.)</span>
                           )}
                         </p>
                       </div>
                       <BadgeStatus status={c.status} />
                     </div>
-                  ))}
+                    )
+                  })}
                   {/* Texto livre só entra por escolha explícita aqui — nunca
                       automaticamente ao sair do campo (causava "nome" sem
                       matrícula quando a pessoa digitava e clicava fora). */}

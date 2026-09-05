@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save, X, ChevronLeft, ChevronRight, Check, House } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,6 +8,12 @@ import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
 import { mascaraMoeda, mascaraMoedaInput, parseMoeda, nomeDepartamento, formatarData, hojeBrasil } from '@/lib/utils'
+import {
+  encontrarDepartamentoFuzzy,
+  nomeCurtoDepartamentoFuzzy,
+  normalizarDepartamento,
+  type DepartamentoFuzzy,
+} from '@/lib/departamentos'
 import type { Extra, TurnoExtra, MotivoExtra, ComunicacaoTipo, CategoriaOcorrencia } from '@/types/extras'
 import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
@@ -67,11 +73,21 @@ function ErroCampo({ mensagem }: { mensagem?: string }) {
   return <p className="text-sm text-red-600 mt-1.5 font-medium">{mensagem}</p>
 }
 
+interface OpcaoColaborador {
+  id: string
+  nome_completo: string
+  matricula?: string | null
+  departamento?: string | null
+  departamento_id?: string | null
+  empresa_id?: string | null
+}
+
 interface BuscaColaboradorProps {
   label: string
   valor: string
-  opcoes: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }[]
-  opcoesDestaque?: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }[]
+  opcoes: OpcaoColaborador[]
+  opcoesDestaque?: OpcaoColaborador[]
+  departamentos: DepartamentoFuzzy[]
   placeholder: string
   naoAplica?: boolean
   semNome?: boolean
@@ -85,6 +101,7 @@ function BuscaColaborador({
   valor,
   opcoes,
   opcoesDestaque,
+  departamentos,
   placeholder,
   naoAplica = false,
   semNome = false,
@@ -133,26 +150,31 @@ function BuscaColaborador({
     return selecionado?.nome_completo || ''
   }
 
-  const renderItem = (c: { id: string; nome_completo: string; matricula?: string | null; departamento?: string | null }) => (
-    <button
-      key={c.id}
-      type="button"
-      onMouseDown={() => {
-        onChange(c.id)
-        setAberto(false)
-      }}
-      className={`w-full text-left px-4 py-3 text-sm border-b border-slate-100 last:border-0 ${
-        valor === c.id ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
-      }`}
-    >
-      <span className="block">{c.nome_completo}</span>
-      {(c.matricula || c.departamento) && (
-        <span className="block text-xs text-slate-500">
-          {[c.matricula, c.departamento].filter(Boolean).join(' — ')}
-        </span>
-      )}
-    </button>
-  )
+  const renderItem = (c: OpcaoColaborador) => {
+    // Exibe só o nome_curto resolvido (decisão da gestão): o texto legado de
+    // colaboradores.departamento não bate com o cadastro por acentos.
+    const departamentoCurto = nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+    return (
+      <button
+        key={c.id}
+        type="button"
+        onMouseDown={() => {
+          onChange(c.id)
+          setAberto(false)
+        }}
+        className={`w-full text-left px-4 py-3 text-sm border-b border-slate-100 last:border-0 ${
+          valor === c.id ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+        }`}
+      >
+        <span className="block">{c.nome_completo}</span>
+        {(c.matricula || departamentoCurto !== '—') && (
+          <span className="block text-xs text-slate-500">
+            {[c.matricula, departamentoCurto !== '—' ? departamentoCurto : null].filter(Boolean).join(' — ')}
+          </span>
+        )}
+      </button>
+    )
+  }
 
   return (
     <div>
@@ -269,6 +291,10 @@ export function MobileFaltaPage() {
   const [comunicacaoHora, setComunicacaoHora] = useState('')
   const [comunicacaoDetalhes, setComunicacaoDetalhes] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  // Lista COMPLETA de departamentos para a resolução fuzzy (o hook
+  // useDepartamentos filtra nome_curto — sem as linhas irmãs sem nome_curto
+  // o match com o texto legado do colaborador não funciona).
+  const [departamentosResolucao, setDepartamentosResolucao] = useState<DepartamentoFuzzy[]>([])
 
   const carregando = loadingExtras || loadingColaboradores || loadingDepartamentos
 
@@ -277,6 +303,19 @@ export function MobileFaltaPage() {
     listarColaboradores({ status: 'Ativo' })
     listarDepartamentos()
   }, [listarCategorias, listarColaboradores, listarDepartamentos])
+
+  useEffect(() => {
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Erro ao carregar departamentos para resolução:', error)
+          return
+        }
+        setDepartamentosResolucao((data || []) as DepartamentoFuzzy[])
+      })
+  }, [])
 
   const departamentosAtivos = useMemo(() => {
     const vistos = new Set<string>()
@@ -297,21 +336,30 @@ export function MobileFaltaPage() {
       .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo))
   }, [colaboradores])
 
-  const normalizarBusca = useCallback((s: string) => {
-    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-  }, [])
-
+  // Destaque "Deste departamento": resolve o departamento de cada colaborador
+  // no cliente (encontrarDepartamentoFuzzy) e compara com o GRUPO do
+  // departamento selecionado — o cadastro tem linhas duplicadas do mesmo
+  // posto (com e sem nome_curto) e o colaborador pode apontar para qualquer
+  // uma. "CBO" e "CBO Macaé" seguem separados (nome normalizado diferente).
   const colaboradoresDoDept = useMemo(() => {
     if (!departamentoId) return colaboradoresAtivos
-    const dept = departamentosAtivos.find(d => d.id === departamentoId)
-    if (!dept) return colaboradoresAtivos
-    const deptNome = normalizarBusca(dept.nome_curto || '')
+    const alvo = departamentosResolucao.find(d => d.id === departamentoId)
+    if (!alvo) return colaboradoresAtivos
+    const chaves = new Set([normalizarDepartamento(alvo.nome)])
+    if (alvo.nome_curto) chaves.add(normalizarDepartamento(alvo.nome_curto))
+    const idsGrupo = new Set(
+      departamentosResolucao
+        .filter(d =>
+          chaves.has(normalizarDepartamento(d.nome)) ||
+          (d.nome_curto ? chaves.has(normalizarDepartamento(d.nome_curto)) : false)
+        )
+        .map(d => d.id)
+    )
     return colaboradoresAtivos.filter(c => {
-      if (c.departamento_id === departamentoId) return true
-      const colabDept = c.departamento ? normalizarBusca(c.departamento) : ''
-      return colabDept && (colabDept.includes(deptNome) || deptNome.includes(colabDept))
+      const dep = encontrarDepartamentoFuzzy(departamentosResolucao, c.departamento_id, c.departamento, c.empresa_id)
+      return dep ? idsGrupo.has(dep.id) : false
     })
-  }, [colaboradoresAtivos, departamentosAtivos, departamentoId, normalizarBusca])
+  }, [colaboradoresAtivos, departamentosResolucao, departamentoId])
 
   const getColaborador = (id: string) => colaboradoresAtivos.find(c => c.id === id)
   const getDepartamento = (id: string) => departamentosAtivos.find(d => d.id === id)
@@ -622,6 +670,7 @@ export function MobileFaltaPage() {
                 valor={ausenteNaoAplica ? '__nao_aplica__' : ausenteId}
                 opcoes={colaboradoresAtivos}
                 opcoesDestaque={colaboradoresDoDept}
+                departamentos={departamentosResolucao}
                 placeholder="Selecione o colaborador ausente..."
                 naoAplica
                 onChange={val => {
@@ -646,6 +695,7 @@ export function MobileFaltaPage() {
               label="Substituto"
               valor={substitutoId}
               opcoes={colaboradoresAtivos}
+              departamentos={departamentosResolucao}
               placeholder="Selecione o substituto..."
               semNome
               onChange={val => {

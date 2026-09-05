@@ -14,6 +14,8 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useColaboradores } from '@/hooks/useColaboradores'
+import { supabase } from '@/lib/supabase'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { Input } from '@/components/ui/input'
 import { CeuShell } from './CeuShell'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
@@ -62,11 +64,23 @@ export function CeuEntregaFormPage() {
   const [entregasCriadas, setEntregasCriadas] = useState<EntregaCEU[]>([])
   const [historicoEntregas, setHistoricoEntregas] = useState<EntregaCEU[]>([])
   const [carregandoHistorico, setCarregandoHistorico] = useState(false)
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
 
   useEffect(() => {
     listarItens()
     listarColaboradores({ status: 'Ativo' })
+    // Lista SEM filtro de nome_curto: a resolução fuzzy precisa das linhas
+    // duplicadas sem nome_curto para achar a linha irmã que o tem.
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data }) => setDepartamentos((data || []) as DepartamentoFuzzy[]))
   }, [listarItens, listarColaboradores])
+
+  // Decisão da gestão: exibir APENAS o nome_curto resolvido (nunca o texto
+  // legado sem acentos de colaboradores.departamento).
+  const departamentoDo = (colab: Pick<Colaborador, 'departamento_id' | 'departamento' | 'empresa_id'>) =>
+    nomeCurtoDepartamentoFuzzy(departamentos, colab.departamento_id, colab.departamento, colab.empresa_id)
 
   useEffect(() => {
     if (!colaborador) {
@@ -256,7 +270,7 @@ export function CeuEntregaFormPage() {
           nome: colaborador.nome_completo || '—',
           matricula: colaborador.matricula || '—',
           cargo: colaborador.cargo || '—',
-          departamento: colaborador.departamento || '—',
+          departamento: departamentoDo(colaborador),
           cpf: colaborador.cpf || '00000000000',
           data_admissao: colaborador.data_admissao,
           empresa_id: colaborador.empresa_id,
@@ -339,7 +353,7 @@ export function CeuEntregaFormPage() {
                           className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0"
                         >
                           <p className="font-medium text-slate-900">{colab.nome_completo}</p>
-                          <p className="text-xs text-slate-500">{colab.matricula} — {colab.departamento || '—'}</p>
+                          <p className="text-xs text-slate-500">{colab.matricula} — {departamentoDo(colab)}</p>
                         </button>
                       ))}
                     </div>
@@ -360,7 +374,7 @@ export function CeuEntregaFormPage() {
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Departamento</p>
-                      <p className="text-sm font-medium text-slate-900">{colaborador.departamento || '—'}</p>
+                      <p className="text-sm font-medium text-slate-900">{departamentoDo(colaborador)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Status</p>
@@ -650,7 +664,7 @@ export function CeuEntregaFormPage() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Departamento</p>
-                    <p className="text-sm font-medium text-slate-900">{colaborador?.departamento || '—'}</p>
+                    <p className="text-sm font-medium text-slate-900">{colaborador ? departamentoDo(colaborador) : '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Cargo</p>

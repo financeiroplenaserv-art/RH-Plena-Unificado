@@ -76,6 +76,18 @@ export function useColaboradores() {
         colabData || [],
         filtros.departamentoNomeCurto
       )
+    } else if (filtros?.departamento) {
+      // Caminho legado por nome/termo: mesma resolução no cliente do
+      // departamentoNomeCurto — nunca ILIKE no texto legado.
+      const [{ data: deptData }, { data: colabData }] = await Promise.all([
+        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+        supabase.from('colaboradores').select('id, departamento_id, departamento, empresa_id'),
+      ])
+      idsPorDepartamento = idsColaboradoresDoDepartamento(
+        (deptData || []) as DepartamentoFuzzy[],
+        colabData || [],
+        filtros.departamento
+      )
     }
 
     if (idsPorDepartamento && idsPorDepartamento.size === 0) {
@@ -85,7 +97,6 @@ export function useColaboradores() {
     let query = supabase.from('colaboradores').select(COLUNAS_LISTAGEM).order('nome_completo')
 
     if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
-    if (filtros?.departamento) query = query.ilike('departamento', filtros.departamento)
     if (idsPorDepartamento) query = query.in('id', [...idsPorDepartamento])
     if (filtros?.cargo) query = query.ilike('cargo', filtros.cargo)
     if (filtros?.status) query = query.eq('status', filtros.status)
@@ -151,7 +162,6 @@ export function useColaboradores() {
 
     // Reaplica os mesmos filtros na contagem
     if (filtros?.empresaId) countQuery.eq('empresa_id', filtros.empresaId)
-    if (filtros?.departamento) countQuery.ilike('departamento', filtros.departamento)
     if (montada.idsPorDepartamento) countQuery.in('id', [...montada.idsPorDepartamento])
     if (filtros?.cargo) countQuery.ilike('cargo', filtros.cargo)
     if (filtros?.status) countQuery.eq('status', filtros.status)

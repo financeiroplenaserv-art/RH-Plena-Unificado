@@ -6,12 +6,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
-import { formatarData, nomeDepartamento, hojeBrasil } from '@/lib/utils'
+import { formatarData, hojeBrasil } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { toast } from 'sonner'
 import type { Extra } from '@/types/extras'
 
@@ -54,12 +55,24 @@ export function ExtrasBalancoPage() {
 
   const { extras, loading, listar } = useExtras()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
-  const { departamentos, listar: listarDepartamentos } = useDepartamentos()
+  // Lista completa de departamentos para a resolução fuzzy (sem o filtro de
+  // nome_curto do useDepartamentos — as linhas irmãs sem nome_curto são
+  // necessárias para casar com o texto legado do colaborador).
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
 
   useEffect(() => {
     listarColaboradores()
-    listarDepartamentos()
-  }, [listarColaboradores, listarDepartamentos])
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Erro ao carregar departamentos:', error)
+          return
+        }
+        setDepartamentos((data || []) as DepartamentoFuzzy[])
+      })
+  }, [listarColaboradores])
 
   useEffect(() => {
     // Busca também o dia anterior para alimentar a seção "Noite anterior"
@@ -67,16 +80,10 @@ export function ExtrasBalancoPage() {
   }, [dataSelecionada, listar])
 
   const mapColaborador = useMemo(() => {
-    const m = new Map<string, { nome: string; departamento_id: string | null }>()
-    colaboradores.forEach(c => m.set(c.id, { nome: c.nome_completo, departamento_id: c.departamento_id }))
+    const m = new Map<string, { nome: string; departamento_id: string | null; departamento: string | null; empresa_id: string | null }>()
+    colaboradores.forEach(c => m.set(c.id, { nome: c.nome_completo, departamento_id: c.departamento_id, departamento: c.departamento, empresa_id: c.empresa_id }))
     return m
   }, [colaboradores])
-
-  const mapDepartamento = useMemo(() => {
-    const m = new Map<string, string>()
-    departamentos.forEach(d => m.set(d.id, nomeDepartamento(d)))
-    return m
-  }, [departamentos])
 
   // Extras do dia com turno "Noite anterior" NÃO entram no balanço do
   // próprio dia — eles são reportados no balanço do dia seguinte (regra:
@@ -98,8 +105,11 @@ export function ExtrasBalancoPage() {
     if (extra.departamento_nome) return extra.departamento_nome
     if (!extra.colaborador_ausente_id) return 'Não informado'
     const col = mapColaborador.get(extra.colaborador_ausente_id)
-    if (!col || !col.departamento_id) return 'Não informado'
-    return mapDepartamento.get(col.departamento_id) || 'Não informado'
+    if (!col) return 'Não informado'
+    // Fallback resolve no cliente: colaborador sem departamento_id ainda tem
+    // o texto legado, que só casa com o cadastro via fuzzy (acentos/pontuação).
+    const nome = nomeCurtoDepartamentoFuzzy(departamentos, col.departamento_id, col.departamento, col.empresa_id)
+    return nome === '—' ? 'Não informado' : nome
   }
 
   const gerarMensagem = () => {
@@ -185,7 +195,7 @@ export function ExtrasBalancoPage() {
     const novaMensagem = gerarMensagem()
     setMensagemEditada(novaMensagem)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extrasDia, extrasNoiteAnterior, dataSelecionada, mapColaborador, mapDepartamento])
+  }, [extrasDia, extrasNoiteAnterior, dataSelecionada, mapColaborador, departamentos])
 
   const copiarFallback = (texto: string): boolean => {
     const textarea = document.createElement('textarea')

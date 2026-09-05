@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
 import { deveIgnorarErroImportacao, extrairMensagemErro } from '@/lib/econtador'
+import { encontrarDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { agoraBrasil } from '@/lib/utils'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
@@ -108,15 +109,6 @@ export function useEContador() {
     }
   }, [])
 
-  const normalizarMatch = (texto: string): string => {
-    return texto
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim()
-  }
-
   const sincronizarDepartamentos = useCallback(async (
     lista: EContadorFuncionario[],
     empresaId: string | null
@@ -128,7 +120,7 @@ export function useEContador() {
     if (nomesUnicos.length === 0) return new Map<string, string>()
 
     // Busca todos os departamentos ativos da empresa (ou sem empresa)
-    let query = supabase.from('departamentos').select('id, nome, nome_curto')
+    let query = supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status')
     if (empresaId) {
       query = query.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
     }
@@ -137,36 +129,24 @@ export function useEContador() {
     const { data: existentes, error: erroBusca } = await query
     if (erroBusca) throw erroBusca
 
+    const departamentos = (existentes || []) as DepartamentoFuzzy[]
     const map = new Map<string, string>()
     const novos: string[] = []
 
     for (const nomeEContador of nomesUnicos) {
       const nomeChave = nomeEContador.toLowerCase()
 
-      // 1. Tenta match exato pelo nome
-      const matchExato = (existentes || []).find(
-        d => d.nome.toLowerCase() === nomeChave
-      )
-      if (matchExato) {
-        map.set(nomeChave, matchExato.id)
+      // Reutiliza departamento existente antes de criar: o match fuzzy ignora
+      // acentos/pontuação — o e-Contador manda sem acento ("ALIANCA S A
+      // INDUSTRIA NAVAL") e o cadastro tem ("Aliança S.A. Indústria Naval"),
+      // então o match exato por lower-case criava linha duplicada.
+      const existente = encontrarDepartamentoFuzzy(departamentos, null, nomeEContador, empresaId)
+      if (existente) {
+        map.set(nomeChave, existente.id)
         continue
       }
 
-      // 2. Tenta match pelo nome_curto contido no nome do e-contador (palavra inteira)
-      const nomeNormalizado = normalizarMatch(nomeEContador)
-      const matchCurto = (existentes || []).find((d) => {
-        if (!d.nome_curto) return false
-        const curtoNormalizado = normalizarMatch(d.nome_curto)
-        if (curtoNormalizado.length < 2) return false
-        const regex = new RegExp(`\\b${curtoNormalizado.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
-        return regex.test(nomeNormalizado)
-      })
-      if (matchCurto) {
-        map.set(nomeChave, matchCurto.id)
-        continue
-      }
-
-      // 3. Se não achou, vai criar novo
+      // Se não achou, vai criar novo
       novos.push(nomeEContador)
     }
 

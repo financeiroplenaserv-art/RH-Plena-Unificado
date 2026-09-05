@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { cn, parseDataLocal, agoraBrasil, FUSO_BRASIL } from '@/lib/utils'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
@@ -35,6 +36,8 @@ interface ColaboradorResumido {
   data_nascimento: string | null
   cargo: string | null
   departamento: string | null
+  departamento_id: string | null
+  empresa_id: string | null
 }
 
 type MarcoExperiencia = 30 | 60 | 90
@@ -95,6 +98,7 @@ export function DashboardPage() {
   const [ocorrenciasPendentes, setOcorrenciasPendentes] = useState(0)
   const [alertas, setAlertas] = useState<AlertaModulo[]>([])
   const [colaboradoresAtivos, setColaboradoresAtivos] = useState<ColaboradorResumido[]>([])
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
 
   useEffect(() => {
     async function carregarKpis() {
@@ -108,6 +112,7 @@ export function DashboardPage() {
           { count: alertasCount },
           { data: itensCEU },
           { data: ativosCompletos },
+          { data: departamentosData },
         ] = await Promise.all([
           supabase.from('colaboradores').select('id', { count: 'exact', head: true }),
           supabase.from('colaboradores').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
@@ -123,9 +128,11 @@ export function DashboardPage() {
             .or('estoque_minimo.gt.0,ca.not.is.null'),
           supabase
             .from('colaboradores')
-            .select('id, nome_completo, data_admissao, data_nascimento, cargo, departamento')
+            .select('id, nome_completo, data_admissao, data_nascimento, cargo, departamento, departamento_id, empresa_id')
             .eq('status', 'Ativo')
             .order('nome_completo'),
+          // Lista completa (sem filtro de nome_curto) para resolver linhas duplicadas.
+          supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
         ])
 
         const pendentes = pendentesCount || 0
@@ -150,6 +157,7 @@ export function DashboardPage() {
         setAtivos(ativosCount || 0)
         setOcorrenciasPendentes(pendentes)
         setColaboradoresAtivos((ativosCompletos || []) as ColaboradorResumido[])
+        setDepartamentos((departamentosData as DepartamentoFuzzy[]) || [])
 
         const listaAlertas: AlertaModulo[] = []
         if (pendentes > 0) {
@@ -412,7 +420,7 @@ export function DashboardPage() {
                         <div>
                           <p className="text-sm font-medium text-foreground">{colab.nome_completo}</p>
                           <p className="text-xs text-muted-foreground">
-                            {colab.cargo || '—'} · {colab.departamento || '—'}
+                            {colab.cargo || '—'} · {nomeCurtoDepartamentoFuzzy(departamentos, colab.departamento_id, colab.departamento, colab.empresa_id)}
                           </p>
                         </div>
                       </div>

@@ -39,7 +39,7 @@ export function CeuRelatoriosPage() {
     listarEntregas()
     supabase
       .from('departamentos')
-      .select('id, nome, nome_curto, empresa_id')
+      .select('id, nome, nome_curto, empresa_id, status')
       .then(({ data }) => setDepartamentos((data || []) as DepartamentoFuzzy[]))
   }, [listarItens, listarEntregas])
 
@@ -66,15 +66,21 @@ export function CeuRelatoriosPage() {
     return dadosItens.filter((i) => ids.has(i.id))
   }, [dadosItens, dadosEntregas])
 
-  const handleExportarExcel = () => exportarExcel(abaAtiva, entregasFiltradas, dadosItens)
-  const handleExportarTSV = () => exportarTSV(abaAtiva, entregasFiltradas, dadosItens)
+  const nomeDepartamento = (c: Pick<Colaborador, 'departamento_id' | 'departamento' | 'empresa_id'>) =>
+    nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+
+  const resolverDepartamentoExportacao = (e: (typeof entregasFiltradas)[number]) =>
+    nomeCurtoDepartamentoFuzzy(departamentos, e.colaborador?.departamento_id, e.colaborador?.departamento, e.colaborador?.empresa_id)
+
+  const handleExportarExcel = () => exportarExcel(abaAtiva, entregasFiltradas, dadosItens, resolverDepartamentoExportacao)
+  const handleExportarTSV = () => exportarTSV(abaAtiva, entregasFiltradas, dadosItens, resolverDepartamentoExportacao)
 
   const handleGerarRecibo = async (colaboradorId: string) => {
     const entregasDoColab = entregasFiltradas.filter((e) => e.colaborador_id === colaboradorId)
     if (entregasDoColab.length === 0) return
     setGerandoRecibo(true)
     try {
-      const grupos = await prepararGruposRecibo(entregasDoColab, { proximoNumeroRecibo, registrarEmissaoRecibo })
+      const grupos = await prepararGruposRecibo(entregasDoColab, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
       setDadosRecibo(grupos.length === 1 ? grupos[0] : grupos)
       setModalRecibo(true)
     } finally {
@@ -89,7 +95,7 @@ export function CeuRelatoriosPage() {
     }
     setGerandoRecibo(true)
     try {
-      const { html, total } = await gerarRecibosLoteHTML(entregasFiltradas, { proximoNumeroRecibo, registrarEmissaoRecibo })
+      const { html, total } = await gerarRecibosLoteHTML(entregasFiltradas, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
       if (total === 0) {
         toast.error('Nenhum recibo pôde ser gerado')
         return
@@ -107,7 +113,7 @@ export function CeuRelatoriosPage() {
         <AbaColaborador
           colaboradoresUnicos={colaboradoresUnicos}
           entregasFiltradas={entregasFiltradas}
-          nomeDepartamento={(c) => nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)}
+          nomeDepartamento={nomeDepartamento}
           exportarExcel={handleExportarExcel}
           onGerarRecibo={handleGerarRecibo}
           onRelatorioLote={handleRelatorioLote}

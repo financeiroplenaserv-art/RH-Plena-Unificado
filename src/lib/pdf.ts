@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { parseDataLocal, formatarDataDeTimestamp } from '@/lib/utils'
+import { encontrarDepartamentoFuzzy, nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { Colaborador, Ocorrencia, OcorrenciaAnexo, OcorrenciaTestemunha } from '@/types/database'
 import type jsPDF from 'jspdf'
 
@@ -46,14 +47,36 @@ async function empresaPorId(id: string): Promise<{ nome: string; cnpj: string } 
   return (data as { nome: string; cnpj: string } | null) ?? null
 }
 
+// Lista completa (sem filtro de nome_curto) — as linhas duplicadas sem
+// nome_curto são necessárias para resolver o departamento do colaborador.
+async function listarDepartamentosResolucao(): Promise<DepartamentoFuzzy[]> {
+  const { data } = await supabase
+    .from('departamentos')
+    .select('id, nome, nome_curto, empresa_id, status')
+  return (data as DepartamentoFuzzy[]) || []
+}
+
+// Exibição/documentos usam apenas o nome_curto resolvido (decisão da gestão).
+function nomeDepartamentoColaborador(colaborador: Colaborador, departamentos: DepartamentoFuzzy[]): string {
+  if (!colaborador.departamento_id && !colaborador.departamento) return '-'
+  return nomeCurtoDepartamentoFuzzy(
+    departamentos,
+    colaborador.departamento_id,
+    colaborador.departamento,
+    colaborador.empresa_id
+  )
+}
+
 // Quando a tela não informa a empresa, resolve pelo vínculo do registro.
 // Ordem: empresa da ocorrência/colaborador → cadastro do colaborador no banco
 // (telas que passam o objeto sem empresa_id, ex.: autocomplete do formulário) →
-// departamento vinculado → departamento pelo nome → fallback Plena EA
-// (decisão de negócio: ~95% dos colaboradores são dela).
+// departamento do colaborador (resolução fuzzy no cliente — ILIKE do texto
+// legado sem acento nunca casava com o nome acentuado do cadastro) →
+// fallback Plena EA (decisão de negócio: ~95% dos colaboradores são dela).
 async function buscarEmpresaDoRegistro(
   colaborador: Colaborador,
-  ocorrencia: Ocorrencia
+  ocorrencia: Ocorrencia,
+  departamentos?: DepartamentoFuzzy[]
 ): Promise<{ nome: string; cnpj: string } | null> {
   let empresaId = ocorrencia.empresa_id || colaborador.empresa_id
 
@@ -75,30 +98,11 @@ async function buscarEmpresaDoRegistro(
     if (empresa) return empresa
   }
 
-  if (colaborador.departamento_id) {
-    const { data: dep } = await supabase
-      .from('departamentos')
-      .select('empresa_id')
-      .eq('id', colaborador.departamento_id)
-      .maybeSingle()
-    if (dep?.empresa_id) {
-      const empresa = await empresaPorId(dep.empresa_id)
-      if (empresa) return empresa
-    }
-  }
-
-  if (colaborador.departamento) {
-    const { data: dep } = await supabase
-      .from('departamentos')
-      .select('empresa_id')
-      .ilike('nome', colaborador.departamento)
-      .not('empresa_id', 'is', null)
-      .limit(1)
-      .maybeSingle()
-    if (dep?.empresa_id) {
-      const empresa = await empresaPorId(dep.empresa_id)
-      if (empresa) return empresa
-    }
+  const deps = departamentos ?? (await listarDepartamentosResolucao())
+  const dep = encontrarDepartamentoFuzzy(deps, colaborador.departamento_id, colaborador.departamento)
+  if (dep?.empresa_id) {
+    const empresa = await empresaPorId(dep.empresa_id)
+    if (empresa) return empresa
   }
 
   const { data: plena } = await supabase
@@ -113,6 +117,7 @@ async function buscarEmpresaDoRegistro(
 
 export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias: Ocorrencia[]) {
   const { jsPDF, autoTable } = await getJsPDF()
+  const departamentos = await listarDepartamentosResolucao()
   const doc = new jsPDF()
   const w = doc.internal.pageSize.getWidth()
 
@@ -132,7 +137,7 @@ export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias:
     ['Matrícula', colaborador.matricula || '-'],
     ['CPF', colaborador.cpf || '-'],
     ['Cargo', colaborador.cargo || '-'],
-    ['Departamento', colaborador.departamento || '-'],
+    ['Departamento', nomeDepartamentoColaborador(colaborador, departamentos)],
     ['Status', colaborador.status || '-'],
     [
       'Data de Admissão',
@@ -188,6 +193,7 @@ export async function gerarPDFOcorrencia(
   empresa?: { nome?: string; cnpj?: string } | null
 ) {
   const { jsPDF, autoTable } = await getJsPDF()
+  const departamentos = await listarDepartamentosResolucao()
   const doc = new jsPDF()
   const w = doc.internal.pageSize.getWidth()
   const h = doc.internal.pageSize.getHeight()
@@ -199,7 +205,7 @@ export async function gerarPDFOcorrencia(
 
   doc.setFontSize(12)
   doc.setTextColor(30, 30, 30)
-  const empresaResolvida = empresa ?? (await buscarEmpresaDoRegistro(colaborador, ocorrencia))
+  const empresaResolvida = empresa ?? (await buscarEmpresaDoRegistro(colaborador, ocorrencia, departamentos))
   const nomeEmpresa = empresaResolvida?.nome || '[EMPRESA]'
   const cnpjEmpresa = empresaResolvida?.cnpj || '[CNPJ]'
   doc.text(nomeEmpresa, w / 2, 14, { align: 'center' })
@@ -226,7 +232,7 @@ export async function gerarPDFOcorrencia(
     ['Matrícula', colaborador.matricula || '-'],
     ['CPF', colaborador.cpf || '-'],
     ['Cargo', colaborador.cargo || '-'],
-    ['Departamento', colaborador.departamento || '-'],
+    ['Departamento', nomeDepartamentoColaborador(colaborador, departamentos)],
   ]
 
   autoTable(doc, {

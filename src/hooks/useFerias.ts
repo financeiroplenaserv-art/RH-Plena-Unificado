@@ -13,7 +13,7 @@ const COLUNAS_PERIODO = `
 
 const COLUNAS_NOTIFICACAO = `
   id, colaborador_id, ferias_periodo_id, destinatario, data_notificacao, observacao, usuario_id, created_at,
-  colaborador:colaboradores(id, nome_completo, matricula, departamento)
+  colaborador:colaboradores(id, nome_completo, matricula, departamento, departamento_id, empresa_id)
 `
 
 export interface ResultadoImportacao {

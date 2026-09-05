@@ -80,6 +80,25 @@ describe('nomeCurtoDepartamentoFuzzy', () => {
     expect(nomeCurtoDepartamentoFuzzy(departamentos, null, 'TEXTO DESCONHECIDO')).toBe('TEXTO DESCONHECIDO')
   })
 
+  it('usa o nome_curto da linha IRMÃ quando a resolvida não tem (duplicada legada)', () => {
+    // Dados reais (05/09/2026): a colaborador aponta para a linha sem
+    // nome_curto; a irmã com o mesmo nome tem nome_curto 'CBO'.
+    const comDuplicada: DepartamentoFuzzy[] = [
+      { id: '6e2e9d11', nome: 'ALIANCA S A INDUSTRIA NAVAL E EMPRESA DE NAVEGACAO', nome_curto: null, status: 'Ativo' },
+      { id: '6863ec8e', nome: 'ALIANÇA S/A - INDÚSTRIA NAVAL E EMPRESA DE NAVEGAÇÃO', nome_curto: 'CBO', status: 'Ativo' },
+    ]
+    expect(nomeCurtoDepartamentoFuzzy(comDuplicada, '6e2e9d11', 'ALIANCA S A INDUSTRIA NAVAL E EMPRESA DE NAVEGACAO')).toBe('CBO')
+  })
+
+  it('prefere a irmã Ativa quando há duplicadas com nome_curto', () => {
+    const comInativa: DepartamentoFuzzy[] = [
+      { id: 'a', nome: 'POSTO X', nome_curto: null, status: 'Ativo' },
+      { id: 'b', nome: 'POSTO X', nome_curto: 'X-ANTIGO', status: 'Inativo' },
+      { id: 'c', nome: 'POSTO X', nome_curto: 'X', status: 'Ativo' },
+    ]
+    expect(nomeCurtoDepartamentoFuzzy(comInativa, 'a', null)).toBe('X')
+  })
+
   it('retorna traço quando não há nada', () => {
     expect(nomeCurtoDepartamentoFuzzy([], null, null)).toBe('—')
   })

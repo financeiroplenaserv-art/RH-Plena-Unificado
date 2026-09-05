@@ -20,6 +20,8 @@ import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useFerias } from '@/hooks/useFerias'
 import { podeGerenciarFerias } from '@/lib/permissoes'
 import { normalizarTexto } from '@/lib/escalas/normalizarTexto'
+import { supabase } from '@/lib/supabase'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { FeriasNotificacao } from '@/types/database'
 import { FeriasShell } from './FeriasShell'
 import { NotificacaoFeriasDialog } from './NotificacaoFeriasDialog'
@@ -36,6 +38,7 @@ export function FeriasNotificacoesPage() {
 
   const { loading, listarNotificacoes, registrarNotificacao } = useFerias()
   const [notificacoes, setNotificacoes] = useState<FeriasNotificacao[]>([])
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [carregando, setCarregando] = useState(true)
   const [modal, setModal] = useState(false)
 
@@ -44,8 +47,15 @@ export function FeriasNotificacoesPage() {
 
   const carregar = async () => {
     setCarregando(true)
-    const lista = await listarNotificacoes()
+    // Lista completa (sem filtro de nome_curto) para resolver o departamento
+    // do colaborador no cliente — o texto legado não bate com o cadastro.
+    const [lista, { data: deptData, error: erroDept }] = await Promise.all([
+      listarNotificacoes(),
+      supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
+    ])
+    if (erroDept) console.error('Erro ao carregar departamentos:', erroDept)
     setNotificacoes(lista)
+    setDepartamentos((deptData || []) as DepartamentoFuzzy[])
     setCarregando(false)
   }
 
@@ -134,7 +144,11 @@ export function FeriasNotificacoesPage() {
                   <td className="px-5 py-3 tabular-nums whitespace-nowrap">{formatarData(n.data_notificacao)}</td>
                   <td className="px-3 py-3 font-medium text-foreground">{n.colaborador?.nome_completo ?? '-'}</td>
                   <td className="px-3 py-3 tabular-nums text-muted-foreground">{n.colaborador?.matricula ?? '-'}</td>
-                  <td className="px-3 py-3">{n.colaborador?.departamento ?? '-'}</td>
+                  <td className="px-3 py-3">
+                    {n.colaborador
+                      ? nomeCurtoDepartamentoFuzzy(departamentos, n.colaborador.departamento_id, n.colaborador.departamento, n.colaborador.empresa_id)
+                      : '-'}
+                  </td>
                   <td className="px-3 py-3">
                     <StatusBadge variant={n.destinatario === 'colaborador' ? 'info' : 'warning'}>
                       {n.destinatario === 'colaborador' ? 'Colaborador' : 'Responsável contrato'}

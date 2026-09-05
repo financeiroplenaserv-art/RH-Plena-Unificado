@@ -35,7 +35,7 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
 import { supabase } from '@/lib/supabase'
-import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
@@ -58,7 +58,7 @@ export function ColaboradoresPage() {
   const [filtroEmpresa, setFiltroEmpresa] = useFiltroPersistente('colaboradores.lista.empresa', 'todos')
   const [cargos, setCargos] = useState<{ nome: string }[]>([])
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
-  const [departamentos, setDepartamentos] = useState<{ id: string; nome: string; nome_curto: string | null }[]>([])
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [colaboradorSelecionado, setColaboradorSelecionado] = useState<Colaborador | null>(null)
   const [modoEdicao, setModoEdicao] = useState(false)
   const [formEdicao, setFormEdicao] = useState<Partial<Colaborador>>({})
@@ -71,7 +71,7 @@ export function ColaboradoresPage() {
       const [{ data: cargosData }, { data: empresasData }, { data: departamentosData }] = await Promise.all([
         supabase.from('colaboradores').select('cargo').not('cargo', 'is', null),
         supabase.from('empresas').select('id, nome').order('nome'),
-        supabase.from('departamentos').select('id, nome, nome_curto').order('nome_curto'),
+        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status').order('nome_curto'),
       ])
 
       const cargosUnicos = Array.from(
@@ -443,7 +443,9 @@ export function ColaboradoresPage() {
                     <Card>
                       <CardContent className="p-3">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Departamento</p>
-                        <p className="text-sm font-medium break-words">{colaboradorSelecionado.departamento || '—'}</p>
+                        <p className="text-sm font-medium break-words">
+                          {nomeCurtoDepartamentoFuzzy(departamentos, colaboradorSelecionado.departamento_id, colaboradorSelecionado.departamento, colaboradorSelecionado.empresa_id)}
+                        </p>
                       </CardContent>
                     </Card>
 

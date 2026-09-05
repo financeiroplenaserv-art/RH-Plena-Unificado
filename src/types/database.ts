@@ -199,7 +199,7 @@ export interface FeriasNotificacao {
   observacao: string | null
   usuario_id: string | null
   created_at?: string
-  colaborador?: Pick<Colaborador, 'id' | 'nome_completo' | 'matricula' | 'departamento'> | null
+  colaborador?: Pick<Colaborador, 'id' | 'nome_completo' | 'matricula' | 'departamento' | 'departamento_id' | 'empresa_id'> | null
 }
 
 export interface TermoLGPD {

@@ -14,17 +14,27 @@ import { hojeBrasil } from '@/lib/utils'
 
 type LinhaExportacao = Record<string, string | number | null | undefined>
 
+/**
+ * Resolve o departamento exibido na exportação. Decisão da gestão: sair
+ * APENAS o nome_curto resolvido (nunca o texto legado sem acentos) — a
+ * página passa um resolvedor com nomeCurtoDepartamentoFuzzy.
+ */
+export type ResolvedorDepartamento = (e: EntregaComSnapshot) => string
+
+const resolvedorPadrao: ResolvedorDepartamento = (e) => e.colaborador?.departamento || '—'
+
 export function dadosExportacao(
   abaAtiva: AbaId,
   entregasFiltradas: EntregaComSnapshot[],
-  dadosItens: ItemCEU[]
+  dadosItens: ItemCEU[],
+  resolverDepartamento: ResolvedorDepartamento = resolvedorPadrao
 ): LinhaExportacao[] {
   switch (abaAtiva) {
     case 'colaborador':
       return entregasFiltradas.map((e) => ({
         Colaborador: e.colaborador?.nome_completo || e.colaborador_id,
         Matrícula: e.colaborador?.matricula || '—',
-        Departamento: e.colaborador?.departamento || '—',
+        Departamento: resolverDepartamento(e),
         Item: nomeItem(e),
         Tipo: tipoItem(e) || '—',
         CA: caItem(e),
@@ -55,7 +65,7 @@ export function dadosExportacao(
           CA: caItem(e),
           Colaborador: e.colaborador?.nome_completo || e.colaborador_id,
           Matrícula: e.colaborador?.matricula || '—',
-          Departamento: e.colaborador?.departamento || '—',
+          Departamento: resolverDepartamento(e),
           Quantidade: e.quantidade,
           'Data entrega': formatarData(e.data_entrega),
         }))
@@ -94,9 +104,10 @@ export function dadosExportacao(
 export function exportarExcel(
   abaAtiva: AbaId,
   entregasFiltradas: EntregaComSnapshot[],
-  dadosItens: ItemCEU[]
+  dadosItens: ItemCEU[],
+  resolverDepartamento: ResolvedorDepartamento = resolvedorPadrao
 ) {
-  const dados = dadosExportacao(abaAtiva, entregasFiltradas, dadosItens)
+  const dados = dadosExportacao(abaAtiva, entregasFiltradas, dadosItens, resolverDepartamento)
   if (dados.length === 0) return
   const ws = XLSX.utils.json_to_sheet(dados)
   const wb = XLSX.utils.book_new()
@@ -107,9 +118,10 @@ export function exportarExcel(
 export function exportarTSV(
   abaAtiva: AbaId,
   entregasFiltradas: EntregaComSnapshot[],
-  dadosItens: ItemCEU[]
+  dadosItens: ItemCEU[],
+  resolverDepartamento: ResolvedorDepartamento = resolvedorPadrao
 ) {
-  const dados = dadosExportacao(abaAtiva, entregasFiltradas, dadosItens)
+  const dados = dadosExportacao(abaAtiva, entregasFiltradas, dadosItens, resolverDepartamento)
   if (dados.length === 0) return
   const headers = Object.keys(dados[0])
   const rows = dados.map((row) =>
