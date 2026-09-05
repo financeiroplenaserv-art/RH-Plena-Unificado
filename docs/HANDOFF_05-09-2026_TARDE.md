@@ -173,3 +173,9 @@ Fundir as duplicadas de `departamentos`: 3 linhas Aliança (manter `6863ec8e` = 
 - **Os números queimados na `ceu_recibo_seq` NÃO foram reaproveitados** (sequencial fiscal, migration 073) — a próxima emissão pega números novos, então haverá "salto" de numeração. Esperado e aceitável.
 - Observação de UX possível para o futuro: o botão "Relatório em Lote" nos Relatórios CEU emite recibo de verdade (marca `recibo_emitido`) — se a emissão acidental se repetir, avaliar um ConfirmDialog explicando que a ação marca os recibos como emitidos.
 - Mudança só de dados: sem deploy necessário.
+
+### Adendo da Parte 6 — proteção contra emissão acidental (commit `7e40f9b`, deploy verificado `index-DI0bkG4f.js`)
+
+A pedido da usuária, a emissão em lote ganhou confirmação/aviso:
+- **Relatórios CEU → "Relatório em Lote"**: agora abre `ConfirmDialog` com a contagem de colaboradores/entregas dos filtros aplicados e o aviso de que as entregas serão marcadas como recibo emitido e a numeração consumida.
+- **Movimentações → "Emitir recibos em lote"**: o modal ganhou alerta amarelo com o mesmo aviso.
