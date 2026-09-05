@@ -86,3 +86,33 @@ A usuária perguntou se a correção da tarde garantia que "tudo acontece no hor
 - 392 testes, lint, build. Testes novos determinísticos (`formatarDataHora('2026-09-01T02:30:00.000Z')` → `31/08/2026 23:30` em qualquer fuso da máquina).
 - Ressalva: não testado em máquina fora do Brasil; a correção é estrutural (fuso pinado em `America/Sao_Paulo`, não depende do dispositivo).
 - Validar com as usuárias (Ctrl+Shift+R): entregas de 01/09 corretas para ambas; "importado em"/auditoria com horário de Brasília nas duas máquinas.
+
+---
+
+# Parte 3 (noite) — filtro de departamento por nome_curto (caso CBO/Aliança)
+
+> Commit `5f5cdb0` na main, deploy verificado (hash `index-etqg5oql.js`). Testes: **398 passando** (6 novos em `departamentos.test.ts`). Sem migrations.
+
+## Problema
+
+Relatórios CEU: filtrar por "CBO" não retornava ninguém, embora a Lourene (e outros 16) sejam da Aliança (= CBO). Verificado contra produção:
+
+- A "CBO" é o departamento `6863ec8e` (`ALIANÇA S/A - INDÚSTRIA NAVAL...`, nome_curto `CBO`);
+- existe uma **linha duplicada** `6e2e9d11` (`ALIANCA S A INDUSTRIA...` sem acentos, **nome_curto NULL**) — a Lourene aponta para ela;
+- o ILIKE do filtro antigo não casava texto sem acento com cadastro acentuado, e o `departamento_id` dela não era o da linha "CBO".
+
+## Solução
+
+- **`idsColaboradoresDoDepartamento()`** em `src/lib/departamentos.ts`: resolve o departamento de cada colaborador no cliente com `encontrarDepartamentoFuzzy` (id > nome exato > nome_curto > tokens > substring > similaridade) e **expande o alvo para linhas duplicadas** (mesmo nome ou nome_curto normalizado — novo export `normalizarDepartamento`). Fallback por texto livre se nenhum departamento corresponde.
+- Aplicado em: `useFiltrosRelatorio` (relatórios CEU), `useCEUEntregas` (Movimentações), `useColaboradores` (listagem + contagem paginada, filtro por id e por nome_curto) e `AutocompleteColaborador` (`buscarPorDepartamento` e ordenação por grupo; `buscarIdsDoGrupo` agora agrupa também por nome normalizado).
+- Relatório CEU "Por colaborador" exibe o **nome_curto resolvido** ("CBO") em vez do texto legado ("ALIANCA S A INDUSTRIA...") — `AbaColaborador` ganhou prop `nomeDepartamento`; `COLUNAS_COLABORADOR_CEU` passou a incluir `departamento_id`.
+- Regra no AGENTS.md §11: **nunca filtrar departamento com ILIKE no banco**; usar o helper.
+
+## Validação
+
+- Script temporário (removido após uso) rodou o helper real contra produção: filtro "CBO" → **17 colaboradores**, Lourene incluída; "CBO Macaé" fica de fora (posto distinto — distinção preservada de propósito).
+- Validar na tela (Ctrl+Shift+R): CEU → Relatórios → Departamento = CBO → deve listar a turma da Aliança.
+
+## Pendência de dados (decisão da gestão)
+
+Fundir as linhas duplicadas de `departamentos` (ex.: as duas Aliança/CBO). O código agora convive com elas, mas a limpeza simplificaria cadastros futuros. Precedente: fusão de locais do Escalas em 07/08/2026 (`dados-locais/backup_fusao_locais_2026-08-07.json`).
