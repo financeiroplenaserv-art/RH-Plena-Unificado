@@ -159,3 +159,17 @@ Fundir as duplicadas de `departamentos`: 3 linhas Aliança (manter `6863ec8e` = 
 - CBO: 17 colaboradores na linha oficial; CBO MACAÉ: 11. Zero colaboradores órfãos com texto "ALIANCA..."/"CBO SERVICOS..." sem `departamento_id`.
 - Linhas absorvidas ficam Inativas (nunca excluídas — histórico).
 - Com a fusão + `sincronizarDepartamentos` com match fuzzy (Parte 4), novas duplicadas não devem mais nascer nas importações do e-Contador.
+
+---
+
+# Parte 6 (noite) — reversão da emissão acidental dos recibos de 01/09/2026
+
+> A usuária emitiu sem querer os recibos das entregas de 01/09/2026 (provavelmente via "Relatório em Lote" nos Relatórios CEU). Pedido: todas as entregas do dia voltam para "recibo a emitir".
+> Executado via `scripts/reverter-recibos-2026-09-01.mjs` (dry-run por padrão). Backup em `dados-locais/backup_reversao_recibos_2026-09-01.json` (guards `numero_recibo` de cada uma, para eventual restauração).
+
+## O que foi feito
+
+- 175 entregas de 01/09/2026 estavam com `recibo_emitido = true` + `numero_recibo` — todas revertidas para `recibo_emitido = false`, `numero_recibo = NULL`. Verificado pós-execução: 175 com `recibo_emitido = false`, 0 com número.
+- **Os números queimados na `ceu_recibo_seq` NÃO foram reaproveitados** (sequencial fiscal, migration 073) — a próxima emissão pega números novos, então haverá "salto" de numeração. Esperado e aceitável.
+- Observação de UX possível para o futuro: o botão "Relatório em Lote" nos Relatórios CEU emite recibo de verdade (marca `recibo_emitido`) — se a emissão acidental se repetir, avaliar um ConfirmDialog explicando que a ação marca os recibos como emitidos.
+- Mudança só de dados: sem deploy necessário.
