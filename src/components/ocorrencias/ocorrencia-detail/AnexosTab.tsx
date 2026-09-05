@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { formatarDataDeTimestamp } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -32,7 +33,7 @@ interface AnexosTabProps {
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR')
+  return formatarDataDeTimestamp(d)
 }
 
 export function AnexosTab({

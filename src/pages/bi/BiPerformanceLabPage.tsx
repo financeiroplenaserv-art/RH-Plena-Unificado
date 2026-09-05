@@ -3,7 +3,7 @@ import { CalendarClock, ClipboardCheck, ExternalLink, MapPin, Search } from 'luc
 import type { ChartConfiguration, ChartEvent, ActiveElement } from 'chart.js'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
+import { cn, hojeBrasil } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
@@ -89,7 +89,7 @@ const ABAS = [
 
 function periodoPadrao(): { di: string; df: string } {
   // Dia de Brasília (não o do dispositivo) como limite do período
-  const df = diaDe(new Date().toISOString())
+  const df = hojeBrasil()
   const inicio = new Date(`${df}T12:00:00-03:00`)
   // Últimos 5 dias, inclusive hoje; o banco mantém até 90 dias para consultas manuais
   inicio.setUTCDate(inicio.getUTCDate() - 4)
@@ -385,7 +385,7 @@ export function BiPerformanceLabPage() {
   /** Alerta de críticos antigos: amplia o período para toda a janela retida
    *  (90 dias) e já aplica o filtro de status "Crítico" */
   const verCriticosAntigos = () => {
-    const hoje = diaDe(new Date().toISOString())
+    const hoje = hojeBrasil()
     const inicio = new Date(`${hoje}T12:00:00-03:00`)
     inicio.setUTCDate(inicio.getUTCDate() - 89)
     const di90 = diaDe(inicio.toISOString())

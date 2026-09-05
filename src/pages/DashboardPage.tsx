@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
-import { cn, parseDataLocal } from '@/lib/utils'
+import { cn, parseDataLocal, agoraBrasil, FUSO_BRASIL } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
@@ -40,7 +40,7 @@ interface ColaboradorResumido {
 type MarcoExperiencia = 30 | 60 | 90
 
 function diasAte(dataStr: string) {
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   hoje.setHours(0, 0, 0, 0)
   const data = parseDataLocal(dataStr)
   data.setHours(0, 0, 0, 0)
@@ -48,7 +48,7 @@ function diasAte(dataStr: string) {
 }
 
 function diasDesde(dataStr: string) {
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   hoje.setHours(0, 0, 0, 0)
   const data = parseDataLocal(dataStr)
   data.setHours(0, 0, 0, 0)
@@ -68,7 +68,7 @@ function formatarDiaMes(data: Date | string | null | undefined): string {
 }
 
 function saudacao(): string {
-  const hora = new Date().getHours()
+  const hora = agoraBrasil().getHours()
   if (hora < 12) return 'Bom dia'
   if (hora < 18) return 'Boa tarde'
   return 'Boa noite'
@@ -80,6 +80,7 @@ function formatarDataCompleta(data: Date): string {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: FUSO_BRASIL,
   }
   return data.toLocaleDateString('pt-BR', opcoes)
 }
@@ -205,7 +206,7 @@ export function DashboardPage() {
   }, [])
 
   const experiencia = useMemo(() => {
-    const hoje = new Date()
+    const hoje = agoraBrasil()
     hoje.setHours(0, 0, 0, 0)
     const resultado: { colaborador: ColaboradorResumido; marco: MarcoExperiencia; dias: number }[] = []
 
@@ -223,7 +224,7 @@ export function DashboardPage() {
   }, [colaboradoresAtivos])
 
   const aniversariantes = useMemo(() => {
-    const hoje = new Date()
+    const hoje = agoraBrasil()
     const hojeMes = hoje.getMonth()
     const hojeDia = hoje.getDate()
 
@@ -493,7 +494,7 @@ export function DashboardPage() {
                     <div className="max-h-[140px] space-y-2 overflow-y-auto pr-1">
                       {aniversariantes.empresa.map(({ colaborador: colab, data }) => {
                         const dAdm = normalizarData(data)!
-                        const anos = new Date().getFullYear() - dAdm.getFullYear()
+                        const anos = agoraBrasil().getFullYear() - dAdm.getFullYear()
                         return (
                           <div
                             key={colab.id}

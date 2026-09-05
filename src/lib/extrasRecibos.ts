@@ -1,5 +1,5 @@
 import type { Extra } from '@/types/extras'
-import { formatarCNPJ } from '@/lib/utils'
+import { formatarCNPJ, formatarDataDeTimestamp } from '@/lib/utils'
 
 interface JsPDFWithAutoTable {
   lastAutoTable?: { finalY: number }
@@ -124,8 +124,7 @@ export async function gerarReciboExtraPDF(
     valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   const valorTotal = extras.reduce((acc, e) => acc + (Number(e.valor) || 0), 0)
-  const hoje = new Date()
-  const dataEmissao = hoje.toLocaleDateString('pt-BR')
+  const dataEmissao = formatarDataDeTimestamp(new Date())
   const dataRecebimento = dataPagamento ? formatarData(dataPagamento) : dataEmissao
   const nomeEmpresa = empresa?.nome || '[Empresa não informada]'
 

@@ -18,7 +18,7 @@ import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, hojeBrasil } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo } from '@/types/extras'
 import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
@@ -29,7 +29,7 @@ const MOTIVOS: MotivoExtra[] = ['Afastamento INSS', 'Atestado', 'Cobertura féri
 const COMUNICACOES: ComunicacaoTipo[] = ['WhatsApp', 'Email', 'Não se aplica']
 
 const extraVazio = (): Omit<Extra, 'id' | 'created_at' | 'updated_at'> => ({
-  data_ocorrencia: new Date().toISOString().split('T')[0],
+  data_ocorrencia: hojeBrasil(),
   turno: 'Dia',
   categoria: '' as CategoriaOcorrencia,
   posto: '',

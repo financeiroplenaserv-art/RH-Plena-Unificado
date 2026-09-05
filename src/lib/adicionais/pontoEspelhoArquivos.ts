@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { agoraBrasil } from '@/lib/utils'
 
 const BUCKET = 'ponto-espelhos'
 const TABELA = 'ponto_espelho_arquivos'
@@ -91,7 +92,7 @@ export async function salvarArquivo(file: File, userId: string, reenviar = false
     if (existente) return existente
   }
 
-  const agora = new Date()
+  const agora = agoraBrasil()
   const pasta = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
   const storagePath = `${pasta}/${idUnico()}_${nomeSeguro(file.name)}`
 

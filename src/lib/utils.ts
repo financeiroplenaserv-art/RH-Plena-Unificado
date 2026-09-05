@@ -105,6 +105,50 @@ export function formatarData(data: string | null | undefined): string {
   return d.toLocaleDateString('pt-BR')
 }
 
+/* ============================================================
+   FUSO DE BRASÍLIA — o CORH só opera no Brasil.
+   "Hoje", "agora" e a exibição de carimbos de hora seguem SEMPRE
+   America/Sao_Paulo, nunca o relógio da máquina de quem acessa
+   (há operadora remota em fuso à frente do Brasil).
+   ============================================================ */
+
+export const FUSO_BRASIL = 'America/Sao_Paulo'
+
+/** Data de hoje (YYYY-MM-DD) no fuso de Brasília. */
+export function hojeBrasil(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: FUSO_BRASIL,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+/**
+ * "Agora" em Brasília como Date cujos componentes LOCAIS (getDate,
+ * getMonth, getHours...) refletem o horário de Brasília. Usar apenas
+ * com getters locais (nunca toISOString/getTime para comparar fusos).
+ */
+export function agoraBrasil(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: FUSO_BRASIL }))
+}
+
+/** Formata timestamp (timestamptz) como data/hora no fuso de Brasília. */
+export function formatarDataHora(data: string | Date | null | undefined): string {
+  if (!data) return ''
+  const d = typeof data === 'string' ? new Date(data) : data
+  if (isNaN(d.getTime())) return String(data)
+  return d.toLocaleString('pt-BR', { timeZone: FUSO_BRASIL })
+}
+
+/** Formata timestamp (timestamptz) como só data no fuso de Brasília. */
+export function formatarDataDeTimestamp(data: string | Date | null | undefined): string {
+  if (!data) return ''
+  const d = typeof data === 'string' ? new Date(data) : data
+  if (isNaN(d.getTime())) return String(data)
+  return d.toLocaleDateString('pt-BR', { timeZone: FUSO_BRASIL })
+}
+
 export function nomeDepartamento(departamento: Departamento | null | undefined): string {
   if (!departamento) return '—'
   return departamento.nome_curto?.trim() || departamento.nome
@@ -302,7 +346,7 @@ export function formatarDataInput(data: Date): string {
  * Período semanal padrão dos relatórios de extras: sexta-feira da semana
  * corrente até a quinta-feira seguinte (início + 6 dias).
  */
-export function getPeriodoSemanalAtual(referencia: Date = new Date()): { inicio: Date; fim: Date } {
+export function getPeriodoSemanalAtual(referencia: Date = agoraBrasil()): { inicio: Date; fim: Date } {
   const d = new Date(referencia)
   const diasDesdeSexta = (d.getDay() - 5 + 7) % 7
   const inicio = new Date(d)

@@ -19,7 +19,7 @@ import { CeuShell } from './CeuShell'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import { SITUACOES_ENTREGA } from '@/lib/ceuRecibos'
-import { formatarData, formatarDataInput } from '@/lib/utils'
+import { formatarData, hojeBrasil } from '@/lib/utils'
 import type { Colaborador, ItemCEU, EntregaCEU } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -50,7 +50,7 @@ export function CeuEntregaFormPage() {
   const [dropdownAberto, setDropdownAberto] = useState(false)
   const inputColabRef = useRef<HTMLInputElement>(null)
   const [itensSelecionados, setItensSelecionados] = useState<Record<string, { item: ItemCEU; quantidade: number; situacao: string }>>({})
-  const [dataEntrega, setDataEntrega] = useState(formatarDataInput(new Date()))
+  const [dataEntrega, setDataEntrega] = useState(hojeBrasil())
   const [observacao, setObservacao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [concluido, setConcluido] = useState(false)

@@ -7,7 +7,7 @@ import { useExtras } from '@/hooks/useExtras'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { useAuth } from '@/hooks/useAuth'
-import { mascaraMoeda, mascaraMoedaInput, parseMoeda, nomeDepartamento, formatarData } from '@/lib/utils'
+import { mascaraMoeda, mascaraMoedaInput, parseMoeda, nomeDepartamento, formatarData, hojeBrasil } from '@/lib/utils'
 import type { Extra, TurnoExtra, MotivoExtra, ComunicacaoTipo, CategoriaOcorrencia } from '@/types/extras'
 import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
 
@@ -251,7 +251,7 @@ export function MobileFaltaPage() {
   const [sucesso, setSucesso] = useState(false)
   const [erros, setErros] = useState<Record<string, string>>({})
 
-  const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
+  const [data, setData] = useState(() => hojeBrasil())
   const [turno, setTurno] = useState<TurnoExtra>('Dia')
   const [departamentoId, setDepartamentoId] = useState('')
   const [categoria, setCategoria] = useState<CategoriaOcorrencia | ''>('')
@@ -339,7 +339,7 @@ export function MobileFaltaPage() {
 
   const limpar = () => {
     setPasso(1)
-    setData(new Date().toISOString().split('T')[0])
+    setData(hojeBrasil())
     setTurno('Dia')
     setDepartamentoId('')
     setCategoria('')

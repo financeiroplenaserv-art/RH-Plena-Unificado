@@ -22,6 +22,7 @@ import {
   type EscalaArquivo,
 } from '@/lib/escalas/escalaArquivos'
 import { toast } from 'sonner'
+import { agoraBrasil, formatarDataHora } from '@/lib/utils'
 import { Upload, AlertCircle, Calendar, FileSpreadsheet, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
@@ -31,7 +32,7 @@ import { EscalasShell } from './EscalasShell'
 type ModoImportacao = 'todos' | 'dia_anterior' | 'competencia'
 
 function calcularCompetenciaOntem(): Competencia {
-  const ontem = new Date()
+  const ontem = agoraBrasil()
   ontem.setDate(ontem.getDate() - 1)
   const dataOntem = `${ontem.getFullYear()}-${String(ontem.getMonth() + 1).padStart(2, '0')}-${String(ontem.getDate()).padStart(2, '0')}`
   return {
@@ -53,8 +54,8 @@ export function EscalasImportarPage() {
 
   const [modoImportacao, setModoImportacao] = useState<ModoImportacao>('todos')
   const [arquivo, setArquivo] = useState<File | null>(null)
-  const [ano, setAno] = useState(new Date().getFullYear())
-  const [mes, setMes] = useState(new Date().getMonth() + 1)
+  const [ano, setAno] = useState(agoraBrasil().getFullYear())
+  const [mes, setMes] = useState(agoraBrasil().getMonth() + 1)
   const [resumo, setResumo] = useState<{ sucesso: number; identificados: number; pendentes: number; preservados: number; naoEncontrados: string[] } | null>(null)
   const [preview, setPreview] = useState<DiaFlit[] | null>(null)
   const [erroPreview, setErroPreview] = useState<string | null>(null)
@@ -308,7 +309,7 @@ export function EscalasImportarPage() {
                   <div className="min-w-0">
                     <div className="font-medium truncate">{item.nome_arquivo}</div>
                     <div className="text-xs" style={{ color: '#94A3B8' }}>
-                      {new Date(item.created_at).toLocaleString('pt-BR')}
+                      {formatarDataHora(item.created_at)}
                       {item.enviado_por_nome ? ` — enviado por ${item.enviado_por_nome}` : ''}
                       {item.tamanho_bytes ? ` — ${(item.tamanho_bytes / 1024 / 1024).toFixed(1)} MB` : ''}
                     </div>

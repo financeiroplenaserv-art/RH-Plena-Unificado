@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { gerarPDFOcorrencia } from '@/lib/pdf'
+import { hojeBrasil } from '@/lib/utils'
 import type { Ocorrencia, Colaborador } from '@/types/database'
 import {
   TIPOS_OCORRENCIA,
@@ -53,7 +54,7 @@ export function useOcorrenciaForm() {
     macro_grupo: '',
     titulo: '',
     tipo_ocorrencia: '',
-    data_ocorrencia: new Date().toISOString().split('T')[0],
+    data_ocorrencia: hojeBrasil(),
     descricao: '',
     status: 'Pendente',
     tipo_penalidade: '',
@@ -121,7 +122,7 @@ export function useOcorrenciaForm() {
         macro_grupo: o.macro_grupo || '',
         titulo: o.titulo || '',
         tipo_ocorrencia: o.tipo_ocorrencia || '',
-        data_ocorrencia: o.data_ocorrencia || new Date().toISOString().split('T')[0],
+        data_ocorrencia: o.data_ocorrencia || hojeBrasil(),
         descricao: o.descricao || '',
         status: o.status || 'Pendente',
         tipo_penalidade: o.tipo_penalidade || '',

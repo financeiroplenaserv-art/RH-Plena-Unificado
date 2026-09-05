@@ -1,5 +1,5 @@
 import type { EntregaCEU, ItemCEU } from '@/types/database'
-import { parseDataLocal } from '@/lib/utils'
+import { parseDataLocal, agoraBrasil } from '@/lib/utils'
 
 export function badgeType(tipo: string) {
   switch (tipo) {
@@ -17,7 +17,7 @@ export function badgeType(tipo: string) {
 }
 
 export function diasAte(dataStr: string) {
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   hoje.setHours(0, 0, 0, 0)
   const data = parseDataLocal(dataStr)
   data.setHours(0, 0, 0, 0)
@@ -26,7 +26,7 @@ export function diasAte(dataStr: string) {
 
 export function diasAteTroca(dataEntregaStr: string, prazoDias: number | null) {
   if (!prazoDias || !dataEntregaStr) return null
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   hoje.setHours(0, 0, 0, 0)
   const dataEntrega = parseDataLocal(dataEntregaStr)
   dataEntrega.setHours(0, 0, 0, 0)

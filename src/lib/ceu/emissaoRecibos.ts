@@ -2,6 +2,7 @@ import type { EntregaCEU } from '@/types/database'
 import type { DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import { gerarReciboEPIColorido, gerarReciboUniformeColorido, type ReciboData } from '@/lib/ceuRecibos'
 import { buscarEmpresaPorId } from '@/lib/empresas'
+import { hojeBrasil } from '@/lib/utils'
 
 /* ============================================================
    EMISSÃO DE RECIBOS CEU — lógica compartilhada
@@ -68,7 +69,7 @@ function montarDadosEntrega(lista: EntregaCEU[], numero: string): DadosEntrega {
       // ainda está com o colaborador); em aberto, mostra a situação da entrega.
       situacao: e.data_devolucao ? 'Devolvido' : e.situacao || 'Novo',
     })),
-    dataEntrega: lista[0].data_entrega || new Date().toISOString(),
+    dataEntrega: lista[0].data_entrega || hojeBrasil(),
     numeroRecibo: numero,
   }
 }

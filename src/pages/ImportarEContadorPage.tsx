@@ -4,6 +4,7 @@ import {
   FileText, History, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Filter
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { agoraBrasil, formatarDataHora } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -50,7 +51,7 @@ function diferencaDias(dataISO: unknown): number | null {
   const [ano, mes, dia] = dataISO.split('T')[0].split('-').map(Number)
   if (!ano || !mes || !dia) return null
   const data = new Date(ano, mes - 1, dia)
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   hoje.setHours(0, 0, 0, 0)
   const diff = hoje.getTime() - data.getTime()
   return Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -709,7 +710,7 @@ export function ImportarEContadorPage() {
                         <Fragment key={h.id}>
                           <TableRow className="hover:bg-slate-50">
                             <TableCell style={{ color: '#1F2937' }}>
-                              {h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '—'}
+                              {h.created_at ? formatarDataHora(h.created_at) : '—'}
                             </TableCell>
                             <TableCell style={{ color: '#1F2937' }}>{h.empresa_nome || '—'}</TableCell>
                             <TableCell style={{ color: '#64748B' }}>{h.quantidade}</TableCell>

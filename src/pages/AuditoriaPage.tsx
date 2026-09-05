@@ -22,7 +22,7 @@ import { useAuditoria } from '@/hooks/useAuditoria'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { Paginacao } from '@/components/Paginacao'
 import { supabase } from '@/lib/supabase'
-import { formatarData } from '@/lib/utils'
+import { formatarDataHora } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 
 const TAMANHO_PAGINA = 50
@@ -244,7 +244,7 @@ export function AuditoriaPage() {
                     <Fragment key={log.id}>
                       <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpandido(expandido === log.id ? null : log.id)}>
                         <TableCell className="whitespace-nowrap text-sm text-slate-700">
-                          {log.created_at ? formatarData(log.created_at) : '—'}
+                          {log.created_at ? formatarDataHora(log.created_at) : '—'}
                         </TableCell>
                         <TableCell className="text-sm text-slate-700">{log.tabela}</TableCell>
                         <TableCell><BadgeAcao acao={log.operacao} /></TableCell>

@@ -16,7 +16,7 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
-import { cn } from '@/lib/utils'
+import { cn, hojeBrasil } from '@/lib/utils'
 import { listarTamanhos, resumoTamanhos, tamanhoParaItem, tamanhoDoNomeItem } from '@/lib/ceu/tamanhos'
 import { toast } from 'sonner'
 import type { CeuTamanhos, Colaborador, ItemCEU } from '@/types/database'
@@ -47,13 +47,11 @@ function gerarId() {
 }
 
 /**
- * Data de hoje no fuso LOCAL (não usar new Date().toISOString() aqui: ele
- * devolve a data em UTC e, a partir das 21h no horário de Brasília, já
- * aponta para o dia seguinte).
+ * Data de hoje no fuso de BRASÍLIA (o CORH só opera no Brasil; há operadora
+ * remota em fuso à frente — o "hoje" dela não pode vazar para os lançamentos).
  */
 function hojeLocalISO(): string {
-  const agora = new Date()
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`
+  return hojeBrasil()
 }
 
 /** Linha com qualquer conteúdo digitado (ignora os defaults de data/qtd/status). */

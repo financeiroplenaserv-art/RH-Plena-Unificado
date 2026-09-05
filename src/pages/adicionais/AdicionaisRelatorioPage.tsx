@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileSpreadsheet, FileText, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { agoraBrasil } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -201,7 +202,7 @@ export function AdicionaisRelatorioPage() {
   const { colaboradores, loading: loadingColaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, loading: loadingDepartamentos, listar: listarDepartamentos } = useDepartamentos()
 
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   const [ano, setAno] = useFiltroPersistente('adicionais.relatorio.ano', () => hoje.getFullYear())
   const [mes, setMes] = useFiltroPersistente('adicionais.relatorio.mes', () => hoje.getMonth() + 1)
 

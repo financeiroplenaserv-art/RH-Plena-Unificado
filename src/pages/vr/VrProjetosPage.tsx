@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { formatarData } from '@/lib/utils'
+import { formatarData, hojeBrasil } from '@/lib/utils'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { VrShell } from './VrShell'
@@ -74,7 +74,7 @@ export function VrProjetosPage() {
         configuracao_json: p.configuracao_json || {},
       })),
     }
-    downloadFile(JSON.stringify(dados, null, 2), `backup_vr_projetos_${new Date().toISOString().split('T')[0]}.json`, 'application/json')
+    downloadFile(JSON.stringify(dados, null, 2), `backup_vr_projetos_${hojeBrasil()}.json`, 'application/json')
     toast.success('Backup de projetos exportado')
   }
 

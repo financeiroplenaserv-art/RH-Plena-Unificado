@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ModuleCard } from '@/components/layout/ModuleShell'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
+import { hojeBrasil } from '@/lib/utils'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
@@ -86,7 +87,7 @@ export function CeuRelatoriosPage() {
         toast.error('Nenhum recibo pôde ser gerado')
         return
       }
-      downloadFile(html, `recibos_lote_${new Date().toISOString().split('T')[0]}.html`, 'text/html;charset=utf-8')
+      downloadFile(html, `recibos_lote_${hojeBrasil()}.html`, 'text/html;charset=utf-8')
       toast.success(`${total} recibo(s) gerado(s)`)
     } finally {
       setGerandoRecibo(false)

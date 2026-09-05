@@ -10,6 +10,7 @@ import {
   type EntregaComSnapshot,
 } from './relatorios.utils'
 import type { AbaId } from './abas'
+import { hojeBrasil } from '@/lib/utils'
 
 type LinhaExportacao = Record<string, string | number | null | undefined>
 
@@ -100,7 +101,7 @@ export function exportarExcel(
   const ws = XLSX.utils.json_to_sheet(dados)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Relatório CEU')
-  XLSX.writeFile(wb, `relatorio_ceu_${abaAtiva}_${new Date().toISOString().split('T')[0]}.xlsx`)
+  XLSX.writeFile(wb, `relatorio_ceu_${abaAtiva}_${hojeBrasil()}.xlsx`)
 }
 
 export function exportarTSV(
@@ -115,5 +116,5 @@ export function exportarTSV(
     headers.map((h) => String(row[h] ?? '')).join('\t')
   )
   const tsv = [headers.join('\t'), ...rows].join('\n')
-  downloadFile(tsv, `relatorio_ceu_${abaAtiva}_${new Date().toISOString().split('T')[0]}.tsv`, 'text/tab-separated-values')
+  downloadFile(tsv, `relatorio_ceu_${abaAtiva}_${hojeBrasil()}.tsv`, 'text/tab-separated-values')
 }

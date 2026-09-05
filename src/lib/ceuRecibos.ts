@@ -1,4 +1,4 @@
-import { escapeHtml, parseDataLocal } from '@/lib/utils'
+import { escapeHtml, parseDataLocal, agoraBrasil } from '@/lib/utils'
 
 /* ============================================================
    RECIBOS CEU — EPI e Uniforme/Crachá
@@ -1056,7 +1056,7 @@ export function gerarReciboUniformePB(data: ReciboData): string {
    FUNÇÃO GERADORA DE NÚMERO DE RECIBO
    ============================================================ */
 export function gerarNumeroRecibo(): string {
-  const ano = new Date().getFullYear()
+  const ano = agoraBrasil().getFullYear()
   const sequencial = Math.floor(Math.random() * 99999)
     .toString()
     .padStart(5, '0')

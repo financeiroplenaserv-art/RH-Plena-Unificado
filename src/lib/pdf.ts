@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { parseDataLocal } from '@/lib/utils'
+import { parseDataLocal, formatarDataDeTimestamp } from '@/lib/utils'
 import type { Colaborador, Ocorrencia, OcorrenciaAnexo, OcorrenciaTestemunha } from '@/types/database'
 import type jsPDF from 'jspdf'
 
@@ -122,7 +122,7 @@ export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias:
 
   doc.setFontSize(8)
   doc.setTextColor(120, 120, 120)
-  doc.text(`Emitido em ${new Date().toLocaleDateString('pt-BR')}`, w / 2, 24, { align: 'center' })
+  doc.text(`Emitido em ${formatarDataDeTimestamp(new Date())}`, w / 2, 24, { align: 'center' })
 
   doc.setDrawColor(200, 200, 200)
   doc.line(14, 28, w - 14, 28)
@@ -419,7 +419,7 @@ export async function gerarPDFOcorrencia(
     doc.setFontSize(7)
     doc.setTextColor(150, 150, 150)
     doc.text(
-      `Documento gerado eletronicamente em ${new Date().toLocaleDateString('pt-BR')} - Sistema CORH · build 2026-07-24`,
+      `Documento gerado eletronicamente em ${formatarDataDeTimestamp(new Date())} - Sistema CORH · build 2026-07-24`,
       w / 2,
       h - 8,
       { align: 'center' }

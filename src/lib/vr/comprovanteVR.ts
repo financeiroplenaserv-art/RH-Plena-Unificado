@@ -1,5 +1,5 @@
 import type { VRResultadoCalculo, VRConfiguracao } from '@/types'
-import { escapeHtml } from '@/lib/utils'
+import { escapeHtml, formatarDataDeTimestamp } from '@/lib/utils'
 import { nomeExibicaoVR } from './nomePorCpf'
 
 export function gerarComprovanteIndividualHTML(
@@ -112,7 +112,7 @@ export function gerarRecibosLoteHTML(
   projetoNome?: string,
   nomesPorCpf?: Map<string, string>
 ): string {
-  const dataEmissao = new Date().toLocaleDateString('pt-BR')
+  const dataEmissao = formatarDataDeTimestamp(new Date())
   const totalGeral = resultados.reduce((s, r) => s + r.valorBruto, 0)
   const escProjetoNome = escapeHtml(projetoNome) || 'Plena EA Facilities'
   const escDataCorte = config.dataCorte ? new Date(config.dataCorte + 'T00:00:00').toLocaleDateString('pt-BR') : '-'

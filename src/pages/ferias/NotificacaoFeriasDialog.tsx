@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { hojeBrasil } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/corh/Button'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
@@ -26,8 +27,7 @@ interface NotificacaoFeriasDialogProps {
 }
 
 function hojeISO(): string {
-  const agora = new Date()
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`
+  return hojeBrasil()
 }
 
 export function NotificacaoFeriasDialog({

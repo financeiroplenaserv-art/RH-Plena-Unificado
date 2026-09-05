@@ -9,6 +9,8 @@
 // ainda não coberto.
 // ============================================================
 
+import { agoraBrasil } from '@/lib/utils'
+
 /** Dias de antecedência para alertar "A vencer" antes do limite concessivo. */
 export const DIAS_ALERTA_VENCIMENTO = 60
 
@@ -95,7 +97,7 @@ export function calcularLimiteConcessivo(
 export function resumirFerias(
   dataAdmissao: string | null,
   periodos: PeriodoSimples[],
-  hoje: Date = new Date()
+  hoje: Date = agoraBrasil()
 ): ResumoFerias {
   const hojeISO = paraISO(hoje)
 

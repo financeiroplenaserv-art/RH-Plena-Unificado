@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, Bell, CalendarDays, CalendarPlus, Download, Trash2, User } from 'lucide-react'
 import { toast } from 'sonner'
+import { hojeBrasil, agoraBrasil } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
@@ -141,8 +142,8 @@ export function FeriasPage() {
       periodosPorColaborador.set(periodo.colaborador_id, lista)
     }
 
-    const hoje = new Date()
-    const hojeISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
+    const hoje = agoraBrasil()
+    const hojeISO = hojeBrasil()
 
     return colaboradores
       .filter((c) => c.status === 'Ativo')
@@ -284,7 +285,7 @@ export function FeriasPage() {
       const worksheet = XLSX.utils.json_to_sheet(dados)
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Férias')
-      XLSX.writeFile(workbook, `ferias_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.writeFile(workbook, `ferias_${hojeBrasil()}.xlsx`)
       toast.success(`${dados.length} registro(s) exportado(s) para Excel.`)
     } catch (err) {
       console.error('Erro ao exportar Excel:', err)

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Save, AlertTriangle, UserPlus, X, Trash2, ArrowDownAZ, ArrowUpAZ } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
+import { agoraBrasil } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -137,7 +138,7 @@ export function AdicionaisCalendarioPage() {
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
 
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   const [periodoAno, setPeriodoAno] = useFiltroPersistente('adicionais.calendario.ano', () => hoje.getFullYear())
   const [periodoMes, setPeriodoMes] = useFiltroPersistente('adicionais.calendario.mes', () => hoje.getMonth() + 1)
   const [vinculoFiltro, setVinculoFiltro] = useFiltroPersistente<string>('adicionais.calendario.vinculo', 'todos')

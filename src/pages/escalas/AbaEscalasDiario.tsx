@@ -35,7 +35,7 @@ import XLSX from '@e965/xlsx'
 import { useEscalasLocais } from '@/hooks/useEscalasLocais'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { nomeCurtoLocal, removerAcentos } from '@/lib/utils'
+import { nomeCurtoLocal, removerAcentos, agoraBrasil, hojeBrasil } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { LocalTrabalhoDiario } from '@/types/database'
 import {
@@ -63,8 +63,8 @@ type FiltroEscalas = {
 
 const filtroInicial: FiltroEscalas = {
   modoPeriodo: 'competencia',
-  ano: new Date().getFullYear(),
-  mes: new Date().getMonth() + 1,
+  ano: agoraBrasil().getFullYear(),
+  mes: agoraBrasil().getMonth() + 1,
   dataInicio: '',
   dataFim: '',
   colaboradorId: '',
@@ -280,7 +280,7 @@ export function AbaEscalasDiario() {
       const worksheet = XLSX.utils.json_to_sheet(linhas)
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Escalas')
-      XLSX.writeFile(workbook, `escalas_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.writeFile(workbook, `escalas_${hojeBrasil()}.xlsx`)
       toast.success(`${linhas.length} registro(s) exportado(s) para Excel.`)
     } catch (err) {
       console.error('Erro ao exportar Excel:', err)
@@ -345,7 +345,7 @@ export function AbaEscalasDiario() {
         })
       })
 
-      doc.save(`escalas_${new Date().toISOString().slice(0, 10)}.pdf`)
+      doc.save(`escalas_${hojeBrasil()}.pdf`)
       toast.success(`${dados.length} registro(s) exportado(s) para PDF.`)
     } catch (err) {
       console.error('Erro ao exportar PDF:', err)

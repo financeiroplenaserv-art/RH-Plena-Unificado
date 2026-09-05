@@ -1,4 +1,5 @@
 import { extrairPaginasPDF } from '@/lib/vr/pdfExtractor'
+import { agoraBrasil } from '@/lib/utils'
 import type { StatusDiaAdicional } from '@/types/adicionais'
 
 export interface PontoDia {
@@ -28,7 +29,7 @@ function converterData(dataStr: string, anoReferencia?: number): string | null {
   if (partes.length < 2) return null
   const dia = parseInt(partes[0], 10)
   const mes = parseInt(partes[1], 10)
-  let ano = anoReferencia || new Date().getFullYear()
+  let ano = anoReferencia || agoraBrasil().getFullYear()
   if (partes.length >= 3) {
     ano = parseInt(partes[2], 10)
   }
@@ -196,7 +197,7 @@ function parsePagina(texto: string): PontoColaborador | null {
     const dataMatch = linha.match(/^(\d{2}\/\d{2})(?:\/\d{2,4})?(?:\s*[-–]\s*[A-Za-zÀ-ÿ]{3})?/i)
     if (!dataMatch) continue
 
-    const dataCompleta = dataMatch[0].includes('/20') ? dataMatch[0] : `${dataMatch[1]}/${anoReferencia || new Date().getFullYear()}`
+    const dataCompleta = dataMatch[0].includes('/20') ? dataMatch[0] : `${dataMatch[1]}/${anoReferencia || agoraBrasil().getFullYear()}`
     const data = converterData(dataCompleta)
     if (!data) continue
 

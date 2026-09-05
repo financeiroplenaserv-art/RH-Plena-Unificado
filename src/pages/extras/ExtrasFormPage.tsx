@@ -18,7 +18,7 @@ import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
-import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData, valorNaLista } from '@/lib/utils'
+import { nomeDepartamento, mascaraMoeda, mascaraMoedaInput, parseMoeda, formatarData, valorNaLista, hojeBrasil } from '@/lib/utils'
 import type { Colaborador } from '@/types/database'
 import type { Extra, TurnoExtra, CategoriaOcorrencia, MotivoExtra, ComunicacaoTipo, StatusExtra } from '@/types/extras'
 import { SUBSTITUTO_SEM_NOME } from '@/types/extras'
@@ -37,7 +37,7 @@ type ExtraForm = Omit<Extra, 'id' | 'created_at' | 'updated_at' | 'categoria' | 
 }
 
 const extraVazio = (): ExtraForm => ({
-  data_ocorrencia: new Date().toISOString().split('T')[0],
+  data_ocorrencia: hojeBrasil(),
   turno: 'Dia',
   categoria: '',
   posto: '',

@@ -11,7 +11,7 @@ import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { ExtrasShell } from './ExtrasShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
-import { formatarData, nomeDepartamento } from '@/lib/utils'
+import { formatarData, nomeDepartamento, hojeBrasil } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Extra } from '@/types/extras'
 
@@ -49,7 +49,7 @@ Porteiros / ASG / Faltistas em apoio
 
 export function ExtrasBalancoPage() {
   const navigate = useNavigate()
-  const [dataSelecionada, setDataSelecionada] = useFiltroPersistente('extras.balanco.data', () => new Date().toISOString().split('T')[0])
+  const [dataSelecionada, setDataSelecionada] = useFiltroPersistente('extras.balanco.data', () => hojeBrasil())
   const [mensagemEditada, setMensagemEditada] = useState('')
 
   const { extras, loading, listar } = useExtras()

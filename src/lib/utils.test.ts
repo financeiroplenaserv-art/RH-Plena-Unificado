@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest'
-import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson, valorNaLista, parseDataLocal, formatarData } from './utils'
+import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson, valorNaLista, parseDataLocal, formatarData, hojeBrasil, formatarDataHora, formatarDataDeTimestamp } from './utils'
+
+describe('fuso de Brasília — hojeBrasil / formatarDataHora / formatarDataDeTimestamp', () => {
+  // O CORH só opera no Brasil: exibição de carimbos e o "hoje" seguem
+  // America/Sao_Paulo, nunca o fuso da máquina de quem acessa.
+  it('hojeBrasil devolve YYYY-MM-DD válido', () => {
+    expect(hojeBrasil()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('formatarDataHora exibe o instante em horário de Brasília, em qualquer fuso da máquina', () => {
+    // 02:30 UTC = 23:30 do dia anterior em Brasília (UTC-3)
+    const saida = formatarDataHora('2026-09-01T02:30:00.000Z')
+    expect(saida).toContain('31/08/2026')
+    expect(saida).toContain('23:30')
+  })
+
+  it('formatarDataDeTimestamp mostra a data de Brasília do timestamp', () => {
+    expect(formatarDataDeTimestamp('2026-09-01T02:30:00.000Z')).toBe('31/08/2026')
+    expect(formatarDataDeTimestamp('2026-09-01T12:00:00.000Z')).toBe('01/09/2026')
+  })
+
+  it('lida com null/vazio/inválido', () => {
+    expect(formatarDataHora(null)).toBe('')
+    expect(formatarDataDeTimestamp(undefined)).toBe('')
+    expect(formatarDataHora('abc')).toBe('abc')
+  })
+})
 
 describe('parseDataLocal / formatarData — data de coluna date no fuso local', () => {
   // Regressão (05/09/2026): new Date('2026-09-01') interpreta como UTC e, em

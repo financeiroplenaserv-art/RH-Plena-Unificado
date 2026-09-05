@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { agoraBrasil } from '@/lib/utils'
 import { Plus, Trash2, Search, Calendar, Copy, AlertTriangle, Pencil, X, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -230,7 +231,7 @@ export function AdicionaisVinculosPage() {
   }
 
   const handleCopiarPeriodoAnterior = async () => {
-    const hoje = new Date()
+    const hoje = agoraBrasil()
     const anterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
     const { inicio: inicioMesAnterior, fim: fimMesAnterior } = boundsDoMes(anterior.getFullYear(), anterior.getMonth() + 1)
 

@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { FormaAssinaturaOcorrencia, Ocorrencia } from '@/types/database'
-import { parseDataLocal } from '@/lib/utils'
+import { parseDataLocal, formatarDataHora } from '@/lib/utils'
 
 interface DadosOcorrenciaCardProps {
   ocorrencia: Ocorrencia
@@ -27,7 +27,7 @@ function fmtDate(d: string) {
 }
 
 function fmtDateTime(d: string) {
-  return new Date(d).toLocaleString('pt-BR')
+  return formatarDataHora(d)
 }
 
 export function DadosOcorrenciaCard({

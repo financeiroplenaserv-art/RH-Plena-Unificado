@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
+import { formatarDataHora } from '@/lib/utils'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useAuth } from '@/hooks/useAuth'
@@ -697,7 +698,7 @@ export function ImportarPontoPage() {
                   <div className="min-w-0">
                     <div className="font-medium truncate">{item.nome_arquivo}</div>
                     <div className="text-xs" style={{ color: '#94A3B8' }}>
-                      {new Date(item.created_at).toLocaleString('pt-BR')}
+                      {formatarDataHora(item.created_at)}
                       {item.enviado_por_nome ? ` — enviado por ${item.enviado_por_nome}` : ''}
                       {item.tamanho_bytes ? ` — ${(item.tamanho_bytes / 1024 / 1024).toFixed(1)} MB` : ''}
                     </div>
@@ -748,7 +749,7 @@ export function ImportarPontoPage() {
               {arquivoDuplicadoPendente && (
                 <>
                   <strong>{arquivoDuplicadoPendente.nome_arquivo}</strong> já está salvo no servidor desde{' '}
-                  {new Date(arquivoDuplicadoPendente.created_at).toLocaleString('pt-BR')}
+                  {formatarDataHora(arquivoDuplicadoPendente.created_at)}
                   {arquivoDuplicadoPendente.enviado_por_nome ? ` (enviado por ${arquivoDuplicadoPendente.enviado_por_nome})` : ''}.
                   Escolha se quer aproveitar o arquivo que já está no sistema ou reenviar como um novo registro.
                 </>

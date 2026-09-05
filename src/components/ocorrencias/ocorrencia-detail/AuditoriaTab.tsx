@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock } from 'lucide-react'
+import { formatarDataHora } from '@/lib/utils'
 import type { AuditoriaLog } from '@/types/database'
 
 interface AuditoriaTabProps {
@@ -7,7 +8,7 @@ interface AuditoriaTabProps {
 }
 
 function fmtDateTime(d: string) {
-  return new Date(d).toLocaleString('pt-BR')
+  return formatarDataHora(d)
 }
 
 export function AuditoriaTab({ logs }: AuditoriaTabProps) {

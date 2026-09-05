@@ -19,7 +19,7 @@ import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { cn } from '@/lib/utils'
 import * as XLSX from '@e965/xlsx'
 import { toast } from 'sonner'
-import { parseMoedaParaCentavos } from '@/lib/utils'
+import { parseMoedaParaCentavos, agoraBrasil } from '@/lib/utils'
 import {
   analisarLinhas,
   chaveDuplicidade,
@@ -58,9 +58,9 @@ const TIPOS: { id: TipoImportacao; label: string; colunas: string[] }[] = [
 
 const SITUACOES_ENTREGA = ['Troca', 'Novo', 'Substituição', 'Devolução'] as const
 
-/** Primeiro dia do mês corrente no fuso local — padrão operacional dos recibos CEU. */
+/** Primeiro dia do mês corrente no fuso de Brasília — padrão operacional dos recibos CEU. */
 function primeiroDiaDoMesLocal(): string {
-  const agora = new Date()
+  const agora = agoraBrasil()
   return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-01`
 }
 

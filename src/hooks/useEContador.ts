@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
 import { deveIgnorarErroImportacao, extrairMensagemErro } from '@/lib/econtador'
+import { agoraBrasil } from '@/lib/utils'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
 import { useColaboradores } from './useColaboradores'
@@ -258,7 +259,7 @@ export function useEContador() {
     let erros = 0
     const detalhesErros: { nome: string; erro: string }[] = []
 
-    const hoje = new Date()
+    const hoje = agoraBrasil()
     hoje.setHours(0, 0, 0, 0)
 
     const mapEmpresaPorCodigo = new Map<string, string>()

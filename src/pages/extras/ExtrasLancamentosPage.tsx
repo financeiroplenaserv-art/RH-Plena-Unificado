@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/corh/StatusBadge'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { Button } from '@/components/corh/Button'
 import { Input } from '@/components/ui/input'
+import { agoraBrasil, FUSO_BRASIL } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -55,7 +56,7 @@ export function ExtrasLancamentosPage() {
   const { extras, loading, listar, listarCategorias, remover } = useExtras()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
 
-  const hoje = new Date()
+  const hoje = agoraBrasil()
   const [dataInicio, setDataInicio] = useFiltroPersistente('extras.lancamentos.data_inicio', () => {
     const d = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -251,6 +252,7 @@ export function ExtrasLancamentosPage() {
                       ? new Date(extra.created_at).toLocaleString('pt-BR', {
                           day: '2-digit', month: '2-digit', year: 'numeric',
                           hour: '2-digit', minute: '2-digit',
+                          timeZone: FUSO_BRASIL,
                         })
                       : '—'}
                   </TableCell>
