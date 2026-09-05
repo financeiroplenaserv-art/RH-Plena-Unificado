@@ -15,6 +15,11 @@ function normalizarTexto(texto: string): string {
     .trim()
 }
 
+/** Normalização usada nos matches de departamento (sem acentos/pontuação, maiúsculas). */
+export function normalizarDepartamento(texto: string): string {
+  return normalizarTexto(texto)
+}
+
 function tokens(texto: string): string[] {
   return texto.split(' ').filter((t) => t.length >= 2)
 }
@@ -114,4 +119,67 @@ export function nomeCurtoDepartamentoFuzzy(
 ): string {
   const dep = encontrarDepartamentoFuzzy(departamentos, departamentoId, nomeTextual, empresaId)
   return dep?.nome_curto?.trim() || dep?.nome?.trim() || nomeTextual?.trim() || '—'
+}
+
+export interface ColaboradorDepartamento {
+  id: string
+  departamento_id?: string | null
+  departamento?: string | null
+  empresa_id?: string | null
+}
+
+/**
+ * IDs dos colaboradores de um departamento buscado por nome_curto/nome
+ * (filtros de relatórios e listagens). O texto legado de
+ * `colaboradores.departamento` não bate com o cadastro por acento/pontuação
+ * ("ALIANCA S A INDUSTRIA..." vs "Aliança S.A. Indústria..."), então ILIKE
+ * no banco não encontrava — aqui cada colaborador tem o departamento
+ * resolvido por encontrarDepartamentoFuzzy (id > nome exato > nome_curto >
+ * tokens > substring > similaridade).
+ */
+export function idsColaboradoresDoDepartamento(
+  departamentos: DepartamentoFuzzy[],
+  colaboradores: ColaboradorDepartamento[],
+  termo: string
+): Set<string> {
+  const ids = new Set<string>()
+  const t = normalizarTexto(termo.trim())
+  if (!t) return ids
+
+  const alvos = departamentos.filter(
+    (d) => normalizarTexto(d.nome) === t || (d.nome_curto ? normalizarTexto(d.nome_curto) === t : false)
+  )
+  if (alvos.length === 0) {
+    const fuzzy = encontrarDepartamentoFuzzy(departamentos, null, termo)
+    if (fuzzy) alvos.push(fuzzy)
+  }
+
+  // O cadastro pode ter LINHAS DUPLICADAS para o mesmo departamento (ex.:
+  // "Aliança S/A - Indústria..." com nome_curto CBO e "ALIANCA S A INDUSTRIA..."
+  // sem nome_curto) — o colaborador pode apontar para qualquer uma delas.
+  // Expande o alvo para todas as linhas com o mesmo nome ou nome_curto
+  // normalizado.
+  const chaves = new Set<string>()
+  alvos.forEach((d) => {
+    chaves.add(normalizarTexto(d.nome))
+    if (d.nome_curto) chaves.add(normalizarTexto(d.nome_curto))
+  })
+  const alvosExpandidos = departamentos.filter(
+    (d) => chaves.has(normalizarTexto(d.nome)) || (d.nome_curto ? chaves.has(normalizarTexto(d.nome_curto)) : false)
+  )
+
+  if (alvosExpandidos.length === 0) {
+    // Sem departamento correspondente: fallback pelo texto livre do cadastro.
+    for (const c of colaboradores) {
+      if (c.departamento && normalizarTexto(c.departamento).includes(t)) ids.add(c.id)
+    }
+    return ids
+  }
+
+  const alvoIds = new Set(alvosExpandidos.map((d) => d.id))
+  for (const c of colaboradores) {
+    const dep = encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+    if (dep && alvoIds.has(dep.id)) ids.add(c.id)
+  }
+  return ids
 }

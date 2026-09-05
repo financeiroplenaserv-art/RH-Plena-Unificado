@@ -8,13 +8,14 @@ import type { EntregaComSnapshot } from './relatorios.utils'
 type AbaColaboradorProps = {
   colaboradoresUnicos: Colaborador[]
   entregasFiltradas: EntregaComSnapshot[]
+  nomeDepartamento?: (c: Colaborador) => string
   exportarExcel: () => void
   onGerarRecibo: (colaboradorId: string) => void
   onRelatorioLote: () => void
   processando?: boolean
 }
 
-export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exportarExcel, onGerarRecibo, onRelatorioLote, processando }: AbaColaboradorProps) {
+export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, nomeDepartamento, exportarExcel, onGerarRecibo, onRelatorioLote, processando }: AbaColaboradorProps) {
   const porColaborador = colaboradoresUnicos
     .map((c) => ({
       colaborador: c,
@@ -48,7 +49,7 @@ export function AbaColaborador({ colaboradoresUnicos, entregasFiltradas, exporta
                 <div>
                   <p className="font-semibold text-slate-900">{colaborador.nome_completo}</p>
                   <p className="text-xs text-slate-500">
-                    {colaborador.matricula} — {colaborador.departamento || '—'}
+                    {colaborador.matricula} — {nomeDepartamento ? nomeDepartamento(colaborador) : colaborador.departamento || '—'}
                   </p>
                 </div>
                 <ModuleButton variant="outline" size="sm" onClick={() => onGerarRecibo(colaborador.id)} disabled={processando}>

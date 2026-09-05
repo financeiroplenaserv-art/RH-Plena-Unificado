@@ -3,6 +3,8 @@ import { ModuleCard } from '@/components/layout/ModuleShell'
 import { useCEUEntregas } from '@/hooks/useCEUEntregas'
 import { useCEUItens } from '@/hooks/useCEUItens'
 import { hojeBrasil } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
@@ -28,12 +30,17 @@ export function CeuRelatoriosPage() {
   const [modalRecibo, setModalRecibo] = useState(false)
   const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | DadosEntrega[] | null>(null)
   const [gerandoRecibo, setGerandoRecibo] = useState(false)
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
 
   const [abaAtiva, setAbaAtiva] = useState<AbaId>('colaborador')
 
   useEffect(() => {
     listarItens()
     listarEntregas()
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id')
+      .then(({ data }) => setDepartamentos((data || []) as DepartamentoFuzzy[]))
   }, [listarItens, listarEntregas])
 
   const dadosItens = itens
@@ -100,6 +107,7 @@ export function CeuRelatoriosPage() {
         <AbaColaborador
           colaboradoresUnicos={colaboradoresUnicos}
           entregasFiltradas={entregasFiltradas}
+          nomeDepartamento={(c) => nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)}
           exportarExcel={handleExportarExcel}
           onGerarRecibo={handleGerarRecibo}
           onRelatorioLote={handleRelatorioLote}

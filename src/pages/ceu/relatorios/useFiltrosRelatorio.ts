@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
+import { idsColaboradoresDoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { EntregaCEU } from '@/types/database'
 import type { EntregaComSnapshot } from './relatorios.utils'
 
@@ -31,31 +32,20 @@ export function useFiltrosRelatorio(dadosEntregas: EntregaCEU[]) {
         setColabIdsDepartamento(new Set())
         return
       }
-      const nomeCurto = filtroDepartamento.trim()
-      const { data: deptData } = await supabase
-        .from('departamentos')
-        .select('id, nome, nome_curto')
-        .or(`nome_curto.ilike.%${nomeCurto}%,nome.ilike.%${nomeCurto}%`)
-
-      let queryColab = supabase.from('colaboradores').select('id')
-      if (deptData && deptData.length > 0) {
-        const ids = new Set<string>()
-        const filtrosDepto: string[] = []
-        deptData.forEach((dept) => {
-          ids.add(dept.id)
-          if (dept.nome) filtrosDepto.push(`departamento.ilike.%${dept.nome}%`)
-          if (dept.nome_curto && dept.nome_curto !== dept.nome) {
-            filtrosDepto.push(`departamento.ilike.%${dept.nome_curto}%`)
-          }
-        })
-        filtrosDepto.unshift(`departamento_id.in.(${Array.from(ids).join(',')})`)
-        queryColab = queryColab.or(filtrosDepto.join(','))
-      } else {
-        queryColab = queryColab.ilike('departamento', `%${nomeCurto}%`)
-      }
-      const { data } = await queryColab
-      const ids = new Set((data || []).map((c) => c.id))
-      setColabIdsDepartamento(ids)
+      // Resolve no cliente com encontrarDepartamentoFuzzy: o texto legado de
+      // colaboradores.departamento não bate com o cadastro (acentos/pontuação)
+      // e o ILIKE do banco voltava vazio (ex.: "CBO" não achava "ALIANCA S A...").
+      const [{ data: deptData }, { data: colabData }] = await Promise.all([
+        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+        supabase.from('colaboradores').select('id, departamento_id, departamento, empresa_id'),
+      ])
+      setColabIdsDepartamento(
+        idsColaboradoresDoDepartamento(
+          (deptData || []) as DepartamentoFuzzy[],
+          colabData || [],
+          filtroDepartamento.trim()
+        )
+      )
     }
     resolverColaboradores()
   }, [filtroDepartamento])

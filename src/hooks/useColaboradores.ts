@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { encontrarDepartamentoFuzzy, idsColaboradoresDoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { Colaborador, StatusColaborador } from '@/types/database'
 import type { Paginacao, ResultadoPaginado } from '@/types'
 
@@ -44,58 +45,48 @@ export function useColaboradores() {
   }, [])
 
   const montarQuery = useCallback(async (filtros?: FiltrosColaborador) => {
-    // Se houver filtro por ID de departamento, usa diretamente.
-    // O fallback por nome permanece para compatibilidade com integrações antigas.
-    let departamentoIds: string[] = []
-    let nomesDepartamento: string[] = []
+    // Filtro por departamento resolve os IDs dos colaboradores NO CLIENTE
+    // (encontrarDepartamentoFuzzy): o texto legado de colaboradores.departamento
+    // não bate com o cadastro por acentos/pontuação ("ALIANCA S A INDUSTRIA..."
+    // vs "Aliança S.A. Indústria...") e o ILIKE do banco voltava vazio.
+    let idsPorDepartamento: Set<string> | null = null
 
     if (filtros?.departamentoId && filtros.departamentoId !== 'todos') {
-      departamentoIds = [filtros.departamentoId]
-      // Muitos colaboradores importados do e-Contador só têm o nome do departamento preenchido.
-      // Buscamos o departamento para também filtrar pelo nome/nome_curto.
-      const { data: dept } = await supabase
-        .from('departamentos')
-        .select('nome, nome_curto')
-        .eq('id', filtros.departamentoId)
-        .single()
-      if (dept) {
-        if (dept.nome_curto) nomesDepartamento.push(dept.nome_curto)
-        if (dept.nome) nomesDepartamento.push(dept.nome)
-      }
+      const [{ data: deptData }, { data: colabData }] = await Promise.all([
+        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+        supabase.from('colaboradores').select('id, departamento_id, departamento, empresa_id'),
+      ])
+      const departamentos = (deptData || []) as DepartamentoFuzzy[]
+      idsPorDepartamento = new Set(
+        (colabData || [])
+          .filter(
+            (c) =>
+              encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)?.id ===
+              filtros.departamentoId
+          )
+          .map((c) => c.id)
+      )
     } else if (filtros?.departamentoNomeCurto && filtros.departamentoNomeCurto !== 'todos') {
-      const { data: depts, error: erroDepts } = await supabase
-        .from('departamentos')
-        .select('id, nome, nome_curto')
-        .or(`nome_curto.ilike.%${filtros.departamentoNomeCurto}%,nome.ilike.%${filtros.departamentoNomeCurto}%`)
+      const [{ data: deptData }, { data: colabData }] = await Promise.all([
+        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+        supabase.from('colaboradores').select('id, departamento_id, departamento, empresa_id'),
+      ])
+      idsPorDepartamento = idsColaboradoresDoDepartamento(
+        (deptData || []) as DepartamentoFuzzy[],
+        colabData || [],
+        filtros.departamentoNomeCurto
+      )
+    }
 
-      if (erroDepts) {
-        toast.error('Erro ao carregar departamentos: ' + erroDepts.message)
-        return null
-      }
-
-      departamentoIds = (depts || []).map((d: { id: string }) => d.id)
-      nomesDepartamento = (depts || []).map((d: { nome: string; nome_curto?: string }) => d.nome_curto || d.nome)
-
-      if (departamentoIds.length === 0 && nomesDepartamento.length === 0) {
-        return { query: null, vazio: true as const }
-      }
+    if (idsPorDepartamento && idsPorDepartamento.size === 0) {
+      return { query: null, idsPorDepartamento, vazio: true as const }
     }
 
     let query = supabase.from('colaboradores').select(COLUNAS_LISTAGEM).order('nome_completo')
 
     if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
     if (filtros?.departamento) query = query.ilike('departamento', filtros.departamento)
-    if (departamentoIds.length > 0 || nomesDepartamento.length > 0) {
-      // Colaboradores podem ter departamento_id preenchido OU apenas o nome do departamento
-      const filtrosDepto: string[] = []
-      if (departamentoIds.length > 0) {
-        filtrosDepto.push(`departamento_id.in.(${departamentoIds.join(',')})`)
-      }
-      nomesDepartamento.forEach((nome) => {
-        filtrosDepto.push(`departamento.ilike.%${nome}%`)
-      })
-      query = query.or(filtrosDepto.join(','))
-    }
+    if (idsPorDepartamento) query = query.in('id', [...idsPorDepartamento])
     if (filtros?.cargo) query = query.ilike('cargo', filtros.cargo)
     if (filtros?.status) query = query.eq('status', filtros.status)
     if (filtros?.busca) {
@@ -103,7 +94,7 @@ export function useColaboradores() {
       query = query.or(`nome_completo.ilike.%${termo}%,cpf.ilike.%${termo}%,matricula.ilike.%${termo}%`)
     }
 
-    return { query, departamentoIds, nomesDepartamento, vazio: false }
+    return { query, idsPorDepartamento, vazio: false }
   }, [])
 
   const listar = useCallback(async (filtros?: FiltrosColaborador) => {
@@ -161,16 +152,7 @@ export function useColaboradores() {
     // Reaplica os mesmos filtros na contagem
     if (filtros?.empresaId) countQuery.eq('empresa_id', filtros.empresaId)
     if (filtros?.departamento) countQuery.ilike('departamento', filtros.departamento)
-    if (montada.departamentoIds?.length || montada.nomesDepartamento?.length) {
-      const filtrosDepto: string[] = []
-      if (montada.departamentoIds?.length) {
-        filtrosDepto.push(`departamento_id.in.(${montada.departamentoIds.join(',')})`)
-      }
-      montada.nomesDepartamento?.forEach((nome) => {
-        filtrosDepto.push(`departamento.ilike.%${nome}%`)
-      })
-      countQuery.or(filtrosDepto.join(','))
-    }
+    if (montada.idsPorDepartamento) countQuery.in('id', [...montada.idsPorDepartamento])
     if (filtros?.cargo) countQuery.ilike('cargo', filtros.cargo)
     if (filtros?.status) countQuery.eq('status', filtros.status)
     if (filtros?.busca) {

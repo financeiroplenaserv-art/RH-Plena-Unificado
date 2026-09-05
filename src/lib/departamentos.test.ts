@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encontrarDepartamentoFuzzy, nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from './departamentos'
+import { encontrarDepartamentoFuzzy, idsColaboradoresDoDepartamento, nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from './departamentos'
 
 const departamentos: DepartamentoFuzzy[] = [
   { id: '1', nome: 'CBO PORTARIA', nome_curto: 'CBO', empresa_id: 'emp1' },
@@ -82,5 +82,67 @@ describe('nomeCurtoDepartamentoFuzzy', () => {
 
   it('retorna traço quando não há nada', () => {
     expect(nomeCurtoDepartamentoFuzzy([], null, null)).toBe('—')
+  })
+})
+
+describe('idsColaboradoresDoDepartamento', () => {
+  // Caso real (05/09/2026, relatórios CEU): o cadastro do departamento tem
+  // acentos/pontuação ("Aliança S.A. Indústria Naval...") e o texto legado do
+  // colaborador não ("ALIANCA S A INDUSTRIA...") — o ILIKE do banco não
+  // casava e o filtro por "CBO" voltava vazio.
+  const depts: DepartamentoFuzzy[] = [
+    { id: 'd1', nome: 'Aliança S.A. Indústria Naval e Empresa de Navegação', nome_curto: 'CBO', empresa_id: 'emp1' },
+    { id: 'd2', nome: 'Base Macaé', nome_curto: 'CBO Macaé', empresa_id: 'emp1' },
+  ]
+  const colaboradores = [
+    { id: 'c1', departamento_id: null, departamento: 'ALIANCA S A INDUSTRIA NAVAL E EMPRESA DE NAVEGACAO', empresa_id: 'emp1' },
+    { id: 'c2', departamento_id: 'd2', departamento: null, empresa_id: 'emp1' },
+    { id: 'c3', departamento_id: null, departamento: 'PORTARIA SEDE', empresa_id: 'emp1' },
+  ]
+
+  it('encontra colaborador pelo nome_curto mesmo com texto legado sem acento e sem departamento_id', () => {
+    const ids = idsColaboradoresDoDepartamento(depts, colaboradores, 'CBO')
+    expect(ids.has('c1')).toBe(true)
+    expect(ids.has('c2')).toBe(false)
+    expect(ids.has('c3')).toBe(false)
+  })
+
+  it('encontra pelo nome completo do departamento', () => {
+    const ids = idsColaboradoresDoDepartamento(depts, colaboradores, 'Aliança S.A. Indústria Naval e Empresa de Navegação')
+    expect(ids.has('c1')).toBe(true)
+  })
+
+  it('encontra colaborador que só tem departamento_id', () => {
+    const ids = idsColaboradoresDoDepartamento(depts, colaboradores, 'CBO Macaé')
+    expect([...ids]).toEqual(['c2'])
+  })
+
+  it('fallback por texto livre quando nenhum departamento corresponde', () => {
+    const ids = idsColaboradoresDoDepartamento(depts, colaboradores, 'PORTARIA')
+    expect([...ids]).toEqual(['c3'])
+  })
+
+  it('encontra colaborador que aponta para a LINHA DUPLICADA do departamento (sem nome_curto)', () => {
+    // Dados reais de produção (05/09/2026): "CBO" = 6863ec8e (nome com acentos)
+    // e a duplicada 6e2e9d11 (sem acentos, nome_curto NULL) — Lourene aponta
+    // para a duplicada; o filtro "CBO" precisa alcançá-la.
+    const deptsDuplicados: DepartamentoFuzzy[] = [
+      { id: '6863ec8e', nome: 'ALIANÇA S/A - INDÚSTRIA NAVAL E EMPRESA DE NAVEGAÇÃO', nome_curto: 'CBO', empresa_id: null },
+      { id: '6e2e9d11', nome: 'ALIANCA S A INDUSTRIA NAVAL E EMPRESA DE NAVEGACAO', nome_curto: null, empresa_id: 'emp1' },
+      { id: '7503715c', nome: 'CBO SERVICOS MARITIMOS S.A.', nome_curto: 'CBO MACAÉ', empresa_id: null },
+    ]
+    const colabs = [
+      { id: 'lourene', departamento_id: '6e2e9d11', departamento: 'ALIANCA S A INDUSTRIA NAVAL E EMPRESA DE NAVEGACAO', empresa_id: 'emp1' },
+      { id: 'outro', departamento_id: '7503715c', departamento: null, empresa_id: null },
+    ]
+    const ids = idsColaboradoresDoDepartamento(deptsDuplicados, colabs, 'CBO')
+    expect(ids.has('lourene')).toBe(true)
+    // CBO MACAÉ é outro posto — não pode entrar no filtro "CBO"
+    expect(ids.has('outro')).toBe(false)
+  })
+
+  it('retorna vazio para termo vazio ou sem nenhuma correspondência', () => {
+    expect(idsColaboradoresDoDepartamento(depts, colaboradores, '').size).toBe(0)
+    expect(idsColaboradoresDoDepartamento(depts, colaboradores, 'INEXISTENTE').size).toBe(0)
   })
 })

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { gerarNumeroRecibo } from '@/lib/ceuRecibos'
+import { idsColaboradoresDoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { EntregaCEU } from '@/types/database'
 import type { Paginacao, ResultadoPaginado } from '@/types'
 
@@ -19,7 +20,7 @@ export interface FiltrosEntrega {
 const TAMANHO_PADRAO = 50
 
 const COLUNAS_ENTREGA = 'id, colaborador_id, item_id, data_entrega, data_devolucao, quantidade, observacao, usuario_id, snapshot_item, recibo_emitido, numero_recibo, situacao, created_at'
-const COLUNAS_COLABORADOR_CEU = 'id, nome_completo, matricula, departamento, cargo, cpf, data_admissao, empresa_id'
+const COLUNAS_COLABORADOR_CEU = 'id, nome_completo, matricula, departamento, departamento_id, cargo, cpf, data_admissao, empresa_id'
 const COLUNAS_ITEM_CEU_RESUMIDO = 'id, nome, tipo, ca, subgrupo, prazo_uso_dias'
 
 export function useCEUEntregas() {
@@ -98,36 +99,36 @@ export function useCEUEntregas() {
 
     let colaboradorIds: string[] | undefined
     if (filtros?.buscaColaborador || filtros?.departamento) {
-      let queryColab = supabase.from('colaboradores').select('id')
+      let idsBusca: string[] | null = null
+      let idsDepto: Set<string> | null = null
+
       if (filtros.buscaColaborador) {
         const termo = filtros.buscaColaborador.trim()
-        queryColab = queryColab.or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
+        const { data } = await supabase
+          .from('colaboradores')
+          .select('id')
+          .or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
+        idsBusca = (data || []).map((c) => c.id)
       }
-      if (filtros.departamento && filtros.departamento !== 'todos') {
-        const nomeCurto = filtros.departamento.trim()
-        const { data: deptData } = await supabase
-          .from('departamentos')
-          .select('id, nome, nome_curto')
-          .or(`nome_curto.ilike.%${nomeCurto}%,nome.ilike.%${nomeCurto}%`)
 
-        if (deptData && deptData.length > 0) {
-          const ids = new Set<string>()
-          const filtrosDepto: string[] = []
-          deptData.forEach((dept) => {
-            ids.add(dept.id)
-            if (dept.nome) filtrosDepto.push(`departamento.ilike.%${dept.nome}%`)
-            if (dept.nome_curto && dept.nome_curto !== dept.nome) {
-              filtrosDepto.push(`departamento.ilike.%${dept.nome_curto}%`)
-            }
-          })
-          filtrosDepto.unshift(`departamento_id.in.(${Array.from(ids).join(',')})`)
-          queryColab = queryColab.or(filtrosDepto.join(','))
-        } else {
-          queryColab = queryColab.ilike('departamento', `%${nomeCurto}%`)
-        }
+      if (filtros.departamento && filtros.departamento !== 'todos') {
+        // Resolve no cliente (fuzzy): o texto legado de colaboradores.departamento
+        // não bate com o cadastro por acentos/pontuação e o ILIKE voltava vazio.
+        const [{ data: deptData }, { data: colabData }] = await Promise.all([
+          supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+          supabase.from('colaboradores').select('id, departamento_id, departamento, empresa_id'),
+        ])
+        idsDepto = idsColaboradoresDoDepartamento(
+          (deptData || []) as DepartamentoFuzzy[],
+          colabData || [],
+          filtros.departamento.trim()
+        )
       }
-      const { data } = await queryColab
-      colaboradorIds = (data || []).map((c) => c.id)
+
+      if (idsBusca && idsDepto) colaboradorIds = idsBusca.filter((id) => idsDepto.has(id))
+      else if (idsBusca) colaboradorIds = idsBusca
+      else colaboradorIds = [...(idsDepto || [])]
+
       if (colaboradorIds.length === 0) {
         const vazio = { dados: [], total: 0, pagina, tamanho, totalPaginas: 0 }
         setEntregas([])

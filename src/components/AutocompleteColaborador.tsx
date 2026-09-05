@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { encontrarDepartamentoFuzzy, normalizarDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { Colaborador } from '@/types/database'
 import { BadgeStatus } from './BadgeStatus'
 
@@ -74,14 +75,18 @@ export function AutocompleteColaborador({
     const nome = dept?.nome || null
     const ids = new Set<string>([id])
 
-    if (nomeCurto) {
-      const { data: depts } = await supabase
-        .from('departamentos')
-        .select('id')
-        .eq('nome_curto', nomeCurto)
-        .eq('status', 'Ativo')
-      depts?.forEach((d) => ids.add(d.id))
-    }
+    // O cadastro pode ter linhas duplicadas do mesmo departamento (mesmo
+    // nome/nome_curto normalizado, com e sem acento) — agrupa todas.
+    const { data: depts } = await supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto')
+      .eq('status', 'Ativo')
+    const chaveNome = nome ? normalizarDepartamento(nome) : null
+    const chaveCurto = nomeCurto ? normalizarDepartamento(nomeCurto) : null
+    depts?.forEach((d) => {
+      if (chaveCurto && d.nome_curto && normalizarDepartamento(d.nome_curto) === chaveCurto) ids.add(d.id)
+      if (chaveNome && d.nome && normalizarDepartamento(d.nome) === chaveNome) ids.add(d.id)
+    })
 
     return { ids: Array.from(ids), nomeCurto, nome }
   }, [])
@@ -104,9 +109,16 @@ export function AutocompleteColaborador({
     let resultados = (data as Colaborador[]) || []
     if (departamentoId) {
       const grupo = await buscarIdsDoGrupo(departamentoId)
+      const { data: deptData } = await supabase.from('departamentos').select('id, nome, nome_curto, empresa_id')
+      const departamentos = (deptData || []) as DepartamentoFuzzy[]
+      const idsGrupo = new Set(grupo.ids)
+      const pertenceAoGrupo = (c: Colaborador) => {
+        const dep = encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+        return dep ? idsGrupo.has(dep.id) : false
+      }
       resultados = resultados.sort((a, b) => {
-        const aDoDept = grupo.ids.includes(a.departamento_id || '') ? -1 : 1
-        const bDoDept = grupo.ids.includes(b.departamento_id || '') ? -1 : 1
+        const aDoDept = pertenceAoGrupo(a) ? -1 : 1
+        const bDoDept = pertenceAoGrupo(b) ? -1 : 1
         if (aDoDept !== bDoDept) return aDoDept - bDoDept
         return a.nome_completo.localeCompare(b.nome_completo)
       })
@@ -121,16 +133,22 @@ export function AutocompleteColaborador({
     setCarregando(true)
 
     const grupo = await buscarIdsDoGrupo(departamentoId)
-    const filtros: string[] = [`departamento_id.in.(${grupo.ids.join(',')})`]
-    if (grupo.nomeCurto) filtros.push(`departamento.ilike.%${grupo.nomeCurto}%`)
-    if (grupo.nome && grupo.nome !== grupo.nomeCurto) filtros.push(`departamento.ilike.%${grupo.nome}%`)
-
-    let query = supabase.from('colaboradores').select(COLUNAS_AUTOCOMPLETE).or(filtros.join(','))
+    // Resolve o departamento de cada colaborador no cliente (fuzzy): o texto
+    // legado de colaboradores.departamento não bate com o cadastro por
+    // acentos/pontuação e o ILIKE do banco deixava colaboradores de fora.
+    const [{ data: deptData }, { data: colabData }] = await Promise.all([
+      supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+      supabase.from('colaboradores').select(COLUNAS_AUTOCOMPLETE).order('nome_completo'),
+    ])
+    const departamentos = (deptData || []) as DepartamentoFuzzy[]
+    const idsGrupo = new Set(grupo.ids)
+    let resultados = ((colabData || []) as Colaborador[]).filter((c) => {
+      const dep = encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+      return dep ? idsGrupo.has(dep.id) : false
+    })
     if (somenteAtivos) {
-      query = query.eq('status', 'Ativo')
+      resultados = resultados.filter((c) => c.status === 'Ativo')
     }
-    const { data } = await query.order('nome_completo').limit(20)
-    const resultados = (data as Colaborador[]) || []
     setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
