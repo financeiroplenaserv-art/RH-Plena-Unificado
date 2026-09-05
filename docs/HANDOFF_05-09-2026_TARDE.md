@@ -116,3 +116,28 @@ Relatórios CEU: filtrar por "CBO" não retornava ninguém, embora a Lourene (e 
 ## Pendência de dados (decisão da gestão)
 
 Fundir as linhas duplicadas de `departamentos` (ex.: as duas Aliança/CBO). O código agora convive com elas, mas a limpeza simplificaria cadastros futuros. Precedente: fusão de locais do Escalas em 07/08/2026 (`dados-locais/backup_fusao_locais_2026-08-07.json`).
+
+---
+
+# Parte 4 (noite) — nomes curtos em todas as telas + estanca-duplicadas (3 subagentes)
+
+> Commit `d72fbee` na main, deploy verificado (hash `index-C6lxU9vm.js`). Testes: **400 passando** (2 novos do fallback de irmã). Sem migrations.
+
+## Decisão da gestão
+
+Nenhuma tela/documento mostra o texto legado de `colaboradores.departamento` — só o **nome_curto resolvido**. A usuária achou que "CBO" e "CBO Macaé" tinham sido juntados: **não foram** (verificado contra produção — filtro "CBO" = 17 da Aliança, "CBO Macaé" = 0, separados). A confusão era visual: Departamentos mostrava os nomes curtos, mas Colaboradores mostrava o texto longo legado.
+
+## Execução (2 agentes explore de auditoria + 3 coder em paralelo, consolidado aqui)
+
+- **Helper canônico**: `nomeCurtoDepartamentoFuzzy` ganhou fallback de **linha irmã** (linha resolvida sem nome_curto → usa o da irmã com mesmo nome normalizado, preferindo Ativa); `DepartamentoFuzzy` ganhou `status`. Lista de resolução: `select('id, nome, nome_curto, empresa_id, status')` SEM filtro de nome_curto — `useDepartamentos.listar()` filtra e não serve para isso.
+- **Exibição migrada** (22 arquivos): CEU (recibos via `emissaoRecibos` — novo parâmetro `departamentos`, nova entrega, lançamento rápido, exportações, movimentações), RH (ficha, card da ocorrência, dialog da listagem), Dashboard, PDFs (`pdf.ts` também consertou a resolução de empresa por ILIKE, que nunca casava), `AutocompleteColaborador` (sugestão + selo "deste dept." por grupo), Falta Mobile (card + filtro por departamento reescrito com fuzzy + expansão), notificações de férias (embed do `useFerias` ganhou `departamento_id`/`empresa_id`), balanço de extras (fallback fuzzy cobre quem só tem texto).
+- **Estancada a origem das duplicadas**: `useEContador.sincronizarDepartamentos` faz match fuzzy (`encontrarDepartamentoFuzzy`) antes de criar departamento — o e-Contador manda sem acento e o cadastro tem, então criava linha nova. `useExtras.verificarDuplicado` expande o grupo de duplicadas. `useColaboradores`: caminho morto `filtros.departamento` (ILIKE) unificado no mecanismo canônico.
+- **Fora de escopo de propósito**: `testemunhas.departamento` (texto livre) e prévia do e-Contador (texto cru da API).
+
+## Ressalva registrada pelo subagente
+
+No matching fuzzy, um texto inédito "CBO MACAE..." sem linha própria no cadastro poderia cair no estágio de substring e casar com "CBO" — mesmo comportamento do regex antigo (`\bcbo\b`), não é regressão; existindo a linha "CBO Macaé", o match exato por nome_curto vence antes.
+
+## Pendência de dados (decisão da gestão)
+
+Fundir as duplicadas de `departamentos`: 3 linhas Aliança (manter `6863ec8e` = "CBO"; inativar `6e2e9d11` e `8643771f`, reapontando colaboradores) e "CBO SERVICOS MARITIMOS" (`5e42bb43`, inativa) → fundir em `7503715c` ("CBO Macaé") — os 11 colaboradores com texto "CBO SERVICOS MARITIMOS" e `departamento_id` NULL hoje não aparecem no filtro "CBO Macaé" (resolvem para a linha inativa). Com backup em `dados-locais/` antes, como sempre.
