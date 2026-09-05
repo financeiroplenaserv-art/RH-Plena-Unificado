@@ -645,6 +645,10 @@ export function CeuMovimentacoesPage() {
       >
         <div className="bg-white rounded-lg">
           <div className="space-y-4">
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Atenção: as entregas do período serão marcadas como <strong>recibo emitido</strong> e a
+              numeração de recibos será consumida. Emita só quando for imprimir/assinar de fato.
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Data início</label>

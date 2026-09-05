@@ -10,6 +10,8 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import { prepararGruposRecibo, gerarRecibosLoteHTML } from '@/lib/ceu/emissaoRecibos'
 import { toast } from 'sonner'
+import { FileText } from 'lucide-react'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import type { Colaborador } from '@/types/database'
 import { downloadFile } from './relatorios/relatorios.utils'
 import { ABAS, type AbaId } from './relatorios/abas'
@@ -30,6 +32,7 @@ export function CeuRelatoriosPage() {
   const [modalRecibo, setModalRecibo] = useState(false)
   const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | DadosEntrega[] | null>(null)
   const [gerandoRecibo, setGerandoRecibo] = useState(false)
+  const [confirmarLote, setConfirmarLote] = useState(false)
   const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
 
   const [abaAtiva, setAbaAtiva] = useState<AbaId>('colaborador')
@@ -116,7 +119,7 @@ export function CeuRelatoriosPage() {
           nomeDepartamento={nomeDepartamento}
           exportarExcel={handleExportarExcel}
           onGerarRecibo={handleGerarRecibo}
-          onRelatorioLote={handleRelatorioLote}
+          onRelatorioLote={() => setConfirmarLote(true)}
           processando={gerandoRecibo}
         />
       )
@@ -170,6 +173,26 @@ export function CeuRelatoriosPage() {
         </ModuleCard>
 
         <CeuReciboModal isOpen={modalRecibo} onClose={() => setModalRecibo(false)} dadosEntrega={dadosRecibo} />
+
+        {/* Emissão em lote marca as entregas como "recibo emitido" — confirmação
+            obrigatória (emissão acidental de 01/09/2026 revertida em 05/09/2026). */}
+        <ConfirmDialog
+          open={confirmarLote}
+          onOpenChange={setConfirmarLote}
+          icon={<FileText className="size-6 text-[#0F6CBD]" />}
+          iconClassName="bg-[#0F6CBD]/10"
+          title="Gerar recibos em lote?"
+          description={
+            <>
+              Serão gerados recibos para{' '}
+              <strong>{new Set(entregasFiltradas.map((e) => e.colaborador_id)).size} colaborador(es)</strong>,
+              cobrindo <strong>{entregasFiltradas.length} entrega(s)</strong> nos filtros aplicados.
+              As entregas serão marcadas como <strong>recibo emitido</strong> e a numeração será consumida.
+            </>
+          }
+          confirmLabel="Gerar recibos"
+          onConfirm={handleRelatorioLote}
+        />
       </div>
     </CeuShell>
   )
