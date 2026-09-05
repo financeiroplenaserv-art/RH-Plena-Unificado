@@ -1,4 +1,5 @@
 import type { Colaborador } from '@/types/database'
+import { parseDataLocal } from '@/lib/utils'
 import { normalizarTexto, normalizarMatricula } from './normalizarTexto'
 
 export interface BatidaFlit {
@@ -99,8 +100,9 @@ function extrairDataHora(dataValor: unknown, horaValor: unknown): { data: string
     // Tenta DD/MM/YYYY primeiro
     dataConvertida = converterDataBrasileira(dataStr)
     if (!dataConvertida) {
-      // Tenta YYYY-MM-DD
-      const date = new Date(dataStr)
+      // Tenta YYYY-MM-DD (sempre como data local: new Date('2026-09-01')
+      // interpreta como UTC e, em fusos negativos, extrai o dia anterior)
+      const date = parseDataLocal(dataStr)
       if (!isNaN(date.getTime())) {
         dataConvertida = new Date(date.getFullYear(), date.getMonth(), date.getDate())
       }
@@ -187,8 +189,8 @@ function parseDataExportacaoCorh(dataValor: unknown): string | null {
       }
     }
   }
-  // Tenta outros formatos
-  const data = new Date(dataStr)
+  // Tenta outros formatos (YYYY-MM-DD como data local — ver parseDataLocal)
+  const data = parseDataLocal(dataStr)
   if (!isNaN(data.getTime())) {
     return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
   }

@@ -19,6 +19,7 @@ import { CeuShell } from './CeuShell'
 import { CeuBadge } from '@/components/ceu/CeuBadge'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
 import { SITUACOES_ENTREGA } from '@/lib/ceuRecibos'
+import { formatarData, formatarDataInput } from '@/lib/utils'
 import type { Colaborador, ItemCEU, EntregaCEU } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -49,7 +50,7 @@ export function CeuEntregaFormPage() {
   const [dropdownAberto, setDropdownAberto] = useState(false)
   const inputColabRef = useRef<HTMLInputElement>(null)
   const [itensSelecionados, setItensSelecionados] = useState<Record<string, { item: ItemCEU; quantidade: number; situacao: string }>>({})
-  const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().split('T')[0])
+  const [dataEntrega, setDataEntrega] = useState(formatarDataInput(new Date()))
   const [observacao, setObservacao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [concluido, setConcluido] = useState(false)
@@ -403,7 +404,7 @@ export function CeuEntregaFormPage() {
                                 <td className="px-3 py-2">{e.item?.nome || (e.snapshot_item as { nome?: string })?.nome || '—'}</td>
                                 <td className="px-3 py-2">{e.item?.tipo || (e.snapshot_item as { tipo?: string })?.tipo || '—'}</td>
                                 <td className="px-3 py-2 text-center">{e.quantidade}</td>
-                                <td className="px-3 py-2">{new Date(e.data_entrega).toLocaleDateString('pt-BR')}</td>
+                                <td className="px-3 py-2">{formatarData(e.data_entrega)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -564,7 +565,7 @@ export function CeuEntregaFormPage() {
                               {item.prazo_uso_dias ? (
                                 <span>Validade: {item.prazo_uso_dias} dias</span>
                               ) : item.validade ? (
-                                <span>Validade: {new Date(item.validade).toLocaleDateString('pt-BR')}</span>
+                                <span>Validade: {formatarData(item.validade)}</span>
                               ) : null}
                             </div>
                           </div>

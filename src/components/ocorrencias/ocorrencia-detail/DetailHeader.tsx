@@ -8,6 +8,7 @@ import {
   SquarePen,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { parseDataLocal } from '@/lib/utils'
 import type { Ocorrencia, Colaborador } from '@/types/database'
 
 interface DetailHeaderProps {
@@ -31,7 +32,7 @@ import {
 } from '@/lib/ocorrencias/tiposOcorrencia'
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR')
+  return parseDataLocal(d).toLocaleDateString('pt-BR')
 }
 
 export function DetailHeader({

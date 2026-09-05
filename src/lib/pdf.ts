@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { parseDataLocal } from '@/lib/utils'
 import type { Colaborador, Ocorrencia, OcorrenciaAnexo, OcorrenciaTestemunha } from '@/types/database'
 import type jsPDF from 'jspdf'
 
@@ -136,7 +137,7 @@ export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias:
     [
       'Data de Admissão',
       colaborador.data_admissao
-        ? new Date(colaborador.data_admissao).toLocaleDateString('pt-BR')
+        ? parseDataLocal(colaborador.data_admissao).toLocaleDateString('pt-BR')
         : '-',
     ],
     ['E-mail', colaborador.email || '-'],
@@ -158,7 +159,7 @@ export async function gerarPDFColaborador(colaborador: Colaborador, ocorrencias:
     doc.text('Histórico de Ocorrências', w / 2, 18, { align: 'center' })
 
     const rows = ocorrencias.map((o) => [
-      new Date(o.data_ocorrencia).toLocaleDateString('pt-BR'),
+      parseDataLocal(o.data_ocorrencia).toLocaleDateString('pt-BR'),
       o.tipo_ocorrencia,
       o.descricao.substring(0, 70) + (o.descricao.length > 70 ? '...' : ''),
       o.status,
@@ -243,7 +244,7 @@ export async function gerarPDFOcorrencia(
 
   const dadosOcor: (string | null)[][] = [
     ['Tipo', ocorrencia.tipo_ocorrencia || '-'],
-    ['Data', ocorrencia.data_ocorrencia ? new Date(ocorrencia.data_ocorrencia).toLocaleDateString('pt-BR') : '-'],
+    ['Data', ocorrencia.data_ocorrencia ? parseDataLocal(ocorrencia.data_ocorrencia).toLocaleDateString('pt-BR') : '-'],
   ]
 
   if (ocorrencia.tipo_penalidade && ocorrencia.tipo_penalidade !== ocorrencia.tipo_ocorrencia) {

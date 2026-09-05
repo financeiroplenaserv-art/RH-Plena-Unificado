@@ -88,9 +88,19 @@ export function validarCNPJ(cnpj: string | number | null | undefined): boolean {
   return limpo === base + String(digito1) + String(digito2)
 }
 
+/**
+ * Converte data de coluna `date` ('YYYY-MM-DD') em Date no fuso LOCAL.
+ * `new Date('2026-09-01')` interpreta a string como meia-noite UTC e, em
+ * fusos negativos (Brasil), exibi-la mostra o dia anterior. Aceita também
+ * ISO completo (usa só a parte da data).
+ */
+export function parseDataLocal(data: string): Date {
+  return new Date(data.slice(0, 10) + 'T00:00:00')
+}
+
 export function formatarData(data: string | null | undefined): string {
   if (!data) return ''
-  const d = new Date(data + 'T00:00:00')
+  const d = parseDataLocal(data)
   if (isNaN(d.getTime())) return data
   return d.toLocaleDateString('pt-BR')
 }

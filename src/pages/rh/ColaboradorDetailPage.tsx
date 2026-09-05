@@ -16,7 +16,7 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { gerarPDFColaborador, gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAuth } from '@/hooks/useAuth'
 import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto, podeCriarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
-import { formatarCPF, mascararCPF } from '@/lib/utils'
+import { formatarCPF, mascararCPF, parseDataLocal } from '@/lib/utils'
 import {
   ArrowLeft,
   Edit,
@@ -89,7 +89,7 @@ export function ColaboradorDetailPage() {
   if (!colaborador)
     return <div className="text-center py-8 text-sm text-slate-400">Colaborador não encontrado</div>
 
-  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('pt-BR') : '—')
+  const fmtDate = (d: string | null) => (d ? parseDataLocal(d).toLocaleDateString('pt-BR') : '—')
 
   const ocPendentes = ocorrencias.filter((o) => o.status === 'Pendente').length
 

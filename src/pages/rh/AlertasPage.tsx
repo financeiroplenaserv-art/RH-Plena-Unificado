@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { podeGerenciarAlertas } from '@/lib/permissoes'
+import { formatarData } from '@/lib/utils'
 import type { Alerta } from '@/types/database'
 import { ModuleButton } from '@/components/layout/ModuleShell'
 import { RhShell } from './RhShell'
@@ -106,7 +107,7 @@ export function AlertasPage() {
     ? alertas.filter((a) => a.severidade === filtroSeveridade)
     : alertas
 
-  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('pt-BR') : '')
+  const fmtDate = (d: string | null) => formatarData(d)
 
   return (
     <RhShell>

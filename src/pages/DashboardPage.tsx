@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
+import { cn, parseDataLocal } from '@/lib/utils'
 import { toast } from 'sonner'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
@@ -42,7 +42,7 @@ type MarcoExperiencia = 30 | 60 | 90
 function diasAte(dataStr: string) {
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
-  const data = new Date(dataStr)
+  const data = parseDataLocal(dataStr)
   data.setHours(0, 0, 0, 0)
   return Math.ceil((data.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
 }
@@ -50,7 +50,7 @@ function diasAte(dataStr: string) {
 function diasDesde(dataStr: string) {
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
-  const data = new Date(dataStr)
+  const data = parseDataLocal(dataStr)
   data.setHours(0, 0, 0, 0)
   return Math.floor((hoje.getTime() - data.getTime()) / (1000 * 60 * 60 * 24))
 }

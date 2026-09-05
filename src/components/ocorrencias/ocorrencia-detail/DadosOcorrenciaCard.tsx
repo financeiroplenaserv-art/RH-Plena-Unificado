@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { FormaAssinaturaOcorrencia, Ocorrencia } from '@/types/database'
+import { parseDataLocal } from '@/lib/utils'
 
 interface DadosOcorrenciaCardProps {
   ocorrencia: Ocorrencia
@@ -22,7 +23,7 @@ const ROTULOS_ASSINATURA: Record<FormaAssinaturaOcorrencia, string> = {
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR')
+  return parseDataLocal(d).toLocaleDateString('pt-BR')
 }
 
 function fmtDateTime(d: string) {

@@ -29,7 +29,7 @@ import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import { Input } from '@/components/ui/input'
 import { CeuDialog } from '@/components/ceu/CeuDialog'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
-import { formatarData } from '@/lib/utils'
+import { formatarData, formatarDataInput } from '@/lib/utils'
 import {
   podeRegistrarEntregaCEU,
   podeDevolverCEU,
@@ -99,7 +99,7 @@ export function CeuMovimentacoesPage() {
   const [removerId, setRemoverId] = useState<string | null>(null)
   const [devolverItens, setDevolverItens] = useState<EntregaCEU[] | null>(null)
   const [selecionadosDevolver, setSelecionadosDevolver] = useState<string[]>([])
-  const [dataDevolucao, setDataDevolucao] = useState(new Date().toISOString().split('T')[0])
+  const [dataDevolucao, setDataDevolucao] = useState(formatarDataInput(new Date()))
   const [modalRecibo, setModalRecibo] = useState(false)
   const [dadosRecibo, setDadosRecibo] = useState<DadosEntrega | DadosEntrega[] | null>(null)
 

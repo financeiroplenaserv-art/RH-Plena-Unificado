@@ -1,4 +1,4 @@
-import { escapeHtml } from '@/lib/utils'
+import { escapeHtml, parseDataLocal } from '@/lib/utils'
 
 /* ============================================================
    RECIBOS CEU — EPI e Uniforme/Crachá
@@ -27,7 +27,7 @@ function coresSituacao(situacao: string): { bg: string; fg: string } {
 
 function formatarData(dataStr: string | null): string {
   if (!dataStr) return '—'
-  return new Date(dataStr).toLocaleDateString('pt-BR')
+  return parseDataLocal(dataStr).toLocaleDateString('pt-BR')
 }
 
 /**

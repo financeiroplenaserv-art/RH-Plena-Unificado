@@ -1,4 +1,5 @@
 import type { EntregaCEU, ItemCEU } from '@/types/database'
+import { parseDataLocal } from '@/lib/utils'
 
 export function badgeType(tipo: string) {
   switch (tipo) {
@@ -18,7 +19,7 @@ export function badgeType(tipo: string) {
 export function diasAte(dataStr: string) {
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
-  const data = new Date(dataStr)
+  const data = parseDataLocal(dataStr)
   data.setHours(0, 0, 0, 0)
   return Math.ceil((data.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
 }
@@ -27,7 +28,7 @@ export function diasAteTroca(dataEntregaStr: string, prazoDias: number | null) {
   if (!prazoDias || !dataEntregaStr) return null
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
-  const dataEntrega = new Date(dataEntregaStr)
+  const dataEntrega = parseDataLocal(dataEntregaStr)
   dataEntrega.setHours(0, 0, 0, 0)
   const dataLimite = new Date(dataEntrega.getTime() + prazoDias * 24 * 60 * 60 * 1000)
   return Math.ceil((dataLimite.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
@@ -35,7 +36,7 @@ export function diasAteTroca(dataEntregaStr: string, prazoDias: number | null) {
 
 export function formatarData(dataStr: string | null) {
   if (!dataStr) return '—'
-  return new Date(dataStr).toLocaleDateString('pt-BR')
+  return parseDataLocal(dataStr).toLocaleDateString('pt-BR')
 }
 
 export function downloadFile(content: string, filename: string, type: string) {

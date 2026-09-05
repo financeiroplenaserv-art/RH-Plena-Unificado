@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest'
-import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson, valorNaLista } from './utils'
+import { formatarCPF, mascararCPF, validarCPF, parseMoedaParaCentavos, safeJsonParse, localStorageGetJson, valorNaLista, parseDataLocal, formatarData } from './utils'
+
+describe('parseDataLocal / formatarData — data de coluna date no fuso local', () => {
+  // Regressão (05/09/2026): new Date('2026-09-01') interpreta como UTC e, em
+  // fusos negativos (Brasil), exibia o dia anterior (31/08) nas telas do CEU.
+  it('interpreta YYYY-MM-DD como meia-noite LOCAL, não UTC', () => {
+    const d = parseDataLocal('2026-09-01')
+    expect(d.getFullYear()).toBe(2026)
+    expect(d.getMonth()).toBe(8)
+    expect(d.getDate()).toBe(1)
+  })
+
+  it('formata sempre o dia civil da string, em qualquer fuso', () => {
+    expect(formatarData('2026-09-01')).toBe('01/09/2026')
+    expect(formatarData('2026-01-31')).toBe('31/01/2026')
+  })
+
+  it('aceita ISO completo usando só a parte da data', () => {
+    expect(formatarData('2026-09-01T00:00:00.000Z')).toBe('01/09/2026')
+  })
+
+  it('retorna vazio para null/undefined e o valor original se inválido', () => {
+    expect(formatarData(null)).toBe('')
+    expect(formatarData(undefined)).toBe('')
+    expect(formatarData('abc')).toBe('abc')
+  })
+})
 
 describe('formatarCPF', () => {
   it('formata CPF string com 11 dígitos', () => {

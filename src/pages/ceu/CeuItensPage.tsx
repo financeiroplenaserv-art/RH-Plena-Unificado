@@ -28,6 +28,7 @@ import { useCEUFornecedores } from '@/hooks/useCEUFornecedores'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { registrarLogExclusao } from '@/lib/ceuLogs'
+import { formatarData } from '@/lib/utils'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { podeEditarItemCEU, podeExcluirItemCEU } from '@/lib/permissoes'
 
@@ -246,10 +247,10 @@ export function CeuItensPage() {
                       </TableCell>
                       <TableCell>{item.ca || '—'}</TableCell>
                       <TableCell>
-                        {item.validade ? new Date(item.validade).toLocaleDateString('pt-BR') : '—'}
+                        {item.validade ? formatarData(item.validade) : '—'}
                       </TableCell>
                       <TableCell>{item.unidade || '—'}</TableCell>
-                      <TableCell>{item.ultima_compra ? new Date(item.ultima_compra).toLocaleDateString('pt-BR') : '—'}</TableCell>
+                      <TableCell>{item.ultima_compra ? formatarData(item.ultima_compra) : '—'}</TableCell>
                       <TableCell>
                         <CeuBadge type={item.situacao === 'A' ? 'default' : item.situacao === 'I' ? 'inativo' : 'default'}>
                           {item.situacao === 'A' ? 'Ativo' : item.situacao === 'I' ? 'Inativo' : item.situacao || '—'}
