@@ -53,3 +53,36 @@ Novo helper central em `src/lib/utils.ts`:
 ## 5. Estado
 
 - Working tree limpa, main = `8223063`, push feito. Sem migrations, sem edge functions alteradas, sem operações de dados.
+
+---
+
+# Parte 2 (noite) — decisão da gestão: o CORH fala o horário de BRASÍLIA em tudo
+
+> Commit `e3ff767` na main, deploy em produção verificado (hash `assets/index-BPtk4hsU.js` confere). Testes: **392 passando** (4 novos). Lint limpo, build ok. Sem migrations.
+
+## Contexto e decisão
+
+A usuária perguntou se a correção da tarde garantia que "tudo acontece no horário do Brasil". Resposta honesta: as datas de negócio sim, mas (a) a data padrão "hoje" dos formulários seguia o relógio da máquina da operadora e (b) carimbos de hora (`created_at`) eram exibidos no fuso de quem olha. Como o CORH só opera no Brasil e há operadora remota 5h à frente, a decisão foi **fixar o sistema inteiro em `America/Sao_Paulo`**.
+
+## O que foi feito
+
+**Novos helpers em `src/lib/utils.ts`:**
+- `FUSO_BRASIL = 'America/Sao_Paulo'` (IANA — se o horário de verão voltar, ajusta sozinho);
+- `hojeBrasil(): string` — "hoje" `YYYY-MM-DD` em Brasília (Intl `en-CA` com timeZone);
+- `agoraBrasil(): Date` — Date cujos componentes **locais** refletem Brasília (usar só com getters locais);
+- `formatarDataHora()` / `formatarDataDeTimestamp()` — exibição de timestamps fixada em Brasília.
+
+**Regra dos 3 lados (documentada no AGENTS.md §11):**
+1. "Hoje"/períodos padrão/datas default de formulários → `hojeBrasil()`/`agoraBrasil()`. Nunca `new Date().toISOString().split('T')[0]` (é UTC) nem o "hoje" do dispositivo.
+2. Carimbos exibidos → `formatarDataHora()`/`formatarDataDeTimestamp()`.
+3. **Gravação** de timestamps segue em UTC ISO (`new Date().toISOString()`) — o banco guarda o instante; a conversão é só na exibição. Não mexer.
+
+**Arquivos tocados (41):** defaults de data/hora em CEU (entrega, devolução, lançamento rápido, importar), Extras (form, plantão, falta mobile, balanço — o default de `data_ocorrencia` do extra era UTC e virava o dia seguinte após 21h no Brasil), Ocorrencias (`useOcorrenciaForm`), Escalas (importar + diário), Adicionais (calendário, vínculos, relatório, importação de ponto), Férias (visão geral, notificação, `calculoFerias`), e-Contador (`diferencaDias`), BI (`periodoPadrao`/`verCriticosAntigos` usavam o dia **UTC** apesar do comentário dizer Brasília — bug latente), Dashboard (saudação, "dias até", aniversários), nomes de arquivos exportados e datas de emissão de PDFs/recibos. Exibição de `created_at` em: Auditoria (página — antes mostrava a **data UTC** via `formatarData`, outro bug latente — agora data+hora de Brasília), aba Auditoria da ocorrência, Anexos, históricos de importação (e-Contador, ponto, escala), listagem de extras.
+
+**Não mexido de propósito:** timestamps gravados (`created_at`, `updated_at`, `confirmado_em`, `gerado_em`, `data_assinatura`) seguem UTC; comparações de instante (BI `statusSync`) são agnósticas de fuso; `importar.ts`/`importacaoPonto.ts` fazem parse e saída ambos em UTC (consistentes); ano do rodapé do login (cosmético).
+
+## Validação
+
+- 392 testes, lint, build. Testes novos determinísticos (`formatarDataHora('2026-09-01T02:30:00.000Z')` → `31/08/2026 23:30` em qualquer fuso da máquina).
+- Ressalva: não testado em máquina fora do Brasil; a correção é estrutural (fuso pinado em `America/Sao_Paulo`, não depende do dispositivo).
+- Validar com as usuárias (Ctrl+Shift+R): entregas de 01/09 corretas para ambas; "importado em"/auditoria com horário de Brasília nas duas máquinas.
