@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Perfil } from '@/types/database'
 
@@ -25,8 +25,9 @@ vi.mock('@/hooks/useCEUEntregas', () => ({
     entregas: [],
     loading: false,
     paginacao: null,
-    listar: vi.fn(),
+    listar: vi.fn().mockResolvedValue([]),
     listarPaginado: vi.fn(),
+    criarLote: vi.fn().mockResolvedValue([]),
     devolver: vi.fn(),
     remover: vi.fn(),
     marcarReciboEmitido: vi.fn(),
@@ -34,6 +35,10 @@ vi.mock('@/hooks/useCEUEntregas', () => ({
     proximoNumeroRecibo: vi.fn().mockResolvedValue('REC-2026-00001'),
     registrarEmissaoRecibo: vi.fn().mockResolvedValue(true),
   }),
+}))
+
+vi.mock('@/hooks/useColaboradores', () => ({
+  useColaboradores: () => ({ colaboradores: [], loading: false, listarResumido: vi.fn().mockResolvedValue([]) }),
 }))
 
 vi.mock('@/hooks/useCEUItens', () => ({
@@ -51,6 +56,7 @@ vi.mock('@/components/ceu/CeuReciboModal', () => ({
 import { CeuMovimentacoesPage } from '@/pages/ceu/CeuMovimentacoesPage'
 import { CeuItensPage } from '@/pages/ceu/CeuItensPage'
 import { CeuFornecedoresPage } from '@/pages/ceu/CeuFornecedoresPage'
+import { CeuImportarPage } from '@/pages/ceu/CeuImportarPage'
 
 function renderizar(componente: React.ReactElement) {
   return render(<MemoryRouter>{componente}</MemoryRouter>)
@@ -74,5 +80,14 @@ describe('Páginas CEU — smoke test de renderização', () => {
   it('CeuFornecedoresPage renderiza sem erro', () => {
     renderizar(<CeuFornecedoresPage />)
     expect(screen.getAllByText('Fornecedores').length).toBeGreaterThan(0)
+  })
+
+  it('CeuImportarPage renderiza sem erro e oferece importação de entregas', async () => {
+    renderizar(<CeuImportarPage />)
+    expect(screen.getByText('Importar CEU')).toBeTruthy()
+    // abre o tipo "Entregas" e mostra os campos de data/situação
+    fireEvent.click(screen.getByText('Entregas (EPI/Uniforme)'))
+    expect(await screen.findByText('Data da entrega')).toBeTruthy()
+    expect(screen.getByText('Situação')).toBeTruthy()
   })
 })
