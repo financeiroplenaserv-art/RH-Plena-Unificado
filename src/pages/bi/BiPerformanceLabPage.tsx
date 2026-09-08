@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarClock, ClipboardCheck, ExternalLink, MapPin, Search } from 'lucide-react'
+import { CalendarClock, ClipboardCheck, ExternalLink, MapPin, RefreshCw, Search } from 'lucide-react'
 import type { ChartConfiguration, ChartEvent, ActiveElement } from 'chart.js'
 import type { PostgrestError } from '@supabase/supabase-js'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { cn, hojeBrasil } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { sincronizarPerformanceLab } from '@/services/performancelabApi'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
@@ -244,6 +247,7 @@ function hoverClicavel(e: ChartEvent, elementos: ActiveElement[]) {
 }
 
 export function BiPerformanceLabPage() {
+  const { ehAdmin } = useAuth()
   const padrao = useMemo(() => periodoPadrao(), [])
 
   // Período aplicado (dispara o fetch) e rascunho dos inputs de data
@@ -262,6 +266,7 @@ export function BiPerformanceLabPage() {
   const [syncLog, setSyncLog] = useState<BiSyncLog | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [sincronizando, setSincronizando] = useState(false)
 
   const [buscaCk, setBuscaCk] = useState('')
   const [buscaVis, setBuscaVis] = useState('')
@@ -344,6 +349,25 @@ export function BiPerformanceLabPage() {
     carregar(periodo.di)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Disparo manual do sync, fora dos horários do cron (botão só aparece para
+  // admin/adm; a Edge Function confere o perfil de novo no backend). Ao
+  // concluir, recarrega os dados e o selo "Sincronizado em...".
+  const sincronizarAgora = async () => {
+    setSincronizando(true)
+    try {
+      const r = await sincronizarPerformanceLab()
+      toast.success(
+        `Sincronização concluída: ${r.checklists} checklists, ${r.coletas} visitas e ${r.eventos} eventos na janela de 90 dias.`
+      )
+      await carregar(periodo.di)
+    } catch (err) {
+      console.error('Erro ao sincronizar PerformanceLab:', err)
+      toast.error('Não foi possível sincronizar com o PerformanceLab. Tente novamente.')
+    } finally {
+      setSincronizando(false)
+    }
+  }
 
   const aplicarFiltros = () => {
     if (!diInput || !dfInput) return
@@ -719,11 +743,24 @@ export function BiPerformanceLabPage() {
         className="mt-4"
       />
 
-      {syncLog && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Sincronizado com o PerformanceLab em {fmtDT(syncLog.executado_em)}
-        </p>
-      )}
+      <div className="mt-1 flex flex-wrap items-center gap-3">
+        {syncLog && (
+          <p className="text-xs text-muted-foreground">
+            Sincronizado com o PerformanceLab em {fmtDT(syncLog.executado_em)}
+          </p>
+        )}
+        {ehAdmin() && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={sincronizarAgora}
+            loading={sincronizando}
+          >
+            <RefreshCw className={cn('size-3.5', sincronizando && 'animate-spin')} />
+            {sincronizando ? 'Sincronizando…' : 'Atualizar agora'}
+          </Button>
+        )}
+      </div>
 
       {sync === 'erro' && (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

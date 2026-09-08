@@ -196,7 +196,8 @@ export function useEContador() {
           (perfis || []).map(p => [p.id, p.nome || p.email || '—'] as const)
         )
       }
-      setHistorico(linhas.map(l => ({ ...l, usuario_nome: l.usuario_id ? nomesPorId.get(l.usuario_id) || '—' : '—' })))
+      // usuario_id NULL = execução do job agendado (sync-econtador), não de um operador
+      setHistorico(linhas.map(l => ({ ...l, usuario_nome: l.usuario_id ? nomesPorId.get(l.usuario_id) || '—' : 'Automático (agendado)' })))
     } catch (err: unknown) {
       const mensagem = err instanceof Error ? err.message : 'Erro ao listar histórico de importações'
       console.error('Erro ao listar histórico:', err)

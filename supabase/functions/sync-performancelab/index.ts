@@ -10,6 +10,8 @@
 // Acesso: job de máquina — exige Authorization: Bearer <SYNC_CRON_KEY>
 // (secret dedicada; o projeto usa as novas API keys sb_secret/sb_publishable,
 // então o JWT legado SUPABASE_SERVICE_ROLE_KEY não é o que o agendador tem).
+// Também aceita o JWT de usuário logado com perfil admin/adm — botão
+// "Atualizar agora" da página PerformanceLab (ver guarda no Deno.serve).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 
@@ -103,14 +105,35 @@ function checklistAtivo(c: Registro): boolean {
 }
 
 Deno.serve(async (req: Request) => {
-  // Guarda de acesso: apenas chamadas de máquina com a chave dedicada do cron.
+  // Cliente criado fora do try para o catch também conseguir gravar o log
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+
+  // Guarda de acesso, dois caminhos autorizados:
+  // 1) job de máquina (pg_cron) — Authorization: Bearer <SYNC_CRON_KEY>;
+  // 2) botão "Atualizar agora" da página PerformanceLab (decisão da gestão,
+  //    05/09/2026: só admin) — JWT do usuário logado com perfil admin/adm.
+  //    A chave do cron nunca vai para o frontend: ficaria pública no bundle.
   const cronKey = Deno.env.get('SYNC_CRON_KEY')
   const authHeader = req.headers.get('authorization') || ''
   if (!cronKey || authHeader !== `Bearer ${cronKey}`) {
-    return new Response(JSON.stringify({ error: 'Não autorizado' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    const negar = (status: number) =>
+      new Response(JSON.stringify({ error: 'Não autorizado' }), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    const jwt = authHeader.replace(/^Bearer /i, '')
+    if (!jwt) return negar(401)
+    const { data: usuario, error: erroAuth } = await supabase.auth.getUser(jwt)
+    if (erroAuth || !usuario?.user) return negar(401)
+    const { data: perfil } = await supabase
+      .from('perfis')
+      .select('nivel_acesso')
+      .eq('id', usuario.user.id)
+      .single()
+    if (!perfil || !['admin', 'adm'].includes(String(perfil.nivel_acesso))) return negar(403)
   }
 
   // Corpo opcional: {"debug": true} devolve amostra dos campos do checklist
@@ -128,12 +151,6 @@ Deno.serve(async (req: Request) => {
     })
   }
   const AUTH = 'Basic ' + btoa(`${LOGIN}:${SENHA}`)
-
-  // Cliente criado fora do try para o catch também conseguir gravar o log
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  )
 
   try {
     const fim = new Date()
