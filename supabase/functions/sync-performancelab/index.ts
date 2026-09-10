@@ -17,6 +17,28 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 
 const BASE = 'https://sla.performancelab.com.br/v3/powerbi/pwbi'
 
+// CORS — a function também é chamada pelo navegador (botão "Atualizar agora").
+// Sem responder o preflight OPTIONS e sem Access-Control-Allow-Origin nas
+// respostas, o browser bloqueia a chamada antes de ela chegar ao sync.
+// Mesmo padrão das functions econtador/suporte.
+function getAllowedOrigins(): string[] {
+  const env = Deno.env.get('ALLOWED_ORIGINS')
+  if (!env) return []
+  return env.split(',').map((o) => o.trim()).filter(Boolean)
+}
+
+function getCorsHeaders(origin: string): Record<string, string> {
+  const allowed = getAllowedOrigins()
+  const allowOrigin = allowed.length === 0 ? origin : (allowed.includes(origin) ? origin : allowed[0])
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Max-Age': '86400',
+    'Content-Type': 'application/json',
+  }
+}
+
 type Registro = Record<string, unknown>
 
 const str = (v: unknown): string | null =>
@@ -54,11 +76,12 @@ async function getPlab(endpoint: string, auth: string, token: string, params: Re
     // encontrados ..."} quando a consulta não retorna linhas — isso NÃO é
     // erro: significa lista vazia no período (em 23/08/2026 o sync passou a
     // falhar porque nenhum checklist restava na janela de 35 dias).
-    if (r.status === 404) {
-      const corpo = await r.text().catch(() => '')
-      if (corpo.includes('Não foram encontrad')) return []
-    }
-    throw new Error(`${endpoint}: HTTP ${r.status}`)
+    const corpo = await r.text().catch(() => '')
+    if (r.status === 404 && corpo.includes('Não foram encontrad')) return []
+    // Inclui um trecho do corpo no erro (vai para bi_sync_log.erro) para
+    // distinguir credencial inválida de indisponibilidade da API do PL
+    const trecho = corpo.replace(/\s+/g, ' ').slice(0, 200)
+    throw new Error(`${endpoint}: HTTP ${r.status}${trecho ? ` — ${trecho}` : ''}`)
   }
   const j: unknown = await r.json()
   return Array.isArray(j) ? (j as Registro[]) : []
@@ -105,6 +128,12 @@ function checklistAtivo(c: Registro): boolean {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = getCorsHeaders(req.headers.get('origin') || '')
+
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: cors })
+  }
+
   // Cliente criado fora do try para o catch também conseguir gravar o log
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -120,10 +149,7 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get('authorization') || ''
   if (!cronKey || authHeader !== `Bearer ${cronKey}`) {
     const negar = (status: number) =>
-      new Response(JSON.stringify({ error: 'Não autorizado' }), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      new Response(JSON.stringify({ error: 'Não autorizado' }), { status, headers: cors })
     const jwt = authHeader.replace(/^Bearer /i, '')
     if (!jwt) return negar(401)
     const { data: usuario, error: erroAuth } = await supabase.auth.getUser(jwt)
@@ -147,7 +173,7 @@ Deno.serve(async (req: Request) => {
   if (!LOGIN || !SENHA || !TOKEN) {
     return new Response(JSON.stringify({ error: 'Secrets PLAB_* não configurados' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: cors,
     })
   }
   const AUTH = 'Basic ' + btoa(`${LOGIN}:${SENHA}`)
@@ -318,7 +344,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify({ ok: true, ...totais, removidos, ...(debugInfo ? { debug: debugInfo } : {}) }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: cors,
     })
   } catch (e) {
     console.error('sync-performancelab:', e)
@@ -330,7 +356,7 @@ Deno.serve(async (req: Request) => {
     if (erroLog) console.error('falha ao gravar bi_sync_log:', erroLog)
     return new Response(
       JSON.stringify({ error: mensagem }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
+      { status: 500, headers: cors },
     )
   }
 })

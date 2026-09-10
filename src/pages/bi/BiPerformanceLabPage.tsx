@@ -363,7 +363,8 @@ export function BiPerformanceLabPage() {
       await carregar(periodo.di)
     } catch (err) {
       console.error('Erro ao sincronizar PerformanceLab:', err)
-      toast.error('Não foi possível sincronizar com o PerformanceLab. Tente novamente.')
+      const detalhe = err instanceof Error && err.message ? ` (${err.message})` : ''
+      toast.error(`Não foi possível sincronizar com o PerformanceLab${detalhe}. Tente novamente.`)
     } finally {
       setSincronizando(false)
     }
