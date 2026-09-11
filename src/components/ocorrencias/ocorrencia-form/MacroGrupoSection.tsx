@@ -27,7 +27,7 @@ export function MacroGrupoSection({ value, onChange, macroGrupos }: MacroGrupoSe
           <SelectTrigger>
             <SelectValue placeholder="Selecione o macro grupo..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[26rem]">
             {macroGrupos.map((g) => (
               <SelectItem key={g} value={g}>
                 {g}

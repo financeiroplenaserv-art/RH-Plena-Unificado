@@ -55,7 +55,10 @@ export function TipoOcorrenciaSection({
             <SelectContent>
               {tiposFiltrados.map((t) => (
                 <SelectItem key={t.tipo} value={t.tipo}>
-                  {t.tipo} — {t.gravidade}
+                  {t.tipo}
+                  {t.gravidade === 'Leve' && t.macroGrupo === '9. Registro do RH'
+                    ? ''
+                    : ` — ${t.gravidade}`}
                   {t.exigeAnexo ? ' (exige anexo)' : ''}
                 </SelectItem>
               ))}
