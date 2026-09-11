@@ -3,8 +3,9 @@
 > Sessão: Adicionais — tornar visível a diferença entre "ponto importado" e
 > "previsão da escala" no Calendário (opções A + B aprovadas pela gestão após
 > análise de viabilidade). Migration 109 aplicada em produção.
-> **Nada foi deployado no Netlify nesta sessão** — entra no próximo deploy
-> agrupado (o deploy da manhã já levou os ajustes de ocorrências).
+> **Deploy feito no fim da sessão** (Netlify `plena-corh`, deploy
+> `6aa4153f0ea35af41ba7ef37`, hash do bundle `assets/index-CAzXXadw.js`
+> conferido igual ao `dist/` local). Nada pendente de deploy.
 
 ## 1) Problema analisado (sem mudança de regra de negócio)
 
@@ -67,10 +68,6 @@
 
 ## Pendências
 
-- **Deploy no Netlify NÃO foi feito** — agrupar com a próxima leva. O
-  banner/dias tracejados só funcionam em produção depois do deploy (a
-  migration já está aplicada; sem o frontend novo, as colunas ficam null e
-  nada muda na tela — comportamento fail-safe).
 - Comportamento começa a valer para espelhos importados **a partir desta
   versão**; arquivos antigos ganham metadados se forem reprocessados via
   "Usar este arquivo".
