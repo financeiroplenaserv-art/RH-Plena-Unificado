@@ -123,6 +123,17 @@ export function periodoDosEspelhos(espelhos: EspelhoColaborador[]): { inicio: st
   return { inicio: datas[0], fim: datas[datas.length - 1] }
 }
 
+/**
+ * Último dia com linha no PDF dentre todos os espelhos (ISO). É a data até
+ * onde o ponto foi importado de fato — o cabeçalho do espelho traz o período
+ * completo, mas as linhas param na data em que o PDF foi gerado. Usado nos
+ * metadados do arquivo (migration 109) para o aviso "ponto importado até".
+ */
+export function ultimoDiaPonto(espelhos: EspelhoColaborador[]): string | null {
+  const datas = espelhos.flatMap((e) => e.dias.map((d) => d.data)).sort()
+  return datas.length === 0 ? null : datas[datas.length - 1]
+}
+
 /** Contadores por status para o resumo da pré-visualização. */
 export function resumoPontoEspelho(ponto: PontoEspelho) {
   const trabalhou = ponto.dias.filter((d) => d.status === 'trabalhou').length

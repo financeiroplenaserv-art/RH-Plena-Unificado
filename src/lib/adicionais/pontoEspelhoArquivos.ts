@@ -29,15 +29,23 @@ export interface PontoEspelhoArquivo {
   tamanho_bytes: number | null
   enviado_por: string | null
   created_at: string
+  /** Período do cabeçalho do espelho (migration 109; null em arquivos antigos). */
+  periodo_inicio: string | null
+  periodo_fim: string | null
+  /** Último dia com linha no PDF — os dias seguintes do período são só previsão da escala. */
+  ponto_ate: string | null
   /** Nome de quem enviou (join com perfis). */
   enviado_por_nome: string | null
 }
+
+const COLUNAS =
+  'id, nome_arquivo, storage_path, tamanho_bytes, enviado_por, created_at, periodo_inicio, periodo_fim, ponto_ate'
 
 /** Lista os últimos espelhos enviados (mais recentes primeiro). */
 export async function listarArquivos(): Promise<PontoEspelhoArquivo[]> {
   const { data, error } = await supabase
     .from(TABELA)
-    .select('id, nome_arquivo, storage_path, tamanho_bytes, enviado_por, created_at, perfis(nome)')
+    .select(`${COLUNAS}, perfis(nome)`)
     .order('created_at', { ascending: false })
     .limit(LIMITE_LISTAGEM)
   if (error) throw error
@@ -54,6 +62,9 @@ function mapearLinha(row: any): PontoEspelhoArquivo {
     tamanho_bytes: (row.tamanho_bytes as number | null) ?? null,
     enviado_por: (row.enviado_por as string | null) ?? null,
     created_at: row.created_at as string,
+    periodo_inicio: (row.periodo_inicio as string | null) ?? null,
+    periodo_fim: (row.periodo_fim as string | null) ?? null,
+    ponto_ate: (row.ponto_ate as string | null) ?? null,
     enviado_por_nome: perfil?.nome ?? null,
   }
 }
@@ -66,7 +77,7 @@ function mapearLinha(row: any): PontoEspelhoArquivo {
 export async function buscarArquivoIdentico(file: File): Promise<PontoEspelhoArquivo | null> {
   const { data, error } = await supabase
     .from(TABELA)
-    .select('id, nome_arquivo, storage_path, tamanho_bytes, enviado_por, created_at, perfis(nome)')
+    .select(`${COLUNAS}, perfis(nome)`)
     .eq('nome_arquivo', file.name)
     .eq('tamanho_bytes', file.size)
     .order('created_at', { ascending: false })
@@ -117,10 +128,60 @@ export async function salvarArquivo(file: File, userId: string, reenviar = false
       tamanho_bytes: file.size,
       enviado_por: userId,
     })
-    .select('id, nome_arquivo, storage_path, tamanho_bytes, enviado_por, created_at')
+    .select(COLUNAS)
     .single()
   if (erroInsert) throw erroInsert
   return { ...(data as Omit<PontoEspelhoArquivo, 'enviado_por_nome'>), enviado_por_nome: null }
+}
+
+export interface MetadadosPeriodoEspelho {
+  periodo_inicio: string
+  periodo_fim: string
+  ponto_ate: string
+}
+
+/**
+ * Grava os metadados de período (migration 109) no registro mais recente do
+ * arquivo — chamado logo após o parse do PDF, quando o app descobre o
+ * período do cabeçalho e o último dia com dados. Best-effort: a ausência do
+ * registro (ou do UPDATE na RLS) não deve quebrar a importação.
+ */
+export async function atualizarMetadadosPeriodo(file: File, metas: MetadadosPeriodoEspelho): Promise<void> {
+  const existente = await buscarArquivoIdentico(file)
+  if (!existente) {
+    console.info('Metadados de período não gravados (arquivo sem registro no servidor).')
+    return
+  }
+  const { data, error } = await supabase
+    .from(TABELA)
+    .update({ ...metas } as Record<string, unknown>)
+    .eq('id', existente.id)
+    .select('id')
+  if (error) throw error
+  if (!data || data.length === 0) {
+    console.info('Metadados de período não gravados (UPDATE bloqueado pela RLS).')
+  }
+}
+
+/**
+ * Espelho mais recente cujo período (cabeçalho) cobre o período informado —
+ * usado pelo Calendário para avisar até que dia o ponto foi importado de
+ * fato. Arquivos antigos sem metadados (null) não casam no filtro.
+ */
+export async function buscarUltimoArquivoDoPeriodo(
+  periodoInicio: string,
+  periodoFim: string
+): Promise<PontoEspelhoArquivo | null> {
+  const { data, error } = await supabase
+    .from(TABELA)
+    .select(`${COLUNAS}, perfis(nome)`)
+    .lte('periodo_inicio', periodoFim)
+    .gte('periodo_fim', periodoInicio)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  if (!data || data.length === 0) return null
+  return mapearLinha(data[0])
 }
 
 /** Baixa o PDF do bucket e devolve como File (reaproveita a pipeline de parsing). */

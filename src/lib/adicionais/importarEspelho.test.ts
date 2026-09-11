@@ -3,6 +3,7 @@ import {
   statusAdicionalDoDia,
   espelhoParaPonto,
   periodoDosEspelhos,
+  ultimoDiaPonto,
   resumoPontoEspelho,
 } from './importarEspelho'
 import type { DiaPonto, EspelhoColaborador } from '@/lib/ocorrencias/importacaoPonto'
@@ -126,6 +127,21 @@ describe('periodoDosEspelhos', () => {
   it('retorna null quando não há período nem dias', () => {
     expect(periodoDosEspelhos([espelho({})])).toBeNull()
     expect(periodoDosEspelhos([])).toBeNull()
+  })
+})
+
+describe('ultimoDiaPonto', () => {
+  it('retorna a maior data entre os dias de todos os espelhos, ignorando o cabeçalho', () => {
+    const ultimo = ultimoDiaPonto([
+      espelho({ periodoInicio: '01/09/2026', periodoFim: '20/09/2026', dias: [dia({ data: '2026-09-15' }), dia({ data: '2026-09-10' })] }),
+      espelho({ periodoInicio: '01/09/2026', periodoFim: '20/09/2026', dias: [dia({ data: '2026-09-14' })] }),
+    ])
+    expect(ultimo).toBe('2026-09-15')
+  })
+
+  it('retorna null quando não há dias', () => {
+    expect(ultimoDiaPonto([espelho({ periodoInicio: '01/09/2026', periodoFim: '20/09/2026' })])).toBeNull()
+    expect(ultimoDiaPonto([])).toBeNull()
   })
 })
 

@@ -425,6 +425,10 @@ export interface PontoEspelhoArquivoRow {
   tamanho_bytes: number | null
   enviado_por: string | null
   created_at: string
+  /** Metadados de período do espelho (migration 109; null em arquivos antigos). */
+  periodo_inicio: string | null
+  periodo_fim: string | null
+  ponto_ate: string | null
 }
 
 /** Excel de marcações do Flit salvo para reutilização — módulo Escalas (migration 100). */

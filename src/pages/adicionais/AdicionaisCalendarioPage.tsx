@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { cn, nomeDepartamento } from '@/lib/utils'
+import { cn, nomeDepartamento, formatarDataDeTimestamp } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
@@ -32,6 +32,7 @@ import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos, diaExigeSubstituto } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
+import { buscarUltimoArquivoDoPeriodo, type PontoEspelhoArquivo } from '@/lib/adicionais/pontoEspelhoArquivos'
 import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional, AdicionalTipo } from '@/types/adicionais'
 
 const EMOJI_STATUS: Record<StatusDiaAdicional, string> = {
@@ -148,6 +149,9 @@ export function AdicionaisCalendarioPage() {
   // Ordenação dos cartões de vínculo (setinha A→Z / Z→A)
   const [ordenacaoCards, setOrdenacaoCards] = useFiltroPersistente<{ campo: 'colaborador' | 'departamento' | 'adicional'; direcao: 'asc' | 'desc' }>('adicionais.calendario.ordenacao', { campo: 'colaborador', direcao: 'asc' })
   const [feriados, setFeriados] = useState<Feriado[]>([])
+  // Espelho mais recente do período (migration 109) — alimenta o aviso
+  // "Ponto importado até dd/mm" quando a importação cobre só parte do período.
+  const [arquivoPeriodo, setArquivoPeriodo] = useState<PontoEspelhoArquivo | null>(null)
   const [alteracoes, setAlteracoes] = useState<Record<string, DiaCalendarioAdicional>>({})
   const [modalSubstituto, setModalSubstituto] = useState<{ vinculo: VinculoAdicional; data: string } | null>(null)
   const [buscaSubstituto, setBuscaSubstituto] = useState('')
@@ -197,6 +201,12 @@ export function AdicionaisCalendarioPage() {
     setAlteracoes({})
   }, [periodoInicio, periodoFim, listarCalendario])
 
+  useEffect(() => {
+    buscarUltimoArquivoDoPeriodo(periodoInicio, periodoFim)
+      .then(setArquivoPeriodo)
+      .catch((err) => console.error('Erro ao verificar espelho de ponto do período:', err))
+  }, [periodoInicio, periodoFim])
+
   const mapContrato = useMemo(() => {
     const m = new Map<string, ContratoAdicional>()
     ;(contratos || []).forEach(c => m.set(c.id, c))
@@ -235,7 +245,15 @@ export function AdicionaisCalendarioPage() {
     })
   }, [vinculos, periodoInicio, periodoFim])
 
-  const getDia = useCallback((vinculo: VinculoAdicional, data: string): DiaCalendarioAdicional & { __fallback?: boolean } => {
+  // Vínculos com algum dia gravado no período (a listagem já vem recortada
+  // para o período) — usado para distinguir "importação parcial" de
+  // "vínculo nunca importado" no estilo dos dias inferidos pela escala.
+  const vinculosComDados = useMemo(
+    () => new Set(calendario.map(d => d.vinculo_id)),
+    [calendario]
+  )
+
+  const getDia = useCallback((vinculo: VinculoAdicional, data: string): DiaCalendarioAdicional & { __fallback?: boolean; __inferido?: boolean } => {
     const chave = `${vinculo.id}|${data}`
     if (alteracoes[chave]) return alteracoes[chave]
     const salvo = calendario.find(d => d.vinculo_id === vinculo.id && d.data === data)
@@ -251,8 +269,13 @@ export function AdicionaisCalendarioPage() {
       status: statusPadrao,
       intrajornada: false,
       __fallback: false,
+      // Dia sem registro no banco = previsão da escala, não ponto importado.
+      // Só marca quando o vínculo JÁ tem dados no período (importação
+      // parcial) — vínculo sem nenhuma importação mantém o visual cheio,
+      // como antes (o fallback existe para planejar antes de importar).
+      __inferido: vinculosComDados.has(vinculo.id) ? true : undefined,
     }
-  }, [alteracoes, calendario, mapContrato])
+  }, [alteracoes, calendario, mapContrato, vinculosComDados])
 
   const getSubstituto = useCallback((vinculoId: string, data: string): DiaCalendarioAdicional | null => {
     const alteracao = Object.values(alteracoes).find(
@@ -754,6 +777,14 @@ export function AdicionaisCalendarioPage() {
               </button>
             )
           })()}
+          {/* Dia previsto pela escala (sem ponto importado) — só legenda, não filtra */}
+          <span
+            className="rounded-full px-2.5 py-1 text-xs border border-dashed"
+            style={{ backgroundColor: '#FFFFFF', borderColor: '#CBD5E1', color: '#94A3B8' }}
+            title="Dia sem registro de ponto importado — o status é a previsão da escala do contrato"
+          >
+            ⬜ Previsto pela escala (aguardando ponto)
+          </span>
           <button
             type="button"
             onClick={() => setStatusFiltro([])}
@@ -778,6 +809,23 @@ export function AdicionaisCalendarioPage() {
                 Contrato <strong>{a.contrato}</strong> precisa de substituto no dia <strong>{a.data}</strong> ({a.colaborador})
               </div>
             ))}
+          </div>
+        </ModuleCard>
+      )}
+
+      {/* Importação parcial: o espelho do período foi gerado antes do fim —
+          os dias após `ponto_ate` são previsão da escala, não ponto importado */}
+      {arquivoPeriodo?.ponto_ate && arquivoPeriodo.ponto_ate < periodoFim && (
+        <ModuleCard>
+          <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              Ponto importado até <strong>{formatarDataBR(arquivoPeriodo.ponto_ate)}</strong>
+              {' '}(espelho “{arquivoPeriodo.nome_arquivo}”, enviado em {formatarDataDeTimestamp(arquivoPeriodo.created_at)}
+              {arquivoPeriodo.enviado_por_nome ? ` por ${arquivoPeriodo.enviado_por_nome}` : ''}).
+              O período vai até <strong>{formatarDataBR(periodoFim)}</strong> — os dias após {formatarDataBR(arquivoPeriodo.ponto_ate)} são
+              {' '}<strong>previsão da escala</strong> (tracejados). Reimporte o espelho quando o Flit tiver o restante do período.
+            </span>
           </div>
         </ModuleCard>
       )}
@@ -815,6 +863,10 @@ export function AdicionaisCalendarioPage() {
                     const ignorado = ignorados.has(`${v.id}|${data}`)
                     const isFallback = dia.__fallback === true
                     const temAlteracaoPendente = !!alteracoes[`${v.id}|${data}`]
+                    // Dia sem registro no banco em vínculo com importação
+                    // parcial: mostra a previsão da escala, mas visualmente
+                    // "aguardando ponto" (tracejado, emoji esmaecido).
+                    const isInferido = dia.__inferido === true && !isFallback && !temAlteracaoPendente
                     const emoji = isFallback ? '' : EMOJI_STATUS[dia.status]
                     const estilo = STATUS_STYLE[dia.status]
                     const tooltip = substituto
@@ -825,10 +877,12 @@ export function AdicionaisCalendarioPage() {
                           ? `${formatarDataBR(data)} — Não preenchido`
                           : precisa
                             ? 'Substituto recomendado'
-                            : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}${temAlteracaoPendente ? ' (alteração pendente)' : ''}`
-                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto || substituido ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : estilo.border
-                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto || substituido ? '#DCFCE7' : isFallback ? '#FFFFFF' : estilo.bg
-                    const textColor = isFallback ? '#CBD5E1' : estilo.text
+                            : isInferido
+                              ? `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status} (previsto pela escala — ponto ainda não importado)`
+                              : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}${temAlteracaoPendente ? ' (alteração pendente)' : ''}`
+                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto || substituido ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : isInferido ? '#CBD5E1' : estilo.border
+                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto || substituido ? '#DCFCE7' : isFallback || isInferido ? '#FFFFFF' : estilo.bg
+                    const textColor = isFallback ? '#CBD5E1' : isInferido ? '#94A3B8' : estilo.text
                     // Indica direito a intrajornada (HE) quando trabalha em dia configurado (sab/dom/feriado)
                     const temIntrajornada = dia.status === 'trabalhou' && diaIntrajornada(contrato, data)
                     return (
@@ -839,7 +893,7 @@ export function AdicionaisCalendarioPage() {
                           className={cn(
                             'w-10 h-10 rounded-lg border text-xs flex flex-col items-center justify-center transition-colors hover:opacity-90',
                             precisa && 'animate-pulse',
-                            isFallback && 'border-dashed'
+                            (isFallback || isInferido) && 'border-dashed'
                           )}
                           style={{
                             backgroundColor: bgColor,
@@ -848,7 +902,7 @@ export function AdicionaisCalendarioPage() {
                           title={tooltip}
                         >
                           <span className="text-[10px] leading-none mb-0.5" style={{ color: textColor }}>{new Date(data + 'T00:00:00').getDate()}</span>
-                          <span className="text-base leading-none">{emoji}</span>
+                          <span className="text-base leading-none" style={{ opacity: isInferido ? 0.4 : 1 }}>{emoji}</span>
                         </button>
                         {/* Badge de substituto confirmado */}
                         {(substituto || substituido) && (

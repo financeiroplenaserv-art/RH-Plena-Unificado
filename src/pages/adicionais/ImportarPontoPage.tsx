@@ -48,6 +48,7 @@ import {
 import {
   espelhoParaPonto,
   periodoDosEspelhos,
+  ultimoDiaPonto,
   resumoPontoEspelho,
   type PontoEspelho,
 } from '@/lib/adicionais/importarEspelho'
@@ -59,6 +60,7 @@ import {
   buscarArquivoIdentico,
   baixarArquivo,
   excluirArquivo,
+  atualizarMetadadosPeriodo,
   type PontoEspelhoArquivo,
 } from '@/lib/adicionais/pontoEspelhoArquivos'
 import { toast } from 'sonner'
@@ -297,6 +299,19 @@ export function ImportarPontoPage() {
       // Deduplicação das ocorrências contra o banco (as planejadas são
       // recalculadas por memo a partir de `dados` + esta lista de existentes)
       const periodo = periodoDosEspelhos(espelhos)
+
+      // Metadados de período no registro do arquivo (migration 109): o
+      // cabeçalho traz o período completo, mas as linhas param na data de
+      // geração do PDF — o Calendário usa `ponto_ate` para avisar até onde o
+      // ponto foi importado de fato. Best-effort: falha não bloqueia o fluxo.
+      const pontoAte = ultimoDiaPonto(espelhos)
+      if (periodo && pontoAte) {
+        atualizarMetadadosPeriodo(file, {
+          periodo_inicio: periodo.inicio,
+          periodo_fim: periodo.fim,
+          ponto_ate: pontoAte,
+        }).catch((err) => console.error('Erro ao gravar metadados de período do espelho:', err))
+      }
       const ids = [...new Set(processados.map((p) => p.colaborador?.id).filter(Boolean))] as string[]
       let existentes: OcorrenciaExistente[] = []
       if (ids.length > 0 && periodo) {
