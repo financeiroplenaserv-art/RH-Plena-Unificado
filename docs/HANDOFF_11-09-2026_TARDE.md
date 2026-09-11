@@ -66,9 +66,47 @@
 - `AGENTS.md` atualizado (migration 109 na lista + regra "Importação parcial
   visível" no bullet de importação de ponto).
 
+## 5) Validação em produção (fim da sessão — "não fez nada" explicado)
+
+A gestão abriu o Calendário e não viu banner nem dias tracejados. Diagnóstico
+via Management API (queries no banco de produção):
+
+- **O recurso ESTAVA no ar** — o chip novo da legenda ("Previsto pela escala")
+  aparecia no print, provando o build novo. Banner e tracejado são
+  **condicionais** e a tela não atendia as condições:
+  - O período exibido (20/09 a 19/10 — padrão do mês corrente) tem **zero
+    linhas** em `calendario_adicionais` → nenhum vínculo com importação →
+    visual cheio (desenho aprovado) e nenhum espelho com metadados cobrindo
+    o período → sem banner.
+  - O período 20/08 a 19/09 tem só **7 vínculos** com dados (Angelo Favaro,
+    Carlos Alberto, Erick Lemos, Fernanda Nascimento, Jaqueline Pereira,
+    José Rodrigues Romão, Tatiane Amancio), todos importados **só até
+    02/09** (espelho "Adicionais e ocorrências 20_08 a 02_09.pdf", enviado
+    05/09, antes do recurso → metadados null). Para esses, os dias 03–19/09
+    são o cenário exato do tracejado.
+- **Como validar sem importar de novo:** Importar Ponto → "Usar este
+  arquivo" no espelho 20_08 a 02_09 e processar (só o processamento grava os
+  metadados; não altera dados sem confirmar) → Calendário de ago/2026 passa
+  a mostrar o banner "Ponto importado até 02/09/2026". A gestão ficou de
+  refazer a importação do zero para validar o fluxo completo.
+- **⚠️ Achado a verificar:** o arquivo "Adicionais e Ocorrências 01 a
+  08_09.pdf" (enviado 10/09, reprocessado hoje — por isso tem metadados)
+  gravou período **2026-08-01 a 2026-08-08** (agosto), embora o nome sugira
+  01–08 de setembro. Cabeçalho E linhas do PDF estão em agosto (o
+  `ponto_ate` veio das linhas, não do nome) — indício de que o Flit foi
+  gerado com o mês errado por quem exportou, não de bug no parser. Confirmar
+  com a operação.
+- Lembrete para suporte: reimportar **reseta o período ao estado do
+  espelho** (lançamentos manuais e substitutos do período são apagados) —
+  avisado à gestão antes de ela refazer a importação.
+
 ## Pendências
 
 - Comportamento começa a valer para espelhos importados **a partir desta
   versão**; arquivos antigos ganham metadados se forem reprocessados via
   "Usar este arquivo".
+- Confirmar o achado do espelho "01 a 08_09.pdf" (período de agosto com nome
+  de setembro) com a operação.
+- Aguardar o retorno da gestão sobre a validação do fluxo completo
+  (reimportação do zero).
 - `func-deployada.txt` (untracked, artefato local) segue fora de propósito.
