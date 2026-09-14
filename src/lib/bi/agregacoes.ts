@@ -533,6 +533,21 @@ export function cascataEventos(lista: BiEvento[], f: FiltrosEventosAba): Cascata
   return { base, porStatus, porSla, porAssunto, porResponsavel }
 }
 
+/** Ordenação da tabela "Todos os eventos do período": '' = ordem da consulta
+ *  (data_evento desc); resp/local + az/za = A→Z / Z→A no cabeçalho clicável */
+export type OrdenacaoEventos = '' | 'resp-az' | 'resp-za' | 'local-az' | 'local-za'
+
+/** Ordena eventos por Responsável (respEv) ou Local, alfabético pt-BR.
+ *  Estável: empates mantêm a ordem de chegada (mais recente primeiro). */
+export function ordenarEventos(lista: BiEvento[], ordem: OrdenacaoEventos): BiEvento[] {
+  if (!ordem) return lista
+  const campo: (e: BiEvento) => string = ordem.startsWith('resp')
+    ? (e) => respEv(e)
+    : (e) => e.site_nome || ''
+  const dir = ordem.endsWith('za') ? -1 : 1
+  return [...lista].sort((a, b) => dir * campo(a).localeCompare(campo(b), 'pt-BR', { sensitivity: 'base' }))
+}
+
 /** Dias entre abertura e finalização (frações de dia) */
 function diasAteFinalizar(e: BiEvento): number | null {
   if (!eventoFinalizado(e) || !e.data_evento || !e.data_finalizacao) return null

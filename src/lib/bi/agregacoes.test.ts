@@ -28,6 +28,7 @@ import {
   opcoesDe,
   opcoesLocais,
   opcoesPessoas,
+  ordenarEventos,
   producaoPorDiaInspetor,
   respEv,
   responsavelEvento,
@@ -545,6 +546,41 @@ describe('cascataEventos', () => {
     const c = cascataEventos(lista, { ...vazio, responsavel: 'Maciel' })
     expect(c.porAssunto).toHaveLength(4)
     expect(c.porResponsavel.map((e) => e.id)).toEqual([4])
+  })
+})
+
+describe('ordenarEventos', () => {
+  // respEv = usuario_ultimo_nome (fixture padrão: 'Ana'); site_nome padrão: 'CBO Niterói'
+  const lista = [
+    evento({ id: 1, usuario_ultimo_nome: 'Tayrone dos Santos', site_nome: 'PLENA SEDE' }),
+    evento({ id: 2, usuario_ultimo_nome: 'José Maciel', site_nome: 'LA RESERVE' }),
+    evento({ id: 3, usuario_ultimo_nome: 'José Maciel', site_nome: 'CHÁCARA ITAGUAI' }),
+    evento({ id: 4, usuario_ultimo_nome: 'Rosely Portela', site_nome: 'PLENA SEDE' }),
+  ]
+
+  it('ordem vazia mantém a lista como veio (data_evento desc da consulta)', () => {
+    expect(ordenarEventos(lista, '')).toBe(lista)
+  })
+
+  it('resp-az ordena pelo responsável exibido, A→Z, sem acento pesar', () => {
+    expect(ordenarEventos(lista, 'resp-az').map((e) => e.id)).toEqual([2, 3, 4, 1])
+  })
+
+  it('resp-za inverte a ordem alfabética do responsável', () => {
+    expect(ordenarEventos(lista, 'resp-za').map((e) => e.id)).toEqual([1, 4, 2, 3])
+  })
+
+  it('local-az ordena pelo site_nome; empates mantêm a ordem de chegada (estável)', () => {
+    expect(ordenarEventos(lista, 'local-az').map((e) => e.id)).toEqual([3, 2, 1, 4])
+  })
+
+  it('local-za inverte a ordem alfabética do local', () => {
+    expect(ordenarEventos(lista, 'local-za').map((e) => e.id)).toEqual([1, 4, 2, 3])
+  })
+
+  it('não muta a lista original', () => {
+    ordenarEventos(lista, 'resp-az')
+    expect(lista.map((e) => e.id)).toEqual([1, 2, 3, 4])
   })
 })
 

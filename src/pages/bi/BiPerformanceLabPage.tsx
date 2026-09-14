@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarClock, ClipboardCheck, ExternalLink, MapPin, RefreshCw, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, ClipboardCheck, ExternalLink, MapPin, RefreshCw, Search } from 'lucide-react'
 import type { ChartConfiguration, ChartEvent, ActiveElement } from 'chart.js'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { cn, hojeBrasil } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { sincronizarPerformanceLab } from '@/services/performancelabApi'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
+import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import { DataTable } from '@/components/corh/DataTable'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { Button } from '@/components/corh/Button'
@@ -60,6 +62,7 @@ import {
   opcoesDe,
   opcoesLocais,
   opcoesPessoas,
+  ordenarEventos,
   producaoPorDiaInspetor,
   respEv,
   slaEventos,
@@ -72,6 +75,7 @@ import {
   visitasPorDia,
   visitasPorInspetor,
   type FiltrosBi,
+  type OrdenacaoEventos,
 } from '@/lib/bi/agregacoes'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiSyncLog } from '@/types/bi'
 
@@ -246,6 +250,40 @@ function hoverClicavel(e: ChartEvent, elementos: ActiveElement[]) {
   if (alvo) alvo.style.cursor = elementos.length ? 'pointer' : 'default'
 }
 
+/** Cabeçalho ordenável da tabela de eventos: cicla A→Z → Z→A → ordem por data */
+function ThEventoOrdenavel({
+  rotulo,
+  campo,
+  ordem,
+  onAlternar,
+}: {
+  rotulo: string
+  campo: 'resp' | 'local'
+  ordem: OrdenacaoEventos
+  onAlternar: (campo: 'resp' | 'local') => void
+}) {
+  const ativo = ordem.startsWith(campo)
+  const za = ordem === `${campo}-za`
+  const Icone = !ativo ? ArrowUpDown : za ? ArrowDown : ArrowUp
+  const proximo = !ativo ? 'A→Z' : za ? 'ordem por data (padrão)' : 'Z→A'
+  return (
+    <TableHead className={thClass}>
+      <button
+        type="button"
+        onClick={() => onAlternar(campo)}
+        title={`Ordenar: ${proximo}`}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase tracking-wider hover:text-foreground',
+          ativo && 'text-primary'
+        )}
+      >
+        {rotulo}
+        <Icone className={cn('size-3.5', !ativo && 'opacity-50')} />
+      </button>
+    </TableHead>
+  )
+}
+
 export function BiPerformanceLabPage() {
   const { ehAdmin } = useAuth()
   const padrao = useMemo(() => periodoPadrao(), [])
@@ -254,9 +292,11 @@ export function BiPerformanceLabPage() {
   const [periodo, setPeriodo] = useState(padrao)
   const [diInput, setDiInput] = useState(padrao.di)
   const [dfInput, setDfInput] = useState(padrao.df)
-  // Pessoa/Local filtram em memória (sem refetch), como no template
-  const [pessoa, setPessoa] = useState('')
-  const [local, setLocal] = useState('')
+  // Pessoa/Local filtram em memória (sem refetch), como no template.
+  // Filtros persistidos na sessão (useFiltroPersistente): ao navegar para
+  // outro módulo e voltar, a página remonta e o filtro continua como estava
+  const [pessoa, setPessoa] = useFiltroPersistente('bi.pessoa', '')
+  const [local, setLocal] = useFiltroPersistente('bi.local', '')
 
   const [checklists, setChecklists] = useState<BiChecklist[]>([])
   const [qas, setQas] = useState<BiChecklistQa[]>([])
@@ -268,26 +308,31 @@ export function BiPerformanceLabPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [sincronizando, setSincronizando] = useState(false)
 
-  const [buscaCk, setBuscaCk] = useState('')
-  const [buscaVis, setBuscaVis] = useState('')
-  const [buscaEv, setBuscaEv] = useState('')
-  const [prodInsp, setProdInsp] = useState('')
+  const [buscaCk, setBuscaCk] = useFiltroPersistente('bi.ck.busca', '')
+  const [buscaVis, setBuscaVis] = useFiltroPersistente('bi.vis.busca', '')
+  const [buscaEv, setBuscaEv] = useFiltroPersistente('bi.ev.busca', '')
+  const [prodInsp, setProdInsp] = useFiltroPersistente('bi.vis.inspetor', '')
   // Filtros específicos de cada aba (selects sobre os dados já filtrados)
-  const [ckConclusao, setCkConclusao] = useState('')
-  const [ckModelo, setCkModelo] = useState('')
-  const [visTipo, setVisTipo] = useState('')
-  const [visMotivo, setVisMotivo] = useState('')
-  const [evStatus, setEvStatus] = useState('')
-  const [evSla, setEvSla] = useState('')
-  const [evAssunto, setEvAssunto] = useState('')
-  const [evResp, setEvResp] = useState('')
-  const [visDia, setVisDia] = useState('')
+  const [ckConclusao, setCkConclusao] = useFiltroPersistente('bi.ck.conclusao', '')
+  const [ckModelo, setCkModelo] = useFiltroPersistente('bi.ck.modelo', '')
+  const [visTipo, setVisTipo] = useFiltroPersistente('bi.vis.tipo', '')
+  const [visMotivo, setVisMotivo] = useFiltroPersistente('bi.vis.motivo', '')
+  const [evStatus, setEvStatus] = useFiltroPersistente('bi.ev.status', '')
+  const [evSla, setEvSla] = useFiltroPersistente('bi.ev.sla', '')
+  const [evAssunto, setEvAssunto] = useFiltroPersistente('bi.ev.assunto', '')
+  const [evResp, setEvResp] = useFiltroPersistente('bi.ev.resp', '')
+  const [visDia, setVisDia] = useFiltroPersistente('bi.vis.dia', '')
+  // Ordenação da tabela de eventos pelos cabeçalhos Responsável/Local (A→Z/Z→A)
+  const [evOrdem, setEvOrdem] = useFiltroPersistente<OrdenacaoEventos>('bi.ev.ordem', '')
   // Críticos abertos ANTES do período carregado (invisíveis na tela — alerta da aba Eventos)
   const [criticosAntigos, setCriticosAntigos] = useState(0)
   const [ckAbertos, setCkAbertos] = useState<Set<number>>(new Set())
   const [evAbertos, setEvAbertos] = useState<Set<number>>(new Set())
-  // Aba ativa (a barra segue o padrão visual do ModuleShell, com estado interno)
-  const [aba, setAba] = useState('checklists')
+  // Aba ativa (a barra segue o padrão visual do ModuleShell, com estado
+  // interno persistido: voltar de outro módulo reabre a aba de onde saiu)
+  const [aba, setAba] = useFiltroPersistente('bi.aba', 'checklists')
+  // Guarda contra valor inválido vindo do sessionStorage
+  const abaAtiva = ABAS.some((t) => t.valor === aba) ? aba : 'checklists'
 
   const carregar = useCallback(async (di: string) => {
     setLoading(true)
@@ -395,6 +440,7 @@ export function BiPerformanceLabPage() {
     setEvSla('')
     setEvAssunto('')
     setEvResp('')
+    setEvOrdem('')
     setVisDia('')
     if (padrao.di !== periodo.di || padrao.df !== periodo.df) {
       setPeriodo(padrao)
@@ -485,7 +531,7 @@ export function BiPerformanceLabPage() {
         onHover: hoverClicavel,
       },
     }),
-    [visPorDia]
+    [visPorDia, setVisDia]
   )
 
   const cfgVisitasInspetor = useMemo<ChartConfiguration>(
@@ -507,7 +553,7 @@ export function BiPerformanceLabPage() {
         onHover: hoverClicavel,
       },
     }),
-    [visPorInspetor]
+    [visPorInspetor, setProdInsp]
   )
 
   // ---------------- Eventos ----------------
@@ -516,6 +562,12 @@ export function BiPerformanceLabPage() {
     [evs, buscaEv, evStatus, evSla, evAssunto, evResp]
   )
   const evsBuscados = evCascata.porResponsavel
+  // Ordenação pelos cabeçalhos Responsável/Local (cicla A→Z → Z→A → ordem por data)
+  const evsOrdenados = useMemo(() => ordenarEventos(evsBuscados, evOrdem), [evsBuscados, evOrdem])
+  const alternarOrdemEv = (campo: 'resp' | 'local') =>
+    setEvOrdem((atual) =>
+      atual === `${campo}-az` ? `${campo}-za` : atual === `${campo}-za` ? '' : (`${campo}-az` as OrdenacaoEventos)
+    )
   const kpiEv = useMemo(() => kpisEventos(evsBuscados), [evsBuscados])
   // Cada visual desconta apenas o filtro que ele mesmo controla (seletor não colapsa)
   const sla = useMemo(() => slaEventos(evCascata.porStatus), [evCascata])
@@ -548,7 +600,7 @@ export function BiPerformanceLabPage() {
         onHover: hoverClicavel,
       },
     }),
-    [sla]
+    [sla, setEvSla]
   )
 
   const cfgAssunto = useMemo<ChartConfiguration>(
@@ -571,7 +623,7 @@ export function BiPerformanceLabPage() {
         onHover: hoverClicavel,
       },
     }),
-    [porAssunto]
+    [porAssunto, setEvAssunto]
   )
 
   const toggleCk = (id: number) =>
@@ -703,7 +755,7 @@ export function BiPerformanceLabPage() {
             onClick={() => setAba(t.valor)}
             className={cn(
               'flex items-center gap-2 border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors',
-              aba === t.valor
+              abaAtiva === t.valor
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
             )}
@@ -761,6 +813,15 @@ export function BiPerformanceLabPage() {
             {sincronizando ? 'Sincronizando…' : 'Atualizar agora'}
           </Button>
         )}
+        {/* Filtros persistidos (Pessoa/Local) continuam valendo ao voltar de
+            outro módulo — o selo evita o "filtro fantasma" com o painel fechado */}
+        <FiltrosAtivosBadge
+          total={(pessoa ? 1 : 0) + (local ? 1 : 0)}
+          onLimpar={() => {
+            setPessoa('')
+            setLocal('')
+          }}
+        />
       </div>
 
       {sync === 'erro' && (
@@ -776,7 +837,7 @@ export function BiPerformanceLabPage() {
         </div>
       )}
 
-      <Tabs value={aba} onValueChange={setAba} className="mt-4">
+      <Tabs value={abaAtiva} onValueChange={setAba} className="mt-4">
         <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
           <div className="space-y-1.5">
             <Label>Data inicial</Label>
@@ -1193,8 +1254,8 @@ export function BiPerformanceLabPage() {
                   <TableHead className={thClass}></TableHead>
                   <TableHead className={thClass}>Nº/Ano</TableHead>
                   <TableHead className={thClass}>Assunto</TableHead>
-                  <TableHead className={thClass}>Local</TableHead>
-                  <TableHead className={thClass}>Responsável</TableHead>
+                  <ThEventoOrdenavel rotulo="Local" campo="local" ordem={evOrdem} onAlternar={alternarOrdemEv} />
+                  <ThEventoOrdenavel rotulo="Responsável" campo="resp" ordem={evOrdem} onAlternar={alternarOrdemEv} />
                   <TableHead className={thClass}>Abertura</TableHead>
                   <TableHead className={thClass}>Finalização</TableHead>
                   <TableHead className={thClass}>Status</TableHead>
@@ -1202,10 +1263,10 @@ export function BiPerformanceLabPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {evsBuscados.length === 0 ? (
+                {evsOrdenados.length === 0 ? (
                   <CelulaVazia colSpan={9} texto="Nenhum evento encontrado no período." />
                 ) : (
-                  evsBuscados.map((e) => {
+                  evsOrdenados.map((e) => {
                     const ans = analisesDoEvento(anMap, e.id)
                     const aberto = evAbertos.has(e.id)
                     const resp = respEv(e)
