@@ -15,6 +15,7 @@ interface AutocompleteColaboradorProps {
   placeholder?: string
   label?: string
   somenteAtivos?: boolean
+  somenteInativos?: boolean
   departamentoId?: string | null
   permitirNovo?: boolean
 }
@@ -25,6 +26,7 @@ export function AutocompleteColaborador({
   placeholder = 'Digite nome ou matrícula...',
   label,
   somenteAtivos = true,
+  somenteInativos = false,
   departamentoId,
   permitirNovo = false,
 }: AutocompleteColaboradorProps) {
@@ -117,6 +119,8 @@ export function AutocompleteColaborador({
       .or(`nome_completo.ilike.%${termo}%,matricula.ilike.%${termo}%`)
     if (somenteAtivos) {
       query = query.eq('status', 'Ativo')
+    } else if (somenteInativos) {
+      query = query.eq('status', 'Inativo')
     }
     const { data } = await query.limit(50)
     let resultados = (data as Colaborador[]) || []
@@ -142,7 +146,7 @@ export function AutocompleteColaborador({
     setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
-  }, [somenteAtivos, departamentoId, buscarIdsDoGrupo])
+  }, [somenteAtivos, somenteInativos, departamentoId, buscarIdsDoGrupo])
 
   const buscarPorDepartamento = useCallback(async () => {
     if (!departamentoId) return
@@ -165,11 +169,13 @@ export function AutocompleteColaborador({
     })
     if (somenteAtivos) {
       resultados = resultados.filter((c) => c.status === 'Ativo')
+    } else if (somenteInativos) {
+      resultados = resultados.filter((c) => c.status === 'Inativo')
     }
     setColaboradores(resultados.slice(0, 10))
     setMostrarSugestoes(resultados.length > 0)
     setCarregando(false)
-  }, [departamentoId, somenteAtivos, buscarIdsDoGrupo])
+  }, [departamentoId, somenteAtivos, somenteInativos, buscarIdsDoGrupo])
 
   const handleBuscaChange = (val: string) => {
     setBusca(val)

@@ -1,4 +1,12 @@
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { Users } from 'lucide-react'
 import type { Colaborador } from '@/types/database'
@@ -16,6 +24,11 @@ export function ColaboradorSection({
   empresa,
   colaboradorId,
 }: ColaboradorSectionProps) {
+  // Ocorrência para inativo/demitido é esporádica (ex.: registro após o
+  // desligamento) — por padrão a busca mostra só ativos; trocar o filtro
+  // para "Inativos" restringe a busca a eles.
+  const [statusBusca, setStatusBusca] = useState<'ativo' | 'inativo'>('ativo')
+
   return (
     <Card className="border-slate-100 shadow-sm">
       <CardHeader className="pb-2">
@@ -35,12 +48,33 @@ export function ColaboradorSection({
             </div>
           </div>
         ) : (
-          <AutocompleteColaborador
-            value={colaboradorId || ''}
-            onChange={onColaboradorChange}
-            placeholder="Digite nome ou matrícula do colaborador..."
-            label="Colaborador"
-          />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">Colaborador</label>
+              <Select value={statusBusca} onValueChange={(v) => setStatusBusca(v as 'ativo' | 'inativo')}>
+                <SelectTrigger className="h-7 w-[130px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ativo">Ativos</SelectItem>
+                  <SelectItem value="inativo">Inativos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <AutocompleteColaborador
+              // Remonta ao trocar o filtro: limpa busca/seleção do status anterior.
+              key={statusBusca}
+              value={colaboradorId || ''}
+              onChange={onColaboradorChange}
+              placeholder={
+                statusBusca === 'ativo'
+                  ? 'Digite nome ou matrícula do colaborador...'
+                  : 'Digite nome ou matrícula do colaborador inativo...'
+              }
+              somenteAtivos={statusBusca === 'ativo'}
+              somenteInativos={statusBusca === 'inativo'}
+            />
+          </div>
         )}
       </CardContent>
     </Card>
