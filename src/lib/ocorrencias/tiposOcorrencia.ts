@@ -418,9 +418,9 @@ export const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
     tipo: 'Conclusão de Curso / Treinamento',
     gravidade: 'Positiva',
     baseLegal: 'Registro de capacitação profissional.',
-    exigeAnexo: true,
+    exigeAnexo: false,
     texto:
-      '[EMPRESA] — CNPJ: [CNPJ]\n\nO(A) colaborador(a) concluiu com êxito o curso/treinamento de [NOME DO CURSO], realizado no período de ___/___/_____ a ___/___/_____, com carga horária de ___ horas.\n\nO certificado/comprovante de conclusão encontra-se anexo ao presente registro. Esta capacitação contribui para o desenvolvimento profissional do colaborador e será considerada em futuras avaliações de desempenho.',
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nO(A) colaborador(a) concluiu com êxito o curso/treinamento de [NOME DO CURSO], realizado no período de ___/___/_____ a ___/___/_____, com carga horária de ___ horas.\n\nEsta capacitação contribui para o desenvolvimento profissional do colaborador e será considerada em futuras avaliações de desempenho. Quando houver, o certificado/comprovante de conclusão poderá ser anexado ao presente registro.',
   },
   {
     macroGrupo: '9. Registro do RH',

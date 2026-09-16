@@ -33,4 +33,10 @@ describe('exigeDocumentoAssinado', () => {
     expect(exigeDocumentoAssinado('')).toBe(false)
     expect(exigeDocumentoAssinado('Tipo Inexistente')).toBe(false)
   })
+
+  it('Conclusão de Curso / Treinamento NÃO exige anexo comprobatório (decisão da gestão, 16/09/2026)', () => {
+    expect(exigeDocumento('Conclusão de Curso / Treinamento')).toBe(false)
+    expect(exigeDocumentoAssinado('Conclusão de Curso / Treinamento')).toBe(false)
+    expect(TIPOS_COM_DOCUMENTO_OBRIGATORIO).not.toContain('Conclusão de Curso / Treinamento')
+  })
 })
