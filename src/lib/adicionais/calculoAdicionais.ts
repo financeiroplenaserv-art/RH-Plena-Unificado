@@ -113,18 +113,50 @@ export function substituicaoGeraAdicional(dia: {
 }
 
 /**
- * Conta colaboradores únicos por contrato no período. O mesmo colaborador não
- * pode ser contado duas vezes só porque aparece em mais de um vínculo do mesmo
- * contrato em períodos diferentes. A contagem deve refletir o momento atual da
- * tela/relatório e não o histórico acumulado de todos os períodos.
+ * Limites do período de apuração de adicionais (dia 20 de um mês ao dia 19 do
+ * seguinte). `mes` é o mês em que o período COMEÇA (1–12). Datas no formato
+ * YYYY-MM-DD, construídas como data local (nunca UTC).
+ */
+export function limitesPeriodoAdicional(ano: number, mes: number): { inicio: string; fim: string } {
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { inicio: fmt(new Date(ano, mes - 1, 20)), fim: fmt(new Date(ano, mes, 19)) }
+}
+
+/**
+ * Período (ano/mês de início, para `limitesPeriodoAdicional`) que contém a
+ * data informada. Usa getters LOCAIS — combinar com `agoraBrasil()`, cujos
+ * componentes locais refletem o horário de Brasília.
+ */
+export function periodoAdicionalDaData(data: Date): { ano: number; mes: number } {
+  if (data.getDate() >= 20) return { ano: data.getFullYear(), mes: data.getMonth() + 1 }
+  const anterior = new Date(data.getFullYear(), data.getMonth() - 1, 1)
+  return { ano: anterior.getFullYear(), mes: anterior.getMonth() + 1 }
+}
+
+/**
+ * Conta colaboradores únicos por contrato. O mesmo colaborador não pode ser
+ * contado duas vezes só porque aparece em mais de um vínculo do mesmo
+ * contrato em períodos diferentes.
+ * Com `periodoInicio`/`periodoFim` (YYYY-MM-DD), só entram vínculos que se
+ * sobrepõem ao período (inicio <= periodoFim && fim >= periodoInicio) — sem o
+ * filtro, a contagem acumula o histórico de todos os períodos e induz ao erro
+ * (ex.: contrato com 2 vagas mostrando 3/2 por causa de vínculo encerrado).
  */
 export function contarVinculosUnicosPorContrato(
-  vinculos: Array<{ contrato_id: string; colaborador_id: string }>
+  vinculos: Array<{ contrato_id: string; colaborador_id: string; data_inicio?: string | null; data_fim?: string | null }>,
+  periodoInicio?: string,
+  periodoFim?: string
 ): Map<string, number> {
   const mapa = new Map<string, Set<string>>()
 
   for (const vinculo of vinculos) {
     if (!vinculo.contrato_id || !vinculo.colaborador_id) continue
+    if (periodoInicio && periodoFim) {
+      const inicio = vinculo.data_inicio || '1900-01-01'
+      const fim = vinculo.data_fim || '9999-12-31'
+      if (inicio > periodoFim || fim < periodoInicio) continue
+    }
     const set = mapa.get(vinculo.contrato_id) ?? new Set<string>()
     set.add(vinculo.colaborador_id)
     mapa.set(vinculo.contrato_id, set)

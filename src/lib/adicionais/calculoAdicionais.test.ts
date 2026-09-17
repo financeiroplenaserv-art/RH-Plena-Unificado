@@ -9,6 +9,8 @@ import {
   substituicaoGeraAdicional,
   contarDiasTransferidos,
   contarVinculosUnicosPorContrato,
+  limitesPeriodoAdicional,
+  periodoAdicionalDaData,
 } from './calculoAdicionais'
 
 const FERIADOS = new Set(['2026-06-04', '2026-06-24', '2026-12-25'])
@@ -215,5 +217,53 @@ describe('contarVinculosUnicosPorContrato', () => {
       ['c1', 2],
       ['c2', 1],
     ]))
+  })
+
+  it('com período informado, ignora vínculos fora do período (caso Enseada: histórico não infla a contagem)', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'mauro', data_inicio: '2026-08-20', data_fim: '2026-09-19' },
+      { contrato_id: 'c1', colaborador_id: 'angelo', data_inicio: '2026-08-20', data_fim: '2026-09-19' },
+      { contrato_id: 'c1', colaborador_id: 'angelo', data_inicio: '2026-07-20', data_fim: '2026-08-19' },
+      { contrato_id: 'c1', colaborador_id: 'renan', data_inicio: '2026-06-20', data_fim: '2026-07-19' },
+    ]
+    const { inicio, fim } = limitesPeriodoAdicional(2026, 8)
+
+    expect(contarVinculosUnicosPorContrato(vinculos, inicio, fim)).toEqual(new Map([['c1', 2]]))
+    // Sem o filtro de período, o histórico acumula (comportamento antigo que induzia ao erro)
+    expect(contarVinculosUnicosPorContrato(vinculos)).toEqual(new Map([['c1', 3]]))
+  })
+
+  it('conta vínculo que se sobrepõe parcialmente ao período', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'u1', data_inicio: '2026-07-20', data_fim: '2026-08-19' },
+    ]
+    // vínculo termina no 1º dia do período consultado → sobrepõe
+    expect(contarVinculosUnicosPorContrato(vinculos, '2026-08-19', '2026-09-18').get('c1')).toBe(1)
+    // período seguinte (20/08 a 19/09) → não sobrepõe
+    expect(contarVinculosUnicosPorContrato(vinculos, '2026-08-20', '2026-09-19').has('c1')).toBe(false)
+  })
+})
+
+describe('limitesPeriodoAdicional', () => {
+  it('período vai do dia 20 do mês ao dia 19 do mês seguinte', () => {
+    expect(limitesPeriodoAdicional(2026, 9)).toEqual({ inicio: '2026-09-20', fim: '2026-10-19' })
+  })
+
+  it('dezembro vira o ano no fim do período', () => {
+    expect(limitesPeriodoAdicional(2026, 12)).toEqual({ inicio: '2026-12-20', fim: '2027-01-19' })
+  })
+})
+
+describe('periodoAdicionalDaData', () => {
+  it('antes do dia 20, o período corrente começou no mês anterior', () => {
+    expect(periodoAdicionalDaData(new Date(2026, 8, 16))).toEqual({ ano: 2026, mes: 8 })
+  })
+
+  it('do dia 20 em diante, o período corrente começa no próprio mês', () => {
+    expect(periodoAdicionalDaData(new Date(2026, 8, 20))).toEqual({ ano: 2026, mes: 9 })
+  })
+
+  it('início de janeiro pertence ao período iniciado em dezembro do ano anterior', () => {
+    expect(periodoAdicionalDaData(new Date(2026, 0, 5))).toEqual({ ano: 2025, mes: 12 })
   })
 })

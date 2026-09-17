@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Save, Trash2, Pencil, X } from 'lucide-react'
+import { Building2, Save, Trash2, Pencil, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -35,9 +35,9 @@ import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/types/adicionais'
 import type { Departamento } from '@/types/database'
-import { nomeDepartamento } from '@/lib/utils'
+import { nomeDepartamento, agoraBrasil, formatarData } from '@/lib/utils'
 import { podeEditarContratoAdicional } from '@/lib/permissoes'
-import { contarVinculosUnicosPorContrato } from '@/lib/adicionais/calculoAdicionais'
+import { contarVinculosUnicosPorContrato, limitesPeriodoAdicional, periodoAdicionalDaData } from '@/lib/adicionais/calculoAdicionais'
 
 const REGIMES_TRABALHO: { value: RegimeTrabalho; label: string }[] = [
   { value: '12x36', label: '12 × 36 (dia sim, dia não)' },
@@ -95,6 +95,12 @@ export function AdicionaisContratosPage() {
   const [modalVinculados, setModalVinculados] = useState<string | null>(null)
   const [departamentoFiltro, setDepartamentoFiltro] = useFiltroPersistente<string>('adicionais.contratos.departamento', 'todos')
   const [adicionalFiltro, setAdicionalFiltro] = useFiltroPersistente<string>('adicionais.contratos.adicional', 'todos')
+  // Período de referência da contagem "vinculados/esperados" (decisão da
+  // gestão, 16/09/2026): sem recorte de período, a contagem acumulava o
+  // histórico (ex.: 3/2 com vínculo encerrado). Padrão = período (20 a 19)
+  // que contém hoje, no horário de Brasília.
+  const [periodoAno, setPeriodoAno] = useFiltroPersistente('adicionais.contratos.ano', () => periodoAdicionalDaData(agoraBrasil()).ano)
+  const [periodoMes, setPeriodoMes] = useFiltroPersistente('adicionais.contratos.mes', () => periodoAdicionalDaData(agoraBrasil()).mes)
 
   useEffect(() => {
     listarContratos()
@@ -105,9 +111,18 @@ export function AdicionaisContratosPage() {
   const mapDept = new Map<string, Departamento>()
   departamentos.forEach(d => mapDept.set(d.id, d))
 
-  const vinculosPorContrato = contarVinculosUnicosPorContrato(vinculos)
+  const { inicio: periodoInicio, fim: periodoFim } = limitesPeriodoAdicional(periodoAno, periodoMes)
+  const periodoLabel = `${formatarData(periodoInicio)} a ${formatarData(periodoFim)}`
+  const vinculoCobrePeriodo = (v: { data_inicio?: string | null; data_fim?: string | null }) => {
+    const inicio = v.data_inicio || '1900-01-01'
+    const fim = v.data_fim || '9999-12-31'
+    return inicio <= periodoFim && fim >= periodoInicio
+  }
+
+  const vinculosPorContrato = contarVinculosUnicosPorContrato(vinculos, periodoInicio, periodoFim)
   const colaboradoresPorContrato = new Map<string, { id: string; nome: string; matricula: string; periodo: string }[]>()
   vinculos.forEach(v => {
+    if (!vinculoCobrePeriodo(v)) return
     const lista = colaboradoresPorContrato.get(v.contrato_id) || []
     const jaExiste = lista.some(c => c.id === v.colaborador_id)
     if (jaExiste) return
@@ -289,7 +304,30 @@ export function AdicionaisContratosPage() {
       )}
 
       <ModuleCard title="Contratos cadastrados">
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-4 flex flex-col lg:flex-row gap-4 items-end">
+          <div>
+            <Label style={{ color: '#1F2937' }}>Período da contagem</Label>
+            <div className="flex items-center gap-2">
+              <ModuleButton variant="outline" size="sm" onClick={() => {
+                if (periodoMes === 1) { setPeriodoMes(12); setPeriodoAno(a => a - 1) }
+                else setPeriodoMes(m => m - 1)
+              }}>
+                <ChevronLeft className="w-4 h-4" />
+                Anterior
+              </ModuleButton>
+              <div className="text-sm font-semibold min-w-[190px] text-center" style={{ color: '#1F2937' }}>
+                {periodoLabel}
+              </div>
+              <ModuleButton variant="outline" size="sm" onClick={() => {
+                if (periodoMes === 12) { setPeriodoMes(1); setPeriodoAno(a => a + 1) }
+                else setPeriodoMes(m => m + 1)
+              }}>
+                Próximo
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </ModuleButton>
+            </div>
+          </div>
+          <div className="w-full lg:flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label style={{ color: '#1F2937' }}>Departamento</Label>
             <DepartamentoAutocomplete
@@ -315,6 +353,7 @@ export function AdicionaisContratosPage() {
               </SelectContent>
             </Select>
           </div>
+          </div>
         </div>
 
         {contratosFiltrados.length === 0 ? (
@@ -326,7 +365,7 @@ export function AdicionaisContratosPage() {
                 <TableRow>
                   <TableHead style={{ color: '#1F2937' }}>Departamento</TableHead>
                   <TableHead style={{ color: '#1F2937' }}>Contrato</TableHead>
-                  <TableHead className="text-center" style={{ color: '#1F2937' }}># de colaboradores</TableHead>
+                  <TableHead className="text-center" style={{ color: '#1F2937' }}># no período</TableHead>
                   <TableHead style={{ color: '#1F2937' }}>Adicionais</TableHead>
                   <TableHead style={{ color: '#1F2937' }}>Intrajornada</TableHead>
                   <TableHead className="w-24"></TableHead>
@@ -338,6 +377,7 @@ export function AdicionaisContratosPage() {
                     const vinculados = vinculosPorContrato.get(c.id) || 0
                     const esperados = c.quantidade_colaboradores || 0
                     const incompleto = esperados > 0 && vinculados < esperados
+                    const excedente = esperados > 0 && vinculados > esperados
                     return (
                     <TableRow key={c.id} className="hover:bg-slate-50">
                       <TableCell style={{ color: '#64748B' }}>
@@ -354,11 +394,12 @@ export function AdicionaisContratosPage() {
                           className={vinculados > 0 ? 'hover:underline' : undefined}
                           disabled={vinculados === 0}
                         >
-                          <span className={incompleto ? 'text-amber-600 font-semibold' : undefined}>
+                          <span className={incompleto ? 'text-amber-600 font-semibold' : excedente ? 'text-red-600 font-semibold' : undefined}>
                             {vinculados}{esperados > 0 ? `/${esperados}` : ''}
                           </span>
                         </button>
                         {incompleto && <span className="ml-2 text-xs text-amber-600">incompleto</span>}
+                        {excedente && <span className="ml-2 text-xs text-red-600">excedente</span>}
                       </TableCell>
                       <TableCell style={{ color: '#64748B' }}>{adicionaisAtivos(c)}</TableCell>
                       <TableCell style={{ color: '#64748B' }}>
@@ -402,7 +443,7 @@ export function AdicionaisContratosPage() {
               Colaboradores vinculados
             </DialogTitle>
             <DialogDescription className="text-xs" style={{ color: '#94A3B8' }}>
-              {modalVinculados && contratos.find(c => c.id === modalVinculados)?.nome}
+              {modalVinculados && contratos.find(c => c.id === modalVinculados)?.nome} — período {periodoLabel}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -416,7 +457,7 @@ export function AdicionaisContratosPage() {
               </div>
             ))}
             {(modalVinculados ? colaboradoresPorContrato.get(modalVinculados) || [] : []).length === 0 && (
-              <p className="text-sm text-center py-4" style={{ color: '#94A3B8' }}>Nenhum colaborador vinculado.</p>
+              <p className="text-sm text-center py-4" style={{ color: '#94A3B8' }}>Nenhum colaborador vinculado neste período.</p>
             )}
           </div>
           <DialogFooter>
