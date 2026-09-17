@@ -799,6 +799,16 @@ export type Database = {
         }
         Returns: string
       }
+      excluir_ocorrencia_admin: {
+        Args: {
+          p_ocorrencia_id: string
+          p_motivo: string
+        }
+        Returns: {
+          ok: boolean
+          caminhos_storage: string[]
+        }
+      }
     }
   }
 }

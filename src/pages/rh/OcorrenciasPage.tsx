@@ -22,21 +22,31 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
 import { StatusBadge } from '@/components/corh/StatusBadge'
-import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { Button } from '@/components/corh/Button'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { AutocompleteColaborador } from '@/components/AutocompleteColaborador'
 import { Paginacao } from '@/components/Paginacao'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { RhShell } from './RhShell'
 import { useOcorrencias } from '@/hooks/useOcorrencias'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { cn, formatarData } from '@/lib/utils'
+import { STATUS_FILTRO_EXCETO_CANCELADAS } from '@/lib/ocorrencias/filtroStatus'
 import {
   podeCriarOcorrencia,
   podeVerDetalhesOcorrencia,
-  podeCancelarOcorrencia,
   podeEditarOcorrencia,
 } from '@/lib/permissoes'
 
@@ -68,16 +78,18 @@ export function OcorrenciasPage() {
   const perfil = user?.nivel_acesso
   const podeCriar = perfil ? podeCriarOcorrencia(perfil) : false
   const podeVerDetalhes = perfil ? podeVerDetalhesOcorrencia(perfil) : false
-  const podeCancelar = perfil ? podeCancelarOcorrencia(perfil) : false
   const podeEditar = perfil ? podeEditarOcorrencia(perfil) : false
+  // Exclusão definitiva: só admin/adm e só em ocorrências Canceladas — a RPC
+  // excluir_ocorrencia_admin confere o perfil de novo no backend (migration 110).
+  const podeExcluirDefinitivo = perfil === 'admin' || perfil === 'adm'
 
-  const { ocorrencias, loading, paginacao, listarPaginado, excluir } = useOcorrencias()
+  const { ocorrencias, loading, paginacao, listarPaginado, excluirDefinitivo } = useOcorrencias()
   const [pagina, setPagina] = useState(0)
   const [modoBusca, setModoBusca] = useFiltroPersistente<'cadastrados' | 'historicos'>('ocorrencias.lista.modo_busca', 'cadastrados')
   const [busca, setBusca] = useFiltroPersistente('ocorrencias.lista.busca', '')
   const [filtroTipos, setFiltroTipos] = useFiltroPersistente<string[]>('ocorrencias.lista.tipos', [])
   const [inputTipo, setInputTipo] = useState('')
-  const [filtroStatus, setFiltroStatus] = useFiltroPersistente('ocorrencias.lista.status', 'todos')
+  const [filtroStatus, setFiltroStatus] = useFiltroPersistente('ocorrencias.lista.status', STATUS_FILTRO_EXCETO_CANCELADAS)
   const [filtroEmpresa, setFiltroEmpresa] = useFiltroPersistente('ocorrencias.lista.empresa', 'todos')
   const [filtroMacroGrupo, setFiltroMacroGrupo] = useFiltroPersistente('ocorrencias.lista.macro_grupo', 'todos')
   const [filtroDataInicio, setFiltroDataInicio] = useFiltroPersistente('ocorrencias.lista.data_inicio', '')
@@ -87,6 +99,7 @@ export function OcorrenciasPage() {
   const [filtroStatusColaborador, setFiltroStatusColaborador] = useFiltroPersistente<'todos' | 'ativo' | 'inativo'>('ocorrencias.lista.status_colaborador', 'ativo')
   const [empresas, setEmpresas] = useState<{ id: string; nome: string }[]>([])
   const [ocorrenciaParaExcluir, setOcorrenciaParaExcluir] = useState<string | null>(null)
+  const [motivoExclusao, setMotivoExclusao] = useState('')
 
   const loadEmpresas = useCallback(async () => {
     const { data } = await supabase.from('empresas').select('id, nome').order('nome')
@@ -118,18 +131,24 @@ export function OcorrenciasPage() {
   }, [buildFiltros, listarPaginado, pagina])
 
   const handleDelete = async (id: string) => {
-    const sucesso = await excluir(id)
+    const sucesso = await excluirDefinitivo(id, motivoExclusao.trim())
     if (sucesso) {
       await loadOcorrencias()
     }
     setOcorrenciaParaExcluir(null)
+    setMotivoExclusao('')
+  }
+
+  const fecharDialogExclusao = () => {
+    setOcorrenciaParaExcluir(null)
+    setMotivoExclusao('')
   }
 
   const limparFiltros = useCallback(() => {
     setBusca('')
     setFiltroTipos([])
     setInputTipo('')
-    setFiltroStatus('todos')
+    setFiltroStatus(STATUS_FILTRO_EXCETO_CANCELADAS)
     setFiltroEmpresa('todos')
     setFiltroMacroGrupo('todos')
     setFiltroDataInicio('')
@@ -303,6 +322,7 @@ export function OcorrenciasPage() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={STATUS_FILTRO_EXCETO_CANCELADAS}>Todos, exceto canceladas</SelectItem>
             <SelectItem value="todos">Todos os status</SelectItem>
             <SelectItem value="Pendente">Pendente</SelectItem>
             <SelectItem value="Ativa">Ativa</SelectItem>
@@ -482,12 +502,12 @@ export function OcorrenciasPage() {
                               <SquarePen className="size-4" />
                             </button>
                           )}
-                          {o.status !== 'Cancelada' && podeCancelar && (
+                          {o.status === 'Cancelada' && podeExcluirDefinitivo && (
                             <button
                               type="button"
                               onClick={() => setOcorrenciaParaExcluir(o.id)}
                               className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-600"
-                              title="Cancelar ocorrência"
+                              title="Excluir definitivamente (arquiva cópia no log de exclusões)"
                             >
                               <Trash2 className="size-4" />
                             </button>
@@ -522,18 +542,39 @@ export function OcorrenciasPage() {
         )}
       </DataTable>
 
-      <ConfirmDialog
-        open={!!ocorrenciaParaExcluir}
-        onOpenChange={() => setOcorrenciaParaExcluir(null)}
-        icon={<Trash2 className="size-6 text-red-600" />}
-        iconClassName="bg-red-50"
-        title="Remover ocorrência?"
-        description="Esta ação excluirá permanentemente o registro. Deseja continuar?"
-        confirmLabel="Sim, excluir"
-        cancelLabel="Cancelar"
-        onConfirm={() => ocorrenciaParaExcluir && handleDelete(ocorrenciaParaExcluir)}
-        destructive
-      />
+      <AlertDialog open={!!ocorrenciaParaExcluir} onOpenChange={(aberto) => !aberto && fecharDialogExclusao()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-red-50">
+              <Trash2 className="size-6 text-red-600" />
+            </div>
+            <AlertDialogTitle>Excluir ocorrência cancelada?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação remove definitivamente o registro e seus anexos. Uma cópia completa fica
+              arquivada por 90 dias no log de exclusões, junto com o motivo informado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            placeholder="Motivo da exclusão (obrigatório) — ex.: lançamento de teste, registro duplicado..."
+            value={motivoExclusao}
+            onChange={(e) => setMotivoExclusao(e.target.value)}
+            rows={3}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!motivoExclusao.trim()}
+              onClick={(e) => {
+                e.preventDefault()
+                if (ocorrenciaParaExcluir && motivoExclusao.trim()) handleDelete(ocorrenciaParaExcluir)
+              }}
+              className="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              Sim, excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </RhShell>
   )
 }

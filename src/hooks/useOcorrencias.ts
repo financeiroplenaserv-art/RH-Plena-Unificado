@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { Ocorrencia, StatusOcorrencia } from '@/types/database'
 import type { Paginacao, ResultadoPaginado } from '@/types'
+import { condicaoFiltroStatus } from '@/lib/ocorrencias/filtroStatus'
 
 export interface FiltrosOcorrencia {
   colaborador_id?: string
@@ -33,7 +34,11 @@ export function useOcorrencias() {
 
   const aplicarFiltros = useCallback((query: ReturnType<typeof supabase.from>, filtros?: FiltrosOcorrencia) => {
     if (filtros?.colaborador_id) query = query.eq('colaborador_id', filtros.colaborador_id)
-    if (filtros?.status) query = query.eq('status', filtros.status as StatusOcorrencia)
+    if (filtros?.status) {
+      const condicao = condicaoFiltroStatus(filtros.status)
+      if (condicao?.operador === 'neq') query = query.neq('status', condicao.valor)
+      else if (condicao?.operador === 'eq') query = query.eq('status', condicao.valor as StatusOcorrencia)
+    }
     if (filtros?.tipo) {
       const tipos = Array.isArray(filtros.tipo) ? filtros.tipo : [filtros.tipo]
       if (tipos.length === 1) {
@@ -161,21 +166,31 @@ export function useOcorrencias() {
     return resultado
   }, [aplicarFiltros, placeholderId])
 
-  const excluir = useCallback(async (id: string) => {
-    // .select('id') para detectar DELETE bloqueado por RLS: sem o select,
-    // o PostgREST retorna sucesso com 0 linhas afetadas e o toast fingiria sucesso.
-    const { data, error } = await supabase.from('ocorrencias').delete().eq('id', id).select('id')
+  const excluirDefinitivo = useCallback(async (id: string, motivo: string): Promise<boolean> => {
+    // A RPC excluir_ocorrencia_admin (migration 110, SECURITY DEFINER) confere
+    // is_admin(), exige status Cancelada e motivo, arquiva a ocorrência e as
+    // filhas em ocorrencias_excluidas_log e só então exclui — tudo numa
+    // transação. O trigger de auditoria (061) registra o DELETE sozinho.
+    const { data, error } = await supabase.rpc('excluir_ocorrencia_admin', {
+      p_ocorrencia_id: id,
+      p_motivo: motivo,
+    })
 
     if (error) {
       toast.error('Erro ao excluir ocorrência: ' + error.message)
       return false
     }
-    if (!data || data.length === 0) {
-      toast.error('Sem permissão para excluir esta ocorrência')
-      return false
+
+    // A RPC não alcança o storage: devolve os caminhos dos anexos para o
+    // frontend remover os arquivos do bucket. Best-effort — falha aqui deixa
+    // arquivo órfão no bucket (privado), não dado órfão no banco.
+    const caminhos = data?.caminhos_storage ?? []
+    if (caminhos.length > 0) {
+      const { error: erroStorage } = await supabase.storage.from('ocorrencia-anexos').remove(caminhos)
+      if (erroStorage) console.error('Falha ao remover anexos do storage:', erroStorage)
     }
 
-    toast.success('Ocorrência removida')
+    toast.success('Ocorrência excluída (cópia arquivada no log de exclusões)')
     return true
   }, [])
 
@@ -184,6 +199,6 @@ export function useOcorrencias() {
     loading,
     paginacao,
     listarPaginado,
-    excluir,
+    excluirDefinitivo,
   }
 }
