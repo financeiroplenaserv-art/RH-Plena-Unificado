@@ -2,6 +2,18 @@
 // As colunas de data são timestamptz e chegam como ISO 8601
 // (ex.: "2026-08-19T13:00:00+00:00"); datas inválidas vêm como null.
 
+export interface BiLocal {
+  id: number
+  nome: string | null
+  sigla: string | null
+  cidade: string | null
+  uf: string | null
+  regional: string | null
+  grupos_nomes: string | null
+  status: number | null
+  data_criacao: string | null
+}
+
 export interface BiChecklist {
   id: number
   numero: number | null

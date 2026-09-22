@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, ClipboardCheck, ExternalLink, MapPin, RefreshCw, Search } from 'lucide-react'
 import type { ChartConfiguration, ChartEvent, ActiveElement } from 'chart.js'
 import type { PostgrestError } from '@supabase/supabase-js'
@@ -173,11 +173,12 @@ function Painel({
   )
 }
 
-function CelulaVazia({ colSpan, texto }: { colSpan: number; texto: string }) {
+function CelulaVazia({ colSpan, texto, acao }: { colSpan: number; texto: string; acao?: ReactNode }) {
   return (
     <TableRow>
       <TableCell colSpan={colSpan} className="py-8 text-center text-sm text-muted-foreground">
         {texto}
+        {acao && <div className="mt-2">{acao}</div>}
       </TableCell>
     </TableRow>
   )
@@ -304,6 +305,11 @@ export function BiPerformanceLabPage() {
   const [eventos, setEventos] = useState<BiEvento[]>([])
   const [analises, setAnalises] = useState<BiAnalise[]>([])
   const [syncLog, setSyncLog] = useState<BiSyncLog | null>(null)
+  // Cadastro completo de locais PLENA (bi_locais): o filtro Local lista todos
+  // os contratos, não só os presentes no período carregado — senão um local
+  // sem registros na janela (ex.: Exclusive nos últimos 5 dias) nem aparecia
+  // como opção para ampliar a busca (decisão da gestão, 22/09/2026)
+  const [locaisCadastro, setLocaisCadastro] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [sincronizando, setSincronizando] = useState(false)
@@ -340,7 +346,7 @@ export function BiPerformanceLabPage() {
     try {
       // gte na coluna de data de cada tabela (timestamptz); qas não tem data
       const gteIso = new Date(`${di}T00:00:00`).toISOString()
-      const [cks, qasRows, vis, evs, ans] = await Promise.all([
+      const [cks, qasRows, vis, evs, ans, locaisRows] = await Promise.all([
         buscarTudo<BiChecklist>((de, ate) =>
           supabase.from('bi_checklists').select('*').gte('data_inicio', gteIso).order('data_inicio', { ascending: false }).range(de, ate)
         ),
@@ -354,12 +360,14 @@ export function BiPerformanceLabPage() {
         buscarTudo<BiAnalise>((de, ate) =>
           supabase.from('bi_eventos_analises').select('*').gte('data_analise', gteIso).order('data_analise', { ascending: true }).range(de, ate)
         ),
+        supabase.from('bi_locais').select('nome').order('nome'),
       ])
       setChecklists(cks)
       setQas(qasRows)
       setColetas(vis)
       setEventos(evs)
       setAnalises(ans)
+      setLocaisCadastro((locaisRows.data ?? []).map((l) => l.nome).filter(Boolean) as string[])
 
       // Última execução do sync (fora do Promise.all: se a migration 103
       // ainda não foi aplicada, a página segue normal, só sem o selo)
@@ -467,6 +475,32 @@ export function BiPerformanceLabPage() {
     carregar(di90)
   }
 
+  /** Tabela da aba veio vazia: amplia o período para "dia 1 do mês corrente
+   *  até hoje" e recarrega (decisão da gestão, 22/09/2026) — a busca e os
+   *  filtros da aba continuam aplicados sobre o período maior */
+  const buscarDesdeDiaUm = () => {
+    const hoje = hojeBrasil()
+    const di = `${hoje.slice(0, 7)}-01`
+    setDiInput(di)
+    setDfInput(hoje)
+    setPeriodo({ di, df: hoje })
+    carregar(di)
+  }
+
+  // Oferta exibida nas tabelas vazias quando o período aplicado começa
+  // depois do dia 1 do mês (se já cobre, ampliar não traria nada novo)
+  const diaUmMes = `${hojeBrasil().slice(0, 7)}-01`
+  const ofertaDiaUm: ReactNode =
+    periodo.di > diaUmMes ? (
+      <button
+        type="button"
+        onClick={buscarDesdeDiaUm}
+        className="font-medium text-primary hover:underline"
+      >
+        Buscar desde {fmtD(diaUmMes)}
+      </button>
+    ) : undefined
+
   const qasMap = useMemo(() => mapaQas(qas), [qas])
   const anMap = useMemo(() => mapaAnalises(analises), [analises])
 
@@ -477,7 +511,12 @@ export function BiPerformanceLabPage() {
 
   // Opções dos selects derivadas dos dados carregados
   const pessoas = useMemo(() => opcoesPessoas(checklists, coletas, eventosResp), [checklists, coletas, eventosResp])
-  const locais = useMemo(() => opcoesLocais(checklists, coletas, eventos), [checklists, coletas, eventos])
+  // União do cadastro completo (bi_locais) com os site_nomes presentes no
+  // período carregado (cobre nomes legados que já não constam no cadastro)
+  const locais = useMemo(() => {
+    const nomes = new Set([...locaisCadastro, ...opcoesLocais(checklists, coletas, eventos)])
+    return [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [locaisCadastro, checklists, coletas, eventos])
 
   // Conjuntos filtrados (período + pessoa + local)
   const cks = useMemo(() => filtrarChecklists(checklists, filtros), [checklists, filtros])
@@ -965,7 +1004,7 @@ export function BiPerformanceLabPage() {
               {cabecalhoCk(false)}
               <TableBody>
                 {cksBuscados.length === 0 ? (
-                  <CelulaVazia colSpan={8} texto="Nenhum checklist encontrado no período." />
+                  <CelulaVazia colSpan={8} texto="Nenhum checklist encontrado no período." acao={ofertaDiaUm} />
                 ) : (
                   cksBuscados.map((c) => linhaCk(c, false))
                 )}
@@ -1092,7 +1131,7 @@ export function BiPerformanceLabPage() {
               </TableHeader>
               <TableBody>
                 {visBuscadas.length === 0 ? (
-                  <CelulaVazia colSpan={8} texto="Nenhuma visita encontrada no período." />
+                  <CelulaVazia colSpan={8} texto="Nenhuma visita encontrada no período." acao={ofertaDiaUm} />
                 ) : (
                   visBuscadas.map((v) => (
                     <TableRow key={v.id} className="hover:bg-accent/40">
@@ -1264,7 +1303,7 @@ export function BiPerformanceLabPage() {
               </TableHeader>
               <TableBody>
                 {evsOrdenados.length === 0 ? (
-                  <CelulaVazia colSpan={9} texto="Nenhum evento encontrado no período." />
+                  <CelulaVazia colSpan={9} texto="Nenhum evento encontrado no período." acao={ofertaDiaUm} />
                 ) : (
                   evsOrdenados.map((e) => {
                     const ans = analisesDoEvento(anMap, e.id)

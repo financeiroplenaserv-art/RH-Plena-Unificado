@@ -5,7 +5,7 @@ import type {
   DiaCalendarioAdicional,
 } from '@/types/adicionais'
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
-import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiSyncLog } from '@/types/bi'
+import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -695,6 +695,12 @@ export type Database = {
         Row: BiChecklist & Record<string, unknown>
         Insert: Partial<BiChecklist> & Record<string, unknown>
         Update: Partial<BiChecklist> & Record<string, unknown>
+        Relationships: []
+      }
+      bi_locais: {
+        Row: BiLocal & Record<string, unknown>
+        Insert: Partial<BiLocal> & Record<string, unknown>
+        Update: Partial<BiLocal> & Record<string, unknown>
         Relationships: []
       }
       bi_checklist_qas: {
