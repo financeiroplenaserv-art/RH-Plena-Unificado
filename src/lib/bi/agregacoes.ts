@@ -195,6 +195,19 @@ export function respEv(e: Pick<BiEvento, 'usuario_ultimo_nome' | 'usuario_nome'>
   return e.usuario_ultimo_nome || e.usuario_nome || '—'
 }
 
+/** Prefixo da nota automática que o PerformanceLab grava em acoes_realizadas
+ *  quando o evento estoura o SLA ("O PerformanceLab informa que este evento
+ *  teve seu status alterado para crítico..."). Não é registro humano. */
+const PREFIXO_ACOES_AUTOMATICAS = 'O PerformanceLab informa'
+
+/** "O que foi feito" do evento (24/09/2026): acoes_realizadas sem a nota
+ *  automática do PerformanceLab (mudança de status por estouro de SLA, ruído
+ *  presente em ~metade dos registros). '' quando não há texto humano. */
+export function oQueFoiFeito(e: Pick<BiEvento, 'acoes_realizadas'>): string {
+  const t = (e.acoes_realizadas || '').trim()
+  return t.startsWith(PREFIXO_ACOES_AUTOMATICAS) ? '' : t
+}
+
 /** Responsável exibido do evento: a pessoa citada na análise mais recente
  *  (decisão da gestão, 01/09/2026 — ex.: Eliane abriu o evento, mas a análise
  *  designou o Alexandre; quem responde pelo evento é o Alexandre).

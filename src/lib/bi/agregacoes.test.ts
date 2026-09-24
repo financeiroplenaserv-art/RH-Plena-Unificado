@@ -28,6 +28,7 @@ import {
   opcoesDe,
   opcoesLocais,
   opcoesPessoas,
+  oQueFoiFeito,
   ordenarEventos,
   producaoPorDiaInspetor,
   respEv,
@@ -514,6 +515,23 @@ describe('filtrarStatusEvento', () => {
   it('status exato e vazio seguem a regra de igualdade', () => {
     expect(filtrarStatusEvento([aberto, critico, concluido], 'Crítico').map((e) => e.id)).toEqual([2])
     expect(filtrarStatusEvento([aberto, critico, concluido], '')).toHaveLength(3)
+  })
+})
+
+describe('oQueFoiFeito (24/09/2026)', () => {
+  it('devolve o texto humano de acoes_realizadas, aparado', () => {
+    expect(oQueFoiFeito(evento({ acoes_realizadas: '  Reparo providenciado.  ' }))).toBe('Reparo providenciado.')
+  })
+
+  it('descarta a nota automática do PerformanceLab (estouro de SLA)', () => {
+    const automatica =
+      'O PerformanceLab informa que este evento teve seu status alterado para crítico, em razão de exceder o prazo do SLA estabelecido.'
+    expect(oQueFoiFeito(evento({ acoes_realizadas: automatica }))).toBe('')
+  })
+
+  it('vazio/null/espaços devolvem vazio', () => {
+    expect(oQueFoiFeito(evento({ acoes_realizadas: null }))).toBe('')
+    expect(oQueFoiFeito(evento({ acoes_realizadas: '   ' }))).toBe('')
   })
 })
 

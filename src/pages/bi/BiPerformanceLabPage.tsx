@@ -62,6 +62,7 @@ import {
   opcoesDe,
   opcoesLocais,
   opcoesPessoas,
+  oQueFoiFeito,
   ordenarEventos,
   producaoPorDiaInspetor,
   respEv,
@@ -1310,6 +1311,7 @@ export function BiPerformanceLabPage() {
                     const aberto = evAbertos.has(e.id)
                     const resp = respEv(e)
                     const obs = (e.observacao || '').trim()
+                    const feito = oQueFoiFeito(e)
                     const fin = (e.acoes_realizadas_finalizacao || '').trim()
                     return [
                       <TableRow key={e.id} className="hover:bg-accent/40">
@@ -1360,6 +1362,12 @@ export function BiPerformanceLabPage() {
                                   <p className="whitespace-pre-wrap text-xs text-muted-foreground">{obs}</p>
                                 </div>
                               )}
+                              {feito && (
+                                <div>
+                                  <p className="mb-1 text-[13px] font-semibold text-primary">O que foi feito</p>
+                                  <p className="whitespace-pre-wrap text-xs text-muted-foreground">{feito}</p>
+                                </div>
+                              )}
                               {fin && (
                                 <div>
                                   <p className="mb-1 text-[13px] font-semibold text-emerald-700">Finalização</p>
@@ -1395,7 +1403,7 @@ export function BiPerformanceLabPage() {
                                   </Table>
                                 </div>
                               ) : (
-                                !obs && !fin && (
+                                !obs && !feito && !fin && (
                                   <p className="text-xs text-muted-foreground">Sem detalhes registrados.</p>
                                 )
                               )}
