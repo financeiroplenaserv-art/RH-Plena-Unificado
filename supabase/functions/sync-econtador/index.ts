@@ -482,6 +482,175 @@ function dataDe(iso: string | null): string | null {
 }
 
 // ============================================================
+// Férias em andamento → ferias_solicitacoes (best-effort)
+// ------------------------------------------------------------
+// ESPELHO de src/lib/ferias/feriasEcontador.ts (fonte de verdade da
+// regra de dedup/status/datas) e de src/lib/ferias/funcoesFerias.ts
+// (normalizarCargo/resolverFuncao) — a Edge Function não importa src/,
+// como já acontece com deveIgnorarErroImportacao. Ao alterar um lado,
+// sincronizar o outro.
+// NUNCA toca registros origem 'manual'/'flit': o dedup só casa
+// origem='econtador' — férias lançadas pelo RH não são sobrescritas.
+// ============================================================
+
+/** Sem retorno na API: fim = início + 29 dias (30 dias de gozo, padrão CLT). */
+const DIAS_GOZO_PADRAO = 29
+const OBS_FERIAS_ECONTADOR = 'Importado do e-Contador (férias em andamento)'
+const OBS_FERIAS_ECONTADOR_FIM_ESTIMADO = 'Importado do e-Contador (férias em andamento) — fim estimado: confirmar com o DP'
+
+function somarDiasISO(iso: string, dias: number): string {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  const data = new Date(ano, mes - 1, dia + dias)
+  const mm = String(data.getMonth() + 1).padStart(2, '0')
+  const dd = String(data.getDate()).padStart(2, '0')
+  return `${data.getFullYear()}-${mm}-${dd}`
+}
+
+interface PeriodoFeriasEcontador {
+  data_inicio: string
+  data_fim: string
+  fimEstimado: boolean
+}
+
+function extrairPeriodoFeriasEcontador(f: FuncionarioMapeado): PeriodoFeriasEcontador | null {
+  if (f.afastamentodescricao !== 'Férias') return null
+  const inicio = dataDe(f.afastamento)
+  if (!inicio) return null
+  const retorno = dataDe(f.retorno)
+  if (retorno) return { data_inicio: inicio, data_fim: retorno, fimEstimado: false }
+  return { data_inicio: inicio, data_fim: somarDiasISO(inicio, DIAS_GOZO_PADRAO), fimEstimado: true }
+}
+
+function statusFeriasPorData(inicio: string, fim: string, hoje: string): string {
+  if (fim < hoje) return 'concluida'
+  if (inicio <= hoje) return 'em_andamento'
+  return 'aprovada'
+}
+
+/** Espelho de normalizarCargo (src/lib/ferias/funcoesFerias.ts). */
+function normalizarCargo(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().replace(/\s+/g, ' ').trim()
+}
+
+interface FuncaoFerias {
+  id: string
+  nome: string
+  nivel: number
+  aliases: string[]
+  ativo: boolean
+}
+
+/** Espelho de resolverFuncao (src/lib/ferias/funcoesFerias.ts): aliases/nome normalizados, empate → maior nível. */
+function resolverFuncaoId(cargo: string | null, funcoes: FuncaoFerias[]): string | null {
+  const alvo = normalizarCargo(cargo ?? '')
+  if (!alvo) return null
+  let melhor: FuncaoFerias | null = null
+  for (const funcao of funcoes) {
+    if (!funcao.ativo) continue
+    const grafias = [funcao.nome, ...(funcao.aliases ?? [])]
+    if (grafias.some((g) => g && normalizarCargo(g) === alvo) && (!melhor || funcao.nivel > melhor.nivel)) {
+      melhor = funcao
+    }
+  }
+  return melhor?.id ?? null
+}
+
+/**
+ * Gera/atualiza ferias_solicitacoes para quem está de férias na API
+ * (afastamentodescricao === 'Férias' com data de afastamento). Dedup por
+ * (colaborador_id, origem='econtador', data_inicio). Best-effort: erros são
+ * contados à parte e NÃO entram nos erros da importação.
+ */
+async function sincronizarFeriasEcontador(
+  supabase: ClienteSupabase,
+  lista: FuncionarioMapeado[]
+): Promise<{ sincronizadas: number; erros: number }> {
+  const candidatos = lista
+    .map((f) => ({ f, periodo: extrairPeriodoFeriasEcontador(f) }))
+    .filter((c): c is { f: FuncionarioMapeado; periodo: PeriodoFeriasEcontador } => c.periodo !== null)
+  if (candidatos.length === 0) return { sincronizadas: 0, erros: 0 }
+
+  const hoje = hojeBrasil()
+  let sincronizadas = 0
+  let erros = 0
+
+  // matricula é única globalmente (migração 079) — um fetch resolve todos
+  const matriculas = Array.from(new Set(candidatos.map((c) => c.f.codigo || c.f.id)))
+  const { data: colaboradores, error: erroColaboradores } = await supabase
+    .from('colaboradores')
+    .select('id, matricula, departamento_id, cargo')
+    .in('matricula', matriculas)
+  if (erroColaboradores) {
+    console.error('Falha ao localizar colaboradores para sincronizar férias:', erroColaboradores)
+    return { sincronizadas: 0, erros: candidatos.length }
+  }
+  const porMatricula = new Map(
+    ((colaboradores || []) as { id: string; matricula: string; departamento_id: string | null; cargo: string | null }[]).map(
+      (c) => [c.matricula, c]
+    )
+  )
+
+  let funcoes: FuncaoFerias[] | null = null
+
+  for (const { f, periodo } of candidatos) {
+    const colaborador = porMatricula.get(f.codigo || f.id)
+    if (!colaborador) continue
+    try {
+      const { data: existente, error: erroBusca } = await supabase
+        .from('ferias_solicitacoes')
+        .select('id, data_fim, status')
+        .eq('colaborador_id', colaborador.id)
+        .eq('origem', 'econtador')
+        .eq('data_inicio', periodo.data_inicio)
+        .maybeSingle()
+      if (erroBusca) throw erroBusca
+
+      const status = statusFeriasPorData(periodo.data_inicio, periodo.data_fim, hoje)
+      const observacao = periodo.fimEstimado ? OBS_FERIAS_ECONTADOR_FIM_ESTIMADO : OBS_FERIAS_ECONTADOR
+
+      if (!existente) {
+        if (!funcoes) {
+          const { data } = await supabase.from('ferias_funcoes').select('id, nome, nivel, aliases, ativo')
+          funcoes = (data || []) as FuncaoFerias[]
+        }
+        const { data: inserida, error } = await supabase
+          .from('ferias_solicitacoes')
+          .insert({
+            colaborador_id: colaborador.id,
+            departamento_id: colaborador.departamento_id,
+            funcao_id: resolverFuncaoId(colaborador.cargo, funcoes),
+            tipo: 'gozo',
+            origem: 'econtador',
+            data_inicio: periodo.data_inicio,
+            data_fim: periodo.data_fim,
+            status,
+            observacao,
+          })
+          .select('id')
+        if (error) throw error
+        if (!inserida || inserida.length === 0) throw new Error('Insert de férias não gravou linhas')
+      } else if (existente.data_fim !== periodo.data_fim || existente.status !== status) {
+        const { data: atualizada, error } = await supabase
+          .from('ferias_solicitacoes')
+          .update({ data_fim: periodo.data_fim, status, observacao })
+          .eq('id', existente.id)
+          .select('id')
+        if (error) throw error
+        if (!atualizada || atualizada.length === 0) throw new Error('Update de férias não gravou linhas')
+      } else {
+        continue // dedup: nada mudou
+      }
+      sincronizadas++
+    } catch (err) {
+      erros++
+      console.warn('Falha ao sincronizar férias do e-Contador (best-effort):', f.nome, err)
+    }
+  }
+
+  return { sincronizadas, erros }
+}
+
+// ============================================================
 // Empresas internas (port de useEContador.importarFuncionarios,
 // useEContador.ts:246-304)
 // ============================================================
@@ -922,6 +1091,8 @@ interface ResultadoEmpresa {
   importados: number
   atualizados: number
   erros: number
+  feriasSincronizadas: number
+  feriasErros: number
 }
 
 async function processarEmpresa(
@@ -984,6 +1155,10 @@ async function processarEmpresa(
   // 5) Gravação em lote
   await gravarDecisoes(supabase, decisoes, cont)
 
+  // 5b) Férias em andamento → ferias_solicitacoes (best-effort; erros contados
+  // à parte para não sujar os erros da importação de colaboradores)
+  const ferias = await sincronizarFeriasEcontador(supabase, lista)
+
   // 6) Histórico: 1 linha por empresa (usuario_id null = job agendado)
   await salvarHistorico(supabase, {
     empresa_id: empresaAlt.id || null,
@@ -996,7 +1171,7 @@ async function processarEmpresa(
   })
 
   console.log(
-    `${empresaAlt.nome}: ${cont.importados} novos | ${cont.atualizados} atualizados | ${cont.erros} erros`
+    `${empresaAlt.nome}: ${cont.importados} novos | ${cont.atualizados} atualizados | ${cont.erros} erros | ${ferias.sincronizadas} férias sincronizadas${ferias.erros > 0 ? ` | ${ferias.erros} erros de férias` : ''}`
   )
   return {
     empresa: empresaAlt.nome,
@@ -1004,6 +1179,8 @@ async function processarEmpresa(
     importados: cont.importados,
     atualizados: cont.atualizados,
     erros: cont.erros,
+    feriasSincronizadas: ferias.sincronizadas,
+    feriasErros: ferias.erros,
   }
 }
 
@@ -1102,6 +1279,8 @@ Deno.serve(async (req: Request) => {
           importados: 0,
           atualizados: 0,
           erros: 1,
+          feriasSincronizadas: 0,
+          feriasErros: 0,
         })
       }
     }

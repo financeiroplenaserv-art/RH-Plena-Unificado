@@ -4,13 +4,106 @@ import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
 import { deveIgnorarErroImportacao, extrairMensagemErro } from '@/lib/econtador'
 import { encontrarDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
-import { agoraBrasil } from '@/lib/utils'
+import { agoraBrasil, hojeBrasil } from '@/lib/utils'
+import { extrairPeriodoFeriasEcontador, decidirSincronizacaoFerias } from '@/lib/ferias/feriasEcontador'
+import { resolverFuncao } from '@/lib/ferias/funcoesFerias'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
+import type { FeriasFuncao, FeriasSolicitacao } from '@/types/ferias'
 import { useColaboradores } from './useColaboradores'
 import { useEmpresas } from './useEmpresas'
 
 const COLUNAS_HISTORICO_IMPORTACAO = 'id, usuario_id, empresa_id, empresa_nome, quantidade, importados, atualizados, erros, detalhes_erros, created_at'
+
+interface ColaboradorSincronizado {
+  id: string
+  departamento_id: string | null
+  cargo: string | null
+}
+
+/**
+ * Férias em andamento no e-Contador → ferias_solicitacoes (best-effort).
+ * Regra de dedup/status/datas em src/lib/ferias/feriasEcontador.ts (fonte de
+ * verdade — o sync-econtador espelha em Deno). NUNCA toca registros origem
+ * 'manual'/'flit': o dedup só casa origem='econtador'.
+ */
+async function sincronizarFeriasEcontador(
+  lista: EContadorFuncionario[],
+  colaboradores: Map<string, ColaboradorSincronizado>
+): Promise<{ sincronizadas: number; erros: number }> {
+  const hoje = hojeBrasil()
+  let funcoes: FeriasFuncao[] | null = null
+  let sincronizadas = 0
+  let erros = 0
+
+  for (const f of lista) {
+    const periodo = extrairPeriodoFeriasEcontador({
+      afastamentodescricao: f.afastamentodescricao,
+      afastamento: f.afastamento,
+      retorno: f.retorno,
+    })
+    if (!periodo) continue
+    const colaborador = colaboradores.get(f.codigo || f.id)
+    if (!colaborador) continue
+
+    try {
+      const { data: existente, error: erroBusca } = await supabase
+        .from('ferias_solicitacoes')
+        .select('id, data_fim, status')
+        .eq('colaborador_id', colaborador.id)
+        .eq('origem', 'econtador')
+        .eq('data_inicio', periodo.data_inicio)
+        .maybeSingle()
+      if (erroBusca) throw erroBusca
+
+      const decisao = decidirSincronizacaoFerias(
+        periodo,
+        (existente as Pick<FeriasSolicitacao, 'id' | 'data_fim' | 'status'> | null) ?? null,
+        hoje
+      )
+      if (decisao.acao === 'ignorar') continue
+
+      if (decisao.acao === 'inserir') {
+        if (!funcoes) {
+          const { data } = await supabase.from('ferias_funcoes').select('id, nome, nivel, aliases, ativo')
+          funcoes = (data || []) as FeriasFuncao[]
+        }
+        const funcao = resolverFuncao(colaborador.cargo, funcoes)
+        const { data: inserida, error } = await supabase
+          .from('ferias_solicitacoes')
+          .insert({
+            colaborador_id: colaborador.id,
+            departamento_id: colaborador.departamento_id,
+            funcao_id: funcao?.id ?? null,
+            tipo: 'gozo',
+            origem: 'econtador',
+            ...decisao.dados,
+          })
+          .select('id')
+        if (error) throw error
+        if (!inserida || inserida.length === 0) throw new Error('Sem permissão para inserir férias')
+      } else {
+        const { data: atualizada, error } = await supabase
+          .from('ferias_solicitacoes')
+          .update({
+            data_fim: decisao.dados.data_fim,
+            status: decisao.dados.status,
+            observacao: decisao.dados.observacao,
+          })
+          .eq('id', existente!.id)
+          .select('id')
+        if (error) throw error
+        if (!atualizada || atualizada.length === 0) throw new Error('Sem permissão para atualizar férias')
+      }
+      sincronizadas++
+    } catch (err) {
+      erros++
+      console.warn('Falha ao sincronizar férias do e-Contador (best-effort, não bloqueia a importação):', f.nome, err)
+    }
+  }
+
+  return { sincronizadas, erros }
+}
 
 export function useEContador() {
   const [empresas, setEmpresas] = useState<EContadorEmpresa[]>([])
@@ -233,12 +326,14 @@ export function useEContador() {
     lista: EContadorFuncionario[],
     eContadorEmpresaId?: string,
     eContadorEmpresaNome?: string
-  ): Promise<{ importados: number; atualizados: number; erros: number; detalhesErros: { nome: string; erro: string }[] }> => {
+  ): Promise<{ importados: number; atualizados: number; erros: number; detalhesErros: { nome: string; erro: string }[]; feriasSincronizadas: number }> => {
     setLoading(true)
     let importados = 0
     let atualizados = 0
     let erros = 0
     const detalhesErros: { nome: string; erro: string }[] = []
+    // matricula → dados do colaborador gravado (para a sincronização de férias)
+    const colaboradoresSincronizados = new Map<string, ColaboradorSincronizado>()
 
     const hoje = agoraBrasil()
     hoje.setHours(0, 0, 0, 0)
@@ -392,6 +487,11 @@ export function useEContador() {
         const resultado = await upsertPorMatricula(dados)
         if (resultado.acao === 'criado') importados++
         else atualizados++
+        colaboradoresSincronizados.set(dados.matricula, {
+          id: resultado.id,
+          departamento_id: dados.departamento_id,
+          cargo: dados.cargo,
+        })
       } catch (err: unknown) {
         // Inativo/demitido sem correspondência no CORH e com matrícula já em
         // uso por outro colaborador: registro histórico antigo — ignora em
@@ -417,8 +517,15 @@ export function useEContador() {
       }
     }
 
+    // Férias em andamento no e-Contador → ferias_solicitacoes (best-effort:
+    // falha aqui não invalida a importação dos colaboradores)
+    const { sincronizadas: feriasSincronizadas, erros: errosFerias } = await sincronizarFeriasEcontador(lista, colaboradoresSincronizados)
+    if (errosFerias > 0) {
+      console.warn(`Sincronização de férias do e-Contador: ${errosFerias} erro(s) (ver console)`)
+    }
+
     setLoading(false)
-    const msg = `${importados} novos | ${atualizados} atualizados${erros > 0 ? ` | ${erros} erros` : ''}`
+    const msg = `${importados} novos | ${atualizados} atualizados${erros > 0 ? ` | ${erros} erros` : ''}${feriasSincronizadas > 0 ? ` | ${feriasSincronizadas} férias em andamento sincronizadas` : ''}`
     toast.success(`Importação: ${msg}`)
 
     await salvarHistorico({
@@ -431,7 +538,7 @@ export function useEContador() {
       detalhes_erros: detalhesErros,
     })
 
-    return { importados, atualizados, erros, detalhesErros }
+    return { importados, atualizados, erros, detalhesErros, feriasSincronizadas }
   }, [empresasDB, upsertPorMatricula, sincronizarDepartamentos, listarEmpresasDB, salvarHistorico])
 
   const reimportar = useCallback(async (item: HistoricoImportacao) => {

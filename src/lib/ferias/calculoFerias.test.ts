@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   calcularLimiteConcessivo,
   resumirFerias,
+  listarAquisitivos,
   DIAS_ALERTA_VENCIMENTO,
   type PeriodoSimples,
 } from './calculoFerias'
@@ -115,5 +116,57 @@ describe('resumirFerias', () => {
     const resumo = resumirFerias('2018-04-07', periodos, HOJE)
     expect(resumo.proximaPrevisao).toEqual({ inicio: '2026-08-01', fim: '2026-08-30' })
     expect(resumo.proximoAgendado).toEqual({ inicio: '2026-09-01', fim: '2026-09-30' })
+  })
+
+  it('ignora solicitações canceladas (não contam como gozo nem agendado)', () => {
+    const periodos: PeriodoSimples[] = [
+      { tipo: 'gozo', data_inicio: '2026-07-02', data_fim: '2026-07-31', status: 'cancelada' },
+      { tipo: 'agendado', data_inicio: '2026-08-12', data_fim: '2026-09-10', status: 'cancelada' },
+    ]
+    const resumo = resumirFerias('2013-11-09', periodos, HOJE)
+    expect(resumo.situacao).not.toBe('Em gozo')
+    expect(resumo.situacao).not.toBe('Agendado')
+    expect(resumo.ultimoGozo).toBeNull()
+    expect(resumo.proximoAgendado).toBeNull()
+  })
+
+  it('ignora previsão cancelada mas mantém as demais', () => {
+    const periodos: PeriodoSimples[] = [
+      { tipo: 'previsto', data_inicio: '2026-08-01', data_fim: '2026-08-30', status: 'cancelada' },
+      { tipo: 'previsto', data_inicio: '2026-10-01', data_fim: '2026-10-30', status: 'pendente' },
+    ]
+    const resumo = resumirFerias('2018-04-07', periodos, HOJE)
+    expect(resumo.situacao).toBe('Previsto')
+    expect(resumo.proximaPrevisao).toEqual({ inicio: '2026-10-01', fim: '2026-10-30' })
+  })
+})
+
+describe('listarAquisitivos', () => {
+  it('retorna vazio sem data de admissão', () => {
+    expect(listarAquisitivos(null, [], HOJE)).toEqual([])
+    expect(listarAquisitivos('data-invalida', [], HOJE)).toEqual([])
+  })
+
+  it('gera um ciclo de 12 meses por ano, parando no aquisitivo que contém hoje', () => {
+    // Admissão 10/04/2023, hoje 23/07/2026 → 4 ciclos (o 4º contém hoje)
+    const lista = listarAquisitivos('2023-04-10', [], HOJE)
+    expect(lista).toHaveLength(4)
+    expect(lista[0]).toMatchObject({ inicio: '2023-04-10', fim: '2024-04-09', limiteConcessivo: '2025-04-09' })
+    expect(lista[3]).toMatchObject({ inicio: '2026-04-10', fim: '2027-04-09', atual: true })
+    expect(lista.filter((a) => a.atual)).toHaveLength(1)
+  })
+
+  it('marca como coberto o aquisitivo com gozo encerrado dentro do concessivo', () => {
+    // Gozo terminou 31/03/2026 → cobre o aquisitivo que fim 09/04/2025 (concessivo até 09/04/2026)
+    const lista = listarAquisitivos('2023-04-10', [{ inicio: '2026-03-02', fim: '2026-03-31' }], HOJE)
+    const cobertos = lista.filter((a) => a.coberto)
+    expect(cobertos).toHaveLength(1)
+    expect(cobertos[0].fim).toBe('2025-04-09')
+  })
+
+  it('gozo fora do período concessivo não cobre o aquisitivo', () => {
+    // Gozo terminou 31/05/2026 → depois do limite 09/04/2026 do 2º aquisitivo
+    const lista = listarAquisitivos('2023-04-10', [{ inicio: '2026-05-02', fim: '2026-05-31' }], HOJE)
+    expect(lista.find((a) => a.fim === '2025-04-09')?.coberto).toBe(false)
   })
 })

@@ -7,14 +7,16 @@ import {
   type LinhaPlanilhaFerias,
 } from './importarFeriasFlit'
 
-function colaboradorFake(id: string, nome: string, status: 'Ativo' | 'Inativo' = 'Ativo'): Colaborador {
-  return { id, nome_completo: nome, status, matricula: id } as Colaborador
+function colaboradorFake(id: string, nome: string, status: 'Ativo' | 'Inativo' = 'Ativo', cpf: string | null = null): Colaborador {
+  return { id, nome_completo: nome, status, matricula: id, cpf } as Colaborador
 }
 
 function linhaFake(parcial: Partial<LinhaPlanilhaFerias>): LinhaPlanilhaFerias {
   return {
     nome: 'COLABORADOR TESTE',
     departamento: '',
+    cpf: null,
+    matricula: null,
     ultimoPeriodoTexto: '',
     ultimaDescricao: null,
     proximoPeriodoTexto: '',
@@ -129,5 +131,59 @@ describe('casarColaboradores', () => {
     )
     expect(resultado.periodosInvalidos).toEqual(['FULANO'])
     expect(resultado.periodos).toHaveLength(0)
+  })
+
+  it('casa por CPF com prioridade sobre o nome', () => {
+    const resultado = casarColaboradores(
+      [linhaFake({ nome: 'NOME TOTALMENTE DIFERENTE', cpf: '123.456.789-00', ultimoPeriodoTexto: '02/07/2026 - 31/07/2026' })],
+      [colaboradorFake('1', 'Fulano', 'Ativo', '12345678900')]
+    )
+    expect(resultado.periodos).toHaveLength(1)
+    expect(resultado.periodos[0].colaborador_id).toBe('1')
+  })
+
+  it('casa CPF com 10 dígitos (zero à esquerda faltando na planilha)', () => {
+    const resultado = casarColaboradores(
+      [linhaFake({ cpf: '2345678901', ultimoPeriodoTexto: '02/07/2026 - 31/07/2026' })],
+      [colaboradorFake('1', 'Fulano', 'Ativo', '023.456.789-01')]
+    )
+    expect(resultado.periodos).toHaveLength(1)
+    expect(resultado.periodos[0].colaborador_id).toBe('1')
+  })
+
+  it('casa por matrícula com zeros à esquerda normalizados', () => {
+    const resultado = casarColaboradores(
+      [linhaFake({ nome: 'OUTRO NOME', matricula: '16', ultimoPeriodoTexto: '02/07/2026 - 31/07/2026' })],
+      [{ ...colaboradorFake('1', 'Fulano'), matricula: '000016' }]
+    )
+    expect(resultado.periodos).toHaveLength(1)
+    expect(resultado.periodos[0].colaborador_id).toBe('1')
+  })
+
+  it('sem coluna de CPF/matrícula, mantém o match por nome', () => {
+    const resultado = casarColaboradores(
+      [linhaFake({ nome: 'FULANO', ultimoPeriodoTexto: '02/07/2026 - 31/07/2026' })],
+      [colaboradorFake('1', 'Fulano', 'Ativo', '12345678900')]
+    )
+    expect(resultado.periodos).toHaveLength(1)
+    expect(resultado.periodos[0].colaborador_id).toBe('1')
+  })
+})
+
+describe('parsePlanilhaFerias — colunas opcionais de CPF/matrícula', () => {
+  it('detecta colunas de CPF e matrícula (com variações de nome)', () => {
+    const linhas = parsePlanilhaFerias([
+      { Colaborador: 'FULANO', CPF: '123.456.789-00', 'Matrícula': '000016', 'Último período': '' },
+    ])
+    expect(linhas[0].cpf).toBe('123.456.789-00')
+    expect(linhas[0].matricula).toBe('000016')
+    const porCodigo = parsePlanilhaFerias([{ Colaborador: 'FULANO', 'Código': '000016' }])
+    expect(porCodigo[0].matricula).toBe('000016')
+  })
+
+  it('sem as colunas, os campos ficam null', () => {
+    const linhas = parsePlanilhaFerias([{ Colaborador: 'FULANO' }])
+    expect(linhas[0].cpf).toBeNull()
+    expect(linhas[0].matricula).toBeNull()
   })
 })

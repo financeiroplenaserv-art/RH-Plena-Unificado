@@ -1,9 +1,12 @@
-import { CalendarDays, Upload, Bell } from 'lucide-react'
+import { CalendarDays, Upload, Bell, UserCheck, CalendarRange, UserPlus } from 'lucide-react'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import type { ModuleTab } from '@/components/layout/ModuleShell'
 
 const TABS: ModuleTab[] = [
   { path: '/ferias', label: 'Visão geral', icon: CalendarDays },
+  { path: '/ferias/programacao', label: 'Programação', icon: CalendarRange },
+  { path: '/ferias/alocacao', label: 'Alocação', icon: UserPlus },
+  { path: '/ferias/feristas', label: 'Feristas', icon: UserCheck },
   { path: '/ferias/importar', label: 'Importar', icon: Upload },
   { path: '/ferias/notificacoes', label: 'Notificações', icon: Bell },
 ]

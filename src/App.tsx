@@ -28,6 +28,10 @@ import {
   EscalasLocaisPage,
   EscalasMapeamentoPage,
   FeriasPage,
+  FeriasColaboradorPage,
+  FeriasFeristasPage,
+  FeriasAlocacaoPage,
+  FeriasProgramacaoPage,
   FeriasImportarPage,
   FeriasNotificacoesPage,
   OcorrenciasPage,
@@ -648,6 +652,38 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
                     <FeriasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ferias/programacao"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                    <FeriasProgramacaoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ferias/alocacao"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                    <FeriasAlocacaoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ferias/feristas"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                    <FeriasFeristasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ferias/colaborador/:id"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                    <FeriasColaboradorPage />
                   </ProtectedRoute>
                 }
               />

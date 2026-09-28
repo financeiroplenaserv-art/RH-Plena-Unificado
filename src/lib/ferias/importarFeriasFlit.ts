@@ -13,6 +13,10 @@ import { normalizarTexto } from '../escalas/normalizarTexto'
 export interface LinhaPlanilhaFerias {
   nome: string
   departamento: string
+  /** CPF da planilha (texto cru), quando a coluna existe — match prioritário */
+  cpf: string | null
+  /** Matrícula da planilha (texto cru), quando a coluna existe — match prioritário */
+  matricula: string | null
   ultimoPeriodoTexto: string
   ultimaDescricao: string | null
   proximoPeriodoTexto: string
@@ -84,6 +88,20 @@ export function parsePeriodo(texto: string | null | undefined): { inicio: string
   return { inicio, fim }
 }
 
+/** CPF só dígitos com zero à esquerda (mesma regra dos recibos CEU). */
+export function normalizarCpfFerias(cpf: string | null | undefined): string {
+  const digitos = (cpf ?? '').replace(/\D/g, '')
+  return digitos ? digitos.padStart(11, '0') : ''
+}
+
+/** Matrícula sem espaços e sem zeros à esquerda ('000016' e '16' casam). */
+export function normalizarMatriculaFerias(matricula: string | null | undefined): string {
+  const texto = (matricula ?? '').trim()
+  if (!texto) return ''
+  const semZeros = texto.replace(/^0+/, '')
+  return semZeros || '0'
+}
+
 /** Extrai as linhas da planilha (json do sheet_to_json) no formato de férias. */
 export function parsePlanilhaFerias(jsonData: Record<string, unknown>[]): LinhaPlanilhaFerias[] {
   if (jsonData.length === 0) return []
@@ -91,6 +109,8 @@ export function parsePlanilhaFerias(jsonData: Record<string, unknown>[]): LinhaP
   const todasAsChaves = Array.from(new Set(jsonData.flatMap((row) => Object.keys(row))))
   const colNome = detectarColuna(todasAsChaves, ['colaborador', 'nome', 'nome do colaborador', 'funcionario'])
   const colDepartamento = detectarColuna(todasAsChaves, ['departamento'])
+  const colCpf = detectarColuna(todasAsChaves, ['cpf'])
+  const colMatricula = detectarColuna(todasAsChaves, ['matricula', 'matrícula', 'codigo', 'código'])
   const colUltimoPeriodo = detectarColuna(todasAsChaves, ['último período', 'ultimo periodo'])
   const colUltimaDescricao = detectarColuna(todasAsChaves, ['últ. descrição', 'ult. descricao', 'última descrição'])
   const colProximoPeriodo = detectarColuna(todasAsChaves, ['próximo período', 'proximo periodo'])
@@ -107,6 +127,8 @@ export function parsePlanilhaFerias(jsonData: Record<string, unknown>[]): LinhaP
       return {
         nome,
         departamento: colDepartamento ? getString(row, colDepartamento).trim() : '',
+        cpf: colCpf ? getString(row, colCpf).trim() || null : null,
+        matricula: colMatricula ? getString(row, colMatricula).trim() || null : null,
         ultimoPeriodoTexto: colUltimoPeriodo ? getString(row, colUltimoPeriodo).trim() : '',
         ultimaDescricao: colUltimaDescricao ? getString(row, colUltimaDescricao).trim() || null : null,
         proximoPeriodoTexto: colProximoPeriodo ? getString(row, colProximoPeriodo).trim() : '',
@@ -117,21 +139,37 @@ export function parsePlanilhaFerias(jsonData: Record<string, unknown>[]): LinhaP
 }
 
 /**
- * Casa as linhas da planilha com os colaboradores cadastrados por nome
- * normalizado. Em duplicidade de nome, prefere o colaborador Ativo; se ainda
- * houver mais de um, a linha vai para a lista de ambíguos e não é importada.
+ * Casa as linhas da planilha com os colaboradores cadastrados. Prioridade:
+ * CPF → matrícula → nome normalizado. Em duplicidade de chave, prefere o
+ * colaborador Ativo; se ainda houver mais de um, a linha vai para a lista de
+ * ambíguos e não é importada.
  */
 export function casarColaboradores(
   linhas: LinhaPlanilhaFerias[],
   colaboradores: Colaborador[]
 ): ResultadoCasamentoFerias {
   const porNome = new Map<string, Colaborador[]>()
-  for (const colaborador of colaboradores) {
-    const chave = normalizarTexto(colaborador.nome_completo)
-    if (!chave) continue
-    const lista = porNome.get(chave) ?? []
+  const porCpf = new Map<string, Colaborador[]>()
+  const porMatricula = new Map<string, Colaborador[]>()
+  const indexar = (mapa: Map<string, Colaborador[]>, chave: string, colaborador: Colaborador) => {
+    if (!chave) return
+    const lista = mapa.get(chave) ?? []
     lista.push(colaborador)
-    porNome.set(chave, lista)
+    mapa.set(chave, lista)
+  }
+  for (const colaborador of colaboradores) {
+    indexar(porNome, normalizarTexto(colaborador.nome_completo), colaborador)
+    indexar(porCpf, normalizarCpfFerias(colaborador.cpf), colaborador)
+    indexar(porMatricula, normalizarMatriculaFerias(colaborador.matricula), colaborador)
+  }
+
+  /** Resolve a lista de candidatos: único, ou único Ativo em duplicidade. */
+  const escolher = (candidatos: Colaborador[] | undefined): Colaborador | undefined => {
+    if (!candidatos || candidatos.length === 0) return undefined
+    if (candidatos.length === 1) return candidatos[0]
+    const ativos = candidatos.filter((c) => c.status === 'Ativo')
+    if (ativos.length === 1) return ativos[0]
+    return undefined
   }
 
   const periodos: NovoPeriodoFerias[] = []
@@ -141,22 +179,22 @@ export function casarColaboradores(
   let encontrados = 0
 
   for (const linha of linhas) {
-    const candidatos = porNome.get(normalizarTexto(linha.nome)) ?? []
-    let colaborador: Colaborador | undefined
-    if (candidatos.length === 1) {
-      colaborador = candidatos[0]
-    } else if (candidatos.length > 1) {
-      const ativos = candidatos.filter((c) => c.status === 'Ativo')
-      if (ativos.length === 1) colaborador = ativos[0]
-    }
+    // Prioridade: CPF → matrícula → nome
+    let colaborador =
+      escolher(porCpf.get(normalizarCpfFerias(linha.cpf))) ??
+      escolher(porMatricula.get(normalizarMatriculaFerias(linha.matricula)))
 
     if (!colaborador) {
-      if (candidatos.length > 1) {
-        ambiguos.push(linha.nome)
-      } else {
-        naoEncontrados.push(linha.nome)
+      const candidatosNome = porNome.get(normalizarTexto(linha.nome)) ?? []
+      colaborador = escolher(candidatosNome)
+      if (!colaborador) {
+        if (candidatosNome.length > 1) {
+          ambiguos.push(linha.nome)
+        } else {
+          naoEncontrados.push(linha.nome)
+        }
+        continue
       }
-      continue
     }
 
     encontrados += 1

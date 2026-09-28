@@ -6,6 +6,7 @@ import type {
 } from '@/types/adicionais'
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
+import type { FeriasFuncao, FeriasSolicitacao, FeriasFerista, FeriasAlocacao, FeriasRegra } from '@/types/ferias'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -194,6 +195,7 @@ export interface FeriasNotificacao {
   id: string
   colaborador_id: string
   ferias_periodo_id: string | null
+  solicitacao_id: string | null
   destinatario: DestinatarioNotificacaoFerias
   data_notificacao: string
   observacao: string | null
@@ -569,6 +571,36 @@ export type Database = {
         Row: FeriasNotificacao & Record<string, unknown>
         Insert: Partial<FeriasNotificacao> & Record<string, unknown>
         Update: Partial<FeriasNotificacao> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_funcoes: {
+        Row: FeriasFuncao & Record<string, unknown>
+        Insert: Partial<FeriasFuncao> & Record<string, unknown>
+        Update: Partial<FeriasFuncao> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_solicitacoes: {
+        Row: FeriasSolicitacao & Record<string, unknown>
+        Insert: Partial<FeriasSolicitacao> & Record<string, unknown>
+        Update: Partial<FeriasSolicitacao> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_feristas: {
+        Row: FeriasFerista & Record<string, unknown>
+        Insert: Partial<FeriasFerista> & Record<string, unknown>
+        Update: Partial<FeriasFerista> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_alocacoes: {
+        Row: FeriasAlocacao & Record<string, unknown>
+        Insert: Partial<FeriasAlocacao> & Record<string, unknown>
+        Update: Partial<FeriasAlocacao> & Record<string, unknown>
+        Relationships: []
+      }
+      ferias_regras: {
+        Row: FeriasRegra & Record<string, unknown>
+        Insert: Partial<FeriasRegra> & Record<string, unknown>
+        Update: Partial<FeriasRegra> & Record<string, unknown>
         Relationships: []
       }
       ponto_espelho_arquivos: {

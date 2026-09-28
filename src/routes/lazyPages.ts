@@ -59,6 +59,10 @@ export const EscalasMapeamentoPage = lazyNamed(() => import('@/pages/escalas/Esc
 
 // Férias
 export const FeriasPage = lazyNamed(() => import('@/pages/ferias/FeriasPage'), 'FeriasPage')
+export const FeriasColaboradorPage = lazyNamed(() => import('@/pages/ferias/FeriasColaboradorPage'), 'FeriasColaboradorPage')
+export const FeriasFeristasPage = lazyNamed(() => import('@/pages/ferias/FeriasFeristasPage'), 'FeriasFeristasPage')
+export const FeriasAlocacaoPage = lazyNamed(() => import('@/pages/ferias/FeriasAlocacaoPage'), 'FeriasAlocacaoPage')
+export const FeriasProgramacaoPage = lazyNamed(() => import('@/pages/ferias/FeriasProgramacaoPage'), 'FeriasProgramacaoPage')
 export const FeriasImportarPage = lazyNamed(() => import('@/pages/ferias/FeriasImportarPage'), 'FeriasImportarPage')
 export const FeriasNotificacoesPage = lazyNamed(() => import('@/pages/ferias/FeriasNotificacoesPage'), 'FeriasNotificacoesPage')
 
