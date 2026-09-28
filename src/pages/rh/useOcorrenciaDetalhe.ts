@@ -10,7 +10,7 @@ import { useTestemunhas } from '@/hooks/useTestemunhas'
 import { useAuditoria } from '@/hooks/useAuditoria'
 import type { Ocorrencia, Colaborador, FormaAssinaturaOcorrencia, TipoDocumentoAnexo } from '@/types/database'
 
-const COLUNAS_OCORRENCIA_DETALHE = `id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, macro_grupo, titulo, data_ocorrencia, descricao, status, tipo_penalidade, base_legal, gravidade, data_hora_ocorrido, local_ocorrido, defesa_funcionario, medida_corretiva, prazo_acompanhamento, testemunha_1_nome, testemunha_1_cargo, testemunha_2_nome, testemunha_2_cargo, forma_assinatura, usuario_id, created_at, updated_at`
+const COLUNAS_OCORRENCIA_DETALHE = `id, colaborador_id, empresa_id, colaborador_nome, tipo_ocorrencia, macro_grupo, titulo, data_ocorrencia, descricao, status, tipo_penalidade, base_legal, gravidade, data_hora_ocorrido, local_ocorrido, defesa_funcionario, medida_corretiva, prazo_acompanhamento, testemunha_1_nome, testemunha_1_cargo, testemunha_2_nome, testemunha_2_cargo, forma_assinatura, validado_por, validado_em, devolvido_por, devolvido_em, devolucao_motivo, usuario_id, created_at, updated_at`
 
 export function useOcorrenciaDetalhe() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +21,7 @@ export function useOcorrenciaDetalhe() {
   const [empresa, setEmpresa] = useState<{ nome: string; cnpj: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [ativando, setAtivando] = useState(false)
+  const [validando, setValidando] = useState(false)
 
   const [descricaoUpload, setDescricaoUpload] = useState('')
   const [tipoDocumentoUpload, setTipoDocumentoUpload] = useState<TipoDocumentoAnexo>('comprovante')
@@ -190,7 +191,7 @@ export function useOcorrenciaDetalhe() {
     setSalvandoAssinatura(false)
   }
 
-  const handleAtivar = async () => {
+  const handleEnviarValidacao = async () => {
     if (!id || !ocorrencia) return
 
     const temDocAssinado = anexos.some((a) => a.tipo_documento === 'documento_assinado')
@@ -199,29 +200,78 @@ export function useOcorrenciaDetalhe() {
 
     if (exigeAssinado && !temDocAssinado && !temDocComprobatorio) {
       toast.error(
-        'Para ativar, anexe o documento assinado e o documento comprobatório do motivo da sanção.'
+        'Para enviar para validação, anexe o documento assinado e o documento comprobatório do motivo da sanção.'
       )
       return
     }
     if (exigeAssinado && !temDocAssinado) {
-      toast.error('Para ativar, falta anexar o documento assinado pelo colaborador.')
+      toast.error('Para enviar para validação, falta anexar o documento assinado pelo colaborador.')
       return
     }
     if (!temDocComprobatorio) {
-      toast.error('Para ativar, falta anexar o documento comprobatório do motivo da sanção.')
+      toast.error('Para enviar para validação, falta anexar o documento comprobatório do motivo da sanção.')
       return
     }
 
     setAtivando(true)
-    const { error } = await supabase.from('ocorrencias').update({ status: 'Ativa' }).eq('id', id)
+    // .select('id') para detectar UPDATE bloqueado por RLS (0 linhas sem erro).
+    const { data, error } = await supabase
+      .from('ocorrencias')
+      .update({ status: 'Aguardando Validação' })
+      .eq('id', id)
+      .select('id')
 
     if (error) {
-      toast.error('Erro ao ativar: ' + error.message)
+      toast.error('Erro ao enviar para validação: ' + error.message)
+    } else if (!data || data.length === 0) {
+      toast.error('Sem permissão para alterar o status desta ocorrência')
     } else {
-      toast.success('Ocorrência ativada com sucesso')
-      setOcorrencia((prev) => (prev ? { ...prev, status: 'Ativa' } : null))
+      toast.success('Ocorrência enviada para validação dos documentos')
+      setOcorrencia((prev) => (prev ? { ...prev, status: 'Aguardando Validação' } : null))
     }
     setAtivando(false)
+  }
+
+  const handleValidar = async () => {
+    if (!id || !ocorrencia) return
+
+    setValidando(true)
+    const { error } = await supabase.rpc('validar_documentos_ocorrencia', {
+      p_ocorrencia_id: id,
+      p_aprovado: true,
+    })
+
+    if (error) {
+      toast.error('Erro ao validar documentos: ' + error.message)
+    } else {
+      toast.success('Documentos validados — ocorrência ativada')
+      loadData()
+    }
+    setValidando(false)
+  }
+
+  const handleDevolver = async (motivo: string): Promise<boolean> => {
+    if (!id || !ocorrencia) return false
+    if (!motivo.trim()) {
+      toast.error('Informe o motivo da devolução')
+      return false
+    }
+
+    setValidando(true)
+    const { error } = await supabase.rpc('validar_documentos_ocorrencia', {
+      p_ocorrencia_id: id,
+      p_aprovado: false,
+      p_motivo: motivo.trim(),
+    })
+    setValidando(false)
+
+    if (error) {
+      toast.error('Erro ao devolver ocorrência: ' + error.message)
+      return false
+    }
+    toast.success('Ocorrência devolvida para correção dos documentos')
+    loadData()
+    return true
   }
 
   const handleCancelar = async () => {
@@ -274,6 +324,7 @@ export function useOcorrenciaDetalhe() {
     empresa,
     loading,
     ativando,
+    validando,
     salvandoAssinatura,
     anexos,
     loadingAnexos,
@@ -293,7 +344,9 @@ export function useOcorrenciaDetalhe() {
     setMostrarFormTestemunha,
     handleFileSelect,
     handleFormaAssinaturaChange,
-    handleAtivar,
+    handleEnviarValidacao,
+    handleValidar,
+    handleDevolver,
     handleCancelar,
     handleAddTestemunha,
     handleNovaTestemunhaChange,

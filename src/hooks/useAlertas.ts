@@ -85,7 +85,7 @@ export function useAlertas() {
       const { data: ocorrencias } = await supabase
         .from('ocorrencias')
         .select(`${COLUNAS_OCORRENCIA_ALERTA}, colaborador:colaborador_id(${COLUNAS_COLABORADOR_ALERTA})`)
-        .in('status', ['Pendente', 'Ativa'])
+        .in('status', ['Pendente', 'Aguardando Validação', 'Ativa'])
 
       const { data: colaboradores } = await supabase
         .from('colaboradores')
@@ -100,6 +100,17 @@ export function useAlertas() {
           novosAlertas.push({
             tipo: 'OCORRENCIA_PENDENTE',
             titulo: 'Ocorrência pendente de documentos',
+            descricao: `${ocorrencia.colaborador?.nome_completo || ocorrencia.colaborador_nome} — ${ocorrencia.tipo_ocorrencia}`,
+            severidade: 'alta',
+            status: 'ativo',
+            colaborador_id: ocorrencia.colaborador_id,
+            empresa_id: ocorrencia.empresa_id,
+          })
+        }
+        if (ocorrencia.status === 'Aguardando Validação') {
+          novosAlertas.push({
+            tipo: 'OCORRENCIA_AGUARDANDO_VALIDACAO',
+            titulo: 'Ocorrência aguardando validação de documentos',
             descricao: `${ocorrencia.colaborador?.nome_completo || ocorrencia.colaborador_nome} — ${ocorrencia.tipo_ocorrencia}`,
             severidade: 'alta',
             status: 'ativo',

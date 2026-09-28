@@ -66,6 +66,7 @@ function statusVariant(status: string): 'success' | 'warning' | 'danger' | 'info
   switch (status) {
     case 'Resolvida': return 'success'
     case 'Pendente': return 'warning'
+    case 'Aguardando Validação': return 'info'
     case 'Ativa': return 'info'
     case 'Cancelada': return 'neutral'
     default: return 'neutral'
@@ -325,6 +326,7 @@ export function OcorrenciasPage() {
             <SelectItem value={STATUS_FILTRO_EXCETO_CANCELADAS}>Todos, exceto canceladas</SelectItem>
             <SelectItem value="todos">Todos os status</SelectItem>
             <SelectItem value="Pendente">Pendente</SelectItem>
+            <SelectItem value="Aguardando Validação">Aguardando Validação</SelectItem>
             <SelectItem value="Ativa">Ativa</SelectItem>
             <SelectItem value="Resolvida">Resolvida</SelectItem>
             <SelectItem value="Cancelada">Cancelada</SelectItem>

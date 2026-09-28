@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   podeGerarPDFOcorrencia,
   podeAprovarOcorrencia,
+  podeValidarOcorrencia,
   podeCancelarOcorrencia,
   podeAnexarOcorrencia,
   podeAdicionarTestemunha,
@@ -34,6 +35,7 @@ export function OcorrenciaDetailPage() {
   const perfil = user?.nivel_acesso
   const podeGerarPDF = perfil ? podeGerarPDFOcorrencia(perfil) : false
   const podeAprovar = perfil ? podeAprovarOcorrencia(perfil) : false
+  const podeValidar = perfil ? podeValidarOcorrencia(perfil) : false
   const podeCancelar = perfil ? podeCancelarOcorrencia(perfil) : false
   const podeAnexar = perfil ? podeAnexarOcorrencia(perfil) : false
   const podeTestemunha = perfil ? podeAdicionarTestemunha(perfil) : false
@@ -46,6 +48,7 @@ export function OcorrenciaDetailPage() {
     empresa,
     loading,
     ativando,
+    validando,
     salvandoAssinatura,
     anexos,
     loadingAnexos,
@@ -65,7 +68,9 @@ export function OcorrenciaDetailPage() {
     setMostrarFormTestemunha,
     handleFileSelect,
     handleFormaAssinaturaChange,
-    handleAtivar,
+    handleEnviarValidacao,
+    handleValidar,
+    handleDevolver,
     handleCancelar,
     handleAddTestemunha,
     handleNovaTestemunhaChange,
@@ -116,12 +121,16 @@ export function OcorrenciaDetailPage() {
         podeGerarPDF={podeGerarPDF}
         podeEditar={podeEditar}
         podeAprovar={podeAprovar}
+        podeValidar={podeValidar}
         podeCancelar={podeCancelar}
         ativando={ativando}
+        validando={validando}
         temDocAssinado={temDocAssinado}
         temDocComprobatorio={temDocComprobatorio}
         onGerarPDF={handleGerarPDF}
-        onAtivar={handleAtivar}
+        onEnviarValidacao={handleEnviarValidacao}
+        onValidar={handleValidar}
+        onDevolver={handleDevolver}
         onCancelar={() => setMostrarCancelar(true)}
       />
 
@@ -175,6 +184,7 @@ export function OcorrenciaDetailPage() {
                 isPendente={isPendente}
                 isCancelada={isCancelada}
                 exigeDocAssinado={exigeAssinado}
+                tipoPenalidade={ocorrencia.tipo_penalidade || ''}
                 descricaoUpload={descricaoUpload}
                 tipoDocumentoUpload={tipoDocumentoUpload}
                 fileInputRef={fileInputRef}

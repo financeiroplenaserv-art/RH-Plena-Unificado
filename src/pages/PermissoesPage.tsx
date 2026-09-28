@@ -71,6 +71,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'ocorrencia', acao: 'cancelar', label: 'Cancelar ocorrências', grupo: 'Ocorrências' },
   { recurso: 'ocorrencia', acao: 'ver_detalhes', label: 'Ver detalhes da ocorrência', grupo: 'Ocorrências' },
   { recurso: 'ocorrencia', acao: 'aprovar', label: 'Aprovar ocorrências', grupo: 'Ocorrências' },
+  { recurso: 'ocorrencia', acao: 'validar', label: 'Validar documentos de ocorrências', grupo: 'Ocorrências' },
   { recurso: 'ocorrencia', acao: 'anexar', label: 'Anexar arquivos em ocorrências', grupo: 'Ocorrências' },
   { recurso: 'ocorrencia', acao: 'adicionar_testemunha', label: 'Adicionar testemunhas', grupo: 'Ocorrências' },
   { recurso: 'ocorrencia', acao: 'gerar_pdf', label: 'Gerar PDF da ocorrência', grupo: 'Ocorrências' },

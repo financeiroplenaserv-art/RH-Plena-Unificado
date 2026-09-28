@@ -20,6 +20,7 @@ interface DadosOcorrenciaCardProps {
 const ROTULOS_ASSINATURA: Record<FormaAssinaturaOcorrencia, string> = {
   papel: 'Assinou em papel',
   youk: 'Enviado via Youk',
+  nao_assinou: 'Não assinou',
 }
 
 function fmtDate(d: string) {
@@ -94,6 +95,9 @@ export function DadosOcorrenciaCard({
                 </SelectItem>
                 <SelectItem value="youk" className="text-xs">
                   {ROTULOS_ASSINATURA.youk}
+                </SelectItem>
+                <SelectItem value="nao_assinou" className="text-xs">
+                  {ROTULOS_ASSINATURA.nao_assinou}
                 </SelectItem>
               </SelectContent>
             </Select>

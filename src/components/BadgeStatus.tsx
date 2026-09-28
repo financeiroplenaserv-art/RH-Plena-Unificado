@@ -13,6 +13,7 @@ const STATUS_STYLES: Record<string, string> = {
   Inativo: 'bg-slate-100 text-slate-600 hover:bg-slate-100',
   Afastado: 'bg-orange-100 text-orange-700 hover:bg-orange-100',
   Pendente: 'bg-orange-100 text-orange-700 hover:bg-orange-100',
+  'Aguardando Validação': 'bg-blue-100 text-blue-700 hover:bg-blue-100',
   Ativa: 'bg-amber-100 text-amber-700 hover:bg-amber-100',
   Resolvida: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
   Cancelada: 'bg-slate-100 text-slate-500 hover:bg-slate-100',

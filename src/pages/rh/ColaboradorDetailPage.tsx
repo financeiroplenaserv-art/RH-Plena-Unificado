@@ -254,11 +254,13 @@ export function ColaboradorDetailPage() {
                 className={`border ${
                   o.status === 'Pendente'
                     ? 'border-orange-200 bg-orange-50/20'
-                    : o.status === 'Ativa'
-                      ? 'border-amber-100'
-                      : o.status === 'Resolvida'
-                        ? 'border-emerald-100'
-                        : 'border-slate-100'
+                    : o.status === 'Aguardando Validação'
+                      ? 'border-blue-200 bg-blue-50/20'
+                      : o.status === 'Ativa'
+                        ? 'border-amber-100'
+                        : o.status === 'Resolvida'
+                          ? 'border-emerald-100'
+                          : 'border-slate-100'
                 }`}
               >
                 <CardContent className="p-4">

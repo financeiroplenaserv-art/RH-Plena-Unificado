@@ -52,6 +52,7 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     criar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'financeiro'],
     ver_detalhes: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria', 'financeiro'],
     aprovar: ['gestor', 'rh', 'dp1', 'dp2'],
+    validar: ['dp1', 'dp2'],
     anexar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'],
     adicionar_testemunha: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'],
     gerar_pdf: ['gestor', 'rh', 'dp1', 'dp2', 'mesa', 'inspetoria'],
@@ -199,6 +200,9 @@ export const podeVerDetalhesOcorrencia = (p: NivelAcesso) => temPermissaoComPadr
 
 /** Quem pode aprovar/ativar ocorrência (3.10) */
 export const podeAprovarOcorrencia = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ocorrencia', 'aprovar')
+
+/** Quem pode validar os documentos de uma ocorrência Aguardando Validação (decisão da gestão: só admin/adm/dp1/dp2) */
+export const podeValidarOcorrencia = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ocorrencia', 'validar')
 
 /** Quem pode anexar documentos em ocorrência (3.6) */
 export const podeAnexarOcorrencia = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ocorrencia', 'anexar')

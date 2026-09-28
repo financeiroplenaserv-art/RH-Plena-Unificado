@@ -17,6 +17,7 @@ import {
   podeCriarOcorrencia,
   podeVerDetalhesOcorrencia,
   podeAprovarOcorrencia,
+  podeValidarOcorrencia,
   podeCancelarOcorrencia,
   podeGerenciarModelosOcorrencia,
   podeGerenciarAlertas,
@@ -150,6 +151,12 @@ describe('Permissões de ocorrências', () => {
   it('somente gestor, rh, dp1 e dp2 aprovam ocorrência', () => {
     expect(perfisQuePermitem(podeAprovarOcorrencia).sort()).toEqual(
       ['admin', 'adm', 'gestor', 'rh', 'dp1', 'dp2'].sort()
+    )
+  })
+
+  it('somente admin, adm, dp1 e dp2 validam documentos da ocorrência', () => {
+    expect(perfisQuePermitem(podeValidarOcorrencia).sort()).toEqual(
+      ['admin', 'adm', 'dp1', 'dp2'].sort()
     )
   })
 

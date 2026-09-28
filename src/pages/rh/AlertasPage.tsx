@@ -31,6 +31,7 @@ const tipoLabels: Record<string, string> = {
   FALTAS_EXCESSIVAS: 'Faltas Excessivas',
   PRAZO_DEFESA: 'Prazo de Defesa',
   OCORRENCIA_PENDENTE: 'Ocorrência Pendente',
+  OCORRENCIA_AGUARDANDO_VALIDACAO: 'Aguardando Validação',
   PROGRESSAO_DISCIPLINAR: 'Progressão Disciplinar',
   HOMOLOGACAO_NECESSARIA: 'Homologação Necessária',
 }
@@ -59,6 +60,7 @@ const tipoIcones: Record<string, LucideIcon> = {
   FALTAS_EXCESSIVAS: Users,
   PRAZO_DEFESA: CalendarClock,
   OCORRENCIA_PENDENTE: Bell,
+  OCORRENCIA_AGUARDANDO_VALIDACAO: Bell,
   PROGRESSAO_DISCIPLINAR: TrendingUp,
   HOMOLOGACAO_NECESSARIA: ShieldAlert,
 }

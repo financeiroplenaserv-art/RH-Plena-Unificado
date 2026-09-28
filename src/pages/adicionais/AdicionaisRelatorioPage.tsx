@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileSpreadsheet, FileText, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
+import { FileSpreadsheet, FileText, FileDown, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
-import { agoraBrasil } from '@/lib/utils'
+import { agoraBrasil, mascaraMoeda, mascaraMoedaInput, parseMoeda } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -22,6 +30,9 @@ import { useAdicionaisContratuais } from '@/hooks/useAdicionaisContratuais'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { useEmpresas } from '@/hooks/useEmpresas'
+import { useConfiguracaoAdicionais, CONFIG_INSALUBRIDADE_PADRAO } from '@/hooks/useConfiguracaoAdicionais'
+import { gerarTxtInsalubridade, calcularValorInsalubridadeCentavos, type LinhaInsalubridade } from '@/lib/adicionais/txtInsalubridade'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
@@ -201,6 +212,8 @@ export function AdicionaisRelatorioPage() {
   } = useAdicionaisContratuais()
   const { colaboradores, loading: loadingColaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, loading: loadingDepartamentos, listar: listarDepartamentos } = useDepartamentos()
+  const { empresas, listar: listarEmpresas } = useEmpresas()
+  const { config: configInsalubridade, carregar: carregarConfigInsalubridade, salvar: salvarConfigInsalubridade } = useConfiguracaoAdicionais()
 
   const hoje = agoraBrasil()
   const [ano, setAno] = useFiltroPersistente('adicionais.relatorio.ano', () => hoje.getFullYear())
@@ -218,6 +231,11 @@ export function AdicionaisRelatorioPage() {
   }
   const [feriados, setFeriados] = useState<Feriado[]>([])
 
+  // TXT Alterdata de insalubridade (salário único global — decisão da gestão)
+  const [dialogTxtAberto, setDialogTxtAberto] = useState(false)
+  const [salarioBaseTxt, setSalarioBaseTxt] = useState('')
+  const [codigoEventoTxt, setCodigoEventoTxt] = useState(CONFIG_INSALUBRIDADE_PADRAO.codigoEvento)
+
   const inicioMes = useMemo(() => {
     const anoAnterior = mes === 1 ? ano - 1 : ano
     const mesAnterior = mes === 1 ? 12 : mes - 1
@@ -233,8 +251,18 @@ export function AdicionaisRelatorioPage() {
     listarVinculos()
     listarColaboradores()
     listarDepartamentos()
+    listarEmpresas()
+    carregarConfigInsalubridade()
     listarFeriados().then(setFeriados).catch((err) => console.error('Erro ao carregar feriados:', err))
-  }, [listarContratos, listarVinculos, listarColaboradores, listarDepartamentos])
+  }, [listarContratos, listarVinculos, listarColaboradores, listarDepartamentos, listarEmpresas, carregarConfigInsalubridade])
+
+  // Ao abrir o dialog do TXT, preenche os campos com o padrão compartilhado
+  useEffect(() => {
+    if (!dialogTxtAberto) return
+    const cfg = configInsalubridade ?? CONFIG_INSALUBRIDADE_PADRAO
+    setSalarioBaseTxt(cfg.salarioBase > 0 ? mascaraMoeda(cfg.salarioBase) : '')
+    setCodigoEventoTxt(cfg.codigoEvento || CONFIG_INSALUBRIDADE_PADRAO.codigoEvento)
+  }, [dialogTxtAberto, configInsalubridade])
 
   const datasFeriados = useMemo(() => new Set(feriados.map(f => f.data)), [feriados])
 
@@ -249,10 +277,16 @@ export function AdicionaisRelatorioPage() {
   }, [contratos])
 
   const mapColaborador = useMemo(() => {
-    const m = new Map<string, { nome: string; matricula: string }>()
-    colaboradores.forEach(c => m.set(c.id, { nome: c.nome_completo, matricula: c.matricula }))
+    const m = new Map<string, { nome: string; matricula: string; empresa_id: string | null }>()
+    colaboradores.forEach(c => m.set(c.id, { nome: c.nome_completo, matricula: c.matricula, empresa_id: c.empresa_id }))
     return m
   }, [colaboradores])
+
+  const mapEmpresa = useMemo(() => {
+    const m = new Map<string, string | null>()
+    empresas.forEach(e => m.set(e.id, e.codigo_alterdata))
+    return m
+  }, [empresas])
 
   const mapDepartamento = useMemo(() => {
     const m = new Map<string, Departamento>()
@@ -554,6 +588,47 @@ export function AdicionaisRelatorioPage() {
     })
   }, [linhasAgregadas, departamentoFiltro, adicionalFiltro, busca, mapDepartamento, mapContrato, ordenacao])
 
+  // TXT Alterdata de insalubridade: mesmas linhas visíveis na tela (visível =
+  // exportável, como Excel/CSV), apenas com dias de insalubridade > 0.
+  const salarioBaseNumero = parseMoeda(salarioBaseTxt)
+
+  const linhasTxt = useMemo<LinhaInsalubridade[]>(() => {
+    return linhasFiltradas
+      .filter(l => l.dias_insalubridade > 0)
+      .map(l => {
+        const col = mapColaborador.get(l.colaborador_id)
+        return {
+          colaborador_nome: l.colaborador_nome,
+          matricula: col?.matricula ?? null,
+          empresaCodigo: col?.empresa_id ? mapEmpresa.get(col.empresa_id) ?? null : null,
+          dias: l.dias_insalubridade,
+        }
+      })
+  }, [linhasFiltradas, mapColaborador, mapEmpresa])
+
+  const resultadoTxt = useMemo(() => gerarTxtInsalubridade(linhasTxt, {
+    salarioBase: salarioBaseNumero,
+    codigoEvento: codigoEventoTxt,
+    ano,
+    mes,
+  }), [linhasTxt, salarioBaseNumero, codigoEventoTxt, ano, mes])
+
+  const baixarTxt = () => {
+    if (resultadoTxt.gerados === 0) {
+      toast.error('Nenhuma linha válida para gerar o TXT')
+      return
+    }
+    downloadBlob(
+      resultadoTxt.conteudo,
+      `insalubridade_${ano}-${String(mes).padStart(2, '0')}.txt`,
+      'text/plain;charset=utf-8;'
+    )
+  }
+
+  const salvarPadraoInsalubridade = async () => {
+    await salvarConfigInsalubridade({ salarioBase: salarioBaseNumero, codigoEvento: codigoEventoTxt })
+  }
+
   /** Cabeçalho de coluna ordenável: clique alterna A→Z / Z→A. */
   const cabecalhoOrdenavel = (coluna: ColunaOrdenacaoRelatorio, rotulo: string) => (
     <button
@@ -668,6 +743,10 @@ export function AdicionaisRelatorioPage() {
             <FileText className="w-4 h-4 mr-2" />
             CSV
           </ModuleButton>
+          <ModuleButton variant="outline" onClick={() => setDialogTxtAberto(true)}>
+            <FileDown className="w-4 h-4 mr-2" />
+            TXT Alterdata
+          </ModuleButton>
         </div>
       </ModuleCard>
 
@@ -734,6 +813,96 @@ export function AdicionaisRelatorioPage() {
           </div>
         )}
       </ModuleCard>
+      <Dialog open={dialogTxtAberto} onOpenChange={setDialogTxtAberto}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>TXT Alterdata — Insalubridade</DialogTitle>
+            <DialogDescription>
+              Competência {String(mes).padStart(2, '0')}/{ano} · valor = salário base × 20% × (dias ÷ 30) · layout de 61 posições
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <Label style={{ color: '#1F2937' }}>Salário base (R$)</Label>
+              <Input
+                placeholder="R$ 0,00"
+                value={salarioBaseTxt}
+                onChange={e => setSalarioBaseTxt(mascaraMoedaInput(e.target.value))}
+                className="rounded-lg"
+              />
+            </div>
+            <div className="w-full sm:w-40">
+              <Label style={{ color: '#1F2937' }}>Código do evento</Label>
+              <Input
+                value={codigoEventoTxt}
+                onChange={e => setCodigoEventoTxt(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                className="rounded-lg"
+                maxLength={3}
+              />
+            </div>
+            <ModuleButton variant="outline" size="sm" onClick={salvarPadraoInsalubridade}>
+              Salvar como padrão
+            </ModuleButton>
+          </div>
+
+          {linhasTxt.length === 0 ? (
+            <p className="text-center py-6" style={{ color: '#94A3B8' }}>
+              Nenhuma linha com dias de insalubridade no período filtrado.
+            </p>
+          ) : (
+            <div className="border rounded-xl overflow-hidden" style={{ borderColor: '#F1F5F9' }}>
+              <Table>
+                <TableHeader style={{ backgroundColor: '#F8FAFC' }}>
+                  <TableRow>
+                    <TableHead style={{ color: '#1F2937' }}>Colaborador</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Matrícula</TableHead>
+                    <TableHead style={{ color: '#1F2937' }}>Empresa</TableHead>
+                    <TableHead className="text-center" style={{ color: '#1F2937' }}>Dias</TableHead>
+                    <TableHead className="text-right" style={{ color: '#1F2937' }}>Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {linhasTxt.map((l, idx) => (
+                    <TableRow key={idx} className="hover:bg-slate-50">
+                      <TableCell className="font-medium" style={{ color: '#1F2937' }}>{l.colaborador_nome}</TableCell>
+                      <TableCell className="tabular-nums" style={{ color: '#1F2937' }}>{l.matricula || '—'}</TableCell>
+                      <TableCell className="tabular-nums" style={{ color: '#1F2937' }}>{l.empresaCodigo || '—'}</TableCell>
+                      <TableCell className="text-center tabular-nums" style={{ color: '#1F2937' }}>{l.dias}</TableCell>
+                      <TableCell className="text-right tabular-nums" style={{ color: '#1F2937' }}>
+                        {mascaraMoeda(calcularValorInsalubridadeCentavos(salarioBaseNumero, l.dias) / 100)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {resultadoTxt.pulados.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+              <p className="font-medium text-amber-800 mb-1">
+                {resultadoTxt.pulados.length} registro(s) ficarão fora do TXT:
+              </p>
+              <ul className="list-disc pl-5 text-amber-700">
+                {resultadoTxt.pulados.map((p, idx) => (
+                  <li key={idx}>{p.nome} — {p.motivo}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <ModuleButton variant="outline" onClick={() => setDialogTxtAberto(false)}>
+              Fechar
+            </ModuleButton>
+            <ModuleButton onClick={baixarTxt} disabled={resultadoTxt.gerados === 0 || salarioBaseNumero <= 0}>
+              <FileDown className="w-4 h-4 mr-2" />
+              Baixar TXT ({resultadoTxt.gerados} linha{resultadoTxt.gerados === 1 ? '' : 's'})
+            </ModuleButton>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdicionaisShell>
   )
 }

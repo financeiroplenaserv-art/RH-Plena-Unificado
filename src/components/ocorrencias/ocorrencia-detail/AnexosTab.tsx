@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import type { OcorrenciaAnexo, TipoDocumentoAnexo } from '@/types/database'
+import { TIPOS_SEM_ASSINATURA_OBRIGATORIA } from '@/lib/ocorrencias/tiposOcorrencia'
 
 interface AnexosTabProps {
   anexos: OcorrenciaAnexo[]
@@ -23,6 +24,7 @@ interface AnexosTabProps {
   isPendente: boolean
   isCancelada: boolean
   exigeDocAssinado: boolean
+  tipoPenalidade: string
   descricaoUpload: string
   tipoDocumentoUpload: TipoDocumentoAnexo
   fileInputRef: React.RefObject<HTMLInputElement>
@@ -44,6 +46,7 @@ export function AnexosTab({
   isPendente,
   isCancelada,
   exigeDocAssinado,
+  tipoPenalidade,
   descricaoUpload,
   tipoDocumentoUpload,
   fileInputRef,
@@ -130,8 +133,10 @@ export function AnexosTab({
             {isPendente && (
               <p className="text-xs text-orange-500 mt-1">
                 {exigeDocAssinado
-                  ? 'Anexe o documento assinado e o documento comprobatório do motivo da sanção para ativar esta ocorrência.'
-                  : 'Anexe o documento comprobatório (atestado médico) para ativar esta ocorrência — o documento assinado não é exigido neste tipo.'}
+                  ? 'Anexe o documento assinado e o documento comprobatório do motivo da sanção para enviar esta ocorrência para validação.'
+                  : TIPOS_SEM_ASSINATURA_OBRIGATORIA.includes(tipoPenalidade)
+                    ? 'Anexe o documento comprobatório (atestado médico) para enviar esta ocorrência para validação — o documento assinado não é exigido neste tipo.'
+                    : 'Anexe o documento comprobatório para enviar esta ocorrência para validação — o documento assinado não é exigido neste tipo.'}
               </p>
             )}
           </div>

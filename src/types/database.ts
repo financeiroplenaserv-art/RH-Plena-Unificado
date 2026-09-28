@@ -19,9 +19,9 @@ export type NivelAcesso =
   | 'financeiro'
   | 'visualizador' // legado, apenas leitura
 export type StatusColaborador = 'Ativo' | 'Inativo' | 'Afastado'
-export type StatusOcorrencia = 'Pendente' | 'Ativa' | 'Resolvida' | 'Cancelada'
+export type StatusOcorrencia = 'Pendente' | 'Aguardando Validação' | 'Ativa' | 'Resolvida' | 'Cancelada'
 
-export type FormaAssinaturaOcorrencia = 'papel' | 'youk'
+export type FormaAssinaturaOcorrencia = 'papel' | 'youk' | 'nao_assinou'
 
 export type TipoDocumentoAnexo = 'comprovante' | 'documento_assinado'
 
@@ -244,6 +244,11 @@ export interface Ocorrencia {
   testemunha_2_nome: string | null
   testemunha_2_cargo: string | null
   forma_assinatura: FormaAssinaturaOcorrencia | null
+  validado_por?: string | null
+  validado_em?: string | null
+  devolvido_por?: string | null
+  devolvido_em?: string | null
+  devolucao_motivo?: string | null
   usuario_id: string | null
   created_at?: string
   updated_at?: string
@@ -814,6 +819,14 @@ export type Database = {
           ok: boolean
           caminhos_storage: string[]
         }
+      }
+      validar_documentos_ocorrencia: {
+        Args: {
+          p_ocorrencia_id: string
+          p_aprovado: boolean
+          p_motivo?: string | null
+        }
+        Returns: void
       }
     }
   }

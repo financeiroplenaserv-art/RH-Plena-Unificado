@@ -263,10 +263,13 @@ export async function gerarPDFOcorrencia(
     dadosOcor.push(['Base Legal', ocorrencia.base_legal])
   }
   if (ocorrencia.forma_assinatura) {
-    dadosOcor.push([
-      'Assinatura',
-      ocorrencia.forma_assinatura === 'papel' ? 'Assinou em papel' : 'Enviado via Youk',
-    ])
+    const rotuloAssinatura =
+      ocorrencia.forma_assinatura === 'papel'
+        ? 'Assinou em papel'
+        : ocorrencia.forma_assinatura === 'youk'
+          ? 'Enviado via Youk'
+          : 'Não assinou'
+    dadosOcor.push(['Assinatura', rotuloAssinatura])
   }
 
   autoTable(doc, {
