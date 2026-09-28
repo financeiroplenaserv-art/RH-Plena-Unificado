@@ -33,6 +33,7 @@ import {
   producaoPorDiaInspetor,
   respEv,
   responsavelEvento,
+  resumoEvento,
   slaEventos,
   statusSync,
   STATUS_EV_EM_ABERTO,
@@ -532,6 +533,40 @@ describe('oQueFoiFeito (24/09/2026)', () => {
   it('vazio/null/espaços devolvem vazio', () => {
     expect(oQueFoiFeito(evento({ acoes_realizadas: null }))).toBe('')
     expect(oQueFoiFeito(evento({ acoes_realizadas: '   ' }))).toBe('')
+  })
+})
+
+describe('resumoEvento (26/09/2026)', () => {
+  it('vazio/null/espaços devolvem vazio', () => {
+    expect(resumoEvento(null)).toBe('')
+    expect(resumoEvento('   ')).toBe('')
+  })
+
+  it('observação curta (até 5 palavras) sai integral, em minúsculas', () => {
+    expect(resumoEvento('Segue para Processo Demissional')).toBe('segue para processo demissional')
+  })
+
+  it('observação longa é cortada na 5ª palavra com reticências', () => {
+    expect(resumoEvento('FIM DE CONTRATO MB LOFT 02 PORTEIROS E 01 ZELADOR EM 29/09/2026')).toBe(
+      'fim de contrato mb loft…'
+    )
+  })
+
+  it('vale só a primeira frase, sem reticências quando ela cabe inteira', () => {
+    expect(resumoEvento('Contratação porteiro escala 6x1. Novo contrato.')).toBe('contratação porteiro escala 6x1')
+  })
+
+  it('quebras de linha e espaços duplicados são normalizados', () => {
+    expect(resumoEvento('Substituição  do porteiro\nMaurício Correa')).toBe('substituição do porteiro maurício correa')
+  })
+
+  it('evento gerado automaticamente pelo checklist vira "checklist nº ..."', () => {
+    const auto =
+      'Evento gerado automáticamente pelo CheckList nº 18102/2026\nPergunta: Tem algum equipamento?\nResposta: SIM'
+    expect(resumoEvento(auto)).toBe('checklist nº 18102/2026')
+    expect(resumoEvento('Evento gerado automaticamente pelo checklist no. 900/2026\n...')).toBe(
+      'checklist nº 900/2026'
+    )
   })
 })
 

@@ -66,6 +66,7 @@ import {
   ordenarEventos,
   producaoPorDiaInspetor,
   respEv,
+  resumoEvento,
   slaEventos,
   statusSync,
   STATUS_EV_EM_ABERTO,
@@ -1310,6 +1311,7 @@ export function BiPerformanceLabPage() {
                     const ans = analisesDoEvento(anMap, e.id)
                     const aberto = evAbertos.has(e.id)
                     const resp = respEv(e)
+                    const resumo = resumoEvento(e.observacao)
                     const obs = (e.observacao || '').trim()
                     const feito = oQueFoiFeito(e)
                     const fin = (e.acoes_realizadas_finalizacao || '').trim()
@@ -1332,6 +1334,7 @@ export function BiPerformanceLabPage() {
                           {e.subtipo_nome && (
                             <span className="block text-xs text-muted-foreground">{e.subtipo_nome}</span>
                           )}
+                          {resumo && <span className="block text-xs text-muted-foreground">{resumo}</span>}
                         </TableCell>
                         <TableCell>{e.site_nome}</TableCell>
                         <TableCell>

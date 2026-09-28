@@ -208,6 +208,23 @@ export function oQueFoiFeito(e: Pick<BiEvento, 'acoes_realizadas'>): string {
   return t.startsWith(PREFIXO_ACOES_AUTOMATICAS) ? '' : t
 }
 
+/** Resumo do evento em até 5 palavras (decisão da gestão, 26/09/2026),
+ *  exibido na tabela de eventos embaixo do assunto, sempre em minúsculas.
+ *  Extração automática da observação: evento gerado pelo checklist vira
+ *  "checklist nº <número>"; nos demais valem as 5 primeiras palavras da
+ *  primeira frase, com reticências quando o recorte deixa texto de fora.
+ *  '' sem observação. */
+export function resumoEvento(observacao: string | null | undefined): string {
+  const t = (observacao || '').replace(/\s+/g, ' ').trim()
+  if (!t) return ''
+  const auto = t.match(/^evento gerado autom[aá]ticamente pelo checklist\s*n[º°o]?\s*\.?\s*([\d/.-]+)/i)
+  if (auto) return `checklist nº ${auto[1]}`
+  const primeiraFrase = t.split(/[.!?:;]/)[0].trim() || t
+  const palavras = primeiraFrase.split(/\s+/)
+  const resumo = palavras.slice(0, 5).join(' ').toLowerCase()
+  return palavras.length > 5 ? `${resumo}…` : resumo
+}
+
 /** Responsável exibido do evento: a pessoa citada na análise mais recente
  *  (decisão da gestão, 01/09/2026 — ex.: Eliane abriu o evento, mas a análise
  *  designou o Alexandre; quem responde pelo evento é o Alexandre).

@@ -1,17 +1,22 @@
-// Lança as entregas de EPI de setembro (docs/epis_setembro_lancamentos.csv)
-// ⚠ SUPERADO: para lançamentos novos use o script genérico
-//   scripts/lancar-epis-mensal.mjs (roteiro em docs/LANCAMENTO_MENSAL_EPIS.md).
-//   Este arquivo fica como histórico do lançamento de 01/09/2026.
-// na tabela `entregas`, reproduzindo exatamente o que o Lançamento Rápido
-// grava (src/pages/ceu/CeuLancamentoRapidoPage.tsx): data 01/09, situação
-// "Troca", snapshot_item com a foto do item. NÃO emite recibo
-// (recibo_emitido fica false).
+// Lança as entregas de EPI do mês na tabela `entregas`, reproduzindo
+// exatamente o que o Lançamento Rápido grava
+// (src/pages/ceu/CeuLancamentoRapidoPage.tsx): data escolhida (padrão =
+// dia 1 do mês corrente), situação "Troca", snapshot_item com a foto do
+// item. NÃO emite recibo (recibo_emitido fica false).
+//
+// Roteiro completo do lançamento mensal: docs/LANCAMENTO_MENSAL_EPIS.md
 //
 // Uso:
-//   node scripts/lancar-epis-setembro.mjs            # dry-run: só relatório
-//   node scripts/lancar-epis-setembro.mjs --aplicar  # grava no banco
+//   node scripts/lancar-epis-mensal.mjs --csv=<arquivo.csv> [--data=AAAA-MM-DD] [--aplicar]
+//
+//   --csv     obrigatório; colunas separadas por ';':
+//             colaborador;quantidade;item;tamanho;descricao_original
+//   --data    opcional; padrão = dia 1 do mês corrente (horário de Brasília)
+//   --aplicar sem ele, roda em dry-run (só relatório, nada é gravado)
 //
 // Antes de gravar, salva backup dos IDs inseridos em dados-locais/.
+// Guarda anti-duplicidade: linhas já existentes na data (mesmo
+// colaborador+item+quantidade) são puladas.
 
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
@@ -33,9 +38,39 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 )
 
+// ---------- argumentos ----------
 const APLICAR = process.argv.includes('--aplicar')
-const DATA_ENTREGA = '2026-09-01'
-const CSV = 'docs/epis_setembro_lancamentos.csv'
+function argValor(nome) {
+  const arg = process.argv.find((a) => a.startsWith(`--${nome}=`))
+  return arg ? arg.slice(nome.length + 3) : null
+}
+
+const CSV = argValor('csv')
+if (!CSV) {
+  console.error('Informe o arquivo: --csv=<arquivo.csv> (ver docs/LANCAMENTO_MENSAL_EPIS.md)')
+  process.exit(1)
+}
+if (!fs.existsSync(CSV)) {
+  console.error(`Arquivo não encontrado: ${CSV}`)
+  process.exit(1)
+}
+
+function primeiroDiaMesCorrente() {
+  const hojeSP = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+  return hojeSP.slice(0, 8) + '01'
+}
+
+const DATA_ENTREGA = argValor('data') || primeiroDiaMesCorrente()
+if (!/^\d{4}-\d{2}-\d{2}$/.test(DATA_ENTREGA)) {
+  console.error(`Data inválida: "${DATA_ENTREGA}" (use AAAA-MM-DD)`)
+  process.exit(1)
+}
+const COMPETENCIA = DATA_ENTREGA.slice(0, 7).replace('-', '')
 
 function norm(s) {
   return (s || '')
@@ -60,19 +95,23 @@ async function buscarTudo(tabela, colunas) {
 }
 
 // ---------- leitura do CSV ----------
-const linhasCsv = fs.readFileSync(CSV, 'utf-8').split(/\r?\n/).filter((l) => l.trim())
+const linhasCsv = fs
+  .readFileSync(CSV, 'utf-8')
+  .replace(/^﻿/, '')
+  .split(/\r?\n/)
+  .filter((l) => l.trim())
 const registros = []
 for (const linha of linhasCsv.slice(1)) {
   const [colaborador, quantidade, item, tamanho, descricao_original] = linha.split(';')
   registros.push({
-    colaborador: colaborador.trim(),
+    colaborador: (colaborador || '').trim(),
     quantidade: parseInt(quantidade, 10),
     item: (item || '').trim(),
     tamanho: (tamanho || '').trim(),
     descricao_original: (descricao_original || '').trim(),
   })
 }
-console.log(`CSV: ${registros.length} linhas de entrega`)
+console.log(`CSV ${CSV}: ${registros.length} linhas de entrega — data de entrega ${DATA_ENTREGA}`)
 
 // ---------- matching de itens ----------
 // Palavra-chave que identifica o item no catálogo + como comparar o tamanho.
@@ -82,6 +121,7 @@ function chaveBuscaItem(item) {
   if (n.includes('pvc')) return { kw: 'pvc' }
   if (n.includes('pu')) return { kw: ' pu' } // evita casar com outras palavras
   if (n.includes('latex')) return { kw: 'latex' }
+  if (n.includes('pigment')) return { kw: 'pigment' }
   if (n.includes('botina')) return { kw: 'botina' }
   if (n === 'bota' || n.startsWith('bota')) return { kw: 'bota' }
   if (n.includes('mascara')) return { kw: 'mascara' }
@@ -129,6 +169,35 @@ const PREFERE_EXATO = {
 // Nitrílica usa numeração 8/9; o catálogo tem M/G (CA 16.314): 8→M, 9→G.
 const MAPA_NUM_NITRILICA = { '7': 'p', '8': 'm', '9': 'g', '10': 'eg' }
 
+// ---------- divergência de tamanho (selo vermelho do Lançamento Rápido) ----------
+// Espelho das funções puras de src/lib/ceu/tamanhosPuro.ts — mesma regra da
+// tela: compara o tamanho embutido no nome do item escolhido com a medida do
+// cadastro CEU (ceu_tamanhos). Só reporta; NUNCA bloqueia o lançamento.
+
+// Categoria da medida pelo nome do item (luva/camisa/calça/calçado).
+function categoriaTamanho(nomeItem) {
+  const nome = nomeItem.toLowerCase()
+  if (nome.includes('luva')) return 'luva'
+  if (nome.includes('camisa') || nome.includes('jaleco')) return 'camisa'
+  if (nome.includes('calça') || nome.includes('calca')) return 'calca'
+  if (/bota|botina|sapato|calçado|calcado|tênis|tenis|sandália|sandalia/.test(nome)) return 'calcado'
+  return null
+}
+
+// Tamanho embutido no nome do item (maiúsculas; número de 2 dígitos).
+function tamanhoDoNomeItemTela(nomeItem) {
+  const m = nomeItem.match(/tam\.?\s*:?\s*([a-z0-9]+)/i)
+  if (m) return m[1].toUpperCase()
+  const tokens = nomeItem.toUpperCase().split(/[\s\-–—]+/).filter(Boolean)
+  const ultimo = tokens[tokens.length - 1]
+  if (!ultimo) return null
+  if (/^\d{2}$/.test(ultimo)) return ultimo
+  if (['P', 'M', 'G', 'GG', 'EG', 'XG', 'XGG', 'PP'].includes(ultimo)) return ultimo
+  return null
+}
+
+const ROTULO_CATEGORIA = { luva: 'luva', camisa: 'camisa', calca: 'calça', calcado: 'calçado' }
+
 // ---------- main ----------
 const itens = await buscarTudo('itens', 'id, codigo, nome, tipo, ca, valor, prazo_uso_dias, situacao')
 const itensAtivos = itens.filter((i) => i.situacao !== 'I')
@@ -141,6 +210,14 @@ for (const c of colaboradores) {
   if (!mapaColab.has(chave)) mapaColab.set(chave, [])
   mapaColab.get(chave).push(c)
 }
+
+// Medidas do cadastro CEU (migration 096) — referência do relatório de
+// divergências de tamanho (mesmo selo vermelho do Lançamento Rápido).
+const tamanhos = await buscarTudo(
+  'ceu_tamanhos',
+  'colaborador_id, tamanho_camisa, tamanho_calca, tamanho_calcado, tamanho_luva'
+)
+const mapaTamanhos = new Map(tamanhos.map((t) => [t.colaborador_id, t]))
 
 // usuario_id: usa o mesmo operador das entregas mais recentes
 const { data: ultimas } = await supabase
@@ -162,11 +239,28 @@ for (const reg of registros) {
   const nomeLimpo = reg.colaborador.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim()
   let candidatos = mapaColab.get(norm(nomeLimpo)) || []
   if (candidatos.length === 0) {
-    // fallback: nome do CSV pode estar truncado (ex.: "MARCOS VINÍCIUS STELLET MONT")
+    // fallback 1: nome do CSV pode estar truncado (ex.: "MARCOS VINÍCIUS STELLET MONT")
     candidatos = colaboradores.filter((c) => {
       const n = norm(c.nome_completo)
       return n.startsWith(norm(nomeLimpo)) || norm(nomeLimpo).startsWith(n)
     })
+  }
+  if (candidatos.length === 0) {
+    // fallback 2: preposições a mais/a menos ("JEAN CARLOS PINTO DE SOUZA" ×
+    // cadastro "JEAN CARLOS PINTO SOUZA") — casa por conjunto de palavras;
+    // só aceita quando converge para um único colaborador (senão é ambíguo)
+    const tokensCsv = norm(nomeLimpo).split(' ').filter(Boolean)
+    candidatos = colaboradores.filter((c) => {
+      const tokensCad = norm(c.nome_completo).split(' ').filter(Boolean)
+      return (
+        tokensCsv.every((t) => tokensCad.includes(t)) ||
+        tokensCad.every((t) => tokensCsv.includes(t))
+      )
+    })
+    if (candidatos.length > 1) {
+      const ativos = candidatos.filter((c) => c.status === 'Ativo')
+      candidatos = ativos.length === 1 ? ativos : []
+    }
   }
   const colab = candidatos.find((c) => c.status === 'Ativo') || candidatos[0]
   if (!colab) {
@@ -219,6 +313,21 @@ for (const reg of registros) {
 
 console.log(`\nPlano: ${plano.length} entregas prontas, ${problemas.length} problema(s)`)
 
+// divergências de tamanho — mesma regra do selo vermelho do Lançamento
+// Rápido: tamanho do item escolhido × medida do cadastro CEU
+const divergencias = []
+for (const p of plano) {
+  const t = mapaTamanhos.get(p.colab.id)
+  if (!t) continue
+  const cat = categoriaTamanho(p.item.nome)
+  if (!cat) continue
+  const sugerido = (t[`tamanho_${cat}`] || '').trim().toUpperCase()
+  const tamItem = tamanhoDoNomeItemTela(p.item.nome)
+  if (sugerido && tamItem && sugerido !== tamItem) {
+    divergencias.push({ p, cat, sugerido, tamItem })
+  }
+}
+
 // resumo por item
 const porItem = new Map()
 for (const p of plano) {
@@ -238,7 +347,37 @@ if (problemas.length) {
   for (const p of problemas) console.log('  ' + p)
 }
 
-// guarda anti-duplicidade: entregas já existentes em 01/09 para os mesmos pares
+console.log('\n--- DIVERGÊNCIAS DE TAMANHO (ficariam vermelhas no Lançamento Rápido — só alerta, não bloqueia) ---')
+if (divergencias.length === 0) {
+  console.log('  nenhuma')
+} else {
+  for (const d of divergencias) {
+    console.log(
+      `  ${d.p.colab.nome_completo} [${d.p.colab.matricula}] → ${d.p.reg.quantidade}x ${d.p.item.nome} — cadastro indica ${ROTULO_CATEGORIA[d.cat]} ${d.sugerido}`
+    )
+  }
+  // salva a lista em arquivo (dados-locais/) para consulta/encaminhamento;
+  // o BOM (\ufeff) faz o Excel reconhecer o UTF-8 e separar as colunas
+  const hojeDiv = new Date().toISOString().slice(0, 10)
+  const arqDiv = `dados-locais/divergencias_tamanho_${COMPETENCIA}_${hojeDiv}.csv`
+  const linhasDiv = ['colaborador;matricula;quantidade;item_escolhido;tamanho_item;medida_cadastro']
+  for (const d of divergencias) {
+    linhasDiv.push(
+      [
+        d.p.colab.nome_completo,
+        d.p.colab.matricula,
+        d.p.reg.quantidade,
+        d.p.item.nome,
+        d.tamItem,
+        `${ROTULO_CATEGORIA[d.cat]} ${d.sugerido}`,
+      ].join(';')
+    )
+  }
+  fs.writeFileSync(arqDiv, '﻿' + linhasDiv.join('\n') + '\n')
+  console.log(`  (lista salva em ${arqDiv})`)
+}
+
+// guarda anti-duplicidade: entregas já existentes na data para os mesmos pares
 const idsColab = [...new Set(plano.map((p) => p.colab.id))]
 const existentes = []
 for (let i = 0; i < idsColab.length; i += 100) {
@@ -294,7 +433,8 @@ if (error) {
 }
 
 const hoje = new Date().toISOString().slice(0, 10)
-const arquivoBackup = `dados-locais/backup_epis_setembro_entregas_${hoje}.json`
+const arquivoBackup = `dados-locais/backup_epis_${COMPETENCIA}_entregas_${hoje}.json`
 fs.writeFileSync(arquivoBackup, JSON.stringify(inseridas, null, 2))
 console.log(`\n✔ ${inseridas.length} entregas inseridas. Backup dos IDs em ${arquivoBackup}`)
+if (divergencias.length) console.log(`⚠ ${divergencias.length} divergência(s) de tamanho — ver seção acima.`)
 if (problemas.length) console.log(`⚠ ${problemas.length} linha(s) ficaram de fora — ver lista acima.`)
