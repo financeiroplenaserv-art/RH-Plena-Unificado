@@ -26,6 +26,13 @@
 
 ### O que a usuária faz
 
+0. **ANTES de lançar: conferir os CAs** — se algum fabricante trocou o CA de
+   um item, atualize o **cadastro do item** antes do lançamento (ou peça ao
+   agente). O script copia o CA do cadastro para o snapshot da entrega no
+   momento do lançamento, e o recibo mostra o CA do snapshot (nunca o do
+   cadastro atual). Lançou com CA errado? Dá para corrigir o snapshot das
+   entregas **somente antes de emitir os recibos** — depois de emitido, o
+   recibo é imutável.
 0. **A lista pode vir "bagunçada" direto do Google Drive** — não precisa
    arrumar antes. Se o Google Drive estiver sincronizado no computador
    (pasta "Meu Drive" ou disco `G:\`), basta dizer ao agente o nome/caminho
