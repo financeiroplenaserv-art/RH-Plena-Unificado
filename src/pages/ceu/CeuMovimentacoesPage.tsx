@@ -295,27 +295,31 @@ export function CeuMovimentacoesPage() {
       return
     }
 
-    const { html, total } = await gerarRecibosLoteHTML(entregasNoPeriodo, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
+    const lote = await gerarRecibosLoteHTML(entregasNoPeriodo, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
 
-    if (total === 0) {
+    if (lote.total === 0) {
       toast.error('Nenhum recibo pôde ser gerado')
       setGerandoLote(false)
       return
     }
 
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `recibos_lote_${dataInicioLote}_${dataFimLote}.html`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const baixarHTML = (html: string, nomeArquivo: string) => {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nomeArquivo
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+    if (lote.epi) baixarHTML(lote.epi.html, `recibos_epi_lote_${dataInicioLote}_${dataFimLote}.html`)
+    if (lote.uniforme) baixarHTML(lote.uniforme.html, `recibos_uniforme_cracha_lote_${dataInicioLote}_${dataFimLote}.html`)
 
     listar()
 
-    toast.success(`${total} recibo(s) gerado(s)`)
+    toast.success(`${lote.epi?.total || 0} recibo(s) de EPI e ${lote.uniforme?.total || 0} de Uniforme/Crachá gerado(s)`)
     setGerandoLote(false)
     setModalLote(false)
   }

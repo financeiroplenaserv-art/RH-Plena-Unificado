@@ -24,6 +24,17 @@ export interface EmissaoReciboDeps {
   registrarEmissaoRecibo: (ids: string[], numeroRecibo: string) => Promise<boolean>
 }
 
+export interface RecibosLoteHTML {
+  epi: { html: string; total: number } | null
+  uniforme: { html: string; total: number } | null
+  total: number
+}
+
+export interface ResumoEntregasPorCategoria {
+  epi: { entregas: number; colaboradores: number }
+  uniforme: { entregas: number; colaboradores: number }
+}
+
 type SnapshotItem = { nome?: string; tipo?: string; ca?: string; subgrupo?: string }
 
 function snap(e: EntregaCEU): SnapshotItem {
@@ -34,17 +45,39 @@ function tipoDe(e: EntregaCEU): string {
   return e.item?.tipo || snap(e).tipo || 'Uniforme'
 }
 
+export function resumirEntregasPorCategoria(entregas: EntregaCEU[]): ResumoEntregasPorCategoria {
+  const epi = entregas.filter((e) => tipoDe(e) === 'EPI')
+  const uniforme = entregas.filter((e) => tipoDe(e) !== 'EPI')
+
+  return {
+    epi: { entregas: epi.length, colaboradores: new Set(epi.map((e) => e.colaborador_id)).size },
+    uniforme: { entregas: uniforme.length, colaboradores: new Set(uniforme.map((e) => e.colaborador_id)).size },
+  }
+}
+
 /**
  * Número do recibo de um grupo de entregas: reutiliza o já gravado;
  * se não houver, pega o próximo sequencial e grava nas entregas ainda
  * sem número (o que também as marca como recibo_emitido, bloqueando
  * a exclusão — regra de negócio).
  */
-async function numeroDoGrupo(lista: EntregaCEU[], deps: EmissaoReciboDeps): Promise<string> {
+async function numeroDoGrupo(
+  lista: EntregaCEU[],
+  deps: EmissaoReciboDeps,
+  numerosUsados: Set<string>
+): Promise<string> {
   let numero = lista.find((e) => e.numero_recibo)?.numero_recibo || null
+  const numeroDuplicado = Boolean(numero && numerosUsados.has(numero))
+  if (numeroDuplicado) numero = null
   if (!numero) numero = await deps.proximoNumeroRecibo()
-  const semNumero = lista.filter((e) => !e.numero_recibo).map((e) => e.id)
-  if (semNumero.length > 0) await deps.registrarEmissaoRecibo(semNumero, numero)
+  if (numerosUsados.has(numero)) {
+    throw new Error(`O número de recibo ${numero} já foi usado neste lote`)
+  }
+  const precisamAtualizar = lista
+    .filter((e) => numeroDuplicado ? e.numero_recibo !== numero : !e.numero_recibo)
+    .map((e) => e.id)
+  if (precisamAtualizar.length > 0) await deps.registrarEmissaoRecibo(precisamAtualizar, numero)
+  numerosUsados.add(numero)
   return numero
 }
 
@@ -90,73 +123,84 @@ export async function prepararGruposRecibo(
   const entregasNaoEPI = entregasDoColaborador.filter((e) => tipoDe(e) !== 'EPI')
 
   const grupos: DadosEntrega[] = []
+  const numerosUsados = new Set<string>()
   for (const lista of [entregasEPI, entregasNaoEPI]) {
     if (lista.length === 0) continue
-    const numero = await numeroDoGrupo(lista, deps)
+    const numero = await numeroDoGrupo(lista, deps, numerosUsados)
     grupos.push(montarDadosEntrega(lista, numero, departamentos))
   }
   return grupos
 }
 
 /**
- * Gera o HTML de recibos em lote (um por colaborador, colorido) para
- * download/impressão, agrupando as entregas por colaborador.
+ * Gera arquivos separados de EPI e Uniforme/Crachá para impressão,
+ * emitindo um recibo por colaborador e categoria.
  */
 export async function gerarRecibosLoteHTML(
   entregas: EntregaCEU[],
   deps: EmissaoReciboDeps,
   departamentos: DepartamentoFuzzy[] = []
-): Promise<{ html: string; total: number }> {
+): Promise<RecibosLoteHTML> {
   const grupos = new Map<string, EntregaCEU[]>()
   entregas.forEach((e) => {
     if (!grupos.has(e.colaborador_id)) grupos.set(e.colaborador_id, [])
     grupos.get(e.colaborador_id)!.push(e)
   })
 
-  const recibosHTML: string[] = []
+  const recibosEPI: string[] = []
+  const recibosUniforme: string[] = []
+  const numerosUsados = new Set<string>()
 
   for (const entregasDoColab of grupos.values()) {
     const colab = entregasDoColab[0].colaborador
     if (!colab) continue
 
-    const isEPI = entregasDoColab.some((e) => tipoDe(e) === 'EPI')
     const empresa = await buscarEmpresaPorId(colab.empresa_id)
-    const numeroRecibo = await numeroDoGrupo(entregasDoColab, deps)
+    const categorias = [
+      { entregas: entregasDoColab.filter((e) => tipoDe(e) === 'EPI'), epi: true },
+      { entregas: entregasDoColab.filter((e) => tipoDe(e) !== 'EPI'), epi: false },
+    ]
 
-    const data: ReciboData = {
-      colaborador: {
-        nome: colab.nome_completo || '—',
-        matricula: colab.matricula || '—',
-        funcao: colab.cargo || '—',
-        departamento: nomeCurtoDepartamentoFuzzy(departamentos, colab.departamento_id, colab.departamento, colab.empresa_id),
-        cpf: (colab.cpf || '').replace(/\D/g, ''),
-        data_admissao: colab.data_admissao || null,
-      },
-      entregas: entregasDoColab.map((e) => ({
-        item: {
-          descricao: e.item?.nome || snap(e).nome || '—',
-          numero_ca: snap(e).ca || e.item?.ca || null,
-          grupo_macro: tipoDe(e),
-          subgrupo: e.item?.subgrupo || snap(e).subgrupo || '—',
+    for (const categoria of categorias) {
+      if (categoria.entregas.length === 0) continue
+
+      const numeroRecibo = await numeroDoGrupo(categoria.entregas, deps, numerosUsados)
+      const data: ReciboData = {
+        colaborador: {
+          nome: colab.nome_completo || '—',
+          matricula: colab.matricula || '—',
+          funcao: colab.cargo || '—',
+          departamento: nomeCurtoDepartamentoFuzzy(departamentos, colab.departamento_id, colab.departamento, colab.empresa_id),
+          cpf: (colab.cpf || '').replace(/\D/g, ''),
+          data_admissao: colab.data_admissao || null,
         },
-        quantidade: e.quantidade,
-        situacao: e.data_devolucao ? 'Devolvido' : e.situacao || 'Novo',
-      })),
-      dataEntrega: entregasDoColab[0].data_entrega,
-      numeroRecibo,
-      nomeEmpresa: empresa.nome,
-      cnpjEmpresa: empresa.cnpj,
-    }
+        entregas: categoria.entregas.map((e) => ({
+          item: {
+            descricao: e.item?.nome || snap(e).nome || '—',
+            numero_ca: snap(e).ca || e.item?.ca || null,
+            grupo_macro: tipoDe(e),
+            subgrupo: e.item?.subgrupo || snap(e).subgrupo || '—',
+          },
+          quantidade: e.quantidade,
+          situacao: e.data_devolucao ? 'Devolvido' : e.situacao || 'Novo',
+        })),
+        dataEntrega: categoria.entregas[0].data_entrega,
+        numeroRecibo,
+        nomeEmpresa: empresa.nome,
+        cnpjEmpresa: empresa.cnpj,
+      }
 
-    const html = isEPI ? gerarReciboEPIColorido(data) : gerarReciboUniformeColorido(data)
-    recibosHTML.push(`<div class="recibo-page">${html}</div>`)
+      const html = categoria.epi ? gerarReciboEPIColorido(data) : gerarReciboUniformeColorido(data)
+      const recibosDaCategoria = categoria.epi ? recibosEPI : recibosUniforme
+      recibosDaCategoria.push(`<div class="recibo-page">${html}</div>`)
+    }
   }
 
-  const htmlFinal = `<!DOCTYPE html>
+  const criarDocumento = (titulo: string, recibos: string[]) => `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recibos em lote</title>
+  <title>${titulo}</title>
   <style>
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; }
@@ -166,9 +210,16 @@ export async function gerarRecibosLoteHTML(
   </style>
 </head>
 <body>
-  ${recibosHTML.join('')}
+  ${recibos.join('')}
 </body>
 </html>`
 
-  return { html: htmlFinal, total: recibosHTML.length }
+  const epi = recibosEPI.length > 0
+    ? { html: criarDocumento('Recibos de EPI', recibosEPI), total: recibosEPI.length }
+    : null
+  const uniforme = recibosUniforme.length > 0
+    ? { html: criarDocumento('Recibos de Uniforme e Crachá', recibosUniforme), total: recibosUniforme.length }
+    : null
+
+  return { epi, uniforme, total: recibosEPI.length + recibosUniforme.length }
 }

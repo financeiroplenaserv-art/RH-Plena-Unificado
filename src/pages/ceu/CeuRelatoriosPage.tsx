@@ -8,7 +8,7 @@ import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/depart
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { CeuReciboModal, type DadosEntrega } from '@/components/ceu/CeuReciboModal'
-import { prepararGruposRecibo, gerarRecibosLoteHTML } from '@/lib/ceu/emissaoRecibos'
+import { prepararGruposRecibo, gerarRecibosLoteHTML, resumirEntregasPorCategoria } from '@/lib/ceu/emissaoRecibos'
 import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
@@ -51,6 +51,7 @@ export function CeuRelatoriosPage() {
 
   const filtros = useFiltrosRelatorio(dadosEntregas)
   const { entregasFiltradas } = filtros
+  const resumoRecibosLote = useMemo(() => resumirEntregasPorCategoria(entregasFiltradas), [entregasFiltradas])
 
   const colaboradoresUnicos = useMemo(() => {
     const map = new Map<string, Colaborador>()
@@ -98,13 +99,15 @@ export function CeuRelatoriosPage() {
     }
     setGerandoRecibo(true)
     try {
-      const { html, total } = await gerarRecibosLoteHTML(entregasFiltradas, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
-      if (total === 0) {
+      const lote = await gerarRecibosLoteHTML(entregasFiltradas, { proximoNumeroRecibo, registrarEmissaoRecibo }, departamentos)
+      if (lote.total === 0) {
         toast.error('Nenhum recibo pôde ser gerado')
         return
       }
-      downloadFile(html, `recibos_lote_${hojeBrasil()}.html`, 'text/html;charset=utf-8')
-      toast.success(`${total} recibo(s) gerado(s)`)
+      const data = hojeBrasil()
+      if (lote.epi) downloadFile(lote.epi.html, `recibos_epi_lote_${data}.html`, 'text/html;charset=utf-8')
+      if (lote.uniforme) downloadFile(lote.uniforme.html, `recibos_uniforme_cracha_lote_${data}.html`, 'text/html;charset=utf-8')
+      toast.success(`${lote.epi?.total || 0} recibo(s) de EPI e ${lote.uniforme?.total || 0} de Uniforme/Crachá gerado(s)`)
     } finally {
       setGerandoRecibo(false)
     }
@@ -184,9 +187,10 @@ export function CeuRelatoriosPage() {
           title="Gerar recibos em lote?"
           description={
             <>
-              Serão gerados recibos para{' '}
-              <strong>{new Set(entregasFiltradas.map((e) => e.colaborador_id)).size} colaborador(es)</strong>,
-              cobrindo <strong>{entregasFiltradas.length} entrega(s)</strong> nos filtros aplicados.
+              Serão gerados arquivos separados: <strong>{resumoRecibosLote.epi.colaboradores} recibo(s) de EPI</strong> para{' '}
+              <strong>{resumoRecibosLote.epi.entregas} entrega(s)</strong> e{' '}
+              <strong>{resumoRecibosLote.uniforme.colaboradores} recibo(s) de Uniforme/Crachá</strong> para{' '}
+              <strong>{resumoRecibosLote.uniforme.entregas} entrega(s)</strong>, conforme os filtros aplicados.
               As entregas serão marcadas como <strong>recibo emitido</strong> e a numeração será consumida.
             </>
           }
