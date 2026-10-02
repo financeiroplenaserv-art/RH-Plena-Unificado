@@ -34,6 +34,8 @@ import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { formatarCPF, formatarData, mascaraTelefone, mascararCPF, valorNaLista } from '@/lib/utils'
 import { podeEditarColaboradorBasico, podeEmitirCrachaCEU, podeVerCPFCompleto as temPermissaoCPFCompleto } from '@/lib/permissoes'
 import { FotoColaboradorField } from '@/components/ceu/FotoColaboradorField'
+import { FotoColaboradorAvatar } from '@/components/ceu/FotoColaboradorAvatar'
+import { useFotosColaboradores } from '@/hooks/useFotosColaboradores'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -56,9 +58,8 @@ export function ColaboradoresPage() {
   const navigate = useNavigate()
   // Seleção para emissão de crachás (mantida entre páginas da listagem)
   const [selecionadosCracha, setSelecionadosCracha] = useState<Set<string>>(new Set())
-  const [fotoPathSelecionado, setFotoPathSelecionado] = useState<string | null>(null)
 
-  const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
+  const { colaboradores, loading, paginacao, listarPaginado, atualizar, atualizarFotoNaLista } = useColaboradores()
   const [busca, setBusca] = useFiltroPersistente('colaboradores.lista.busca', '')
   const [filtroStatus, setFiltroStatus] = useFiltroPersistente<StatusColaborador | 'todos'>('colaboradores.lista.status', 'Ativo')
   const [filtroDepartamento, setFiltroDepartamento] = useFiltroPersistente('colaboradores.lista.departamento', 'todos')
@@ -72,6 +73,8 @@ export function ColaboradoresPage() {
   const [formEdicao, setFormEdicao] = useState<Partial<Colaborador>>({})
   const [salvando, setSalvando] = useState(false)
   const [pagina, setPagina] = useState(0)
+  // Fotos (migration 117/118): URLs assinadas em lote só das linhas da página visível.
+  const fotoUrls = useFotosColaboradores(colaboradores.map((c) => c.foto_path))
 
   useEffect(() => {
     listarPaginado({ status: 'Ativo' }, { pagina: 0, tamanho: 50 })
@@ -148,25 +151,6 @@ export function ColaboradoresPage() {
 
   const emitirCrachas = () =>
     navigate('/ceu/crachas', { state: { colaboradorIds: Array.from(selecionadosCracha) } })
-
-  // O caminho da foto (migration 117) é buscado só ao abrir a ficha de quem emite crachás —
-  // fora da listagem, para a tela não depender da coluna antes da migration ser aplicada.
-  useEffect(() => {
-    setFotoPathSelecionado(null)
-    if (!colaboradorSelecionado || !podeEmitirCracha) return
-    let ativo = true
-    supabase
-      .from('colaboradores')
-      .select('foto_path')
-      .eq('id', colaboradorSelecionado.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (ativo) setFotoPathSelecionado((data as { foto_path?: string | null } | null)?.foto_path ?? null)
-      })
-    return () => {
-      ativo = false
-    }
-  }, [colaboradorSelecionado, podeEmitirCracha])
 
   const fecharDialog = () => {
     setColaboradorSelecionado(null)
@@ -304,13 +288,11 @@ export function ColaboradoresPage() {
                   )}
                   <TableCell className="font-medium text-foreground">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                        {c.nome_completo ? (
-                          <span>{iniciais(c.nome_completo)}</span>
-                        ) : (
-                          <User className="size-4" />
-                        )}
-                      </div>
+                      <FotoColaboradorAvatar
+                        url={c.foto_path ? fotoUrls.get(c.foto_path) : null}
+                        iniciais={iniciais(c.nome_completo)}
+                        className="size-9 text-xs"
+                      />
                       <span className="line-clamp-2 break-words sm:line-clamp-1">{c.nome_completo}</span>
                     </div>
                   </TableCell>
@@ -387,13 +369,11 @@ export function ColaboradoresPage() {
               </DialogHeader>
 
               <div className="flex items-center gap-3">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground">
-                  {colaboradorSelecionado.nome_completo ? (
-                    <span>{iniciais(colaboradorSelecionado.nome_completo)}</span>
-                  ) : (
-                    <User className="size-5" />
-                  )}
-                </div>
+                <FotoColaboradorAvatar
+                  url={colaboradorSelecionado.foto_path ? fotoUrls.get(colaboradorSelecionado.foto_path) : null}
+                  iniciais={iniciais(colaboradorSelecionado.nome_completo)}
+                  className="size-12"
+                />
                 <div className="min-w-0 flex-1">
                   {modoEdicao ? (
                     <div>
@@ -415,16 +395,22 @@ export function ColaboradoresPage() {
                 </div>
               </div>
 
-              {podeEmitirCracha && (
+              {colaboradorSelecionado.foto_path || podeEmitirCracha ? (
                 <div>
-                  <Label className="mb-1.5 block text-[10px] text-muted-foreground">Foto 3x4 (usada no crachá)</Label>
+                  <Label className="mb-1.5 block text-[10px] text-muted-foreground">
+                    {podeEmitirCracha ? 'Foto 3x4 (usada no crachá)' : 'Foto 3x4'}
+                  </Label>
                   <FotoColaboradorField
                     colaboradorId={colaboradorSelecionado.id}
-                    fotoPath={fotoPathSelecionado}
-                    onChange={setFotoPathSelecionado}
+                    fotoPath={colaboradorSelecionado.foto_path ?? null}
+                    somenteLeitura={!podeEmitirCracha}
+                    onChange={(path) => {
+                      setColaboradorSelecionado((atual) => (atual ? { ...atual, foto_path: path } : atual))
+                      atualizarFotoNaLista(colaboradorSelecionado.id, path)
+                    }}
                   />
                 </div>
-              )}
+              ) : null}
 
               {modoEdicao ? (
                 <div className="space-y-4">

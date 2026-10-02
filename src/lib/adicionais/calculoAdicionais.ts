@@ -1,4 +1,5 @@
 import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
+import { parseDataLocal } from '@/lib/utils'
 
 export function diaIntrajornada(contrato: ContratoAdicional | undefined | null, dataStr: string): boolean {
   if (!contrato || !contrato.adicionais?.intrajornada) return false
@@ -18,10 +19,99 @@ export function escaladoParaTrabalhar(regime: string | undefined, dataInicioVinc
   if (!dataInicioVinculo) return true
   const inicio = new Date(dataInicioVinculo + 'T00:00:00')
   const atual = new Date(data + 'T00:00:00')
-  const diffDias = Math.floor((atual.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
-  if (regime === '6x1') return diffDias % 7 < 6
+  const diffDias = Math.round((atual.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
+  // Módulo sempre positivo (02/10/2026): datas ANTES do início do vínculo
+  // dão diff negativo, e `-1 % 7` = -1 (< 6) fazia todo dia anterior virar
+  // "trabalhou" no 6x1.
+  if (regime === '6x1') return moduloPositivo(diffDias, 7) < 6
   // 12x36 (padrão): dia sim, dia não
-  return diffDias % 2 === 0
+  return moduloPositivo(diffDias, 2) === 0
+}
+
+/** Resto da divisão sempre em [0, n) — também para dividendo negativo. */
+export function moduloPositivo(valor: number, n: number): number {
+  return ((valor % n) + n) % n
+}
+
+/** Status previsto pela escala (fallback quando não há lançamento no dia). */
+export function statusPrevistoPelaEscala(regime: string | undefined, dataInicioVinculo: string | undefined, data: string): 'trabalhou' | 'folga' {
+  return escaladoParaTrabalhar(regime, dataInicioVinculo, data) ? 'trabalhou' : 'folga'
+}
+
+/** Dias YYYY-MM-DD de `inicio` a `fim`, inclusive (datas locais, nunca UTC). */
+export function gerarDiasDoPeriodo(inicio: string, fim: string): string[] {
+  const dias: string[] = []
+  const [ai, mi, di] = inicio.split('-').map(Number)
+  const atual = new Date(ai, mi - 1, di)
+  const [af, mf, df] = fim.split('-').map(Number)
+  const dataFim = new Date(af, mf - 1, df)
+  while (atual <= dataFim) {
+    dias.push(`${atual.getFullYear()}-${String(atual.getMonth() + 1).padStart(2, '0')}-${String(atual.getDate()).padStart(2, '0')}`)
+    atual.setDate(atual.getDate() + 1)
+  }
+  return dias
+}
+
+// ============================================================
+// Proporcional ao vínculo — decisão da gestão, 02/10/2026
+// ------------------------------------------------------------
+// Vínculo que começa ou termina no meio do período (20→19) só conta os dias
+// dentro de [data_inicio, data_fim]. Caso real: Carlos Alexandre (6x1,
+// periculosidade), vínculo 03/09→19/09 no período 20/08→19/09: recebia 30
+// e 25 trabalhados (dias antes da admissão inferidos pela escala); passa a
+// 17 e 11. Só vale a data do VÍNCULO (não a data de admissão do cadastro).
+// ============================================================
+
+/** A data (YYYY-MM-DD) está dentro do vínculo? `data_fim` nulo = em aberto. */
+export function dentroDoVinculo(
+  data: string,
+  vinculo: { data_inicio?: string | null; data_fim?: string | null }
+): boolean {
+  if (vinculo.data_inicio && data < vinculo.data_inicio) return false
+  if (vinculo.data_fim && data > vinculo.data_fim) return false
+  return true
+}
+
+/**
+ * Dias do vínculo dentro do período, inclusive: de max(início do vínculo,
+ * início do período) a min(fim do vínculo ?? fim do período, fim do período).
+ * Zero quando não há sobreposição.
+ */
+export function diasDoVinculoNoPeriodo(
+  inicioVinculo: string | null | undefined,
+  fimVinculo: string | null | undefined,
+  inicioPeriodo: string,
+  fimPeriodo: string
+): number {
+  const de = inicioVinculo && inicioVinculo > inicioPeriodo ? inicioVinculo : inicioPeriodo
+  const ate = fimVinculo && fimVinculo < fimPeriodo ? fimVinculo : fimPeriodo
+  if (de > ate) return 0
+  const utc = (iso: string) => {
+    const [a, m, d] = iso.split('-').map(Number)
+    return Date.UTC(a, m - 1, d)
+  }
+  return Math.round((utc(ate) - utc(de)) / 86400000) + 1
+}
+
+/** Teto do adicional mensal (dias). */
+export const TETO_DIAS_ADICIONAL = 30
+
+/**
+ * Base de dias do titular no período: vínculo que cobre o período INTEIRO
+ * vale 30 (como sempre — inclusive em período de 28 ou 31 dias); vínculo
+ * parcial vale os dias dentro do período (o teto de 30 é aplicado em
+ * adicionalTitular30).
+ */
+export function diasBaseAdicional(
+  inicioVinculo: string | null | undefined,
+  fimVinculo: string | null | undefined,
+  inicioPeriodo: string,
+  fimPeriodo: string
+): number {
+  const cobreInicio = !inicioVinculo || inicioVinculo <= inicioPeriodo
+  const cobreFim = !fimVinculo || fimVinculo >= fimPeriodo
+  if (cobreInicio && cobreFim) return TETO_DIAS_ADICIONAL
+  return diasDoVinculoNoPeriodo(inicioVinculo, fimVinculo, inicioPeriodo, fimPeriodo)
 }
 
 /**
@@ -75,22 +165,35 @@ export function contarDiasFeriadoEscalado(
 //     corridos da parte dele no mês.
 //   Férias/afastado SEM substituto registrado não transferem dias
 //   (o titular mantém 30 − faltas).
+//   Vínculo parcial no período (02/10/2026): o 30 vira
+//   min(30, dias do vínculo no período).
 //
 // SUBSTITUTO (linha criada só por cobertura, sem vínculo próprio):
 //   - Insalubridade: todos os dias cobertos — faltas/folgas de
 //     substituição E o bloco de férias/afastado (a "outra parte do mês").
 //   - Periculosidade: APENAS os dias de férias/afastado cobertos;
 //     cobertura de falta NÃO gera periculosidade.
+//   - Cada dia coberto conta UMA vez (02/10/2026). Na implementação, a
+//     folga com substituição entra junto com férias/afastado nos dias
+//     transferidos (por isso também gera periculosidade ao substituto).
 // ============================================================
 
-/** Adicional mensal do titular: 30 − faltas − dias transferidos ao substituto. */
-export function adicionalTitular30(faltas: number, diasTransferidos = 0): number {
-  return Math.max(0, 30 - faltas - diasTransferidos)
+/**
+ * Adicional mensal do titular: min(30, dias do vínculo no período) − faltas −
+ * dias transferidos ao substituto. `diasBase` padrão = 30 (vínculo cheio);
+ * período de 31 ou 28 dias com vínculo cheio continua 30 (teto).
+ */
+export function adicionalTitular30(faltas: number, diasTransferidos = 0, diasBase: number = TETO_DIAS_ADICIONAL): number {
+  return Math.max(0, Math.min(TETO_DIAS_ADICIONAL, diasBase) - faltas - diasTransferidos)
 }
 
-/** Insalubridade do substituto: todos os dias cobertos (férias/afastado + falta/folga). */
-export function insalubridadeSubstituto(diasFeriasAfastado: number, diasFaltaFolga: number): number {
-  return diasFeriasAfastado + diasFaltaFolga
+/**
+ * Insalubridade do substituto: todos os dias cobertos, cada um UMA vez
+ * (02/10/2026) — dias transferidos (férias/afastado/folga com substituição)
+ * + faltas cobertas. Não passe a folga com substituição nos dois argumentos.
+ */
+export function insalubridadeSubstituto(diasTransferidos: number, diasFaltaCobertos: number): number {
+  return diasTransferidos + diasFaltaCobertos
 }
 
 /** Periculosidade do substituto: somente os dias de férias/afastado cobertos. */
@@ -163,6 +266,83 @@ export function contarVinculosUnicosPorContrato(
   }
 
   return new Map(Array.from(mapa.entries()).map(([contratoId, ids]) => [contratoId, ids.size]))
+}
+
+/**
+ * Máximo de colaboradores SIMULTÂNEOS por contrato em qualquer dia do período
+ * (decisão da gestão, 02/10/2026). Base dos alertas "incompleto"/"excedente"
+ * da tela Contratos: troca em sequência no mesmo posto (ex.: um sai 02/09, o
+ * outro entra 03/09, contrato de 1 vaga) é 1 ao mesmo tempo — antes contava
+ * 2 pessoas distintas e acusava "2/1 excedente". O mesmo colaborador com dois
+ * vínculos sobrepostos no mesmo dia conta uma vez. Contrato sem vínculo no
+ * período não aparece no mapa.
+ */
+export function contarMaxSimultaneosPorContrato(
+  vinculos: Array<{ contrato_id: string; colaborador_id: string; data_inicio?: string | null; data_fim?: string | null }>,
+  periodoInicio: string,
+  periodoFim: string
+): Map<string, number> {
+  const porContrato = new Map<string, typeof vinculos>()
+  for (const v of vinculos) {
+    if (!v.contrato_id || !v.colaborador_id) continue
+    const inicio = v.data_inicio || '1900-01-01'
+    const fim = v.data_fim || '9999-12-31'
+    if (inicio > periodoFim || fim < periodoInicio) continue
+    const lista = porContrato.get(v.contrato_id) ?? []
+    lista.push(v)
+    porContrato.set(v.contrato_id, lista)
+  }
+  const dias = gerarDiasDoPeriodo(periodoInicio, periodoFim)
+  const resultado = new Map<string, number>()
+  porContrato.forEach((lista, contratoId) => {
+    let maximo = 0
+    for (const data of dias) {
+      const presentes = new Set<string>()
+      for (const v of lista) {
+        if (dentroDoVinculo(data, v)) presentes.add(v.colaborador_id)
+      }
+      if (presentes.size > maximo) maximo = presentes.size
+    }
+    resultado.set(contratoId, maximo)
+  })
+  return resultado
+}
+
+/** Dia anterior (YYYY-MM-DD), em data local — nunca UTC. */
+export function diaAnterior(iso: string): string {
+  const d = parseDataLocal(iso)
+  d.setDate(d.getDate() - 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+type VinculoDoPosto = { id: string; colaborador_id: string; data_inicio?: string | null; data_fim?: string | null }
+
+/**
+ * Novo vínculo no posto: quem precisaria ser encerrado? (decisão da gestão,
+ * 02/10/2026). Em D = data_inicio do novo vínculo, conta as pessoas distintas
+ * ativas no contrato (mesma lógica de "simultâneos" da tela Contratos) mais a
+ * nova. Se passar das vagas — ou, sem vagas definidas (0/nulo), se já houver
+ * alguém ativo em D — devolve os vínculos que PODEM ser encerrados em D−1:
+ * ativos em D (sem data_fim ou data_fim ≥ D) e com data_inicio < D (encerrar
+ * em D−1 nunca deixa data_fim < data_inicio). A tela sempre pergunta; nunca
+ * encerra sozinha. Lista vazia = nada a oferecer.
+ */
+export function vinculosQueConflitam<T extends VinculoDoPosto>(
+  novo: { colaborador_id: string; data_inicio: string },
+  vinculosDoContrato: T[],
+  vagas: number | null | undefined
+): T[] {
+  const D = novo.data_inicio
+  const ativosEmD = vinculosDoContrato.filter(v => dentroDoVinculo(D, v))
+  const pessoas = new Set(ativosEmD.map(v => v.colaborador_id))
+  pessoas.add(novo.colaborador_id)
+  const excede = vagas && vagas > 0
+    ? pessoas.size > vagas
+    : ativosEmD.some(v => v.colaborador_id !== novo.colaborador_id)
+  if (!excede) return []
+  return ativosEmD.filter(v =>
+    v.colaborador_id !== novo.colaborador_id && !!v.data_inicio && v.data_inicio < D
+  )
 }
 
 /**

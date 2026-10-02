@@ -22,6 +22,13 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   onConfirm: () => void
   destructive?: boolean
+  /** Conteúdo extra entre o texto e os botões (ex.: escolha de opções). */
+  children?: React.ReactNode
+  /** Terceira ação opcional (ex.: "Salvar sem encerrar"), ao lado do Cancelar. */
+  secondaryLabel?: string
+  onSecondary?: () => void
+  /** Desabilita a ação principal (ex.: nenhuma opção escolhida). */
+  confirmDisabled?: boolean
 }
 
 export function ConfirmDialog({
@@ -35,6 +42,10 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   onConfirm,
   destructive = false,
+  children,
+  secondaryLabel,
+  onSecondary,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -46,10 +57,17 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          {secondaryLabel && onSecondary && (
+            <AlertDialogAction onClick={onSecondary} className={buttonVariants({ variant: 'outline' })}>
+              {secondaryLabel}
+            </AlertDialogAction>
+          )}
           <AlertDialogAction
             onClick={onConfirm}
+            disabled={confirmDisabled}
             className={destructive ? 'bg-red-600 text-white hover:bg-red-700' : buttonVariants()}
           >
             {confirmLabel}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { agoraBrasil } from '@/lib/utils'
+import { agoraBrasil, formatarData } from '@/lib/utils'
 import { Plus, Trash2, Search, Calendar, Copy, AlertTriangle, Pencil, X, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { PageHeader } from '@/components/corh/PageHeader'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
+import { vinculosQueConflitam, diaAnterior } from '@/lib/adicionais/calculoAdicionais'
 import { podeEditarVinculoAdicional } from '@/lib/permissoes'
 import type { VinculoAdicional, AdicionalTipo } from '@/types/adicionais'
 
@@ -71,6 +73,16 @@ export function AdicionaisVinculosPage() {
   const [editDataInicio, setEditDataInicio] = useState('')
   const [editDataFim, setEditDataFim] = useState('')
   const [editAdicionais, setEditAdicionais] = useState<AdicionalTipo[]>([])
+  // Novo vínculo em posto já ocupado: pergunta se encerra o anterior (02/10/2026)
+  const [conflitoPosto, setConflitoPosto] = useState<{
+    dados: Parameters<typeof criarVinculo>[0]
+    ocupantes: VinculoAdicional[]
+    encerraveis: VinculoAdicional[]
+    vagas: number
+    contratoNome: string
+  } | null>(null)
+  const [encerrarIds, setEncerrarIds] = useState<Set<string>>(new Set())
+  const [salvandoNovo, setSalvandoNovo] = useState(false)
 
   useEffect(() => {
     listarContratos()
@@ -151,6 +163,37 @@ export function AdicionaisVinculosPage() {
     })
   }, [vinculos, busca, mapColaborador, mapContrato, departamentoFiltro, adicionalFiltro, contratos])
 
+  const limparFormularioNovo = () => {
+    setColaboradorId('')
+    setContratoId('')
+    setDataInicio('')
+    setDataFim('')
+  }
+
+  /** Cria o vínculo; antes, encerra em D−1 os vínculos escolhidos. Nunca finge sucesso. */
+  const gravarNovoVinculo = async (dados: Parameters<typeof criarVinculo>[0], encerrar: VinculoAdicional[]) => {
+    setSalvandoNovo(true)
+    try {
+      const fimAnterior = diaAnterior(dados.data_inicio)
+      for (const v of encerrar) {
+        // atualizarVinculo termina em .select('id') e devolve false se nada foi gravado
+        const ok = await atualizarVinculo(v.id, { data_fim: fimAnterior })
+        if (!ok) {
+          const nome = mapColaborador.get(v.colaborador_id)?.nome || v.colaborador_nome || 'colaborador'
+          toast.error(`Não foi possível encerrar o vínculo de ${nome} — o novo vínculo NÃO foi criado. Verifique e tente novamente.`)
+          return
+        }
+      }
+      const criado = await criarVinculo(dados)
+      if (criado) limparFormularioNovo()
+      else if (encerrar.length > 0) {
+        toast.warning(`Atenção: o vínculo anterior já foi encerrado em ${formatarData(fimAnterior)}, mas o novo não foi criado.`)
+      }
+    } finally {
+      setSalvandoNovo(false)
+    }
+  }
+
   const handleSalvar = async () => {
     if (!colaboradorId || !contratoId || !dataInicio || !dataFim) return
     const dados = montarVinculoCompleto({
@@ -159,11 +202,25 @@ export function AdicionaisVinculosPage() {
       data_inicio: dataInicio,
       data_fim: dataFim,
     })
-    await criarVinculo(dados)
-    setColaboradorId('')
-    setContratoId('')
-    setDataInicio('')
-    setDataFim('')
+    // Posto já ocupado em D (vagas do contrato)? Pergunta antes — nunca encerra sozinho.
+    const contrato = contratos.find(c => c.id === contratoId)
+    const doContrato = (vinculos || []).filter(v => v.contrato_id === contratoId)
+    const encerraveis = vinculosQueConflitam(dados, doContrato, contrato?.quantidade_colaboradores)
+    if (encerraveis.length > 0) {
+      const ocupantes = doContrato.filter(v =>
+        v.data_inicio <= dataInicio && (!v.data_fim || v.data_fim >= dataInicio) && v.colaborador_id !== colaboradorId
+      )
+      setEncerrarIds(new Set(encerraveis.length === 1 ? [encerraveis[0].id] : []))
+      setConflitoPosto({
+        dados,
+        ocupantes,
+        encerraveis,
+        vagas: contrato?.quantidade_colaboradores || 0,
+        contratoNome: contrato?.nome || 'selecionado',
+      })
+      return
+    }
+    await gravarNovoVinculo(dados, [])
   }
 
   const handleCorrigirVinculos = async () => {
@@ -352,7 +409,7 @@ export function AdicionaisVinculosPage() {
         </div>
         <ModuleButton
           onClick={handleSalvar}
-          disabled={!colaboradorId || !contratoId || !dataInicio || !dataFim || loading || colaboradores.length === 0 || contratos.length === 0}
+          disabled={!colaboradorId || !contratoId || !dataInicio || !dataFim || loading || salvandoNovo || colaboradores.length === 0 || contratos.length === 0}
         >
           <Plus className="w-4 h-4 mr-2" />
           Adicionar vínculo
@@ -569,6 +626,68 @@ export function AdicionaisVinculosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Novo vínculo em posto já ocupado (decisão da gestão, 02/10/2026):
+          pergunta se encerra o vínculo anterior em D−1 — nunca encerra sozinho */}
+      <ConfirmDialog
+        open={!!conflitoPosto}
+        onOpenChange={aberto => { if (!aberto) setConflitoPosto(null) }}
+        icon={<AlertTriangle className="w-6 h-6 text-amber-600" />}
+        iconClassName="bg-amber-50"
+        title="Posto já ocupado"
+        description={conflitoPosto ? (() => {
+          const nomeDe = (v: VinculoAdicional) => mapColaborador.get(v.colaborador_id)?.nome || v.colaborador_nome || '—'
+          const vagasTxt = conflitoPosto.vagas > 0
+            ? `tem ${conflitoPosto.vagas} vaga${conflitoPosto.vagas === 1 ? '' : 's'} e já está ocupado`
+            : 'já está ocupado'
+          const D = formatarData(conflitoPosto.dados.data_inicio)
+          const fim = formatarData(diaAnterior(conflitoPosto.dados.data_inicio))
+          const ocupantes = conflitoPosto.ocupantes.map(nomeDe).join(', ')
+          return conflitoPosto.encerraveis.length === 1
+            ? `O posto ${conflitoPosto.contratoNome} ${vagasTxt} por ${ocupantes} em ${D}. Deseja encerrar o vínculo de ${nomeDe(conflitoPosto.encerraveis[0])} em ${fim}?`
+            : `O posto ${conflitoPosto.contratoNome} ${vagasTxt} por ${ocupantes} em ${D}. Escolha qual(is) vínculo(s) encerrar em ${fim}:`
+        })() : ''}
+        confirmLabel="Encerrar e salvar"
+        confirmDisabled={encerrarIds.size === 0 || salvandoNovo}
+        onConfirm={() => {
+          if (!conflitoPosto) return
+          const encerrar = conflitoPosto.encerraveis.filter(v => encerrarIds.has(v.id))
+          const dados = conflitoPosto.dados
+          setConflitoPosto(null)
+          void gravarNovoVinculo(dados, encerrar)
+        }}
+        secondaryLabel="Salvar sem encerrar"
+        onSecondary={() => {
+          if (!conflitoPosto) return
+          const dados = conflitoPosto.dados
+          setConflitoPosto(null)
+          void gravarNovoVinculo(dados, [])
+        }}
+      >
+        {conflitoPosto && conflitoPosto.encerraveis.length > 1 && (
+          <div className="space-y-2 px-1">
+            {conflitoPosto.encerraveis.map(v => (
+              <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#1F2937' }}>
+                <input
+                  type="checkbox"
+                  checked={encerrarIds.has(v.id)}
+                  onChange={e => setEncerrarIds(prev => {
+                    const novo = new Set(prev)
+                    if (e.target.checked) novo.add(v.id)
+                    else novo.delete(v.id)
+                    return novo
+                  })}
+                />
+                <span>
+                  {mapColaborador.get(v.colaborador_id)?.nome || v.colaborador_nome || '—'}
+                  <span className="ml-1 text-xs tabular-nums" style={{ color: '#64748B' }}>
+                    ({formatarData(v.data_inicio)} até {v.data_fim ? formatarData(v.data_fim) : 'em aberto'})
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+      </ConfirmDialog>
     </AdicionaisShell>
   )
 }

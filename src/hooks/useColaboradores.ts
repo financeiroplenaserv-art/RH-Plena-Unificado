@@ -15,7 +15,7 @@ interface FiltrosColaborador {
   busca?: string
 }
 
-const COLUNAS_LISTAGEM = 'id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at'
+const COLUNAS_LISTAGEM = 'id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, foto_path, created_at, updated_at'
 
 // Subconjunto leve para dropdowns/autocompletes (sem documentos, contato,
 // endereço e tamanhos — ~70% menos bytes por linha).
@@ -309,6 +309,11 @@ export function useColaboradores() {
     return { acao: 'criado', id: data.id } as const
   }, [])
 
+  /** Reflete na lista (sem nova consulta) a foto trocada/removida na janela lateral. */
+  const atualizarFotoNaLista = useCallback((id: string, fotoPath: string | null) => {
+    setColaboradores((lista) => lista.map((c) => (c.id === id ? { ...c, foto_path: fotoPath } : c)))
+  }, [])
+
   return {
     colaboradores,
     loading,
@@ -317,6 +322,7 @@ export function useColaboradores() {
     listarResumido,
     listarPaginado,
     atualizar,
+    atualizarFotoNaLista,
     upsertPorMatricula,
   }
 }

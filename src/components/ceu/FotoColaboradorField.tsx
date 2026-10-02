@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, Trash2, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { limparCacheFotos } from '@/lib/colaboradorFotos'
 import { reduzirImagem } from '@/lib/ceu/crachasImagem'
 import {
   carregarFotoDataUrl,
@@ -13,6 +14,8 @@ interface FotoColaboradorFieldProps {
   colaboradorId: string
   fotoPath: string | null
   onChange?: (fotoPath: string | null) => void
+  /** Só exibe a foto (perfis que veem o cadastro mas não emitem crachás). */
+  somenteLeitura?: boolean
 }
 
 /**
@@ -20,7 +23,7 @@ interface FotoColaboradorFieldProps {
  * Reduz no cliente (máx. 600 px, JPEG 0.85) antes de enviar e grava o caminho
  * via RPC salvar_dados_cracha. Usado na ficha do colaborador.
  */
-export function FotoColaboradorField({ colaboradorId, fotoPath, onChange }: FotoColaboradorFieldProps) {
+export function FotoColaboradorField({ colaboradorId, fotoPath, onChange, somenteLeitura = false }: FotoColaboradorFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -45,6 +48,7 @@ export function FotoColaboradorField({ colaboradorId, fotoPath, onChange }: Foto
     try {
       const dataUrl = await reduzirImagem(arquivo, false)
       const path = await enviarFotoColaborador(colaboradorId, dataUrl)
+      limparCacheFotos()
       setUrl(dataUrl)
       onChange?.(path)
       toast.success('Foto salva no cadastro')
@@ -59,6 +63,7 @@ export function FotoColaboradorField({ colaboradorId, fotoPath, onChange }: Foto
     setEnviando(true)
     try {
       await removerFotoColaborador(colaboradorId)
+      limparCacheFotos()
       setUrl(null)
       onChange?.(null)
       toast.success('Foto removida do cadastro')
@@ -78,6 +83,7 @@ export function FotoColaboradorField({ colaboradorId, fotoPath, onChange }: Foto
           <User className="size-5 text-muted-foreground" />
         )}
       </div>
+      {!somenteLeitura && (
       <div className="flex flex-wrap gap-2">
         <input
           ref={inputRef}
@@ -100,6 +106,7 @@ export function FotoColaboradorField({ colaboradorId, fotoPath, onChange }: Foto
           </Button>
         )}
       </div>
+      )}
     </div>
   )
 }

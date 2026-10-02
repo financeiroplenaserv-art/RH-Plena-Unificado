@@ -30,7 +30,7 @@ import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos, diaExigeSubstituto } from '@/lib/adicionais/calculoAdicionais'
+import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos, diaExigeSubstituto, statusPrevistoPelaEscala, dentroDoVinculo, diasBaseAdicional } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import { buscarUltimoArquivoDoPeriodo, type PontoEspelhoArquivo } from '@/lib/adicionais/pontoEspelhoArquivos'
 import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional, AdicionalTipo } from '@/types/adicionais'
@@ -74,47 +74,6 @@ function normalizarStatus(status: unknown): StatusDiaAdicional {
     return status
   }
   return 'trabalhou'
-}
-
-/* ============================================================
-   CORREÇÃO: Calcula o status do dia pelo padrão 12x36
-   (12h trabalho / 36h folga → alternância dia-sim-dia-não)
-   ============================================================ */
-function calcularStatus12x36(dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
-  if (!dataInicio) return 'trabalhou'
-  const inicio = new Date(dataInicio + 'T00:00:00')
-  const atual  = new Date(dataAtual  + 'T00:00:00')
-  const diffMs = atual.getTime() - inicio.getTime()
-  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  return diffDias % 2 === 0 ? 'trabalhou' : 'folga'
-}
-
-function calcularStatus6x1(dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
-  if (!dataInicio) return 'trabalhou'
-  const inicio = new Date(dataInicio + 'T00:00:00')
-  const atual = new Date(dataAtual + 'T00:00:00')
-  const diffMs = atual.getTime() - inicio.getTime()
-  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  return diffDias % 7 < 6 ? 'trabalhou' : 'folga'
-}
-
-function calcularStatus5x2(dataAtual: string): 'trabalhou' | 'folga' {
-  const dia = new Date(dataAtual + 'T00:00:00').getDay()
-  return dia >= 1 && dia <= 5 ? 'trabalhou' : 'folga'
-}
-
-function calcularStatusPorRegime(regime: string | undefined, dataInicio: string | undefined, dataAtual: string): 'trabalhou' | 'folga' {
-  switch (regime) {
-    case '6x1':
-      return calcularStatus6x1(dataInicio, dataAtual)
-    case '5x2':
-      return calcularStatus5x2(dataAtual)
-    case 'personalizado':
-      return 'trabalhou'
-    case '12x36':
-    default:
-      return calcularStatus12x36(dataInicio, dataAtual)
-  }
 }
 
 function formatarDataBR(dataStr: string) {
@@ -253,7 +212,7 @@ export function AdicionaisCalendarioPage() {
     [calendario]
   )
 
-  const getDia = useCallback((vinculo: VinculoAdicional, data: string): DiaCalendarioAdicional & { __fallback?: boolean; __inferido?: boolean } => {
+  const getDia = useCallback((vinculo: VinculoAdicional, data: string): DiaCalendarioAdicional & { __fallback?: boolean; __inferido?: boolean; __foraVinculo?: boolean } => {
     const chave = `${vinculo.id}|${data}`
     if (alteracoes[chave]) return alteracoes[chave]
     const salvo = calendario.find(d => d.vinculo_id === vinculo.id && d.data === data)
@@ -261,8 +220,15 @@ export function AdicionaisCalendarioPage() {
       const status = normalizarStatus(salvo.status)
       return { ...salvo, status, __fallback: status !== salvo.status ? true : undefined }
     }
+    // Fora do vínculo (antes do início / depois do fim) e sem lançamento: não
+    // há dia a inferir pela escala (proporcional ao vínculo, 02/10/2026).
+    // Lançamentos gravados fora do vínculo (ex.: cobertura da vaga antes da
+    // admissão) seguem acima, visíveis e editáveis.
+    if (!dentroDoVinculo(data, vinculo)) {
+      return { vinculo_id: vinculo.id, data, status: 'folga', intrajornada: false, __fallback: false, __foraVinculo: true }
+    }
     const contrato = mapContrato.get(vinculo.contrato_id)
-    const statusPadrao = calcularStatusPorRegime(contrato?.regime_trabalho, vinculo.data_inicio, data)
+    const statusPadrao = statusPrevistoPelaEscala(contrato?.regime_trabalho, vinculo.data_inicio, data)
     return {
       vinculo_id: vinculo.id,
       data,
@@ -331,7 +297,10 @@ export function AdicionaisCalendarioPage() {
         statusFiltro.some(f =>
           f === 'precisa_substituto'
             ? diasDoPeriodo.some(data => precisaSubstituto(v, data))
-            : diasDoPeriodo.some(data => getDia(v, data).status === f)
+            : diasDoPeriodo.some(data => {
+              const dia = getDia(v, data)
+              return !dia.__foraVinculo && dia.status === f
+            })
         )
       )
     }
@@ -572,12 +541,14 @@ export function AdicionaisCalendarioPage() {
 
   /**
    * Resumo de direito aos adicionais do TITULAR do posto no período
-   * (regra da gestão, 01/08/2026): insalubridade/periculosidade =
-   * 30 − faltas − dias transferidos ao substituto (no 12×36, cada dia de
+   * (regra da gestão, 01/08/2026; proporcional ao vínculo desde 02/10/2026 —
+   * mesma conta do Relatório): insalubridade/periculosidade =
+   * min(30, dias do vínculo no período) − faltas − dias transferidos ao
+   * substituto (férias/afastado/folga com substituição; no 12×36, cada dia de
    * escala coberto transfere também a folga pareada); noturno = dias
    * trabalhados; intrajornada = trabalhados em dias configurados;
-   * feriado = feriados com escala prevista. Com o filtro de adicional
-   * ativo, mostra só o adicional escolhido.
+   * feriado = feriados com escala prevista. Só contam os dias DENTRO do
+   * vínculo. Com o filtro de adicional ativo, mostra só o adicional escolhido.
    */
   const resumoDireito = (v: VinculoAdicional): { key: string; label: string; dias: number }[] => {
     const contrato = mapContrato.get(v.contrato_id)
@@ -586,7 +557,8 @@ export function AdicionaisCalendarioPage() {
     let trabalhados = 0
     let diasIntrajornada = 0
     const blocoFerias: { data: string; comSubstituto: boolean }[] = []
-    diasDoPeriodo.forEach(data => {
+    const diasDentro = diasDoPeriodo.filter(data => dentroDoVinculo(data, v))
+    diasDentro.forEach(data => {
       const dia = getDia(v, data)
       if (dia.status === 'trabalhou') {
         trabalhados++
@@ -594,17 +566,18 @@ export function AdicionaisCalendarioPage() {
       } else if (dia.status === 'falta') {
         faltas++
       }
-      if (dia.status === 'ferias' || dia.status === 'afastado') {
+      if (dia.status === 'ferias' || dia.status === 'afastado' || dia.status === 'folga_substituicao') {
         blocoFerias.push({ data, comSubstituto: !!getSubstituto(v.id, data) })
       }
     })
     const transferidos = contarDiasTransferidos(contrato.regime_trabalho, v.data_inicio, blocoFerias)
+    const diasBase = diasBaseAdicional(v.data_inicio, v.data_fim, periodoInicio, periodoFim)
     const resumo: { key: string; label: string; dias: number }[] = []
-    if (contrato.adicionais?.insalubridade) resumo.push({ key: 'insalubridade', label: 'Insalubridade', dias: adicionalTitular30(faltas, transferidos) })
-    if (contrato.adicionais?.periculosidade) resumo.push({ key: 'periculosidade', label: 'Periculosidade', dias: adicionalTitular30(faltas, transferidos) })
+    if (contrato.adicionais?.insalubridade) resumo.push({ key: 'insalubridade', label: 'Insalubridade', dias: adicionalTitular30(faltas, transferidos, diasBase) })
+    if (contrato.adicionais?.periculosidade) resumo.push({ key: 'periculosidade', label: 'Periculosidade', dias: adicionalTitular30(faltas, transferidos, diasBase) })
     if (contrato.adicionais?.noturno) resumo.push({ key: 'noturno', label: 'Noturno', dias: trabalhados })
     if (contrato.adicionais?.intrajornada) resumo.push({ key: 'intrajornada', label: 'Intrajornada', dias: diasIntrajornada })
-    if (contrato.adicionais?.feriado) resumo.push({ key: 'feriado', label: 'Feriado', dias: contarDiasFeriadoEscalado(contrato.regime_trabalho, v.data_inicio, diasDoPeriodo, datasFeriados) })
+    if (contrato.adicionais?.feriado) resumo.push({ key: 'feriado', label: 'Feriado', dias: contarDiasFeriadoEscalado(contrato.regime_trabalho, v.data_inicio, diasDentro, datasFeriados) })
     return adicionalFiltro === 'todos' ? resumo : resumo.filter(r => r.key === adicionalFiltro)
   }
 
@@ -867,12 +840,17 @@ export function AdicionaisCalendarioPage() {
                     // parcial: mostra a previsão da escala, mas visualmente
                     // "aguardando ponto" (tracejado, emoji esmaecido).
                     const isInferido = dia.__inferido === true && !isFallback && !temAlteracaoPendente
-                    const emoji = isFallback ? '' : EMOJI_STATUS[dia.status]
+                    // Fora do vínculo sem lançamento (02/10/2026): neutro, sem
+                    // previsão da escala — o dia não conta para o titular.
+                    const isForaVinculo = dia.__foraVinculo === true && !temAlteracaoPendente
+                    const emoji = isFallback || isForaVinculo ? '' : EMOJI_STATUS[dia.status]
                     const estilo = STATUS_STYLE[dia.status]
                     const tooltip = substituto
                       ? `${formatarDataBR(data)} — Substituído por ${substituto.substituto_colaborador_nome || mapColaborador.get(substituto.substituto_colaborador_id || '')?.nome || '—'}${substituto.substituto_sem_adicional ? ' (sem adicional — controle interno)' : ''}`
                       : substituido
                         ? `${formatarDataBR(data)} — Substituindo ${substituido.nome}`
+                        : isForaVinculo
+                          ? `${formatarDataBR(data)} — Fora do vínculo (${formatarDataBR(v.data_inicio)} a ${v.data_fim ? formatarDataBR(v.data_fim) : 'em aberto'}) — não conta para o titular`
                         : isFallback
                           ? `${formatarDataBR(data)} — Não preenchido`
                           : precisa
@@ -880,9 +858,9 @@ export function AdicionaisCalendarioPage() {
                             : isInferido
                               ? `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status} (previsto pela escala — ponto ainda não importado)`
                               : `${formatarDataBR(data)} — ${STATUS_OPCOES.find(s => s.value === dia.status)?.label ?? dia.status}${temAlteracaoPendente ? ' (alteração pendente)' : ''}`
-                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto || substituido ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback ? '#E2E8F0' : isInferido ? '#CBD5E1' : estilo.border
-                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto || substituido ? '#DCFCE7' : isFallback || isInferido ? '#FFFFFF' : estilo.bg
-                    const textColor = isFallback ? '#CBD5E1' : isInferido ? '#94A3B8' : estilo.text
+                    const borderColor = temAlteracaoPendente ? '#F59E0B' : substituto || substituido ? '#22C55E' : precisa || ignorado ? '#F59E0B' : isFallback || isForaVinculo ? '#E2E8F0' : isInferido ? '#CBD5E1' : estilo.border
+                    const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto || substituido ? '#DCFCE7' : isForaVinculo ? '#F1F5F9' : isFallback || isInferido ? '#FFFFFF' : estilo.bg
+                    const textColor = isFallback || isForaVinculo ? '#CBD5E1' : isInferido ? '#94A3B8' : estilo.text
                     // Indica direito a intrajornada (HE) quando trabalha em dia configurado (sab/dom/feriado)
                     const temIntrajornada = dia.status === 'trabalhou' && diaIntrajornada(contrato, data)
                     return (
@@ -893,7 +871,7 @@ export function AdicionaisCalendarioPage() {
                           className={cn(
                             'w-10 h-10 rounded-lg border text-xs flex flex-col items-center justify-center transition-colors hover:opacity-90',
                             precisa && 'animate-pulse',
-                            (isFallback || isInferido) && 'border-dashed'
+                            (isFallback || isInferido || isForaVinculo) && 'border-dashed'
                           )}
                           style={{
                             backgroundColor: bgColor,

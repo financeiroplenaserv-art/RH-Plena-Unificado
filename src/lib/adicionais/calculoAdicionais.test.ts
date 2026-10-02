@@ -9,8 +9,16 @@ import {
   substituicaoGeraAdicional,
   contarDiasTransferidos,
   contarVinculosUnicosPorContrato,
+  contarMaxSimultaneosPorContrato,
+  vinculosQueConflitam,
+  diaAnterior,
   limitesPeriodoAdicional,
   periodoAdicionalDaData,
+  dentroDoVinculo,
+  diasDoVinculoNoPeriodo,
+  diasBaseAdicional,
+  moduloPositivo,
+  statusPrevistoPelaEscala,
 } from './calculoAdicionais'
 
 const FERIADOS = new Set(['2026-06-04', '2026-06-24', '2026-12-25'])
@@ -200,7 +208,8 @@ describe('transferência de folga com substituição', () => {
 
     const transferidos = contarDiasTransferidos('5x2', undefined, dias)
     expect(adicionalTitular30(0, transferidos)).toBe(17)
-    expect(insalubridadeSubstituto(0, transferidos)).toBe(13)
+    // A folga com substituição entra só nos transferidos (cada dia uma vez — 02/10/2026)
+    expect(insalubridadeSubstituto(transferidos, 0)).toBe(13)
   })
 })
 
@@ -265,5 +274,132 @@ describe('periodoAdicionalDaData', () => {
 
   it('início de janeiro pertence ao período iniciado em dezembro do ano anterior', () => {
     expect(periodoAdicionalDaData(new Date(2026, 0, 5))).toEqual({ ano: 2025, mes: 12 })
+  })
+})
+
+describe('proporcional ao vínculo (decisão da gestão, 02/10/2026)', () => {
+  it('diasDoVinculoNoPeriodo: recorta o vínculo ao período, inclusive', () => {
+    expect(diasDoVinculoNoPeriodo('2026-09-03', '2026-09-19', '2026-08-20', '2026-09-19')).toBe(17)
+    expect(diasDoVinculoNoPeriodo('2026-01-01', null, '2026-08-20', '2026-09-19')).toBe(31)
+    expect(diasDoVinculoNoPeriodo('2026-01-01', '2026-09-05', '2026-08-20', '2026-09-19')).toBe(17)
+    expect(diasDoVinculoNoPeriodo('2026-10-01', null, '2026-08-20', '2026-09-19')).toBe(0)
+    expect(diasDoVinculoNoPeriodo('2027-01-01', null, '2027-02-20', '2027-03-19')).toBe(28)
+  })
+  it('diasBaseAdicional: vínculo que cobre o período inteiro vale 30 (28 ou 31 dias); parcial vale os dias', () => {
+    expect(diasBaseAdicional('2026-01-01', null, '2026-08-20', '2026-09-19')).toBe(30)
+    expect(diasBaseAdicional('2026-01-01', null, '2027-02-20', '2027-03-19')).toBe(30)
+    expect(diasBaseAdicional('2026-09-03', '2026-09-19', '2026-08-20', '2026-09-19')).toBe(17)
+    expect(diasBaseAdicional('2026-08-21', null, '2026-08-20', '2026-09-19')).toBe(30) // não cheio, 30 dias
+  })
+  it('dentroDoVinculo: limites inclusivos, data_fim nula = em aberto', () => {
+    const v = { data_inicio: '2026-09-03', data_fim: '2026-09-19' }
+    expect(dentroDoVinculo('2026-09-02', v)).toBe(false)
+    expect(dentroDoVinculo('2026-09-03', v)).toBe(true)
+    expect(dentroDoVinculo('2026-09-19', v)).toBe(true)
+    expect(dentroDoVinculo('2026-09-20', v)).toBe(false)
+    expect(dentroDoVinculo('2030-01-01', { data_inicio: '2026-09-03', data_fim: null })).toBe(true)
+  })
+  it('adicionalTitular30 com base: min(30, base) − faltas − transferidos; sem base = 30 (compatível)', () => {
+    expect(adicionalTitular30(0, 0, 17)).toBe(17)
+    expect(adicionalTitular30(1, 2, 17)).toBe(14)
+    expect(adicionalTitular30(0, 0, 31)).toBe(30)
+    expect(adicionalTitular30(2)).toBe(28)
+  })
+})
+
+describe('escala em data anterior ao início do vínculo (módulo negativo)', () => {
+  it('6x1: dias antes do início seguem o ciclo (antes, todos viravam "trabalhou")', () => {
+    // início 03/09: 02/09 é diff −1 → posição 6 do ciclo → folga
+    expect(escaladoParaTrabalhar('6x1', '2026-09-03', '2026-09-02')).toBe(false)
+    expect(escaladoParaTrabalhar('6x1', '2026-09-03', '2026-09-01')).toBe(true)
+    expect(escaladoParaTrabalhar('6x1', '2026-09-03', '2026-08-27')).toBe(true) // diff −7
+    expect(escaladoParaTrabalhar('6x1', '2026-09-03', '2026-08-26')).toBe(false) // diff −8
+    expect(statusPrevistoPelaEscala('6x1', '2026-09-03', '2026-09-02')).toBe('folga')
+  })
+  it('12x36: alternância mantida antes do início', () => {
+    expect(escaladoParaTrabalhar('12x36', '2026-09-03', '2026-09-02')).toBe(false)
+    expect(escaladoParaTrabalhar('12x36', '2026-09-03', '2026-09-01')).toBe(true)
+  })
+  it('moduloPositivo', () => {
+    expect(moduloPositivo(-1, 7)).toBe(6)
+    expect(moduloPositivo(-7, 7)).toBe(0)
+    expect(moduloPositivo(8, 7)).toBe(1)
+  })
+})
+
+describe('contarMaxSimultaneosPorContrato (alertas da tela Contratos — 02/10/2026)', () => {
+  const INI = '2026-08-20'
+  const FIM = '2026-09-19'
+  it('troca em sequência no mesmo posto conta 1 (Joãozinho 20/08–02/09, Pedro 03/09–19/09)', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'joao', data_inicio: '2026-08-20', data_fim: '2026-09-02' },
+      { contrato_id: 'c1', colaborador_id: 'pedro', data_inicio: '2026-09-03', data_fim: '2026-09-19' },
+    ]
+    expect(contarMaxSimultaneosPorContrato(vinculos, INI, FIM).get('c1')).toBe(1)
+    expect(contarVinculosUnicosPorContrato(vinculos, INI, FIM).get('c1')).toBe(2) // pessoas no período
+  })
+  it('sobreposição de 1 dia conta 2', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'joao', data_inicio: '2026-08-20', data_fim: '2026-09-03' },
+      { contrato_id: 'c1', colaborador_id: 'pedro', data_inicio: '2026-09-03', data_fim: '2026-09-19' },
+    ]
+    expect(contarMaxSimultaneosPorContrato(vinculos, INI, FIM).get('c1')).toBe(2)
+  })
+  it('vínculo sem data_fim fica em aberto', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'a', data_inicio: '2025-01-01', data_fim: null },
+      { contrato_id: 'c1', colaborador_id: 'b', data_inicio: '2026-09-10', data_fim: null },
+    ]
+    expect(contarMaxSimultaneosPorContrato(vinculos, INI, FIM).get('c1')).toBe(2)
+  })
+  it('mesmo colaborador com dois vínculos sobrepostos conta 1', () => {
+    const vinculos = [
+      { contrato_id: 'c1', colaborador_id: 'a', data_inicio: '2026-08-20', data_fim: '2026-09-10' },
+      { contrato_id: 'c1', colaborador_id: 'a', data_inicio: '2026-09-01', data_fim: '2026-09-19' },
+    ]
+    expect(contarMaxSimultaneosPorContrato(vinculos, INI, FIM).get('c1')).toBe(1)
+  })
+  it('período sem vínculos: contrato fora do mapa', () => {
+    const vinculos = [{ contrato_id: 'c1', colaborador_id: 'a', data_inicio: '2026-06-20', data_fim: '2026-07-19' }]
+    expect(contarMaxSimultaneosPorContrato(vinculos, INI, FIM).has('c1')).toBe(false)
+    expect(contarMaxSimultaneosPorContrato([], INI, FIM).size).toBe(0)
+  })
+})
+
+describe('vinculosQueConflitam (novo vínculo em posto ocupado — 02/10/2026)', () => {
+  const joao = { id: 'vj', colaborador_id: 'joao', data_inicio: '2026-08-01', data_fim: null as string | null }
+  const novo = { colaborador_id: 'pedro', data_inicio: '2026-09-03' }
+  it('posto de 1 vaga ocupado → oferece encerrar o ocupante', () => {
+    expect(vinculosQueConflitam(novo, [joao], 1).map(v => v.id)).toEqual(['vj'])
+    expect(vinculosQueConflitam(novo, [{ ...joao, data_fim: '2026-09-19' }], 1).map(v => v.id)).toEqual(['vj'])
+  })
+  it('vaga livre → não oferece', () => {
+    expect(vinculosQueConflitam(novo, [], 1)).toEqual([])
+  })
+  it('antigo com data_fim antes de D → não oferece', () => {
+    expect(vinculosQueConflitam(novo, [{ ...joao, data_fim: '2026-09-02' }], 1)).toEqual([])
+  })
+  it('antigo iniciado no próprio D → não oferece (data_fim ficaria antes do início)', () => {
+    expect(vinculosQueConflitam(novo, [{ ...joao, data_inicio: '2026-09-03' }], 1)).toEqual([])
+  })
+  it('2 vagas com 1 ocupada → não oferece', () => {
+    expect(vinculosQueConflitam(novo, [joao], 2)).toEqual([])
+  })
+  it('2 vagas com 2 ocupadas → oferece os dois para escolher', () => {
+    const maria = { id: 'vm', colaborador_id: 'maria', data_inicio: '2026-07-01', data_fim: null }
+    expect(vinculosQueConflitam(novo, [joao, maria], 2).map(v => v.id)).toEqual(['vj', 'vm'])
+  })
+  it('contrato sem vagas definidas: oferece quando já há alguém ativo em D', () => {
+    expect(vinculosQueConflitam(novo, [joao], 0).map(v => v.id)).toEqual(['vj'])
+    expect(vinculosQueConflitam(novo, [joao], null).map(v => v.id)).toEqual(['vj'])
+    expect(vinculosQueConflitam(novo, [], 0)).toEqual([])
+  })
+  it('o próprio colaborador já vinculado não conta como conflito', () => {
+    expect(vinculosQueConflitam({ colaborador_id: 'joao', data_inicio: '2026-09-03' }, [joao], 1)).toEqual([])
+  })
+  it('diaAnterior em data local (vira mês e ano)', () => {
+    expect(diaAnterior('2026-09-03')).toBe('2026-09-02')
+    expect(diaAnterior('2026-09-01')).toBe('2026-08-31')
+    expect(diaAnterior('2027-01-01')).toBe('2026-12-31')
   })
 })

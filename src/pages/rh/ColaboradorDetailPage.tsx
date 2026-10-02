@@ -15,7 +15,10 @@ import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { gerarPDFColaborador, gerarPDFOcorrencia } from '@/lib/pdf'
 import { useAuth } from '@/hooks/useAuth'
-import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto, podeCriarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
+import { FotoColaboradorField } from '@/components/ceu/FotoColaboradorField'
+import { FotoColaboradorAvatar } from '@/components/ceu/FotoColaboradorAvatar'
+import { useFotosColaboradores } from '@/hooks/useFotosColaboradores'
+import { podeEditarColaboradorBasico, podeEmitirCrachaCEU, podeVerCPFCompleto as temPermissaoCPFCompleto, podeCriarOcorrencia, podeCancelarOcorrencia } from '@/lib/permissoes'
 import { formatarCPF, mascararCPF, parseDataLocal } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import {
@@ -26,7 +29,6 @@ import {
   Trash2,
   Eye,
   AlertTriangle,
-  User,
   Calendar,
   FileText,
 } from 'lucide-react'
@@ -45,12 +47,14 @@ export function ColaboradorDetailPage() {
   // Botão "Nova Ocorrência" segue a permissão de CRIAR (não a de editar) —
   // é o que libera o financeiro sem dar poder de edição (01/08/2026).
   const podeCriarOc = perfil ? podeCriarOcorrencia(perfil) : false
+  const podeEmitirCracha = perfil ? podeEmitirCrachaCEU(perfil) : false
   const podeCancelarOc = perfil ? podeCancelarOcorrencia(perfil) : false
   const [colaborador, setColaborador] = useState<Colaborador | null>(null)
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [loading, setLoading] = useState(true)
   const [ocorrenciaParaExcluir, setOcorrenciaParaExcluir] = useState<string | null>(null)
+  const fotoUrls = useFotosColaboradores([colaborador?.foto_path])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -58,7 +62,7 @@ export function ColaboradorDetailPage() {
     const [{ data: colab }, { data: departamentosData }] = await Promise.all([
       supabase
         .from('colaboradores')
-        .select('id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, created_at, updated_at')
+        .select('id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, foto_path, created_at, updated_at')
         .eq('id', id!)
         .single(),
       supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
@@ -112,9 +116,19 @@ export function ColaboradorDetailPage() {
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </Button>
-          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-            <User className="h-5 w-5 text-slate-400" />
-          </div>
+          {podeEmitirCracha ? (
+            <FotoColaboradorField
+              colaboradorId={colaborador.id}
+              fotoPath={colaborador.foto_path ?? null}
+              onChange={(path) => setColaborador((c) => (c ? { ...c, foto_path: path } : c))}
+            />
+          ) : (
+            <FotoColaboradorAvatar
+              url={colaborador.foto_path ? fotoUrls.get(colaborador.foto_path) : null}
+              iniciais=""
+              className="size-12"
+            />
+          )}
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{colaborador.nome_completo}</h2>
             <div className="flex items-center gap-2">

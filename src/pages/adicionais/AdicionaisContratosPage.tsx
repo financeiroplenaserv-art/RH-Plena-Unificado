@@ -37,7 +37,7 @@ import type { ContratoAdicional, AdicionaisConfig, RegimeTrabalho } from '@/type
 import type { Departamento } from '@/types/database'
 import { nomeDepartamento, agoraBrasil, formatarData } from '@/lib/utils'
 import { podeEditarContratoAdicional } from '@/lib/permissoes'
-import { contarVinculosUnicosPorContrato, limitesPeriodoAdicional, periodoAdicionalDaData } from '@/lib/adicionais/calculoAdicionais'
+import { contarVinculosUnicosPorContrato, contarMaxSimultaneosPorContrato, limitesPeriodoAdicional, periodoAdicionalDaData } from '@/lib/adicionais/calculoAdicionais'
 
 const REGIMES_TRABALHO: { value: RegimeTrabalho; label: string }[] = [
   { value: '12x36', label: '12 × 36 (dia sim, dia não)' },
@@ -119,7 +119,11 @@ export function AdicionaisContratosPage() {
     return inicio <= periodoFim && fim >= periodoInicio
   }
 
-  const vinculosPorContrato = contarVinculosUnicosPorContrato(vinculos, periodoInicio, periodoFim)
+  // Pessoas distintas no período (modal de vinculados) × máximo ao mesmo
+  // tempo (alertas incompleto/excedente — decisão da gestão, 02/10/2026: troca
+  // em sequência no mesmo posto não é excedente)
+  const pessoasNoPeriodoPorContrato = contarVinculosUnicosPorContrato(vinculos, periodoInicio, periodoFim)
+  const simultaneosPorContrato = contarMaxSimultaneosPorContrato(vinculos, periodoInicio, periodoFim)
   const colaboradoresPorContrato = new Map<string, { id: string; nome: string; matricula: string; periodo: string }[]>()
   vinculos.forEach(v => {
     if (!vinculoCobrePeriodo(v)) return
@@ -374,7 +378,8 @@ export function AdicionaisContratosPage() {
               <TableBody>
                 {contratosFiltrados
                   .map(c => {
-                    const vinculados = vinculosPorContrato.get(c.id) || 0
+                    const vinculados = simultaneosPorContrato.get(c.id) || 0
+                    const pessoasNoPeriodo = pessoasNoPeriodoPorContrato.get(c.id) || 0
                     const esperados = c.quantidade_colaboradores || 0
                     const incompleto = esperados > 0 && vinculados < esperados
                     const excedente = esperados > 0 && vinculados > esperados
@@ -391,8 +396,9 @@ export function AdicionaisContratosPage() {
                         <button
                           type="button"
                           onClick={() => setModalVinculados(c.id)}
-                          className={vinculados > 0 ? 'hover:underline' : undefined}
-                          disabled={vinculados === 0}
+                          className={pessoasNoPeriodo > 0 ? 'hover:underline' : undefined}
+                          disabled={pessoasNoPeriodo === 0}
+                          title={pessoasNoPeriodo > vinculados ? `${pessoasNoPeriodo} pessoas no período (troca no posto), no máximo ${vinculados} ao mesmo tempo` : undefined}
                         >
                           <span className={incompleto ? 'text-amber-600 font-semibold' : excedente ? 'text-red-600 font-semibold' : undefined}>
                             {vinculados}{esperados > 0 ? `/${esperados}` : ''}
@@ -400,6 +406,11 @@ export function AdicionaisContratosPage() {
                         </button>
                         {incompleto && <span className="ml-2 text-xs text-amber-600">incompleto</span>}
                         {excedente && <span className="ml-2 text-xs text-red-600">excedente</span>}
+                        {pessoasNoPeriodo > vinculados && (
+                          <div className="text-[11px] leading-tight mt-0.5" style={{ color: '#94A3B8' }}>
+                            {pessoasNoPeriodo} pessoas no período, máx. {vinculados} ao mesmo tempo
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell style={{ color: '#64748B' }}>{adicionaisAtivos(c)}</TableCell>
                       <TableCell style={{ color: '#64748B' }}>
