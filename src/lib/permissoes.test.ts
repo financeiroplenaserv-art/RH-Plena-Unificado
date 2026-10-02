@@ -17,6 +17,8 @@ import {
   podeCriarOcorrencia,
   podeVerDetalhesOcorrencia,
   podeAprovarOcorrencia,
+  podeEmitirCrachaCEU,
+  podeRegistrarEntregaCEU,
   podeValidarOcorrencia,
   podeCancelarOcorrencia,
   podeGerenciarModelosOcorrencia,
@@ -38,6 +40,7 @@ const PERFIS: NivelAcesso[] = [
   'rh',
   'dp1',
   'dp2',
+  'dp3',
   'mesa',
   'inspetoria',
   'financeiro',
@@ -273,5 +276,42 @@ describe('Cache de permissões dinâmicas', () => {
       { perfil: 'dp1', recurso: 'auditoria', acao: 'ver', permitido: true },
     ])
     expect(verificarPermissao('dp1', 'auditoria', 'ver')).toBe(true)
+  })
+})
+
+describe('Emissão de crachás (ceu.emitir_cracha) e perfil dp3', () => {
+  beforeEach(() => {
+    setPermissoesCache([])
+  })
+
+  it('admin, adm, dp2, mesa e dp3 emitem crachás; os demais não', () => {
+    expect(perfisQuePermitem(podeEmitirCrachaCEU).sort()).toEqual(['admin', 'adm', 'dp2', 'dp3', 'mesa'].sort())
+  })
+
+  it('dp3 não tem nenhuma outra permissão relevante no mapa padrão', () => {
+    expect(podeRegistrarEntregaCEU('dp3')).toBe(false)
+    expect(podeEditarColaboradorBasico('dp3')).toBe(false)
+    expect(podeCriarOcorrencia('dp3')).toBe(false)
+    expect(podeEditarExtra('dp3')).toBe(false)
+    expect(podeGerenciarVR('dp3')).toBe(false)
+    expect(podeVerAuditoria('dp3')).toBe(false)
+    expect(verificarPermissao('dp3', 'rota', 'ceu')).toBe(false)
+    expect(verificarPermissao('dp3', 'menu', 'dashboard')).toBe(false)
+  })
+
+  it('linhas dinâmicas do dp3 (migration 117) liberam só rota/menu de crachás', () => {
+    setPermissoesCache([
+      { perfil: 'dp3', recurso: 'ceu', acao: 'emitir_cracha', permitido: true },
+      { perfil: 'dp3', recurso: 'menu', acao: 'crachas', permitido: true },
+    ])
+    expect(verificarPermissao('dp3', 'ceu', 'emitir_cracha')).toBe(true)
+    expect(verificarPermissao('dp3', 'menu', 'crachas')).toBe(true)
+    expect(verificarPermissao('dp3', 'rota', 'ceu')).toBe(false)
+    expect(verificarPermissao('dp3', 'menu', 'ceu')).toBe(false)
+  })
+
+  it('revogar no cache (tela Permissões) prevalece sobre o padrão', () => {
+    setPermissoesCache([{ perfil: 'dp2', recurso: 'ceu', acao: 'emitir_cracha', permitido: false }])
+    expect(podeEmitirCrachaCEU('dp2')).toBe(false)
   })
 })

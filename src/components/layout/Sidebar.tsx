@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Menu,
   Smartphone,
+  IdCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
@@ -45,6 +46,8 @@ interface MenuItem {
   label: string
   icon: React.ElementType
   permissao: { recurso: string; acao: string }
+  /** Esconde o item quando o usuário TEM esta outra permissão (ex.: atalho redundante) */
+  ocultarSePode?: { recurso: string; acao: string }
 }
 
 interface MenuGroup {
@@ -95,6 +98,8 @@ const groups: MenuGroup[] = [
       { path: '/adicionais', label: 'Adicionais', icon: Briefcase, permissao: { recurso: 'menu', acao: 'adicionais' } },
       { path: '/vr/projetos', label: 'Benefícios', icon: Wallet, permissao: { recurso: 'menu', acao: 'vr' } },
       { path: '/ceu/movimentacoes', label: 'CEU', icon: Package, permissao: { recurso: 'menu', acao: 'ceu' } },
+      // Atalho só para quem emite crachás mas NÃO acessa o CEU (dp3): quem tem o CEU usa a aba Crachás dentro dele
+      { path: '/ceu/crachas', label: 'Crachás', icon: IdCard, permissao: { recurso: 'menu', acao: 'crachas' }, ocultarSePode: { recurso: 'menu', acao: 'ceu' } },
     ],
   },
   {
@@ -154,7 +159,7 @@ export function Sidebar({ user, isOpen, onToggle, onLogout, mobile = false }: Si
       groups
         .map((group) => ({
           ...group,
-          items: group.items.filter((item) => podeVer(item.permissao)),
+          items: group.items.filter((item) => podeVer(item.permissao) && !(item.ocultarSePode && podeVer(item.ocultarSePode))),
         }))
         .filter((group) => group.items.length > 0),
     [podeVer]

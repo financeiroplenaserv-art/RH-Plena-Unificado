@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/Header'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import { PageLoading } from '@/components/PageLoading'
 import { cn } from '@/lib/utils'
+import { verificarPermissao } from '@/lib/permissoes'
 import type { Perfil } from '@/types/database'
 import { LoginPage } from '@/pages/LoginPage'
 import { RedefinirSenhaPage } from '@/pages/RedefinirSenhaPage'
@@ -50,6 +51,7 @@ import {
   CeuTamanhosPage,
   CeuRelatoriosPage,
   CeuImportarPage,
+  CeuCrachasPage,
   AdicionaisContratosPage,
   AdicionaisVinculosPage,
   AdicionaisCalendarioPage,
@@ -229,7 +231,18 @@ function App() {
               <Suspense fallback={<PageLoading />}>
               <Routes>
               <Route path="/mobile/falta" element={null} />
-              <Route path="/" element={<DashboardPage />} />
+              <Route
+                path="/"
+                element={
+                  // Quem só emite crachás (dp3) não tem Dashboard: cai direto na tela de crachás
+                  !verificarPermissao(user.nivel_acesso, 'menu', 'dashboard') &&
+                  verificarPermissao(user.nivel_acesso, 'menu', 'crachas') ? (
+                    <Navigate to="/ceu/crachas" replace />
+                  ) : (
+                    <DashboardPage />
+                  )
+                }
+              />
               <Route
                 path="/colaboradores"
                 element={
@@ -414,6 +427,14 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
                     <CeuTamanhosPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ceu/crachas"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'ceu', acao: 'emitir_cracha' }}>
+                    <CeuCrachasPage />
                   </ProtectedRoute>
                 }
               />

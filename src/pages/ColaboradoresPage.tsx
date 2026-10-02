@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Search, RefreshCw, User, X, Pencil, Save } from 'lucide-react'
+import { Search, RefreshCw, User, X, Pencil, Save, IdCard } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -30,7 +32,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { formatarCPF, formatarData, mascaraTelefone, mascararCPF, valorNaLista } from '@/lib/utils'
-import { podeEditarColaboradorBasico, podeVerCPFCompleto as temPermissaoCPFCompleto } from '@/lib/permissoes'
+import { podeEditarColaboradorBasico, podeEmitirCrachaCEU, podeVerCPFCompleto as temPermissaoCPFCompleto } from '@/lib/permissoes'
+import { FotoColaboradorField } from '@/components/ceu/FotoColaboradorField'
 import { BadgeStatus } from '@/components/BadgeStatus'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { Paginacao } from '@/components/Paginacao'
@@ -49,6 +52,11 @@ export function ColaboradoresPage() {
   const perfil = user?.nivel_acesso
   const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
   const podeVerCPFCompleto = perfil ? temPermissaoCPFCompleto(perfil) : false
+  const podeEmitirCracha = perfil ? podeEmitirCrachaCEU(perfil) : false
+  const navigate = useNavigate()
+  // Seleção para emissão de crachás (mantida entre páginas da listagem)
+  const [selecionadosCracha, setSelecionadosCracha] = useState<Set<string>>(new Set())
+  const [fotoPathSelecionado, setFotoPathSelecionado] = useState<string | null>(null)
 
   const { colaboradores, loading, paginacao, listarPaginado, atualizar } = useColaboradores()
   const [busca, setBusca] = useFiltroPersistente('colaboradores.lista.busca', '')
@@ -130,6 +138,36 @@ export function ColaboradoresPage() {
     setModoEdicao(false)
   }
 
+  const alternarSelecaoCracha = (id: string) =>
+    setSelecionadosCracha((prev) => {
+      const novo = new Set(prev)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+
+  const emitirCrachas = () =>
+    navigate('/ceu/crachas', { state: { colaboradorIds: Array.from(selecionadosCracha) } })
+
+  // O caminho da foto (migration 117) é buscado só ao abrir a ficha de quem emite crachás —
+  // fora da listagem, para a tela não depender da coluna antes da migration ser aplicada.
+  useEffect(() => {
+    setFotoPathSelecionado(null)
+    if (!colaboradorSelecionado || !podeEmitirCracha) return
+    let ativo = true
+    supabase
+      .from('colaboradores')
+      .select('foto_path')
+      .eq('id', colaboradorSelecionado.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (ativo) setFotoPathSelecionado((data as { foto_path?: string | null } | null)?.foto_path ?? null)
+      })
+    return () => {
+      ativo = false
+    }
+  }, [colaboradorSelecionado, podeEmitirCracha])
+
   const fecharDialog = () => {
     setColaboradorSelecionado(null)
     setModoEdicao(false)
@@ -158,6 +196,16 @@ export function ColaboradoresPage() {
           <RefreshCw className={`mr-2 size-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
+        {podeEmitirCracha && (
+          <Button
+            onClick={emitirCrachas}
+            disabled={selecionadosCracha.size === 0}
+            title={selecionadosCracha.size === 0 ? 'Marque colaboradores na lista para emitir crachás' : undefined}
+          >
+            <IdCard className="mr-2 size-4" />
+            Emitir crachás{selecionadosCracha.size > 0 ? ' (' + selecionadosCracha.size + ')' : ''}
+          </Button>
+        )}
       </PageHeader>
 
       <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
@@ -233,6 +281,7 @@ export function ColaboradoresPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                {podeEmitirCracha && <TableHead className="w-10" />}
                 <TableHead>Colaborador</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead>Departamento</TableHead>
@@ -244,12 +293,19 @@ export function ColaboradoresPage() {
             <TableBody>
               {colaboradores.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => abrirDetalhes(c)}>
+                  {podeEmitirCracha && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selecionadosCracha.has(c.id)}
+                        onCheckedChange={() => alternarSelecaoCracha(c.id)}
+                        aria-label={'Selecionar ' + c.nome_completo + ' para emitir crachá'}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium text-foreground">
                     <div className="flex items-center gap-3">
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                        {c.foto_url ? (
-                          <img src={c.foto_url} alt="" className="size-full rounded-full object-cover" />
-                        ) : c.nome_completo ? (
+                        {c.nome_completo ? (
                           <span>{iniciais(c.nome_completo)}</span>
                         ) : (
                           <User className="size-4" />
@@ -358,6 +414,17 @@ export function ColaboradoresPage() {
                   )}
                 </div>
               </div>
+
+              {podeEmitirCracha && (
+                <div>
+                  <Label className="mb-1.5 block text-[10px] text-muted-foreground">Foto 3x4 (usada no crachá)</Label>
+                  <FotoColaboradorField
+                    colaboradorId={colaboradorSelecionado.id}
+                    fotoPath={fotoPathSelecionado}
+                    onChange={setFotoPathSelecionado}
+                  />
+                </div>
+              )}
 
               {modoEdicao ? (
                 <div className="space-y-4">

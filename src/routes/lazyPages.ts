@@ -31,6 +31,7 @@ export const CeuEntregaFormPage = lazyNamed(() => import('@/pages/ceu/CeuEntrega
 export const CeuLancamentoRapidoPage = lazyNamed(() => import('@/pages/ceu/CeuLancamentoRapidoPage'), 'CeuLancamentoRapidoPage')
 export const CeuTamanhosPage = lazyNamed(() => import('@/pages/ceu/CeuTamanhosPage'), 'CeuTamanhosPage')
 export const CeuRelatoriosPage = lazyNamed(() => import('@/pages/ceu/CeuRelatoriosPage'), 'CeuRelatoriosPage')
+export const CeuCrachasPage = lazyNamed(() => import('@/pages/ceu/CeuCrachasPage'), 'CeuCrachasPage')
 export const CeuImportarPage = lazyNamed(() => import('@/pages/ceu/CeuImportarPage'), 'CeuImportarPage')
 
 // Adicionais

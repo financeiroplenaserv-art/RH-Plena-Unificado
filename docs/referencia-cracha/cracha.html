@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerador de Crachás</title>
+<style>
+  :root {
+    --azul: #1a9be0;
+    --azul-topo: #0aa0e2;
+    --texto: #1c2733;
+    --apoio: #5b6b7a;
+    --borda: #d5dde5;
+    --fundo: #f2f5f8;
+    --erro: #b3261e;
+    --vao-corte: 8mm; /* espaço entre crachás na impressão (margem de corte). Mínimo recomendado: 6mm */
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "Segoe UI", Arial, sans-serif; color: var(--texto); background: var(--fundo); }
+  header { background: #fff; border-bottom: 1px solid var(--borda); padding: 16px 20px; }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  header p { margin: 4px 0 0; color: var(--apoio); font-size: .9rem; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px; display: grid; gap: 20px; grid-template-columns: minmax(280px, 340px) 1fr; align-items: start; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; padding: 14px; } }
+  .painel { background: #fff; border: 1px solid var(--borda); border-radius: 12px; padding: 16px; }
+  .painel h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  label { display: block; font-size: .85rem; font-weight: 600; margin: 12px 0 4px; }
+  label small { font-weight: 400; color: var(--apoio); }
+  input[type=text] { width: 100%; padding: 10px; font-size: 1rem; border: 1px solid var(--borda); border-radius: 8px; }
+  input[type=file] { width: 100%; font-size: .85rem; }
+  input:focus-visible, button:focus-visible { outline: 3px solid #9bd3f3; outline-offset: 1px; }
+  .erro { color: var(--erro); font-size: .8rem; min-height: 1.1em; margin: 4px 0 0; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--borda); background: #fff; color: var(--texto); }
+  button.principal { background: var(--azul); border-color: var(--azul); color: #fff; font-weight: 700; width: 100%; margin-top: 14px; }
+  button.principal:hover { background: #1388c6; }
+  button.perigo { color: var(--erro); }
+  .miniatura { display: none; margin-top: 8px; width: 60px; aspect-ratio: 3/4; object-fit: cover; border: 1px solid #000; }
+  .miniatura.on { display: block; }
+  .barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .barra h2 { margin: 0; }
+  .barra .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .barra .imprimir { background: var(--azul); border-color: var(--azul); color: #fff; font-weight: 700; }
+  .vazio { color: var(--apoio); text-align: center; padding: 40px 10px; border: 2px dashed var(--borda); border-radius: 10px; }
+  .lista { display: flex; flex-wrap: wrap; gap: 18px; }
+  .item { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .item .botoes { display: flex; gap: 6px; }
+  .item .botoes button { padding: 6px 10px; font-size: .8rem; }
+  .aviso { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: #fdecea; color: var(--erro); font-size: .85rem; display: none; }
+  .aviso.on { display: block; }
+  .aviso.ok { background: #e6f4ea; color: #1e6b34; }
+  .dica { color: var(--apoio); font-size: .8rem; margin: 10px 0 0; }
+
+  /* ===== CRACHÁ (tamanho real em mm) ===== */
+  .cracha {
+    width: 54mm; height: 85.6mm; position: relative; overflow: hidden;
+    border-radius: 3mm; background: linear-gradient(to bottom, var(--azul-topo) 0%, #fff 62%, #fff 100%);
+    font-family: Arial, Helvetica, sans-serif; color: #000; text-align: center;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .cracha .logo { position: absolute; top: 8.6mm; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+  .cracha .logo > svg { width: 13.6mm; height: 13.6mm; display: block; }
+  .cracha .logo > img { max-width: 30mm; max-height: 26mm; display: block; }
+  .cracha .marca { margin-top: .2mm; color: var(--azul); font-family: "Varela Round", "Nunito", "Segoe UI", "Trebuchet MS", Arial, sans-serif; /* só fontes locais, sem internet */ line-height: 1; }
+  .cracha .plena { font-size: 9.6mm; line-height: .9; letter-spacing: -.1mm; display: block; text-align: left; }
+  .cracha .facilities { font-size: 3.3mm; display: block; text-align: right; margin-top: -.6mm; letter-spacing: .15mm; }
+  .cracha .foto { position: absolute; top: 36.8mm; left: 50%; transform: translateX(-50%); width: 22mm; height: 29.33mm; border: .25mm solid #000; background: #e9eef2; object-fit: cover; display: block; }
+  .cracha .nome { position: absolute; top: 67.8mm; left: 2mm; right: 2mm; font-weight: 700; font-size: 3.3mm; text-transform: uppercase; line-height: 1.15; }
+  .cracha .cargo { position: absolute; top: 75.4mm; left: 2mm; right: 2mm; font-weight: 400; font-size: 3.3mm; text-transform: uppercase; line-height: 1.15; }
+
+  /* pré-visualização maior na tela */
+  @media screen { .cracha { zoom: 1.8; box-shadow: 0 2px 10px rgba(0,0,0,.25); } }
+  @media screen and (max-width: 560px) { .cracha { zoom: 2; } }
+
+  #folhas { display: none; }
+
+  /* ===== IMPRESSÃO =====
+     Página A4 com margem de 10mm => área útil 190 x 277mm.
+     Grade 3 x 3: largura = 3*54 + 2*vão (8mm) = 178mm; altura = 3*85,6 + 2*vão = 272,8mm. Cabe.
+     Se mudar --vao-corte, mantenha 3*85,6 + 2*vão <= 277mm (vão máximo ~9,9mm). */
+  @page { size: A4 portrait; margin: 10mm; }
+  @media print {
+    body { background: #fff; }
+    header, main { display: none !important; }
+    #folhas { display: block; }
+    .folha { display: grid; grid-template-columns: repeat(3, 54mm); grid-auto-rows: 85.6mm;
+      gap: var(--vao-corte); justify-content: center; align-content: start;
+      width: 190mm; break-after: page; page-break-after: always; }
+    .folha:last-child { break-after: auto; page-break-after: auto; }
+    .celula { position: relative; width: 54mm; height: 85.6mm; break-inside: avoid; page-break-inside: avoid; }
+    .celula .cracha { zoom: 1; box-shadow: none; border-radius: 3mm; outline: .1mm solid #ccc; }
+    /* marcas de corte: ficam FORA do crachá, no vão (de 1mm a 4mm de distância das bordas) */
+    .celula::before { content: ""; position: absolute; inset: -4mm; pointer-events: none;
+      --c: #000;
+      background:
+        linear-gradient(var(--c),var(--c)) 0 4mm / 3mm .15mm no-repeat,
+        linear-gradient(var(--c),var(--c)) 100% 4mm / 3mm .15mm no-repeat,
+        linear-gradient(var(--c),var(--c)) 0 calc(100% - 4mm) / 3mm .15mm no-repeat,
+        linear-gradient(var(--c),var(--c)) 100% calc(100% - 4mm) / 3mm .15mm no-repeat,
+        linear-gradient(var(--c),var(--c)) 4mm 0 / .15mm 3mm no-repeat,
+        linear-gradient(var(--c),var(--c)) calc(100% - 4mm) 0 / .15mm 3mm no-repeat,
+        linear-gradient(var(--c),var(--c)) 4mm 100% / .15mm 3mm no-repeat,
+        linear-gradient(var(--c),var(--c)) calc(100% - 4mm) 100% / .15mm 3mm no-repeat;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gerador de crachás</h1>
+  <p>Preencha os dados, adicione os funcionários e imprima em tamanho real (54 x 85,6 mm).</p>
+</header>
+
+<main>
+  <section class="painel" aria-labelledby="t-form">
+    <h2 id="t-form">Novo funcionário</h2>
+    <form id="form" novalidate>
+      <label for="nome">Nome</label>
+      <input type="text" id="nome" autocomplete="off" placeholder="Ex.: Wallace Rodrigues">
+      <p class="erro" id="e-nome"></p>
+
+      <label for="cargo">Cargo</label>
+      <input type="text" id="cargo" autocomplete="off" placeholder="Ex.: Encarregado">
+      <p class="erro" id="e-cargo"></p>
+
+      <label for="foto">Foto <small>(3x4, será recortada para caber)</small></label>
+      <input type="file" id="foto" accept="image/*">
+      <img id="mini" class="miniatura" alt="Prévia da foto">
+
+      <button class="principal" type="submit" id="btn-add">Adicionar à lista</button>
+    </form>
+
+    <hr style="border:0;border-top:1px solid var(--borda);margin:18px 0">
+    <h2>Logo da empresa</h2>
+    <label for="logo">Enviar logo oficial <small>(opcional)</small></label>
+    <input type="file" id="logo" accept="image/*">
+    <p class="dica">Sem arquivo, é usado um desenho aproximado do logo. A imagem enviada substitui o logo inteiro (círculo e texto).</p>
+    <button type="button" id="btn-logo-limpar" style="margin-top:8px">Voltar ao logo padrão</button>
+  </section>
+
+  <section class="painel" aria-labelledby="t-lista">
+    <div class="barra">
+      <h2 id="t-lista">Crachás (<span id="qtd">0</span>)</h2>
+      <div class="acoes">
+        <button type="button" id="btn-exportar">Exportar lista</button>
+        <button type="button" id="btn-importar">Importar lista</button>
+        <input type="file" id="arq-importar" accept=".json,application/json" hidden>
+        <button type="button" id="btn-limpar" class="perigo">Limpar lista</button>
+        <button type="button" id="btn-imprimir" class="imprimir">Imprimir / Salvar PDF</button>
+      </div>
+    </div>
+    <p id="aviso" class="aviso" role="alert"></p>
+    <div id="lista" class="lista"></div>
+    <p class="dica">Na impressão, escolha "Tamanho real" (100%), sem margens extras. Cabem 9 crachás por folha A4, com espaço de 8 mm entre eles e marcas de corte. Para levar a lista a outro computador, use "Exportar lista" e depois "Importar lista" no outro.</p>
+  </section>
+</main>
+
+<div id="folhas" aria-hidden="true"></div>
+
+<template id="tpl-logo">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="50" cy="50" r="50" fill="#1a9be0"/>
+    <!-- P estilizado: haste com ponta curva embaixo e bojo arredondado -->
+    <path fill="#fff" fill-rule="evenodd" d="M36 24h22a19 19 0 0 1 0 38H50v6c0 5-4 9-9 9H27c3-3 5-6 5-10V28c0-2 2-4 4-4zm14 11v16h8a8 8 0 0 0 0-16z"/>
+    <path fill="#fff" d="M30 52c0 6 3 10 8 12h-9c-4 0-6-3-6-6 0-4 3-6 7-6z" opacity="0"/>
+  </svg>
+</template>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var funcionarios = [];
+  var logoImg = null;      // dataURL do logo oficial, se enviado
+  var fotoAtual = '';      // dataURL da foto no formulário
+  var CHAVE = 'crachas-v1';
+
+  var MSG_COTA = 'Não foi possível salvar: o armazenamento do navegador está cheio (as fotos podem estar grandes demais). Remova alguns crachás ou use "Exportar lista" para guardar um arquivo de backup.';
+  function aviso(txt, ok) {
+    var a = $('aviso');
+    a.textContent = txt || ''; a.className = 'aviso' + (txt ? ' on' : '') + (ok ? ' ok' : '');
+  }
+  // devolve true se salvou; false se não coube (ou o navegador bloqueou o armazenamento)
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify({ f: funcionarios, l: logoImg })); return true; }
+    catch (e) { return false; }
+  }
+  function carregar() {
+    try {
+      var d = JSON.parse(localStorage.getItem(CHAVE) || 'null');
+      if (d) { funcionarios = d.f || []; logoImg = d.l || null; }
+    } catch (e) {}
+  }
+
+  function lerArquivo(file, cb) {
+    if (!file) return cb('');
+    var r = new FileReader();
+    r.onload = function () { cb(r.result); };
+    r.onerror = function () { cb(''); };
+    r.readAsDataURL(file);
+  }
+
+  // Lê a imagem e reduz via canvas (altura/largura máx. 600px; JPEG 0.85, ou PNG se for logo com transparência)
+  function lerImagem(file, manterPng, cb) {
+    lerArquivo(file, function (url) {
+      if (!url) return cb('');
+      if (/^data:image\/svg/.test(url)) return cb(url);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var MAX = 600, k = Math.min(1, MAX / img.naturalHeight, MAX / img.naturalWidth);
+          var w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+          var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          var cx = cv.getContext('2d');
+          var png = manterPng && /^data:image\/(png|webp|gif)/.test(url);
+          if (!png) { cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); }
+          cx.drawImage(img, 0, 0, w, h);
+          cb(png ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.85));
+        } catch (e) { cb(url); }
+      };
+      img.onerror = function () { aviso('Não consegui abrir essa imagem. Tente outro arquivo (JPG ou PNG).'); cb(''); };
+      img.src = url;
+    });
+  }
+
+  function criarCracha(f) {
+    var c = document.createElement('div');
+    c.className = 'cracha';
+
+    var logo = document.createElement('div');
+    logo.className = 'logo';
+    if (logoImg) {
+      var im = document.createElement('img');
+      im.src = logoImg; im.alt = 'Logo da empresa';
+      logo.appendChild(im);
+    } else {
+      logo.appendChild(document.getElementById('tpl-logo').content.firstElementChild.cloneNode(true));
+      var m = document.createElement('div');
+      m.className = 'marca';
+      m.innerHTML = '<span class="plena">plena</span><span class="facilities">facilities</span>';
+      logo.appendChild(m);
+    }
+    c.appendChild(logo);
+
+    var foto = document.createElement('img');
+    foto.className = 'foto'; foto.alt = 'Foto de ' + f.nome;
+    if (f.foto) foto.src = f.foto;
+    else foto.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="3" height="4"><rect width="3" height="4" fill="#e9eef2"/></svg>');
+    c.appendChild(foto);
+
+    var n = document.createElement('div'); n.className = 'nome'; n.textContent = f.nome;
+    var g = document.createElement('div'); g.className = 'cargo'; g.textContent = f.cargo;
+    c.appendChild(n); c.appendChild(g);
+    return c;
+  }
+
+  function render() {
+    var lista = $('lista'), folhas = $('folhas');
+    lista.innerHTML = ''; folhas.innerHTML = '';
+    $('qtd').textContent = funcionarios.length;
+    if (!funcionarios.length) {
+      lista.innerHTML = '<div class="vazio">Nenhum crachá ainda. Preencha o formulário e clique em "Adicionar à lista".</div>';
+      lista.style.display = 'block';
+    } else { lista.style.display = 'flex'; }
+    var folha = null;
+    funcionarios.forEach(function (f, i) {
+      var item = document.createElement('div'); item.className = 'item';
+      item.appendChild(criarCracha(f));
+      var b = document.createElement('div'); b.className = 'botoes';
+      var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'perigo'; rm.textContent = 'Remover';
+      rm.onclick = function () { funcionarios.splice(i, 1); salvar(); aviso(''); render(); };
+      b.appendChild(rm); item.appendChild(b); lista.appendChild(item);
+
+      var cel = document.createElement('div'); cel.className = 'celula';
+      cel.appendChild(criarCracha(f));
+      if (i % 9 === 0) { folha = document.createElement('div'); folha.className = 'folha'; folhas.appendChild(folha); }
+      folha.appendChild(cel);
+    });
+  }
+
+  $('foto').addEventListener('change', function (e) {
+    lerImagem(e.target.files[0], false, function (d) {
+      fotoAtual = d;
+      var mini = $('mini');
+      if (d) { mini.src = d; mini.classList.add('on'); } else mini.classList.remove('on');
+    });
+  });
+
+  $('logo').addEventListener('change', function (e) {
+    lerImagem(e.target.files[0], true, function (d) {
+      if (!d) return;
+      var antigo = logoImg; logoImg = d;
+      if (salvar()) aviso(''); else { logoImg = antigo; aviso(MSG_COTA); }
+      render();
+    });
+  });
+  $('btn-logo-limpar').onclick = function () { logoImg = null; $('logo').value = ''; salvar(); aviso(''); render(); };
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var nome = $('nome').value.trim(), cargo = $('cargo').value.trim();
+    $('e-nome').textContent = nome ? '' : 'Informe o nome.';
+    $('e-cargo').textContent = cargo ? '' : 'Informe o cargo.';
+    if (!nome || !cargo) return;
+    funcionarios.push({ nome: nome, cargo: cargo, foto: fotoAtual });
+    if (salvar()) aviso(''); else { funcionarios.pop(); aviso(MSG_COTA); render(); return; }
+    render();
+    $('form').reset(); fotoAtual = ''; $('mini').classList.remove('on');
+    $('nome').focus();
+  });
+
+  $('btn-exportar').onclick = function () {
+    if (!funcionarios.length && !logoImg) { aviso('Não há nada para exportar ainda.'); return; }
+    var dados = JSON.stringify({ tipo: 'crachas', versao: 1, funcionarios: funcionarios, logo: logoImg }, null, 1);
+    var blob = new Blob([dados], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'crachas-lista.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    aviso('Arquivo "crachas-lista.json" gerado. Copie-o para o outro computador e use "Importar lista".', true);
+  };
+  $('btn-importar').onclick = function () { $('arq-importar').click(); };
+  $('arq-importar').addEventListener('change', function (e) {
+    var file = e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    var r = new FileReader();
+    r.onerror = function () { aviso('Não consegui ler esse arquivo.'); };
+    r.onload = function () {
+      var d;
+      try { d = JSON.parse(r.result); } catch (x) { d = null; }
+      if (!d || !Array.isArray(d.funcionarios)) { aviso('Esse arquivo não parece ser uma lista de crachás exportada por este programa.'); return; }
+      var novos = d.funcionarios.filter(function (f) { return f && typeof f.nome === 'string' && typeof f.cargo === 'string'; })
+        .map(function (f) { return { nome: f.nome, cargo: f.cargo, foto: typeof f.foto === 'string' ? f.foto : '' }; });
+      if (funcionarios.length && !confirm('Importar vai substituir a lista atual (' + funcionarios.length + ' crachás) por ' + novos.length + ' do arquivo. Continuar?')) return;
+      var antF = funcionarios, antL = logoImg;
+      funcionarios = novos; logoImg = typeof d.logo === 'string' && d.logo ? d.logo : null;
+      if (salvar()) aviso('Lista importada: ' + novos.length + ' crachá(s).', true);
+      else { funcionarios = antF; logoImg = antL; aviso(MSG_COTA); }
+      render();
+    };
+    r.readAsText(file);
+  });
+
+  $('btn-limpar').onclick = function () {
+    if (funcionarios.length && confirm('Remover todos os crachás da lista?')) { funcionarios = []; salvar(); aviso(''); render(); }
+  };
+  $('btn-imprimir').onclick = function () {
+    if (!funcionarios.length) { alert('Adicione pelo menos um funcionário antes de imprimir.'); return; }
+    window.print();
+  };
+
+  carregar(); render();
+})();
+</script>
+</body>
+</html>

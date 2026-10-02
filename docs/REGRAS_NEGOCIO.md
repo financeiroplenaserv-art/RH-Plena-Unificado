@@ -68,6 +68,13 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 
 ---
 
+## Crachás (CEU)
+
+- Emissão pela aba **CEU → Crachás** a partir dos colaboradores **ativos**; 9 crachás por folha A4 (3×3), cartão CR80 54×85,6 mm, impressão em "Tamanho real" (100%). Medidas oficiais em `docs/referencia-cracha/`.
+- Nome, cargo e foto vêm do cadastro. O **nome impresso é editável** e fica guardado em `nome_cracha`; o nome completo do cadastro nunca muda por essa tela.
+- Foto 3×4 no cadastro (bucket privado, URL assinada). Logo configurável por empresa; sem logo, desenho padrão.
+- Quem emite: admin/adm, dp2, mesa e **dp3** (estagiária que só emite crachás). Registrar a entrega no CEU ao imprimir **não** faz parte desta versão.
+
 ## Decisões de Compliance
 
 ### Ocorrências / Prazo de Defesa

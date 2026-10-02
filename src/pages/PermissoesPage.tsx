@@ -33,6 +33,7 @@ const PERFIS: { valor: NivelAcesso; label: string }[] = [
   { valor: 'rh', label: 'RH' },
   { valor: 'dp1', label: 'DP1' },
   { valor: 'dp2', label: 'DP2' },
+  { valor: 'dp3', label: 'DP3 (só crachás)' },
   { valor: 'mesa', label: 'Mesa' },
   { valor: 'inspetoria', label: 'Inspetoria' },
   { valor: 'financeiro', label: 'Financeiro' },
@@ -122,6 +123,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'ceu', acao: 'gerenciar_fornecedores', label: 'Gerenciar fornecedores', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'importar', label: 'Importar planilha', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'ver_relatorios', label: 'Ver relatórios', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'emitir_cracha', label: 'Emitir crachás', grupo: 'CEU' },
 
   // Férias
   { recurso: 'ferias', acao: 'importar', label: 'Importar planilha do Flit', grupo: 'Férias' },
@@ -145,6 +147,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'relatorios', label: 'Ver menu Relatórios', grupo: 'Menus' },
   { recurso: 'menu', acao: 'ferias', label: 'Ver menu Férias', grupo: 'Menus' },
   { recurso: 'menu', acao: 'bi', label: 'Ver menu PerformanceLab', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'crachas', label: 'Ver menu Crachás (só aparece a quem não tem o menu CEU)', grupo: 'Menus' },
 
   // Rotas
   { recurso: 'rota', acao: 'colaboradores', label: 'Acessar rotas de colaboradores', grupo: 'Rotas' },

@@ -14,6 +14,7 @@ export type NivelAcesso =
   | 'rh'
   | 'dp1'
   | 'dp2'
+  | 'dp3' // estagiária: só emite crachás
   | 'mesa'
   | 'inspetoria'
   | 'financeiro'
@@ -83,7 +84,9 @@ export interface Colaborador {
   afastamento_data_inicio: string | null
   afastamento_data_fim: string | null
   dados_completos: Record<string, unknown>
-  foto_url?: string | null
+  foto_path?: string | null // caminho no bucket privado colaborador-fotos (migration 117)
+  nome_cracha?: string | null // nome impresso no crachá; null = nome_completo
+  cargo_cracha?: string | null // função impressa no crachá; null = cargo
   tamanho_camisa?: string | null
   tamanho_calca?: string | null
   tamanho_calcado?: string | null
@@ -742,6 +745,18 @@ export type Database = {
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Views: {}
     Functions: {
+      salvar_dados_cracha: {
+        Args: {
+          p_colaborador_id: string
+          p_nome_cracha?: string | null
+          p_foto_path?: string | null
+          p_atualizar_nome?: boolean
+          p_atualizar_foto?: boolean
+          p_cargo_cracha?: string | null
+          p_atualizar_cargo?: boolean
+        }
+        Returns: boolean
+      }
       reset_permissoes_perfil: {
         Args: {
           p_perfil: string

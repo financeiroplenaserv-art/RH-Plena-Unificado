@@ -100,6 +100,7 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     gerenciar_fornecedores: ['gestor', 'dp1', 'dp2'],
     importar: ['gestor', 'dp1', 'dp2'],
     ver_relatorios: ['gestor', 'dp1', 'dp2', 'mesa', 'inspetoria'],
+    emitir_cracha: ['dp2', 'mesa', 'dp3'],
   },
   ferias: {
     importar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
@@ -284,6 +285,9 @@ export const podeImportarCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu
 
 /** Quem pode visualizar relatórios do CEU */
 export const podeVerRelatoriosCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'ver_relatorios')
+
+/** Quem pode emitir crachás (admin/adm sempre; padrão dp2, mesa e dp3 — a estagiária dp3 só faz isso) */
+export const podeEmitirCrachaCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'emitir_cracha')
 
 // ================= ADICIONAIS CONTRATUAIS =================
 
