@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Search, RefreshCw, User, Users, X, Pencil, Save } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Search, RefreshCw, User, X, Pencil, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -55,9 +53,6 @@ export function ColaboradoresPage() {
   const podeEditar = perfil ? podeEditarColaboradorBasico(perfil) : false
   const podeVerCPFCompleto = perfil ? temPermissaoCPFCompleto(perfil) : false
   const podeEmitirCracha = perfil ? podeEmitirCrachaCEU(perfil) : false
-  const navigate = useNavigate()
-  // Seleção para o quadro de colaboradores (mantida entre páginas da listagem)
-  const [selecionadosQuadro, setSelecionadosQuadro] = useState<Set<string>>(new Set())
 
   const { colaboradores, loading, paginacao, listarPaginado, atualizar, atualizarFotoNaLista } = useColaboradores()
   const [busca, setBusca] = useFiltroPersistente('colaboradores.lista.busca', '')
@@ -141,24 +136,6 @@ export function ColaboradoresPage() {
     setModoEdicao(false)
   }
 
-  const alternarSelecaoQuadro = (id: string) =>
-    setSelecionadosQuadro((prev) => {
-      const novo = new Set(prev)
-      if (novo.has(id)) novo.delete(id)
-      else novo.add(id)
-      return novo
-    })
-
-  // Leva a seleção e/ou o posto filtrado para o quadro (o cartaz é por posto;
-  // a seleção avulsa entra como "adicionados manualmente")
-  const montarQuadro = () =>
-    navigate('/ceu/quadro', {
-      state: {
-        colaboradorIds: Array.from(selecionadosQuadro),
-        postoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
-      },
-    })
-
   const fecharDialog = () => {
     setColaboradorSelecionado(null)
     setModoEdicao(false)
@@ -187,15 +164,6 @@ export function ColaboradoresPage() {
           <RefreshCw className={`mr-2 size-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
-        {podeEmitirCracha && (
-          <Button
-            onClick={montarQuadro}
-            title="Abre o quadro de colaboradores — com a seleção e/ou o posto filtrado já aplicados"
-          >
-            <Users className="mr-2 size-4" />
-            Quadro de colaboradores{selecionadosQuadro.size > 0 ? ' (' + selecionadosQuadro.size + ')' : ''}
-          </Button>
-        )}
       </PageHeader>
 
       <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
@@ -271,7 +239,6 @@ export function ColaboradoresPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {podeEmitirCracha && <TableHead className="w-10" />}
                 <TableHead>Colaborador</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead>Departamento</TableHead>
@@ -283,15 +250,6 @@ export function ColaboradoresPage() {
             <TableBody>
               {colaboradores.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => abrirDetalhes(c)}>
-                  {podeEmitirCracha && (
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selecionadosQuadro.has(c.id)}
-                        onCheckedChange={() => alternarSelecaoQuadro(c.id)}
-                        aria-label={'Selecionar ' + c.nome_completo + ' para o quadro de colaboradores'}
-                      />
-                    </TableCell>
-                  )}
                   <TableCell className="font-medium text-foreground">
                     <div className="flex items-center gap-3">
                       <FotoColaboradorAvatar

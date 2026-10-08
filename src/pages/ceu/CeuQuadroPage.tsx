@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Crop, Eye, Printer, RotateCcw, UserPlus, Users, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -22,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { supabase } from '@/lib/supabase'
 import { podeEmitirCrachaCEU } from '@/lib/permissoes'
-import { idsColaboradoresDoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
+import { idsColaboradoresDoDepartamento, normalizarDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import { logoDaEmpresa, type ConfigCracha } from '@/lib/ceu/crachas'
 import { carregarConfigCracha, carregarFotoDataUrl } from '@/lib/ceu/crachasDados'
 import { imprimirDocumentoHtml } from '@/lib/ceu/crachasImpressao'
@@ -119,8 +118,6 @@ async function logoDataUrlCabecalho(config: ConfigCracha, empresaId: string | nu
 
 export function CeuQuadroPage() {
   const { user } = useAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
   const nivel = user?.nivel_acesso
   const podeEmitir = nivel ? podeEmitirCrachaCEU(nivel) : false
 
@@ -145,6 +142,23 @@ export function CeuQuadroPage() {
   )
   const cliente = clienteNome.trim() || postos[0]?.nome_curto || postos[0]?.nome || ''
   const empresaCabecalho = postos.find((d) => d.empresa_id)?.empresa_id ?? null
+
+  // Opções do seletor: só departamentos ATIVOS com nome_curto — as linhas
+  // legadas sem nome_curto não são postos de fato e poluíam a lista
+  // (decisão da gestão, 09/10/2026). Sem repetir nome (cadastro tem duplicadas).
+  const postosDisponiveis = useMemo(() => {
+    const vistos = new Set<string>()
+    const lista: DepartamentoFuzzy[] = []
+    for (const d of departamentos) {
+      const nc = d.nome_curto?.trim()
+      if (d.status === 'Inativo' || !nc) continue
+      const chave = normalizarDepartamento(nc)
+      if (vistos.has(chave)) continue
+      vistos.add(chave)
+      lista.push(d)
+    }
+    return lista.sort((a, b) => (a.nome_curto ?? '').localeCompare(b.nome_curto ?? '', 'pt-BR'))
+  }, [departamentos])
 
   // ---------------- carga inicial ----------------
   useEffect(() => {
@@ -304,43 +318,6 @@ export function CeuQuadroPage() {
     if (!chavePostos || departamentos.length === 0) return
     void carregarPostos(chavePostos.split(','))
   }, [chavePostos, departamentos, carregarPostos])
-
-  // Entrada pela lista de Colaboradores (botão "Quadro de colaboradores"):
-  // pré-seleciona o posto filtrado e/ou adiciona os marcados como avulsos.
-  const estadoRouterAplicado = useRef(false)
-  useEffect(() => {
-    if (estadoRouterAplicado.current || departamentos.length === 0) return
-    const st = location.state as { colaboradorIds?: string[]; postoId?: string } | null
-    if (!st || (!st.postoId && !(st.colaboradorIds && st.colaboradorIds.length > 0))) return
-    estadoRouterAplicado.current = true
-    void (async () => {
-      try {
-        if (st.postoId) {
-          const dep = departamentos.find((d) => d.id === st.postoId)
-          if (dep) {
-            if (!postosIds.includes(dep.id)) setPostosIds([dep.id])
-            if (!clienteNome.trim()) setClienteNome(dep.nome_curto || dep.nome)
-            await carregarPostos([dep.id])
-          }
-        }
-        if (st.colaboradorIds && st.colaboradorIds.length > 0) {
-          const { lista, migrationPendente: pendente } = await carregarColaboradoresQuadro()
-          if (pendente) setMigrationPendente(true)
-          const achados = st.colaboradorIds
-            .map((id) => lista.find((c) => c.id === id))
-            .filter((c): c is ColabQuadro => !!c)
-          if (achados.length < st.colaboradorIds.length) {
-            toast.warning(`${st.colaboradorIds.length - achados.length} colaborador(es) selecionado(s) não estão ativos e foram ignorados`)
-          }
-          if (achados.length > 0) await montarItens(achados, true)
-        }
-      } finally {
-        // limpa o state para não reaplicar ao navegar de volta
-        navigate('.', { replace: true, state: null })
-      }
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- aplica o state uma única vez
-  }, [departamentos])
 
   const adicionarPosto = (id: string) => {
     if (!id || postosIds.includes(id)) return
@@ -544,11 +521,11 @@ export function CeuQuadroPage() {
               <SelectValue placeholder="Adicionar posto..." />
             </SelectTrigger>
             <SelectContent>
-              {departamentos
-                .filter((d) => d.status !== 'Inativo' && !postosIds.includes(d.id))
+              {postosDisponiveis
+                .filter((d) => !postosIds.includes(d.id))
                 .map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.nome_curto || d.nome}
+                    {d.nome_curto}
                   </SelectItem>
                 ))}
             </SelectContent>
