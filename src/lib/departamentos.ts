@@ -37,8 +37,27 @@ function tokensBatem(a: string[], b: string[]): boolean {
 }
 
 /**
+ * Desempate determinístico entre matches de um mesmo passo do fuzzy (a lista
+ * chega em ordenações diferentes conforme a tela, e o `find` devolvia o
+ * primeiro do array — 27 ativos resolviam diferente por tela). Preferência:
+ * (a) status Ativo, depois (b) tem nome_curto, depois (c) nome mais longo
+ * (mais específico). O id fecha o desempate para independência total da ordem.
+ */
+export function compararPreferenciaDepartamento(a: DepartamentoFuzzy, b: DepartamentoFuzzy): number {
+  const ativoA = a.status === 'Ativo' ? 1 : 0
+  const ativoB = b.status === 'Ativo' ? 1 : 0
+  if (ativoA !== ativoB) return ativoB - ativoA
+  const curtoA = a.nome_curto?.trim() ? 1 : 0
+  const curtoB = b.nome_curto?.trim() ? 1 : 0
+  if (curtoA !== curtoB) return curtoB - curtoA
+  if (a.nome.length !== b.nome.length) return b.nome.length - a.nome.length
+  return a.id.localeCompare(b.id)
+}
+
+/**
  * Encontra um departamento por ID, nome exato, tokens, substring ou similaridade.
  * Prioriza match por ID > nome exato > nome_curto exato > tokens > substring > similaridade (threshold 0.8).
+ * Empates dentro de cada passo são resolvidos por compararPreferenciaDepartamento.
  */
 export function encontrarDepartamentoFuzzy(
   departamentos: DepartamentoFuzzy[],
@@ -63,43 +82,53 @@ export function encontrarDepartamentoFuzzy(
     : departamentos
 
   // 2. Match exato por nome
-  const porNomeExato = candidatos.find((d) => normalizarTexto(d.nome) === nomeNorm)
+  const porNomeExato = candidatos
+    .filter((d) => normalizarTexto(d.nome) === nomeNorm)
+    .sort(compararPreferenciaDepartamento)[0]
   if (porNomeExato) return porNomeExato
 
   // 3. Match exato por nome_curto
-  const porNomeCurtoExato = candidatos.find(
-    (d) => d.nome_curto && normalizarTexto(d.nome_curto) === nomeNorm
-  )
+  const porNomeCurtoExato = candidatos
+    .filter((d) => d.nome_curto && normalizarTexto(d.nome_curto) === nomeNorm)
+    .sort(compararPreferenciaDepartamento)[0]
   if (porNomeCurtoExato) return porNomeCurtoExato
 
   // 4. Match por tokens (ordem não importa)
   const tokensNome = tokens(nomeNorm)
-  const porTokens = candidatos.find((d) => {
-    const tokensDepNome = tokens(normalizarTexto(d.nome))
-    const tokensDepCurto = d.nome_curto ? tokens(normalizarTexto(d.nome_curto)) : []
-    return tokensBatem(tokensNome, tokensDepNome) || tokensBatem(tokensNome, tokensDepCurto)
-  })
+  const porTokens = candidatos
+    .filter((d) => {
+      const tokensDepNome = tokens(normalizarTexto(d.nome))
+      const tokensDepCurto = d.nome_curto ? tokens(normalizarTexto(d.nome_curto)) : []
+      return tokensBatem(tokensNome, tokensDepNome) || tokensBatem(tokensNome, tokensDepCurto)
+    })
+    .sort(compararPreferenciaDepartamento)[0]
   if (porTokens) return porTokens
 
   // 5. Match por substring
-  const porSubstring = candidatos.find((d) => {
-    const nomeDep = normalizarTexto(d.nome)
-    const nomeCurtoDep = d.nome_curto ? normalizarTexto(d.nome_curto) : ''
-    return (
-      (nomeDep && (nomeDep.includes(nomeNorm) || nomeNorm.includes(nomeDep))) ||
-      (nomeCurtoDep && (nomeCurtoDep.includes(nomeNorm) || nomeNorm.includes(nomeCurtoDep)))
-    )
-  })
+  const porSubstring = candidatos
+    .filter((d) => {
+      const nomeDep = normalizarTexto(d.nome)
+      const nomeCurtoDep = d.nome_curto ? normalizarTexto(d.nome_curto) : ''
+      return (
+        (nomeDep && (nomeDep.includes(nomeNorm) || nomeNorm.includes(nomeDep))) ||
+        (nomeCurtoDep && (nomeCurtoDep.includes(nomeNorm) || nomeNorm.includes(nomeCurtoDep)))
+      )
+    })
+    .sort(compararPreferenciaDepartamento)[0]
   if (porSubstring) return porSubstring
 
-  // 6. Match por similaridade (Levenshtein)
+  // 6. Match por similaridade (Levenshtein) — o maior score manda; o
+  // comparador só desempata scores iguais.
   let melhorScore = 0
   let melhor: DepartamentoFuzzy | null = null
   for (const d of candidatos) {
     const scoreNome = scoreSimilaridade(nomeNorm, normalizarTexto(d.nome))
     const scoreCurto = d.nome_curto ? scoreSimilaridade(nomeNorm, normalizarTexto(d.nome_curto)) : 0
     const score = Math.max(scoreNome, scoreCurto)
-    if (score > melhorScore) {
+    if (
+      score > melhorScore ||
+      (score === melhorScore && melhor !== null && compararPreferenciaDepartamento(d, melhor) < 0)
+    ) {
       melhorScore = score
       melhor = d
     }
@@ -107,6 +136,53 @@ export function encontrarDepartamentoFuzzy(
   if (melhorScore >= 0.8) return melhor
 
   return null
+}
+
+/**
+ * Grupo de "linhas irmãs" de um departamento: o id alvo + todas as linhas
+ * com o mesmo nome ou nome_curto normalizado, de QUALQUER status — o cadastro
+ * tem duplicadas do mesmo posto (grafias/status/nome_curto diferentes) e o
+ * colaborador pode apontar para qualquer uma. Mesma regra de expansão de
+ * `idsColaboradoresDoDepartamento`. Conjunto vazio quando o id não existe.
+ */
+export function idsGrupoDepartamento(
+  departamentos: DepartamentoFuzzy[],
+  departamentoId: string
+): Set<string> {
+  const alvo = departamentos.find((d) => d.id === departamentoId)
+  if (!alvo) return new Set()
+  const chaves = new Set<string>([normalizarTexto(alvo.nome)])
+  if (alvo.nome_curto) chaves.add(normalizarTexto(alvo.nome_curto))
+  return new Set(
+    departamentos
+      .filter(
+        (d) =>
+          chaves.has(normalizarTexto(d.nome)) ||
+          (d.nome_curto ? chaves.has(normalizarTexto(d.nome_curto)) : false)
+      )
+      .map((d) => d.id)
+  )
+}
+
+/**
+ * Lista para seletores de departamento (autocompletes de filtro/cadastro):
+ * apenas linhas Ativas com nome_curto, deduplicadas pelo nome_curto
+ * normalizado (o cadastro tem irmãs do mesmo posto — ex.: BLUE TERMINAL 2×)
+ * e ordenadas por nome_curto (pt-BR). Entre duplicadas, vale a primeira na
+ * ordenação estável — qualquer id do par funciona porque os filtros expandem
+ * o grupo de irmãs (idsGrupoDepartamento).
+ */
+export function departamentosSelecionaveis<T extends DepartamentoFuzzy>(departamentos: T[]): T[] {
+  const vistos = new Set<string>()
+  return departamentos
+    .filter((d) => d.status === 'Ativo' && !!d.nome_curto?.trim())
+    .filter((d) => {
+      const chave = normalizarTexto(d.nome_curto || '')
+      if (vistos.has(chave)) return false
+      vistos.add(chave)
+      return true
+    })
+    .sort((a, b) => (a.nome_curto || '').localeCompare(b.nome_curto || '', 'pt-BR'))
 }
 
 /**

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { departamentosSelecionaveis } from '@/lib/departamentos'
 import type { Departamento } from '@/types/database'
 
-const COLUNAS_DEPARTAMENTO_AUTOCOMPLETE = 'id, nome, nome_curto'
+const COLUNAS_DEPARTAMENTO_AUTOCOMPLETE = 'id, nome, nome_curto, status'
 
 interface DepartamentoAutocompleteProps {
   value: string
@@ -50,7 +51,10 @@ export function DepartamentoAutocomplete({
         console.error('Erro ao carregar departamentos:', error.message)
         return
       }
-      setDepartamentos((data || []) as Departamento[])
+      // Dedup por nome_curto normalizado: o cadastro tem linhas irmãs do
+      // mesmo posto (ex.: BLUE TERMINAL 2×) e as duplicadas apareciam na
+      // lista — qualquer id do par funciona porque os filtros expandem o grupo.
+      setDepartamentos(departamentosSelecionaveis((data || []) as Departamento[]))
     }
     carregar()
   }, [])

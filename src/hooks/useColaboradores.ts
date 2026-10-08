@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import { encontrarDepartamentoFuzzy, idsColaboradoresDoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
+import { encontrarDepartamentoFuzzy, idsColaboradoresDoDepartamento, idsGrupoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { Colaborador, StatusColaborador } from '@/types/database'
 import type { Paginacao, ResultadoPaginado } from '@/types'
 
@@ -53,17 +53,21 @@ export function useColaboradores() {
 
     if (filtros?.departamentoId && filtros.departamentoId !== 'todos') {
       const [{ data: deptData }, { data: colabData }] = await Promise.all([
-        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id'),
+        supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
         supabase.from('colaboradores').select('id, departamento_id, departamento, empresa_id'),
       ])
       const departamentos = (deptData || []) as DepartamentoFuzzy[]
+      // O cadastro tem LINHAS DUPLICADAS do mesmo posto (ex.: o colaborador
+      // aponta para a irmã sem nome_curto ou Inativa) — comparar só o id
+      // exato zerava o filtro (casos reais: CARTÓRIO, DUOCONNECT). Expande
+      // o alvo para o grupo de irmãs (qualquer status).
+      const idsGrupo = idsGrupoDepartamento(departamentos, filtros.departamentoId)
       idsPorDepartamento = new Set(
         (colabData || [])
-          .filter(
-            (c) =>
-              encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)?.id ===
-              filtros.departamentoId
-          )
+          .filter((c) => {
+            const dep = encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+            return dep ? idsGrupo.has(dep.id) : false
+          })
           .map((c) => c.id)
       )
     } else if (filtros?.departamentoNomeCurto && filtros.departamentoNomeCurto !== 'todos') {

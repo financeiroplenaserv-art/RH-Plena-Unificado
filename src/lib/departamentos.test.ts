@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { encontrarDepartamentoFuzzy, idsColaboradoresDoDepartamento, nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from './departamentos'
+import {
+  compararPreferenciaDepartamento,
+  departamentosSelecionaveis,
+  encontrarDepartamentoFuzzy,
+  idsColaboradoresDoDepartamento,
+  idsGrupoDepartamento,
+  nomeCurtoDepartamentoFuzzy,
+  type DepartamentoFuzzy,
+} from './departamentos'
 
 const departamentos: DepartamentoFuzzy[] = [
   { id: '1', nome: 'CBO PORTARIA', nome_curto: 'CBO', empresa_id: 'emp1' },
@@ -163,5 +171,176 @@ describe('idsColaboradoresDoDepartamento', () => {
   it('retorna vazio para termo vazio ou sem nenhuma correspondência', () => {
     expect(idsColaboradoresDoDepartamento(depts, colaboradores, '').size).toBe(0)
     expect(idsColaboradoresDoDepartamento(depts, colaboradores, 'INEXISTENTE').size).toBe(0)
+  })
+})
+
+describe('idsGrupoDepartamento', () => {
+  // Casos reais da auditoria de 09/10/2026: o filtro por departamentoId da
+  // listagem comparava o id EXATO, sem expandir irmãs — CARTÓRIO (colabs na
+  // irmã sem nome_curto) e DUOCONNECT (colabs na irmã Inativa) voltavam 0.
+  const depts: DepartamentoFuzzy[] = [
+    { id: 'duo-ativa', nome: 'DUOCONNECT SOLUÇÕES AUDITIVAS LTDA', nome_curto: 'DUOCONNECT', status: 'Ativo' },
+    { id: 'duo-inativa', nome: 'DUOCONNECT SOLUCOES AUDITIVAS LTDA', nome_curto: null, status: 'Inativo' },
+    { id: 'duo-sem-curto', nome: 'DUOCONNECT SOLUCOES AUDITIVAS LTDA', nome_curto: null, status: 'Ativo' },
+    { id: 'cnooc', nome: 'CNOOC PETROLEUM BRASIL LTDA', nome_curto: 'CNOOC PETROLEUM BRASIL LTDA', status: 'Ativo' },
+    { id: 'cnocc-typo', nome: 'CNOCC PETROLEUM BRASIL LTDA', nome_curto: 'CNOOC PETROLEUM BRASIL LTDA', status: 'Ativo' },
+    { id: 'outro', nome: 'OUTRO POSTO', nome_curto: 'OUTRO', status: 'Ativo' },
+  ]
+
+  it('inclui o alvo, a irmã Inativa e a irmã sem nome_curto (mesmo nome normalizado)', () => {
+    const ids = idsGrupoDepartamento(depts, 'duo-ativa')
+    expect(ids.has('duo-ativa')).toBe(true)
+    expect(ids.has('duo-inativa')).toBe(true)
+    expect(ids.has('duo-sem-curto')).toBe(true)
+    expect(ids.has('outro')).toBe(false)
+    expect(ids.size).toBe(3)
+  })
+
+  it('funciona a partir de qualquer linha do grupo (mesmo da irmã sem nome_curto)', () => {
+    const ids = idsGrupoDepartamento(depts, 'duo-inativa')
+    expect(ids.has('duo-ativa')).toBe(true)
+    expect(ids.has('duo-sem-curto')).toBe(true)
+    expect(ids.size).toBe(3)
+  })
+
+  it('expande por nome_curto compartilhado mesmo com nomes diferentes (typo CNOCC × CNOOC)', () => {
+    const ids = idsGrupoDepartamento(depts, 'cnooc')
+    expect(ids.has('cnooc')).toBe(true)
+    expect(ids.has('cnocc-typo')).toBe(true)
+  })
+
+  it('retorna conjunto vazio quando o id não existe', () => {
+    expect(idsGrupoDepartamento(depts, 'id-inexistente').size).toBe(0)
+  })
+})
+
+describe('compararPreferenciaDepartamento', () => {
+  const base = { nome: 'POSTO X', nome_curto: null, status: 'Ativo' }
+
+  it('prefere Ativo a Inativo', () => {
+    const ativo: DepartamentoFuzzy = { ...base, id: 'a', status: 'Ativo' }
+    const inativo: DepartamentoFuzzy = { ...base, id: 'b', status: 'Inativo' }
+    expect(compararPreferenciaDepartamento(ativo, inativo)).toBeLessThan(0)
+    expect(compararPreferenciaDepartamento(inativo, ativo)).toBeGreaterThan(0)
+  })
+
+  it('prefere quem tem nome_curto (mesmo status)', () => {
+    const comCurto: DepartamentoFuzzy = { ...base, id: 'a', nome_curto: 'X' }
+    const semCurto: DepartamentoFuzzy = { ...base, id: 'b' }
+    expect(compararPreferenciaDepartamento(comCurto, semCurto)).toBeLessThan(0)
+  })
+
+  it('Ativo vence mesmo contra Inativo com nome_curto', () => {
+    const ativoSemCurto: DepartamentoFuzzy = { ...base, id: 'a', status: 'Ativo' }
+    const inativoComCurto: DepartamentoFuzzy = { ...base, id: 'b', status: 'Inativo', nome_curto: 'X' }
+    expect(compararPreferenciaDepartamento(ativoSemCurto, inativoComCurto)).toBeLessThan(0)
+  })
+
+  it('prefere o nome mais longo (mais específico) no último critério', () => {
+    const curto: DepartamentoFuzzy = { id: 'a', nome: 'CBO', nome_curto: 'CBO', status: 'Ativo' }
+    const longo: DepartamentoFuzzy = { id: 'b', nome: 'CBO SERVICOS MARITIMOS S.A.', nome_curto: 'CBO MACAÉ', status: 'Ativo' }
+    expect(compararPreferenciaDepartamento(longo, curto)).toBeLessThan(0)
+  })
+})
+
+describe('encontrarDepartamentoFuzzy — desempate determinístico (independente da ordem do array)', () => {
+  // Os 5 textos reais da auditoria de 09/10/2026 que resolviam diferente
+  // conforme a ordenação da lista (as telas carregam com ordenações
+  // diferentes). Cada caso é testado com o array na ordem normal e invertida.
+  const casos: Array<{ texto: string; esperado: string; depts: DepartamentoFuzzy[] }> = [
+    {
+      // CARMO CAMPANELLA — duplicada Ativa com curto × Inativa sem curto
+      texto: 'CARMO CAMPANELLA',
+      esperado: 'carmo-ativa',
+      depts: [
+        { id: 'carmo-inativa', nome: 'CARMO CAMPANELLA', nome_curto: null, status: 'Inativo' },
+        { id: 'carmo-ativa', nome: 'CARMO CAMPANELLA', nome_curto: 'CARMO', status: 'Ativo' },
+      ],
+    },
+    {
+      // DALIAS — a linha com curto DALIAS foi inativada; a Ativa atual tem o mesmo nome
+      texto: 'CONDOMINIO DO EDIFICIO RESIDENCIAL DALIAS ',
+      esperado: 'dalias-ativa',
+      depts: [
+        { id: 'dalias-inativa', nome: 'CONDOMINIO DO EDIFICIO RESIDENCIAL DALIAS', nome_curto: 'DALIAS', status: 'Inativo' },
+        { id: 'dalias-ativa', nome: 'CONDOMINIO DO EDIFICIO RESIDENCIAL DALIAS', nome_curto: 'DALIAS', status: 'Ativo' },
+      ],
+    },
+    {
+      // 3º OFÍCIO — Ativa sem curto × irmã Ativa com curto CARTÓRIO (grafia com º/acentos)
+      texto: '3 OFICIO DE NOTAS DA COMARCA DE NITEROI ',
+      esperado: 'oficio-cartorio',
+      depts: [
+        { id: 'oficio-sem-curto', nome: '3 OFICIO DE NOTAS DA COMARCA DE NITEROI', nome_curto: null, status: 'Ativo' },
+        { id: 'oficio-cartorio', nome: '3º OFÍCIO DE NOTAS DA COMARCA DE NITERÓI', nome_curto: 'CARTÓRIO', status: 'Ativo' },
+      ],
+    },
+    {
+      // DUOCONNECT — match exato na linha INATIVA × Ativa com curto DUOCONNECT
+      texto: 'DUOCONNECT SOLUCOES AUDITIVAS LTDA ',
+      esperado: 'duo-ativa',
+      depts: [
+        { id: 'duo-inativa', nome: 'DUOCONNECT SOLUCOES AUDITIVAS LTDA', nome_curto: null, status: 'Inativo' },
+        { id: 'duo-ativa', nome: 'DUOCONNECT SOLUÇÕES AUDITIVAS LTDA', nome_curto: 'DUOCONNECT', status: 'Ativo' },
+      ],
+    },
+    {
+      // J P R PROJETOS — duplicada Ativa × Inativa com o mesmo nome (match por tokens)
+      texto: 'J P R PROJETOS',
+      esperado: 'jpr-ativa',
+      depts: [
+        { id: 'jpr-inativa', nome: 'J P R PROJETOS E CONSTRUCOES LTDA', nome_curto: null, status: 'Inativo' },
+        { id: 'jpr-ativa', nome: 'J P R PROJETOS E CONSTRUCOES LTDA', nome_curto: null, status: 'Ativo' },
+      ],
+    },
+  ]
+
+  for (const { texto, esperado, depts } of casos) {
+    it(`"${texto.trim()}" resolve para ${esperado} com o array em qualquer ordem`, () => {
+      expect(encontrarDepartamentoFuzzy(depts, null, texto)?.id).toBe(esperado)
+      expect(encontrarDepartamentoFuzzy([...depts].reverse(), null, texto)?.id).toBe(esperado)
+    })
+  }
+
+  it('em empate com substring, vence o nome mais longo/específico — "CBO SERVICOS MARITIMOS" NÃO resolve para a Aliança de curto "CBO"', () => {
+    // Caso real (AGENTS.md): o texto legado "CBO SERVICOS MARITIMOS" é o posto
+    // CBO MACAÉ; o curto "CBO" da Aliança (Niterói) é substring do texto e não
+    // pode sequestrar a resolução quando a ordem do array muda.
+    const deptsCbo: DepartamentoFuzzy[] = [
+      { id: 'alianca-cbo', nome: 'ALIANCA S A INDUSTRIA NAVAL E EMPRESA DE NAVEGACAO', nome_curto: 'CBO', status: 'Ativo' },
+      { id: 'cbo-macae', nome: 'CBO SERVICOS MARITIMOS S.A.', nome_curto: 'CBO MACAÉ', status: 'Ativo' },
+    ]
+    expect(encontrarDepartamentoFuzzy(deptsCbo, null, 'CBO SERVICOS MARITIMOS ')?.id).toBe('cbo-macae')
+    expect(encontrarDepartamentoFuzzy([...deptsCbo].reverse(), null, 'CBO SERVICOS MARITIMOS ')?.id).toBe('cbo-macae')
+  })
+})
+
+describe('departamentosSelecionaveis', () => {
+  it('lista só Ativas com nome_curto, dedup por nome_curto normalizado, ordenado pt-BR', () => {
+    const depts: DepartamentoFuzzy[] = [
+      { id: 'bt-1', nome: 'BLUE TERMINAL DEEP WATERS SA – ZMAX GROUP', nome_curto: 'BLUE TERMINAL', status: 'Ativo' },
+      { id: 'bt-2', nome: 'BLUE TERMINALS DEEP WATERS S. A -ZMAX GROUP', nome_curto: 'Blue Terminal', status: 'Ativo' },
+      { id: 'cnooc-inativa', nome: 'CNOOC PETROLEUM BRASIL LTDA', nome_curto: 'CNOOC PETROLEUM BRASIL LTDA', status: 'Inativo' },
+      { id: 'sem-curto', nome: 'POSTO SEM NOME CURTO', nome_curto: null, status: 'Ativo' },
+      { id: 'curto-vazio', nome: 'POSTO COM CURTO VAZIO', nome_curto: '', status: 'Ativo' },
+      { id: 'agua', nome: 'CONDOMINIO AGUA VERDE', nome_curto: 'ÁGUA VERDE', status: 'Ativo' },
+    ]
+    const selecionaveis = departamentosSelecionaveis(depts)
+    // dedup: um único BLUE TERMINAL (a primeira ocorrência na ordenação estável)
+    expect(selecionaveis.filter((d) => d.nome_curto?.toUpperCase() === 'BLUE TERMINAL')).toHaveLength(1)
+    // fora: Inativa, sem nome_curto e nome_curto vazio
+    expect(selecionaveis.map((d) => d.id)).not.toContain('cnooc-inativa')
+    expect(selecionaveis.map((d) => d.id)).not.toContain('sem-curto')
+    expect(selecionaveis.map((d) => d.id)).not.toContain('curto-vazio')
+    // ordenação pt-BR: ÁGUA VERDE antes de BLUE TERMINAL (acento não pesa)
+    expect(selecionaveis.map((d) => d.nome_curto)).toEqual(['ÁGUA VERDE', 'BLUE TERMINAL'])
+  })
+
+  it('mantém a primeira ocorrência do par duplicado', () => {
+    const depts: DepartamentoFuzzy[] = [
+      { id: 'primeira', nome: 'NUTRINDO IDEAIS LTDA', nome_curto: 'NUTRINDO IDEAIS', status: 'Ativo' },
+      { id: 'segunda', nome: 'FLOR DE LOTUS CONSULTORIO MEDICO', nome_curto: 'NUTRINDO IDEAIS', status: 'Ativo' },
+    ]
+    expect(departamentosSelecionaveis(depts).map((d) => d.id)).toEqual(['primeira'])
   })
 })

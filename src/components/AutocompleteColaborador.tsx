@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { encontrarDepartamentoFuzzy, nomeCurtoDepartamentoFuzzy, normalizarDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
+import { encontrarDepartamentoFuzzy, nomeCurtoDepartamentoFuzzy, idsGrupoDepartamento, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { Colaborador } from '@/types/database'
 import { BadgeStatus } from './BadgeStatus'
 
@@ -88,20 +88,16 @@ export function AutocompleteColaborador({
 
     const nomeCurto = dept?.nome_curto || null
     const nome = dept?.nome || null
-    const ids = new Set<string>([id])
 
     // O cadastro pode ter linhas duplicadas do mesmo departamento (mesmo
-    // nome/nome_curto normalizado, com e sem acento) — agrupa todas.
+    // nome/nome_curto normalizado, com e sem acento) — agrupa todas, de
+    // QUALQUER status: o colaborador pode resolver para a irmã Inativa
+    // (caso real: DUOCONNECT). Mesma regra de idsColaboradoresDoDepartamento.
     const { data: depts } = await supabase
       .from('departamentos')
-      .select('id, nome, nome_curto')
-      .eq('status', 'Ativo')
-    const chaveNome = nome ? normalizarDepartamento(nome) : null
-    const chaveCurto = nomeCurto ? normalizarDepartamento(nomeCurto) : null
-    depts?.forEach((d) => {
-      if (chaveCurto && d.nome_curto && normalizarDepartamento(d.nome_curto) === chaveCurto) ids.add(d.id)
-      if (chaveNome && d.nome && normalizarDepartamento(d.nome) === chaveNome) ids.add(d.id)
-    })
+      .select('id, nome, nome_curto, status')
+    const ids = idsGrupoDepartamento((depts as DepartamentoFuzzy[]) || [], id)
+    ids.add(id)
 
     return { ids: Array.from(ids), nomeCurto, nome }
   }, [])
