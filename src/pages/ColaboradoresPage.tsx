@@ -190,12 +190,7 @@ export function ColaboradoresPage() {
         {podeEmitirCracha && (
           <Button
             onClick={montarQuadro}
-            disabled={selecionadosQuadro.size === 0 && filtroDepartamento === 'todos'}
-            title={
-              selecionadosQuadro.size === 0 && filtroDepartamento === 'todos'
-                ? 'Marque colaboradores na lista ou filtre por departamento para montar o quadro'
-                : undefined
-            }
+            title="Abre o quadro de colaboradores — com a seleção e/ou o posto filtrado já aplicados"
           >
             <Users className="mr-2 size-4" />
             Quadro de colaboradores{selecionadosQuadro.size > 0 ? ' (' + selecionadosQuadro.size + ')' : ''}
