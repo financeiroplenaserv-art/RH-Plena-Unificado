@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { deveIgnorarErroImportacao, extrairMensagemErro } from './econtador'
+import { deveIgnorarErroImportacao, extrairMensagemErro, mapearDepartamentosImportacao, mensagemDepartamentoNaoResolvido } from './econtador'
+import type { DepartamentoFuzzy } from './departamentos'
 
 const erroMatriculaDuplicada = {
   code: '23505',
@@ -70,5 +71,61 @@ describe('extrairMensagemErro', () => {
     expect(extrairMensagemErro(null)).toBe('Erro desconhecido')
     expect(extrairMensagemErro(undefined)).toBe('Erro desconhecido')
     expect(extrairMensagemErro('')).toBe('Erro desconhecido')
+  })
+})
+
+const EMPRESA = 'fe2f1e37-3915-4801-a2a4-179268a56fa2'
+const ativas: DepartamentoFuzzy[] = [
+  { id: 'rosas', nome: 'CONDOMINIO DO EDIFICIO RESIDENCIAL ROSAS', nome_curto: 'ITAGUAÍ', empresa_id: null, status: 'Ativo' },
+  { id: 'alianca', nome: 'ALIANÇA S/A - INDÚSTRIA NAVAL', nome_curto: 'CBO', empresa_id: null, status: 'Ativo' },
+  { id: 'ltda', nome: 'FLOR DE LOTUS CONSULTORIO MEDICO LTDA', nome_curto: 'NUTRINDO IDEAIS', empresa_id: null, status: 'Ativo' },
+]
+
+describe('mapearDepartamentosImportacao (09/10/2026: nunca cria departamento)', () => {
+  it('casa texto sem acento com cadastro acentuado e devolve o id no mapa', () => {
+    const { mapa, naoResolvidos } = mapearDepartamentosImportacao(
+      ['ALIANCA S A INDUSTRIA NAVAL'],
+      ativas,
+      EMPRESA,
+    )
+    expect(mapa.get('alianca s a industria naval')).toBe('alianca')
+    expect(naoResolvidos).toEqual([])
+  })
+
+  it('texto de contrato encerrado NÃO é criado: vai para naoResolvidos e fica fora do mapa', () => {
+    const { mapa, naoResolvidos } = mapearDepartamentosImportacao(
+      ['NICE SERVICOS COMERCIAIS DE LIMPEZA'],
+      ativas,
+      EMPRESA,
+    )
+    expect(mapa.size).toBe(0)
+    expect(naoResolvidos).toEqual(['NICE SERVICOS COMERCIAIS DE LIMPEZA'])
+  })
+
+  it('casos reais da consolidação de 09/10: textos legados casam com a linha ativa oficial', () => {
+    const casos: [string, string][] = [
+      ['CONDOMINIO DO EDIFICIO RESIDENCIAL DALIAS', 'rosas'], // fusão Dalias → ITAGUAÍ
+      ['FLOR DE LOTUS CONSULTORIO MEDICO', 'ltda'], // irmã sem LTDA → NUTRINDO IDEAIS
+    ]
+    for (const [texto, idEsperado] of casos) {
+      const { mapa, naoResolvidos } = mapearDepartamentosImportacao([texto], ativas, EMPRESA)
+      expect(mapa.get(texto.toLowerCase())).toBe(idEsperado)
+      expect(naoResolvidos).toEqual([])
+    }
+  })
+
+  it('mistura: mapeia os que casam e lista os que não casam, sem criar nada', () => {
+    const { mapa, naoResolvidos } = mapearDepartamentosImportacao(
+      ['ALIANCA S A INDUSTRIA NAVAL', 'CONTRATO ENCERRADO X', 'FLOR DE LOTUS CONSULTORIO MEDICO'],
+      ativas,
+      EMPRESA,
+    )
+    expect(mapa.size).toBe(2)
+    expect(naoResolvidos).toEqual(['CONTRATO ENCERRADO X'])
+  })
+
+  it('mensagem do histórico orienta o cadastro manual', () => {
+    expect(mensagemDepartamentoNaoResolvido('X')).toContain('não criado automaticamente')
+    expect(mensagemDepartamentoNaoResolvido('X')).toContain('"X"')
   })
 })

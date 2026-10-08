@@ -58,3 +58,46 @@ export function extrairMensagemErro(err: unknown): string {
   }
   return String(err)
 }
+
+// ------------------------------------------------------------
+// Mapeamento de departamentos na importação
+// ------------------------------------------------------------
+
+import { encontrarDepartamentoFuzzy, type DepartamentoFuzzy } from './departamentos'
+
+export interface ResultadoMapeamentoDepartamentos {
+  /** nome do e-Contador em lower-case → id do departamento existente */
+  mapa: Map<string, string>
+  /** nomes sem correspondência ativa — NUNCA criados automaticamente */
+  naoResolvidos: string[]
+}
+
+/**
+ * Decisão da gestão (09/10/2026): a importação NUNCA cria departamento.
+ * O sync automático criava linha nova (Ativa, sem nome_curto) para qualquer
+ * texto sem match — inclusive de contratos encerrados que a Alterdata manda
+ * todo dia junto com os demitidos, re-sujando o cadastro a cada importação.
+ * Sem match entre os ATIVOS, o nome vai para `naoResolvidos` (o colaborador
+ * fica só com o texto legado, departamento_id null) e o histórico avisa;
+ * o departamento novo é cadastrado manualmente com nome_curto e a próxima
+ * importação passa a casar. Espelhado em Deno no sync-econtador.
+ */
+export function mapearDepartamentosImportacao(
+  nomes: string[],
+  existentes: DepartamentoFuzzy[],
+  empresaId: string | null
+): ResultadoMapeamentoDepartamentos {
+  const mapa = new Map<string, string>()
+  const naoResolvidos: string[] = []
+  for (const nome of nomes) {
+    const existente = encontrarDepartamentoFuzzy(existentes, null, nome, empresaId)
+    if (existente) mapa.set(nome.toLowerCase(), existente.id)
+    else naoResolvidos.push(nome)
+  }
+  return { mapa, naoResolvidos }
+}
+
+/** Mensagem registrada no histórico da importação para cada nome não resolvido. */
+export function mensagemDepartamentoNaoResolvido(nome: string): string {
+  return `Departamento sem correspondência ativa: "${nome}" — não criado automaticamente; cadastre na tela Departamentos (com nome curto) e reimporte`
+}

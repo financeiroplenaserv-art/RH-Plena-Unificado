@@ -2,11 +2,11 @@ import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
-import { deveIgnorarErroImportacao, extrairMensagemErro } from '@/lib/econtador'
-import { encontrarDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
+import { deveIgnorarErroImportacao, extrairMensagemErro, mapearDepartamentosImportacao, mensagemDepartamentoNaoResolvido } from '@/lib/econtador'
+import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { agoraBrasil } from '@/lib/utils'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
-import type { Colaborador, Departamento, StatusColaborador } from '@/types/database'
+import type { Colaborador, StatusColaborador } from '@/types/database'
 import { useColaboradores } from './useColaboradores'
 import { useEmpresas } from './useEmpresas'
 
@@ -117,7 +117,7 @@ export function useEContador() {
       new Set(lista.map(f => f.departamento?.trim()).filter(Boolean))
     ) as string[]
 
-    if (nomesUnicos.length === 0) return new Map<string, string>()
+    if (nomesUnicos.length === 0) return { mapa: new Map<string, string>(), naoResolvidos: [] }
 
     // Busca todos os departamentos ativos da empresa (ou sem empresa)
     let query = supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status')
@@ -130,46 +130,12 @@ export function useEContador() {
     if (erroBusca) throw erroBusca
 
     const departamentos = (existentes || []) as DepartamentoFuzzy[]
-    const map = new Map<string, string>()
-    const novos: string[] = []
-
-    for (const nomeEContador of nomesUnicos) {
-      const nomeChave = nomeEContador.toLowerCase()
-
-      // Reutiliza departamento existente antes de criar: o match fuzzy ignora
-      // acentos/pontuação — o e-Contador manda sem acento ("ALIANCA S A
-      // INDUSTRIA NAVAL") e o cadastro tem ("Aliança S.A. Indústria Naval"),
-      // então o match exato por lower-case criava linha duplicada.
-      const existente = encontrarDepartamentoFuzzy(departamentos, null, nomeEContador, empresaId)
-      if (existente) {
-        map.set(nomeChave, existente.id)
-        continue
-      }
-
-      // Se não achou, vai criar novo
-      novos.push(nomeEContador)
-    }
-
-    if (novos.length > 0) {
-      const { data: inseridos, error: erroInsert } = await supabase
-        .from('departamentos')
-        .insert(
-          novos.map(nome => ({
-            nome,
-            empresa_id: empresaId,
-            status: 'Ativo' as const,
-          }))
-        )
-        .select('id, nome')
-
-      if (erroInsert) throw erroInsert
-
-      for (const d of (inseridos || []) as Pick<Departamento, 'id' | 'nome'>[]) {
-        map.set(d.nome.toLowerCase(), d.id)
-      }
-    }
-
-    return map
+    // Decisão da gestão (09/10/2026): NUNCA criar departamento na importação —
+    // o insert automático recriava linhas sem nome_curto todo dia (contratos
+    // encerrados que a Alterdata manda com os demitidos). Sem match entre os
+    // ativos, o nome volta em `naoResolvidos` e o histórico avisa para
+    // cadastrar manualmente. Lógica pura testada em src/lib/econtador.ts.
+    return mapearDepartamentosImportacao(nomesUnicos, departamentos, empresaId)
   }, [])
 
   const listarHistorico = useCallback(async () => {
@@ -304,8 +270,11 @@ export function useEContador() {
     }
 
     let departamentosMap = new Map<string, string>()
+    let departamentosNaoResolvidos: string[] = []
     try {
-      departamentosMap = await sincronizarDepartamentos(lista, empresaId)
+      const resultado = await sincronizarDepartamentos(lista, empresaId)
+      departamentosMap = resultado.mapa
+      departamentosNaoResolvidos = resultado.naoResolvidos
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao sincronizar departamentos'
       console.error('Erro ao sincronizar departamentos:', err)
@@ -418,8 +387,18 @@ export function useEContador() {
     }
 
     setLoading(false)
+    // Departamentos sem match NÃO viram erro — ficam registrados no histórico
+    // (detalhes expandível) para a gestão cadastrar manualmente com nome_curto
+    for (const nome of departamentosNaoResolvidos) {
+      detalhesErros.push({ nome: `Departamento novo: ${nome}`, erro: mensagemDepartamentoNaoResolvido(nome) })
+    }
     const msg = `${importados} novos | ${atualizados} atualizados${erros > 0 ? ` | ${erros} erros` : ''}`
     toast.success(`Importação: ${msg}`)
+    if (departamentosNaoResolvidos.length > 0) {
+      toast.warning(
+        `${departamentosNaoResolvidos.length} departamento(s) sem correspondência NÃO foram criados — cadastre na tela Departamentos e reimporte (ver histórico)`,
+      )
+    }
 
     await salvarHistorico({
       empresa_id: eContadorEmpresaId || null,

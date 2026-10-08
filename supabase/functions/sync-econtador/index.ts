@@ -352,22 +352,25 @@ function encontrarDepartamentoFuzzy(
 }
 
 /**
- * Port de useEContador.sincronizarDepartamentos (useEContador.ts:112-173):
- * reutiliza departamento existente via match fuzzy ANTES de criar — o
- * e-Contador manda o nome sem acento ("ALIANCA S A INDUSTRIA NAVAL") e o
- * cadastro tem acento ("Aliança S.A. Indústria Naval"); match exato por
- * lower-case criava linha duplicada.
+ * Port de useEContador.sincronizarDepartamentos — com a decisão da gestão de
+ * 09/10/2026: NUNCA criar departamento na importação. O insert automático
+ * recriava linhas sem nome_curto todo dia (contratos encerrados que a
+ * Alterdata manda junto com os demitidos). Sem match entre os ATIVOS, o nome
+ * vai para `naoResolvidos`: o colaborador fica só com o texto legado
+ * (departamento_id null) e o histórico avisa para cadastrar manualmente.
+ * Lógica pura espelhada e testada em src/lib/econtador.ts
+ * (mapearDepartamentosImportacao).
  */
 async function sincronizarDepartamentos(
   supabase: ClienteSupabase,
   lista: FuncionarioMapeado[],
   empresaId: string | null
-): Promise<Map<string, string>> {
+): Promise<{ mapa: Map<string, string>; naoResolvidos: string[] }> {
   const nomesUnicos = Array.from(
     new Set(lista.map((f) => f.departamento?.trim()).filter(Boolean))
   ) as string[]
 
-  if (nomesUnicos.length === 0) return new Map<string, string>()
+  if (nomesUnicos.length === 0) return { mapa: new Map<string, string>(), naoResolvidos: [] }
 
   let query = supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status')
   if (empresaId) {
@@ -379,33 +382,19 @@ async function sincronizarDepartamentos(
   if (erroBusca) throw erroBusca
 
   const departamentos = (existentes || []) as DepartamentoFuzzy[]
-  const map = new Map<string, string>()
-  const novos: string[] = []
+  const mapa = new Map<string, string>()
+  const naoResolvidos: string[] = []
 
   for (const nomeEContador of nomesUnicos) {
-    const nomeChave = nomeEContador.toLowerCase()
     const existente = encontrarDepartamentoFuzzy(departamentos, nomeEContador, empresaId)
     if (existente) {
-      map.set(nomeChave, existente.id)
-      continue
-    }
-    novos.push(nomeEContador)
-  }
-
-  if (novos.length > 0) {
-    const { data: inseridos, error: erroInsert } = await supabase
-      .from('departamentos')
-      .insert(novos.map((nome) => ({ nome, empresa_id: empresaId, status: 'Ativo' })))
-      .select('id, nome')
-
-    if (erroInsert) throw erroInsert
-
-    for (const d of (inseridos || []) as { id: string; nome: string }[]) {
-      map.set(d.nome.toLowerCase(), d.id)
+      mapa.set(nomeEContador.toLowerCase(), existente.id)
+    } else {
+      naoResolvidos.push(nomeEContador)
     }
   }
 
-  return map
+  return { mapa, naoResolvidos }
 }
 
 // ============================================================
@@ -959,10 +948,19 @@ async function processarEmpresa(
   }
   const empresa = empresasDB.find((e) => e.id === empresaId) || null
 
-  // 3) Departamentos com match fuzzy antes de inserir (nunca duplicar por acento)
+  // 3) Departamentos: match fuzzy contra os ativos — NUNCA cria (09/10/2026);
+  // os sem match são registrados no histórico para cadastro manual
   let departamentosMap = new Map<string, string>()
   try {
-    departamentosMap = await sincronizarDepartamentos(supabase, lista, empresaId)
+    const resultado = await sincronizarDepartamentos(supabase, lista, empresaId)
+    departamentosMap = resultado.mapa
+    for (const nome of resultado.naoResolvidos) {
+      console.warn(`Departamento sem correspondência ativa (não criado): ${nome}`)
+      cont.detalhesErros.push({
+        nome: `Departamento novo: ${nome}`,
+        erro: `Departamento sem correspondência ativa: "${nome}" — não criado automaticamente; cadastre na tela Departamentos (com nome curto) e reimporte`,
+      })
+    }
   } catch (err) {
     const msg = extrairMensagemErro(err)
     console.error('Erro ao sincronizar departamentos:', err)
