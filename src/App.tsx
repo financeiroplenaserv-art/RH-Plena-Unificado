@@ -52,7 +52,7 @@ import {
   CeuRelatoriosPage,
   CeuImportarPage,
   CeuCrachasPage,
-  CeuQuadroPage,
+  QuadroColaboradoresPage,
   AdicionaisContratosPage,
   AdicionaisVinculosPage,
   AdicionaisCalendarioPage,
@@ -252,6 +252,15 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              {/* Quadro fica na área de Colaboradores; rota.colaboradores mantém o dp3 fora + trava interna na página */}
+              <Route
+                path="/colaboradores/quadro"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'colaboradores' }}>
+                    <QuadroColaboradoresPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/departamentos"
                 element={
@@ -436,15 +445,6 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'ceu', acao: 'emitir_cracha' }}>
                     <CeuCrachasPage />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Quadro fica sob rota.ceu (dp3 não entra) + guarda interna ceu.emitir_cracha na página */}
-              <Route
-                path="/ceu/quadro"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
-                    <CeuQuadroPage />
                   </ProtectedRoute>
                 }
               />

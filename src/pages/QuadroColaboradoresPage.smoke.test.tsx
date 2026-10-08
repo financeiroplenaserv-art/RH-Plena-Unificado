@@ -35,13 +35,13 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
 
-import { CeuQuadroPage } from '@/pages/ceu/CeuQuadroPage'
+import { QuadroColaboradoresPage } from '@/pages/QuadroColaboradoresPage'
 
-describe('CeuQuadroPage (smoke)', () => {
+describe('QuadroColaboradoresPage (smoke)', () => {
   it('renderiza sem travar', async () => {
     render(
       <MemoryRouter>
-        <CeuQuadroPage />
+        <QuadroColaboradoresPage />
       </MemoryRouter>,
     )
     expect(await screen.findByText('Quadro de Colaboradores')).toBeTruthy()

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { AlertTriangle, Crop, Eye, Printer, RotateCcw, UserPlus, Users, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -11,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
@@ -116,18 +116,21 @@ async function logoDataUrlCabecalho(config: ConfigCracha, empresaId: string | nu
   })
 }
 
-export function CeuQuadroPage() {
+export function QuadroColaboradoresPage() {
   const { user } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const nivel = user?.nivel_acesso
-  const podeEmitir = nivel ? podeEmitirCrachaCEU(nivel) : false
+  // dp3 emite crachás mas NÃO acessa o quadro (decisão da gestão — regra do AGENTS.md)
+  const podeEmitir = nivel ? podeEmitirCrachaCEU(nivel) && nivel !== 'dp3' : false
 
   const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [config, setConfig] = useState<ConfigCracha | null>(null)
   const [migrationPendente, setMigrationPendente] = useState(false)
   // multi-posto: condomínios com vários blocos são departamentos separados no
   // cadastro (ex.: Chácara do Itaguaí = Residencial Rosas + Residencial Dalias)
-  const [postosIds, setPostosIds] = useFiltroPersistente<string[]>('ceu.quadro.postos', [])
-  const [clienteNome, setClienteNome] = useFiltroPersistente<string>('ceu.quadro.cliente', '')
+  const [postosIds, setPostosIds] = useFiltroPersistente<string[]>('colaboradores.quadro.postos', [])
+  const [clienteNome, setClienteNome] = useFiltroPersistente<string>('colaboradores.quadro.cliente', '')
   const [itens, setItens] = useState<ItemQuadro[]>([])
   const [carregando, setCarregando] = useState(false)
   const [chaveBusca, setChaveBusca] = useState(0)
@@ -319,6 +322,43 @@ export function CeuQuadroPage() {
     void carregarPostos(chavePostos.split(','))
   }, [chavePostos, departamentos, carregarPostos])
 
+  // Entrada pela lista de Colaboradores (botão "Quadro de colaboradores"):
+  // pré-seleciona o posto filtrado e/ou adiciona os marcados como avulsos.
+  const estadoRouterAplicado = useRef(false)
+  useEffect(() => {
+    if (estadoRouterAplicado.current || departamentos.length === 0) return
+    const st = location.state as { colaboradorIds?: string[]; postoId?: string } | null
+    if (!st || (!st.postoId && !(st.colaboradorIds && st.colaboradorIds.length > 0))) return
+    estadoRouterAplicado.current = true
+    void (async () => {
+      try {
+        if (st.postoId) {
+          const dep = departamentos.find((d) => d.id === st.postoId)
+          if (dep) {
+            if (!postosIds.includes(dep.id)) setPostosIds([dep.id])
+            if (!clienteNome.trim()) setClienteNome(dep.nome_curto || dep.nome)
+            await carregarPostos([dep.id])
+          }
+        }
+        if (st.colaboradorIds && st.colaboradorIds.length > 0) {
+          const { lista, migrationPendente: pendente } = await carregarColaboradoresQuadro()
+          if (pendente) setMigrationPendente(true)
+          const achados = st.colaboradorIds
+            .map((id) => lista.find((c) => c.id === id))
+            .filter((c): c is ColabQuadro => !!c)
+          if (achados.length < st.colaboradorIds.length) {
+            toast.warning(`${st.colaboradorIds.length - achados.length} colaborador(es) selecionado(s) não estão ativos e foram ignorados`)
+          }
+          if (achados.length > 0) await montarItens(achados, true)
+        }
+      } finally {
+        // limpa o state para não reaplicar ao navegar de volta
+        navigate('.', { replace: true, state: null })
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- aplica o state uma única vez
+  }, [departamentos])
+
   const adicionarPosto = (id: string) => {
     if (!id || postosIds.includes(id)) return
     setPostosIds([...postosIds, id])
@@ -494,9 +534,9 @@ export function CeuQuadroPage() {
   if (!podeEmitir) return null
 
   return (
-    <CeuShell>
+    <div className="min-h-full space-y-5">
       <PageHeader
-        backTo="/ceu/movimentacoes"
+        backTo="/colaboradores"
         title="Quadro de Colaboradores"
         description="Escolha o posto, confira fotos e horários e imprima o cartaz A4 por função — o ferista sai em folha separada"
       />
@@ -819,6 +859,6 @@ export function CeuQuadroPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </CeuShell>
+    </div>
   )
 }
