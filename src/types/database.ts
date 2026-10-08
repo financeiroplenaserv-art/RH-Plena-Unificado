@@ -56,6 +56,12 @@ export interface Departamento {
   created_at?: string
 }
 
+export interface FocoFotoQuadro {
+  zoom: number // 1–2,5 (CSS transform: scale)
+  px: number // 0–100 (object-position x, %)
+  py: number // 0–100 (object-position y, %)
+}
+
 export interface Colaborador {
   id: string
   matricula: string
@@ -87,6 +93,10 @@ export interface Colaborador {
   foto_path?: string | null // caminho no bucket privado colaborador-fotos (migration 117)
   nome_cracha?: string | null // nome impresso no crachá; null = nome_completo
   cargo_cracha?: string | null // função impressa no crachá; null = cargo
+  // Quadro de Colaboradores (migration 119 — CEU → Quadro)
+  horario_quadro?: string | null // horário/escala do cartaz; null = regime do vínculo ativo ou "conforme escala"
+  foto_foco?: FocoFotoQuadro | null // enquadramento da foto no quadro; null = padrão (zoom 1, 50%/20%)
+  ferista_faltista?: boolean // ferista/faltista sai do cartaz principal e vai para folha separada
   tamanho_camisa?: string | null
   tamanho_calca?: string | null
   tamanho_calcado?: string | null
@@ -153,6 +163,7 @@ export interface LocalTrabalhoDiario {
   usuario_confirmacao_id: string | null
   confirmado_em: string | null
   observacao: string | null
+  turno?: string | null // turno/horário do dia na escala Flit (migration 120; ex.: "7h às 19h CBO")
   importacao_ref: string | null
   created_at?: string
   updated_at?: string

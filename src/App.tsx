@@ -52,6 +52,7 @@ import {
   CeuRelatoriosPage,
   CeuImportarPage,
   CeuCrachasPage,
+  CeuQuadroPage,
   AdicionaisContratosPage,
   AdicionaisVinculosPage,
   AdicionaisCalendarioPage,
@@ -435,6 +436,15 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'ceu', acao: 'emitir_cracha' }}>
                     <CeuCrachasPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Quadro fica sob rota.ceu (dp3 não entra) + guarda interna ceu.emitir_cracha na página */}
+              <Route
+                path="/ceu/quadro"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
+                    <CeuQuadroPage />
                   </ProtectedRoute>
                 }
               />

@@ -7,6 +7,7 @@ import {
   Upload,
   Ruler,
   IdCard,
+  Users,
 } from 'lucide-react'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import type { ModuleTab } from '@/components/layout/ModuleShell'
@@ -24,6 +25,7 @@ const TABS: ModuleTab[] = [
 ]
 
 const TAB_CRACHAS: ModuleTab = { path: '/ceu/crachas', label: 'Crachás', icon: IdCard }
+const TAB_QUADRO: ModuleTab = { path: '/ceu/quadro', label: 'Quadro', icon: Users }
 
 interface CeuShellProps {
   children: React.ReactNode
@@ -38,7 +40,7 @@ export function CeuShell({ children, apenasCrachas = false }: CeuShellProps) {
   const { user } = useAuth()
   const podeCrachas = user ? podeEmitirCrachaCEU(user.nivel_acesso) : false
 
-  const tabs = apenasCrachas ? [TAB_CRACHAS] : podeCrachas ? [...TABS, TAB_CRACHAS] : TABS
+  const tabs = apenasCrachas ? [TAB_CRACHAS] : podeCrachas ? [...TABS, TAB_CRACHAS, TAB_QUADRO] : TABS
 
   return <ModuleShell tabs={tabs}>{children}</ModuleShell>
 }

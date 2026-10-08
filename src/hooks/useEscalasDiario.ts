@@ -282,6 +282,9 @@ export function useEscalasDiario() {
           local_trabalho_id: localTrabalhoId,
           fonte,
           observacao: null,
+          // turno traz o horário do dia ("7h às 19h CBO") — antes descartado;
+          // gravado desde a migration 120 para o Quadro de Colaboradores
+          turno: dia.turno?.trim() || null,
         })
       }
 

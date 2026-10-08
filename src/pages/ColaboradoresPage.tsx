@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, RefreshCw, User, X, Pencil, Save, IdCard } from 'lucide-react'
+import { Search, RefreshCw, User, Users, X, Pencil, Save } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -56,8 +56,8 @@ export function ColaboradoresPage() {
   const podeVerCPFCompleto = perfil ? temPermissaoCPFCompleto(perfil) : false
   const podeEmitirCracha = perfil ? podeEmitirCrachaCEU(perfil) : false
   const navigate = useNavigate()
-  // Seleção para emissão de crachás (mantida entre páginas da listagem)
-  const [selecionadosCracha, setSelecionadosCracha] = useState<Set<string>>(new Set())
+  // Seleção para o quadro de colaboradores (mantida entre páginas da listagem)
+  const [selecionadosQuadro, setSelecionadosQuadro] = useState<Set<string>>(new Set())
 
   const { colaboradores, loading, paginacao, listarPaginado, atualizar, atualizarFotoNaLista } = useColaboradores()
   const [busca, setBusca] = useFiltroPersistente('colaboradores.lista.busca', '')
@@ -141,16 +141,23 @@ export function ColaboradoresPage() {
     setModoEdicao(false)
   }
 
-  const alternarSelecaoCracha = (id: string) =>
-    setSelecionadosCracha((prev) => {
+  const alternarSelecaoQuadro = (id: string) =>
+    setSelecionadosQuadro((prev) => {
       const novo = new Set(prev)
       if (novo.has(id)) novo.delete(id)
       else novo.add(id)
       return novo
     })
 
-  const emitirCrachas = () =>
-    navigate('/ceu/crachas', { state: { colaboradorIds: Array.from(selecionadosCracha) } })
+  // Leva a seleção e/ou o posto filtrado para o quadro (o cartaz é por posto;
+  // a seleção avulsa entra como "adicionados manualmente")
+  const montarQuadro = () =>
+    navigate('/ceu/quadro', {
+      state: {
+        colaboradorIds: Array.from(selecionadosQuadro),
+        postoId: filtroDepartamento !== 'todos' ? filtroDepartamento : undefined,
+      },
+    })
 
   const fecharDialog = () => {
     setColaboradorSelecionado(null)
@@ -182,12 +189,16 @@ export function ColaboradoresPage() {
         </Button>
         {podeEmitirCracha && (
           <Button
-            onClick={emitirCrachas}
-            disabled={selecionadosCracha.size === 0}
-            title={selecionadosCracha.size === 0 ? 'Marque colaboradores na lista para emitir crachás' : undefined}
+            onClick={montarQuadro}
+            disabled={selecionadosQuadro.size === 0 && filtroDepartamento === 'todos'}
+            title={
+              selecionadosQuadro.size === 0 && filtroDepartamento === 'todos'
+                ? 'Marque colaboradores na lista ou filtre por departamento para montar o quadro'
+                : undefined
+            }
           >
-            <IdCard className="mr-2 size-4" />
-            Emitir crachás{selecionadosCracha.size > 0 ? ' (' + selecionadosCracha.size + ')' : ''}
+            <Users className="mr-2 size-4" />
+            Quadro de colaboradores{selecionadosQuadro.size > 0 ? ' (' + selecionadosQuadro.size + ')' : ''}
           </Button>
         )}
       </PageHeader>
@@ -280,9 +291,9 @@ export function ColaboradoresPage() {
                   {podeEmitirCracha && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
-                        checked={selecionadosCracha.has(c.id)}
-                        onCheckedChange={() => alternarSelecaoCracha(c.id)}
-                        aria-label={'Selecionar ' + c.nome_completo + ' para emitir crachá'}
+                        checked={selecionadosQuadro.has(c.id)}
+                        onCheckedChange={() => alternarSelecaoQuadro(c.id)}
+                        aria-label={'Selecionar ' + c.nome_completo + ' para o quadro de colaboradores'}
                       />
                     </TableCell>
                   )}

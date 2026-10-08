@@ -32,6 +32,7 @@ export const CeuLancamentoRapidoPage = lazyNamed(() => import('@/pages/ceu/CeuLa
 export const CeuTamanhosPage = lazyNamed(() => import('@/pages/ceu/CeuTamanhosPage'), 'CeuTamanhosPage')
 export const CeuRelatoriosPage = lazyNamed(() => import('@/pages/ceu/CeuRelatoriosPage'), 'CeuRelatoriosPage')
 export const CeuCrachasPage = lazyNamed(() => import('@/pages/ceu/CeuCrachasPage'), 'CeuCrachasPage')
+export const CeuQuadroPage = lazyNamed(() => import('@/pages/ceu/CeuQuadroPage'), 'CeuQuadroPage')
 export const CeuImportarPage = lazyNamed(() => import('@/pages/ceu/CeuImportarPage'), 'CeuImportarPage')
 
 // Adicionais
