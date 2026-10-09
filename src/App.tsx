@@ -56,6 +56,12 @@ import {
   MateriaisCatalogoPage,
   MateriaisFornecedoresPage,
   MateriaisAlteracoesKitPage,
+  MateriaisPedidosPage,
+  MateriaisPedidoDetalhePage,
+  MateriaisValidacaoPage,
+  MateriaisPainelPage,
+  MateriaisSemPedidoPage,
+  CeuPedidosPage,
   QuadroColaboradoresPage,
   AdicionaisContratosPage,
   AdicionaisVinculosPage,
@@ -393,7 +399,47 @@ function App() {
                 }
               />
 
-              <Route path="/materiais" element={<Navigate to="/materiais/contratos" replace />} />
+              <Route path="/materiais" element={<Navigate to="/materiais/pedidos" replace />} />
+              <Route
+                path="/materiais/pedidos"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisPedidosPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/pedidos/:id"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisPedidoDetalhePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/validacao"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'materiais', acao: 'validar' }}>
+                    <MateriaisValidacaoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/painel"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'materiais', acao: 'aprovar' }}>
+                    <MateriaisPainelPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/sem-pedido"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'materiais', acao: 'ver_sem_pedido' }}>
+                    <MateriaisSemPedidoPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/materiais/contratos"
                 element={
@@ -466,6 +512,15 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
                     <CeuItemFormPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ceu/pedidos"
+                element={
+                  // Inspetoria confere e dp2 atende: a página checa as ações ceu.conferir_pedido/atender_pedido
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
+                    <CeuPedidosPage />
                   </ProtectedRoute>
                 }
               />

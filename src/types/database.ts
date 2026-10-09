@@ -872,6 +872,38 @@ export type Database = {
         Args: { p_id: string; p_aprovar: boolean; p_comentario?: string | null }
         Returns: void
       }
+      // Filas do módulo Materiais (migrations 122 e 124)
+      enviar_pedido_interno: { Args: { p_pedido: string }; Returns: void }
+      validar_pedido_materiais: {
+        Args: { p_pedido: string; p_itens: Record<string, unknown>[]; p_comentario?: string | null }
+        Returns: void
+      }
+      aprovar_pedido_materiais: { Args: { p_pedido: string; p_itens: Record<string, unknown>[] }; Returns: void }
+      aprovar_lote_materiais: { Args: { p_competencia: string; p_contratos: string[] }; Returns: number }
+      identificar_linhas_pedido_ceu: { Args: { p_linhas: Record<string, unknown>[] }; Returns: number }
+      conferir_itens_pedido_ceu: { Args: { p_pedido: string; p_linhas: Record<string, unknown>[] }; Returns: void }
+      atender_itens_pedido_ceu: { Args: { p_linhas: string[] }; Returns: number }
+      atender_linhas_pedido_ceu: { Args: { p_linhas: Record<string, unknown>[] }; Returns: number }
+      reabrir_pedido_materiais: {
+        Args: { p_contrato: string; p_competencia: string; p_ate: string; p_motivo: string }
+        Returns: void
+      }
+      definir_rota_pedido: { Args: { p_pedido: string; p_rota: number | null; p_motivo?: string | null }; Returns: void }
+      preencher_pedido_pelo_kit: { Args: { p_contrato: string; p_competencia: string }; Returns: string }
+      mat_contratos_sem_pedido: {
+        Args: { p_competencia: string }
+        Returns: {
+          contrato_id: string
+          nome: string
+          departamento_id: string
+          rota: number | null
+          ultimo_responsavel: string | null
+          link_aberto_no_mes: boolean
+          tem_link: boolean
+          /** Só com a migration 124: pedido do mês que tem só uniforme/EPI/crachá. */
+          pedido_id?: string | null
+        }[]
+      }
       salvar_dados_cracha: {
         Args: {
           p_colaborador_id: string

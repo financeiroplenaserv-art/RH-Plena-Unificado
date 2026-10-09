@@ -249,6 +249,9 @@ export interface CeuPedidoItem {
   atendido_por: string | null
   atendido_em: string | null
   motivo_ajuste: string | null
+  /** Migration 124: quanto a Beth entregou e por que menos que o conferido. */
+  qtd_atendida?: number | null
+  motivo_atendimento?: string | null
   created_at?: string
 }
 
