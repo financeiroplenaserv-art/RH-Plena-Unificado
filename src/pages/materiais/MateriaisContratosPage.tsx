@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileSignature, PackageCheck, Pencil, Plus } from 'lucide-react'
+import { FileSignature, PackageCheck, Pencil, Plus, QrCode } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
@@ -16,12 +16,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { EstruturaPendente } from '@/components/materiais/EstruturaPendente'
+import { LinkPedidoDialog } from '@/components/materiais/LinkPedidoDialog'
 import { CLASSE_SELECT } from '@/components/materiais/estilos'
 import { MateriaisShell } from './MateriaisShell'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
-import { podeEditarCatalogoMateriais, podeEditarRotaMateriais } from '@/lib/permissoes'
+import { podeEditarCatalogoMateriais, podeEditarRotaMateriais, podeGerenciarLinksMateriais } from '@/lib/permissoes'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
@@ -56,12 +57,14 @@ export function MateriaisContratosPage() {
   const navigate = useNavigate()
   const podeEditar = user ? podeEditarCatalogoMateriais(user.nivel_acesso) : false
   const podeRota = user ? podeEditarRotaMateriais(user.nivel_acesso) : false
-  const { contratos, itensNoKit, departamentos, loading, estruturaPendente, carregar, salvar, definirRota } = useMateriaisContratos()
+  const podeLinks = user ? podeGerenciarLinksMateriais(user.nivel_acesso) : false
+  const { contratos, itensNoKit, statusLinks, departamentos, loading, estruturaPendente, carregar, salvar, definirRota } = useMateriaisContratos()
 
   const [filtro, setFiltro] = useFiltroPersistente<FiltroContratos>('materiais.contratos', FILTRO_PADRAO)
   const [rascunho, setRascunho] = useState<FiltroContratos>(filtro)
   const [form, setForm] = useState<FormContrato | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [contratoLink, setContratoLink] = useState<MatContrato | null>(null)
 
   useEffect(() => {
     carregar()
@@ -219,7 +222,8 @@ export function MateriaisContratosPage() {
                     <TableHead>Limpeza</TableHead>
                     <TableHead className="text-right">Itens no kit</TableHead>
                     <TableHead>Situação</TableHead>
-                    <TableHead className="w-24" />
+                    <TableHead>Link</TableHead>
+                    <TableHead className="w-32" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -252,6 +256,15 @@ export function MateriaisContratosPage() {
                         <StatusBadge variant={c.ativo ? 'success' : 'neutral'}>{c.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
                       </TableCell>
                       <TableCell>
+                        {statusLinks[c.id]?.ativo ? (
+                          <StatusBadge variant="success">Ativo</StatusBadge>
+                        ) : statusLinks[c.id] ? (
+                          <StatusBadge variant="neutral">Revogado</StatusBadge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -262,6 +275,17 @@ export function MateriaisContratosPage() {
                           >
                             <PackageCheck className="size-4" />
                           </Button>
+                          {podeLinks && c.ativo && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setContratoLink(c)}
+                              aria-label={`Link e QR code de ${c.nome}`}
+                              title="Gerar link / QR code"
+                            >
+                              <QrCode className="size-4" />
+                            </Button>
+                          )}
                           {podeEditar && (
                             <Button variant="ghost" size="icon" onClick={() => abrir(c)} aria-label={`Editar ${c.nome}`} title="Editar">
                               <Pencil className="size-4" />
@@ -277,6 +301,13 @@ export function MateriaisContratosPage() {
           </DataTable>
         </div>
       )}
+
+      <LinkPedidoDialog
+        contrato={contratoLink}
+        status={contratoLink ? statusLinks[contratoLink.id] ?? null : null}
+        onClose={() => setContratoLink(null)}
+        onAlterado={carregar}
+      />
 
       <Dialog open={!!form} onOpenChange={(aberto) => !aberto && setForm(null)}>
         <DialogContent className="max-w-lg">

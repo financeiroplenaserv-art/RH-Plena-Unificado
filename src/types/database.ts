@@ -8,7 +8,7 @@ import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
 import type {
   MatItem, MatItemVariacao, MatPreco, MatAlias, MatContrato, MatContratoAcesso, MatAcessoLog,
   MatKitItem, MatKitAlteracao, MatHistoricoConsumo, MatPedido, MatPedidoEnvio, MatPedidoItem,
-  CeuPedidoItem, MatComentario, MatReabertura,
+  CeuPedidoItem, MatComentario, MatReabertura, MatStatusLink,
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 
@@ -860,6 +860,10 @@ export type Database = {
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Views: {}
     Functions: {
+      mat_status_links: {
+        Args: Record<string, never>
+        Returns: MatStatusLink[]
+      }
       definir_rota_contrato: {
         Args: { p_contrato: string; p_rota: number | null }
         Returns: void

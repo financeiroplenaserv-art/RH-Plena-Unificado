@@ -365,6 +365,12 @@ npx vitest
 - Deploy nesta máquina: `scripts/lib/implantar-edge-function.ps1`.
 - Agendamento, teste e SQL do pg_cron: `docs/APLICAR_SYNC_ECONTADOR.md`.
 
+### Edge Function `pedido-materiais`
+
+- Local: `supabase/functions/pedido-materiais/index.ts` (módulo Materiais, `docs/PLANO_MATERIAIS_FASE1.md` §4). **Pública** (`verify_jwt: false`): link do líder `/pedido/:token` (QR code no quadro do contrato, sem login e sem PIN) — ações `carregar`/`enviar` pelo token; ações internas `gerar_link`/`ver_link`/`revogar_link` com JWT de admin/adm/gestor (`auth.getUser()` + `perfis.nivel_acesso`). O banco guarda só o hash SHA-256 do token e uma cópia cifrada (AES-256-GCM, secret `ENCRYPTION_KEY` — a mesma da `econtador`); gerar link novo invalida o anterior. Nenhum dado pessoal sai da function. Rate limit por IP via `mat_acesso_log`; envio pela RPC `mat_registrar_envio` (mescla/pedido extra).
+- **A lógica pura é cópia de `src/lib/materiais/pedidoLider.ts`** (deploy de arquivo único): edite o arquivo de `src` e rode `node scripts/sincronizar-pedido-materiais.mjs` — o teste `pedidoLider.test.ts` falha se as cópias divergirem. CORS obrigatório (não remover).
+- Deploy: `powershell scripts/lib/implantar-edge-function.ps1 -Slug pedido-materiais -Arquivo supabase/functions/pedido-materiais/index.ts`.
+
 ### Edge Function `suporte`
 
 - Local: `supabase/functions/suporte/index.ts`.

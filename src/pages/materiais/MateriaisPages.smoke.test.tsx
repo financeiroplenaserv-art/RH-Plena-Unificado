@@ -57,6 +57,7 @@ vi.mock('@/hooks/useMateriaisContratos', () => ({
       { id: 'c2', departamento_id: 'd1', nome: 'Telex Barra/Tij/Ipa', rota: 1, recebe_limpeza: true, ativo: true, observacao: null },
     ],
     itensNoKit: { c1: 1 },
+    statusLinks: { c1: { contrato_id: 'c1', gerado_em: '2026-10-09T12:00:00Z', gerado_por: null, versao: 1, ativo: true } },
     departamentos: [{ id: 'd1', nome: 'CENTRO AUDITIVO TELEX LTDA', nome_curto: 'TELEX', status: 'Ativo' }],
     loading: false,
     estruturaPendente: estado.pendente,
@@ -114,6 +115,9 @@ describe('Páginas Materiais — smoke test', () => {
     expect(screen.getByText('Telex Sede')).toBeTruthy()
     expect(screen.getAllByText('TELEX')).toHaveLength(2)
     expect(screen.getByText('Aplicar')).toBeTruthy()
+    // Gestor gerencia o link/QR do líder; situação do link na coluna Link.
+    expect(screen.getByLabelText('Link e QR code de Telex Sede')).toBeTruthy()
+    expect(screen.queryByText('Revogado')).toBeNull()
   })
 
   it('Kit Mensal: mostra o limite em R$ (kit × preço vigente)', () => {

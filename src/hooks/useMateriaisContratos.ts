@@ -5,7 +5,7 @@ import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import { escritaMateriaisOk } from './useMateriaisCatalogo'
 import type { DepartamentoFuzzy } from '@/lib/departamentos'
-import type { MatContrato, RotaMaterial } from '@/types/materiais'
+import type { MatContrato, MatStatusLink, RotaMaterial } from '@/types/materiais'
 
 // Contratos de pedido (mat_contratos, migration 121). Um departamento pode ter
 // vários contratos (caso Telex: 4). O departamento só serve para exibir o
@@ -23,15 +23,18 @@ export function useMateriaisContratos() {
   const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [loading, setLoading] = useState(false)
   const [estruturaPendente, setEstruturaPendente] = useState(false)
+  /** contrato_id → situação do link público (sem token nem hash). */
+  const [statusLinks, setStatusLinks] = useState<Record<string, MatStatusLink>>({})
 
   const carregar = useCallback(async () => {
     setLoading(true)
-    const [rc, rk, rd] = await Promise.all([
+    const [rc, rk, rd, rl] = await Promise.all([
       supabase.from('mat_contratos').select(COLUNAS).order('nome'),
       selecionarTudo<{ contrato_id: string }>((de, ate) =>
         supabase.from('mat_kit_itens').select('contrato_id').order('id').range(de, ate)
       ),
       supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
+      supabase.rpc('mat_status_links'),
     ])
     const erro = rc.error ?? rk.error
     if (erro) {
@@ -43,6 +46,11 @@ export function useMateriaisContratos() {
       const contagem: Record<string, number> = {}
       for (const k of rk.data ?? []) contagem[k.contrato_id] = (contagem[k.contrato_id] ?? 0) + 1
       setItensNoKit(contagem)
+    }
+    if (!rl.error) {
+      const mapa: Record<string, MatStatusLink> = {}
+      for (const l of (rl.data as MatStatusLink[] | null) ?? []) mapa[l.contrato_id] = l
+      setStatusLinks(mapa)
     }
     if (!rd.error) setDepartamentos((rd.data as DepartamentoFuzzy[]) ?? [])
     setLoading(false)
@@ -68,5 +76,5 @@ export function useMateriaisContratos() {
     return true
   }, [])
 
-  return { contratos, itensNoKit, departamentos, loading, estruturaPendente, carregar, salvar, definirRota }
+  return { contratos, itensNoKit, statusLinks, departamentos, loading, estruturaPendente, carregar, salvar, definirRota }
 }

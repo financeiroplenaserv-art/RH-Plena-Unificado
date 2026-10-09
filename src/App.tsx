@@ -71,6 +71,7 @@ import {
   ExtrasCategoriasPage,
   ExtrasPlantaoPage,
   MobileFaltaPage,
+  PedidoLiderPage,
   BiPerformanceLabPage,
 } from '@/routes/lazyPages'
 
@@ -145,6 +146,19 @@ function App() {
       await carregarPerfil(session.user)
     }
     setRecarregandoPerfil(false)
+  }
+
+  // Link público do líder (QR code no quadro do contrato): sem login, sem
+  // layout e ANTES do gate de autenticação — docs/PLANO_MATERIAIS_FASE1.md §4.2.
+  if (location.pathname.startsWith('/pedido/')) {
+    return (
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
+          <Route path="/pedido/:token" element={<PedidoLiderPage />} />
+          <Route path="*" element={<PedidoLiderPage />} />
+        </Routes>
+      </Suspense>
+    )
   }
 
   if (loading) {

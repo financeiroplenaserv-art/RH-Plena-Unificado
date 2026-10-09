@@ -1,0 +1,410 @@
+TITULO: SOLICITAÇÃO DE UNIFORMES E SUPRIMENTOS OPERACIONAIS - COND. CHÁCARA DO ITAGUAÍ
+DESC: 
+Seja bem vindo ao novo formulário de solicitação PLENA para assuntos operacionais. 
+Siga as orientações abaixo e preencha todos os campos necessários. 
+Para que sua resposta seja validada, não esqueça de clicar em ENVIAR ao final do preenchimento.
+
+De uma forma mais prática, teremos todas as informações concentradas no mesmo formulário. 
+
+
+[texto curto] CLIENTE - CONDOMÍNIO/EMPRESA
+   ajuda: Coloque o nome do local onde você trabalha
+   obrigatoria
+
+[data] DATA
+   obrigatoria
+
+[texto curto] RESPONSÁVEL PELO PEDIDO
+   ajuda: Coloque seu nome como pessoa responsável por fazer o pedido para toda equipe
+   obrigatoria
+
+[SECAO] CHÁCARA DO ITAGUAÍ - PEDIDO MATERIAIS  PLENA FACILITIES
+   ajuda:  Prezado(a) Colaborador(a),  Segue abaixo o KIT MENSAL que será entregue a partir de Abril/26,  de acordo com o histórico do pedido feito nos últimos 14 meses:  Álcool 70% (1lt): 04 litros Clean Grease Limpador Multiuso (05lts): 01 bombona Cloro (05lts): 03 bombonas Creolina (900ml): 02 latas Desinfetante Becker Floral (05lts): 01 bombona Desinfetante Becker Talco (05lts): 01 bombona Desinfetante 
+
+[multipla escolha] ESPONJA DUPLA FACE (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa |  (+Outro)
+
+[multipla escolha] LÃ DE AÇO (tipo Bombril) - (Pacote)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade.  
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] FIBRA USO GERAL BRANCA - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] FIBRA USO GERAL VERDE - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] ESCOVA NYLON - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] LIMPA ALUMÍNIO (Garrafa de 500mL)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] VASELINA LÍQUIDA - (Garrafa de 500mL)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] DETERGENTE NEUTRO - (Bombona 5L)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[texto curto] CERA - (Bombona 5L)
+   ajuda: Escreva qual a COR da CERA (incolor ou preta) e a QUANTIDADE que você precisa.
+
+[multipla escolha] BALDE 8 LITROS - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] BORRIFADOR 500ML - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] BALDE 12 LITROS - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] BALDE ESPREMEDOR PARA MOPINHO - (Unidade)
+   ajuda: Se não vai precisar basta clicar em "Não precisa".  Mas, se precisar, clique em "Outro" e digite apenas a quantidade.  
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] ESPREMEDOR PARA BALDE MOPINHO - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] CANECA MEDIDORA - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] ESCOVA PARA VASO COM POTE - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] DESENTUPIDOR DE VASO SANITÁRIO - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] ESPANADOR ELETROSTÁTICO - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] ESPANADOR DE TETO - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] CATADEIRA POP - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] BORRACHA PARA CATADEIRA POP - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] CESTA ORGANIZADORA - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] PLACA SINALIZADORA - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] FUNIL - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] PINCEL - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] KIT LIMPA VIDROS - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] BORRACHA PARA KIT LIMPA VIDROS - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] KIT LIMPA TUDO - (Unidade) 
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[multipla escolha] DISCO PARA ENCERADEIRA BRANCO - (Unidade)
+   opcoes: NÃO PRECISA | 300MM | 350MM | 410MM | 510MM |  (+Outro)
+
+[multipla escolha] DISCO PARA ENCERADEIRA VERDE - (Unidade)
+   opcoes: NÃO PRECISA | 300MM | 350MM | 410MM | 510MM |  (+Outro)
+
+[multipla escolha] DISCO PARA ENCERADEIRA PRETO - (Unidade)
+   opcoes: NÃO PRECISA | 300MM | 350MM | 410MM | 510MM |  (+Outro)
+
+[multipla escolha] CABOS PARA MOP  - (Unidade)
+   opcoes: Não precisa. | Cabo grande para mop doblô | Cabo com rosca para mopinho |  (+Outro)
+
+[paragrafo] VASSOURAS  - (Unidade)
+   ajuda: Descreva de forma detalhada qual tipo de vassoura, o tamanho e a quantidade que você precisa. 
+
+[multipla escolha] USE PRONTO (REMOVEDOR E LIMPEZA PESADA)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[paragrafo] RODOS - (Unidade)
+   ajuda: Descreva de forma detalhada o tamanho e quantidade de rodos necessários para reposição.  Tamanhos disponíveis:  45cm, 55cm e 1,00 metro
+
+[multipla escolha] SACO PARA ASPIRADOR DE PÓ - (Unidade)
+
+Se não vai precisar basta clicar em "Não precisa". 
+Mas, se precisar, clique em "Outro" e digite apenas a quantidade. 
+   opcoes: Não precisa. |  (+Outro)
+
+[paragrafo] Outros materiais — especifique o tipo e a quantidade de forma detalhada. 
+
+[caixas] Declaro que as informações acima são verdadeiras e me comprometo a cuidar e utilizar os materiais  para a sua devida finalidade, com zelo e sem desperdício, respeitando a diluição correta dos produtos.
+   opcoes: Sim, concordo.
+   obrigatoria
+
+[SECAO] SOLICITAÇÃO DE UNIFORMES
+   ajuda: Manter o uniforme sempre limpo e bem cuidado demonstra organização e profissionalismo. Também transmite uma boa imagem e mais confiança para clientes e colegas.  Lembre-se: 1) Pedidos feitos fora do prazo estipulado pela Empresa serão analisados caso a caso; 2) Atenção à lavagem correta de todas as peças para não danificá-las; 3) Peças danificadas por mau uso e conservação poderão gerar desconto. 
+
+[multipla escolha] Você precisa fazer pedido de alguma peça do uniforme para você e/ou para sua equipe?
+   opcoes: Não | Sim
+   obrigatoria
+
+[SECAO] SOLICITAÇÃO DE UNIFORMES
+   ajuda: De acordo com cada foto , clique em Outro, descreva na linha ao lado o nome do colaborador(a) que precisa do uniforme,  o tamanho e a quantidade de peças de cada ítem , conforme exemplo a seguir:  Exemplo:  ® Outro: Maria da Silva - Tam M - 01 unidade / Paulo Roberto - Tam GG - 02 unidades  Se não precisar da peça da foto, é só clicar em Não precisa.
+
+[multipla escolha] CAMISA COR AZUL CLARA TIPO PÓLO COM LOGO PLENA: UTILIZADA POR TODOS OS AUXILIARES DE SERVIÇOS GERAIS
+   ajuda: Tamanhos disponíveis: P / M / G / GG / XGG e XXGG
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] CALÇA COR AZUL ESCURA DE ELÁSTICO NA CINTURA: UTILIZADA POR AUXILIARES DE SERVIÇOS GERAIS / LÍDERES / AUXILARES DE MANUTENÇÃO
+   ajuda: Tamanhos disponíveis: P / M / G / GG / XGG e XXGG
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] CAMISA SOCIAL COR BRANCA COM LOGO PLENA: UTILIZADA POR  PORTEIRO / VIGIA 
+   ajuda: Tamanhos disponíveis: P / M / G / GG / XGG e XXGG
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] CALÇA SOCIAL COR PRETA: UTILIZADA POR   PORTEIRO / VIGIA / AUXILIAR ADMINISTRATIVO(A)
+   ajuda: Entregaremos um cartão autorizando o colaborador ir à loja escolher o tamanho adequado. Tamanhos disponíveis: Todos os números
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] BLAZER COR PRETA: UTILIZADO POR PORTEIRO / VIGIA 
+   ajuda: Entregaremos um cartão autorizando o colaborador ir à loja escolher o tamanho adequado. Tamanhos disponíveis: Todos os números
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] GRAVATA
+   ajuda: Tamanho Único
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] CAMISA COR BEGE TIPO PÓLO COM LOGO PLENA: UTILIZADA POR ENCARREGADO / ZELADOR / AUXILIAR DE MANUTENÇÃO 
+   ajuda: Tamanhos disponíveis: P / M / G / GG / XGG e XXGG
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] UNIFORMES DE OUTRAS FUNÇÕES:
+
+Para solicitar outros uniformes que NÃO constam acima, relacione abaixo o nome do colaborador(a), a função que exerce, a peça detalhada do uniforme, o tamanho e a quantidade.
+
+Exemplo: 
+Carla Maria -  Blusa social cor branca com gola de laço - Auxiliar Administrativa - Tam G - 01 peça
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[caixas] Declaro que as informações acima são verdadeiras e me comprometo a manter e zelar pelo estado bem apresentável do uniforme.
+   opcoes: Sim, concordo.
+   obrigatoria
+
+[SECAO] SOLICITAÇÃO DE EPI´S
+   ajuda: O uso de EPIs é obrigatório por lei (CLT e NR-06) e essencial para garantir sua segurança no trabalho, prevenindo acidentes e protegendo sua saúde. Use sempre corretamente. À Empresa cabe fornecer os EPI's, bem como treinar e fiscalizar o uso, enquanto o(a) colaborador(a) deve usar, guardar e conservar, cumprindo as normas de segurança. Lembre-se que o uso do EPI é individual e em caso de troca de
+
+[multipla escolha] Será preciso fazer pedido de EPI'S?
+   opcoes: Não | Sim
+   obrigatoria
+
+[SECAO] SOLICITAÇÃO DE EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL (EPI)
+   ajuda: De acordo com cada foto , clique em Outro, descreva na linha ao lado o nome do colaborador(a) que precisa do uniforme,  o tamanho e a quantidade de peças de cada ítem , conforme exemplo a seguir:  Exemplo:  ® Outro: Maria da Silva - Tam PM - 01 unidade / Paulo Roberto - Tam M - 02 unidades  Se não precisar da peça da foto, é só clicar em Não precisa.
+
+[multipla escolha] LUVA LÁTEX AMARELA
+   ajuda: Utilização: ideal para limpeza geral de superfícies e proteção contra agentes químicos.  Tamanhos disponíveis: P / M / G / EG
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] LUVA NITRÍLICA
+   ajuda: Utilização: ideal para uso de limpeza em banheiros e manuseio de produtos.  Tamanhos disponíveis: 8 / 9
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] LUVA PVC VERDE
+   ajuda: Utilização:  ideais para limpeza pesada e trabalhos em compactadoras de lixo.  Tamanho Único
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] MÁSCARA DESCARTÁVEL
+   ajuda: Utilização: Máscara PFF2 (equivalente à N95) serve para proteção contra inalação de partículas finas e poeiras em geral.  Tamanho Único
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] ÓCULOS DE PROTEÇÃO
+   ajuda: Utilização: proteção dos olhos em casos de limpezas e lavagens de partes altas  Tamanho Único
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[multipla escolha] AVENTAL DE PVC
+   ajuda: Utilização: proteção em lavagens e compactação de lixo.  Tamanho Único (ajustável)
+   opcoes: Não precisa |  (+Outro)
+   obrigatoria
+
+[caixas] BOTA DE PVC CANO CURTO
+   ajuda: Utilização: EPI de uso obrigatório, proteção contra agentes químicos, choques elétricos, perfurocortantes e quedas.  Tamanhos disponíveis: Números 34 ao 46 (Atenção: para melhor conforto, lembre-se sempre de pedir 02 números acima do calçado normalmente).
+   opcoes: Não Precisa |  (+Outro)
+   obrigatoria
+
+[caixas] BOTINA DE PVC CANO CURTO
+   ajuda: Utilização: EPI de uso obrigatório, proteção contra agentes químicos, choques elétricos, perfurocortantes e quedas.  Tamanhos disponíveis: Números 34 ao 46 (Atenção: para melhor conforto, lembre-se sempre de pedir 02 números acima do calçado normalmente).
+   opcoes: Não Precisa |  (+Outro)
+   obrigatoria
+
+[caixas] Declaro que as informações acima são verdadeiras e me comprometo a utilizar, manter e conservar os EPI's de acordo com as normas de segurança.
+   opcoes: Sim, concordo.
+   obrigatoria
+
+[SECAO] SOLICITAÇÃO DE CRACHÁS
+   ajuda: O uso do crachá é obrigatório para todos. É essencial para a identificação, além de transmitir organização e profissionalismo. ♥♥♥
+
+[multipla escolha] É necessário fazer pedido de crachá?
+   opcoes: Não | Sim
+   obrigatoria
+
+[SECAO] Solicitação de Crachá
+   ajuda: Descreva abaixo o nome de quem precisa de um novo crachá ou cordão para crachá, e assinale o motivo do pedido. Lembre-se que dependendo do motivo do pedido de novo crachá, poderá haver desconto.Cuide do seu crachá e sempre o mantenha bem conservado.
+
+[texto curto] Escreva abaixo o nome que constará no novo crachá. 
+Lembre de escrever um nome curto com apenas nome e sobrenome, como deverá aparecer no crachá.
+
+Exemplo: Se o nome completo for: Maria dos Santos Pereira da Costa, escreva apenas 2 nomes: Maria dos Santos.
+
+   obrigatoria
+
+[multipla escolha] Qual motivo da solicitação do novo crachá?
+   opcoes: Desgaste natural | Quebra no encaixe do prendedor | Perda | Quebra por descuido | Não se aplica. Pedido apenas do cordão com prendedor.
+   obrigatoria
+
+[multipla escolha] Precisa de novo cordão com prendedor?
+   opcoes: Não | Sim
+   obrigatoria
+
+[SECAO] Outro crachá?
+
+[multipla escolha] Precisa pedir para outra pessoa?
+   opcoes: Sim | Não
+
+[paragrafo] Escreva abaixo o nome que constará no novo crachá. 
+Lembre de escrever um nome curto com apenas nome e sobrenome, como deverá aparecer no crachá.
+
+Exemplo: Se o nome completo for: Maria dos Santos Pereira da Costa, escreva apenas 2 nomes: Maria dos Santos.
+
+
+
+[multipla escolha] Qual motivo da solicitação do novo crachá?
+   opcoes: Desgaste natural , | Quebra no encaixe do prendedor | Perda | Quebra por descuido | Não se aplica. Pedido apenas do cordão com prendedor.
+
+[multipla escolha] Precisa de novo cordão com prendedor?
+   opcoes: Não | Sim
+
+[caixas] Declaro que as informações fornecidas são verdadeiras e estou ciente que a substituição por mau uso do crachá gera custo. Estou ciente também que a entrega do novo crachá será no próximo mês.
+   opcoes: Sim, estou ciente e concordo.
+   obrigatoria
+
+[SECAO] SOLICITAÇÃO DE MATERIAIS DE PORTARIA 
+   ajuda: Os materiais de Portaria fornecidos pela PLENA são importantes ferramentas de organização, controle de acesso e registros de históricos no decorrer dos plantões. O preenchimento correto gera credibilidade e profissionlismo. Faça o pedido dos seus materiais com antecedência, ANTES que seu material acabe.   Lembre-se que a entrega do seu pedido acontecerá somente no mês seguinte ao pedido. Portanto,
+
+[multipla escolha] O Kit Portaria PLENA é composto de:
+
+Livro de Ocorrências
+Protocolo de Correspondências
+Planilha de Controle de Acessos
+Planilha de Controle de Veículos
+
+Seu posto precisará solicitar algum desses materiais?
+   opcoes: Não | Sim
+   obrigatoria
+
+[SECAO] Solicitação Kit Portaria
+
+[caixas] Qual dos materiais abaixo o seu posto precisará?
+   opcoes: Livro de Ocorrências | Protocolo de Correspondências | Planilha de Controle de Acessos | Planilha de Controle de Veículos
+   obrigatoria
+
+[paragrafo] Cite abaixo a quantidade necessária de cada material solicitado.
+   obrigatoria
+
+[caixas] Declaro que as informações acima são verdadeiras e me responsabilizo pelo uso adequado de todos os materiais.
+   opcoes: Sim, concordo
+   obrigatoria
+
+[SECAO] ♥♥♥ Agradecemos seu zelo e atenção no preenchimento desse formulário. ♥♥♥
+
+[paragrafo] Gostaria de deixar alguma informação ? Nossa equipe está pronta para te ouvir.
