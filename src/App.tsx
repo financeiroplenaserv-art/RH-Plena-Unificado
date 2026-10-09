@@ -44,7 +44,6 @@ import {
   VrProjetoDetailPage,
   CeuItensPage,
   CeuItemFormPage,
-  CeuFornecedoresPage,
   CeuMovimentacoesPage,
   CeuEntregaFormPage,
   CeuLancamentoRapidoPage,
@@ -52,6 +51,11 @@ import {
   CeuRelatoriosPage,
   CeuImportarPage,
   CeuCrachasPage,
+  MateriaisContratosPage,
+  MateriaisKitPage,
+  MateriaisCatalogoPage,
+  MateriaisFornecedoresPage,
+  MateriaisAlteracoesKitPage,
   QuadroColaboradoresPage,
   AdicionaisContratosPage,
   AdicionaisVinculosPage,
@@ -375,6 +379,48 @@ function App() {
                 }
               />
 
+              <Route path="/materiais" element={<Navigate to="/materiais/contratos" replace />} />
+              <Route
+                path="/materiais/contratos"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisContratosPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/kit"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisKitPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/catalogo"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisCatalogoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/fornecedores"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisFornecedoresPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/alteracoes-kit"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                    <MateriaisAlteracoesKitPage />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="/ceu" element={<Navigate to="/ceu/movimentacoes" replace />} />
               <Route
                 path="/ceu/itens"
@@ -400,14 +446,8 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/ceu/fornecedores"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ceu' }}>
-                    <CeuFornecedoresPage />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Fornecedores virou cadastro único do módulo Materiais */}
+              <Route path="/ceu/fornecedores" element={<Navigate to="/materiais/fornecedores" replace />} />
               <Route
                 path="/ceu/movimentacoes"
                 element={

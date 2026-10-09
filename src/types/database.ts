@@ -860,6 +860,14 @@ export type Database = {
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Views: {}
     Functions: {
+      definir_rota_contrato: {
+        Args: { p_contrato: string; p_rota: number | null }
+        Returns: void
+      }
+      decidir_alteracao_kit: {
+        Args: { p_id: string; p_aprovar: boolean; p_comentario?: string | null }
+        Returns: void
+      }
       salvar_dados_cracha: {
         Args: {
           p_colaborador_id: string

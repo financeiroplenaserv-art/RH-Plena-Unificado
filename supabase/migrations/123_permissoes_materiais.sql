@@ -15,8 +15,10 @@
 --    "Restaurar padrão" não revogar o acesso (limitação conhecida: a função
 --    tem listas fixas).
 --
--- A ação ceu.gerenciar_fornecedores NÃO é removida aqui: ela só sai junto
--- com a aba Fornecedores do CEU (passo 3 do plano). As funções pode_*()
+-- A ação ceu.gerenciar_fornecedores sai (passo 3 do plano): a aba Fornecedores
+-- do CEU virou /materiais/fornecedores (cadastro único, escrita só por
+-- pode_editar_cadastro_materiais — migration 121). As linhas dinâmicas
+-- semeadas pela 064 são apagadas abaixo. As funções pode_*()
 -- (migration 121) têm listas fixas — conceder uma ação a outro perfil pela
 -- tela Permissões exige migration (limitação da migration 087).
 -- Sem tabela nova — sem GRANT de tabela. Backup de permissoes_perfil antes de
@@ -68,6 +70,10 @@ INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('dp3', 'menu', 'materiais', false),
       ('dp3', 'rota', 'materiais', false)
 ON CONFLICT (perfil, recurso, acao) DO UPDATE SET permitido = EXCLUDED.permitido;
+
+-- Ação removida do mapa e da tela Permissões (aba Fornecedores saiu do CEU).
+DELETE FROM public.permissoes_perfil
+ WHERE recurso = 'ceu' AND acao = 'gerenciar_fornecedores';
 
 -- reset_permissoes_perfil recriada: idêntica à 117 + linhas de Materiais.
 CREATE OR REPLACE FUNCTION public.reset_permissoes_perfil(p_perfil text)

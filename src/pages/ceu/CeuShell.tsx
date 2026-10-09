@@ -3,7 +3,6 @@ import {
   Package,
   Zap,
   FileBarChart,
-  Truck,
   Upload,
   Ruler,
   IdCard,
@@ -19,7 +18,6 @@ const TABS: ModuleTab[] = [
   { path: '/ceu/lancamento-rapido', label: 'Lançamento Rápido', icon: Zap },
   { path: '/ceu/tamanhos', label: 'Tamanhos', icon: Ruler },
   { path: '/ceu/relatorios', label: 'Relatórios', icon: FileBarChart },
-  { path: '/ceu/fornecedores', label: 'Fornecedores', icon: Truck },
   { path: '/ceu/importar', label: 'Importar', icon: Upload },
 ]
 

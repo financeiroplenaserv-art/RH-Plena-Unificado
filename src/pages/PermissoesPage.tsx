@@ -120,7 +120,6 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'ceu', acao: 'emitir_recibo', label: 'Emitir recibos', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'editar_itens', label: 'Cadastrar/editar itens', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'excluir_itens', label: 'Excluir itens', grupo: 'CEU' },
-  { recurso: 'ceu', acao: 'gerenciar_fornecedores', label: 'Gerenciar fornecedores', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'importar', label: 'Importar planilha', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'ver_relatorios', label: 'Ver relatórios', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'emitir_cracha', label: 'Emitir crachás', grupo: 'CEU' },

@@ -25,7 +25,6 @@ export const VrProjetoDetailPage = lazyNamed(() => import('@/pages/vr/VrProjetoD
 // CEU
 export const CeuItensPage = lazyNamed(() => import('@/pages/ceu/CeuItensPage'), 'CeuItensPage')
 export const CeuItemFormPage = lazyNamed(() => import('@/pages/ceu/CeuItemFormPage'), 'CeuItemFormPage')
-export const CeuFornecedoresPage = lazyNamed(() => import('@/pages/ceu/CeuFornecedoresPage'), 'CeuFornecedoresPage')
 export const CeuMovimentacoesPage = lazyNamed(() => import('@/pages/ceu/CeuMovimentacoesPage'), 'CeuMovimentacoesPage')
 export const CeuEntregaFormPage = lazyNamed(() => import('@/pages/ceu/CeuEntregaFormPage'), 'CeuEntregaFormPage')
 export const CeuLancamentoRapidoPage = lazyNamed(() => import('@/pages/ceu/CeuLancamentoRapidoPage'), 'CeuLancamentoRapidoPage')
@@ -74,4 +73,9 @@ export const EmpresasPage = lazyNamed(() => import('@/pages/EmpresasPage'), 'Emp
 export const ImportarEContadorPage = lazyNamed(() => import('@/pages/ImportarEContadorPage'), 'ImportarEContadorPage')
 export const ConfiguracoesPage = lazyNamed(() => import('@/pages/ConfiguracoesPage'), 'ConfiguracoesPage')
 export const AuditoriaPage = lazyNamed(() => import('@/pages/AuditoriaPage'), 'AuditoriaPage')
+export const MateriaisContratosPage = lazyNamed(() => import('@/pages/materiais/MateriaisContratosPage'), 'MateriaisContratosPage')
+export const MateriaisKitPage = lazyNamed(() => import('@/pages/materiais/MateriaisKitPage'), 'MateriaisKitPage')
+export const MateriaisCatalogoPage = lazyNamed(() => import('@/pages/materiais/MateriaisCatalogoPage'), 'MateriaisCatalogoPage')
+export const MateriaisFornecedoresPage = lazyNamed(() => import('@/pages/materiais/MateriaisFornecedoresPage'), 'MateriaisFornecedoresPage')
+export const MateriaisAlteracoesKitPage = lazyNamed(() => import('@/pages/materiais/MateriaisAlteracoesKitPage'), 'MateriaisAlteracoesKitPage')
 export const PermissoesPage = lazyNamed(() => import('@/pages/PermissoesPage'), 'PermissoesPage')

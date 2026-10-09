@@ -55,7 +55,6 @@ vi.mock('@/components/ceu/CeuReciboModal', () => ({
 
 import { CeuMovimentacoesPage } from '@/pages/ceu/CeuMovimentacoesPage'
 import { CeuItensPage } from '@/pages/ceu/CeuItensPage'
-import { CeuFornecedoresPage } from '@/pages/ceu/CeuFornecedoresPage'
 import { CeuImportarPage } from '@/pages/ceu/CeuImportarPage'
 
 function renderizar(componente: React.ReactElement) {
@@ -75,11 +74,6 @@ describe('Páginas CEU — smoke test de renderização', () => {
   it('CeuItensPage renderiza sem erro', () => {
     renderizar(<CeuItensPage />)
     expect(screen.getByText('Itens CEU')).toBeTruthy()
-  })
-
-  it('CeuFornecedoresPage renderiza sem erro', () => {
-    renderizar(<CeuFornecedoresPage />)
-    expect(screen.getAllByText('Fornecedores').length).toBeGreaterThan(0)
   })
 
   it('CeuImportarPage renderiza sem erro e oferece importação de entregas', async () => {

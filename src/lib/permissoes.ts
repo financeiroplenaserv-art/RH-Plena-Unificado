@@ -97,7 +97,6 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     emitir_recibo: ['gestor', 'dp1', 'dp2', 'mesa', 'inspetoria'],
     editar_itens: ['gestor', 'dp1', 'dp2'],
     excluir_itens: ['gestor', 'dp1', 'dp2'],
-    gerenciar_fornecedores: ['gestor', 'dp1', 'dp2'],
     importar: ['gestor', 'dp1', 'dp2'],
     ver_relatorios: ['gestor', 'dp1', 'dp2', 'mesa', 'inspetoria'],
     emitir_cracha: ['dp2', 'mesa', 'dp3'],
@@ -296,9 +295,6 @@ export const podeEditarItemCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'c
 
 /** Quem pode excluir itens do CEU */
 export const podeExcluirItemCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'excluir_itens')
-
-/** Quem pode gerenciar fornecedores */
-export const podeGerenciarFornecedoresCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'gerenciar_fornecedores')
 
 /** Quem pode importar planilha de itens */
 export const podeImportarCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'importar')
