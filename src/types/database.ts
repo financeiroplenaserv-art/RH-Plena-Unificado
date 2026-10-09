@@ -5,6 +5,11 @@ import type {
   DiaCalendarioAdicional,
 } from '@/types/adicionais'
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
+import type {
+  MatItem, MatItemVariacao, MatPreco, MatAlias, MatContrato, MatContratoAcesso, MatAcessoLog,
+  MatKitItem, MatKitAlteracao, MatHistoricoConsumo, MatPedido, MatPedidoEnvio, MatPedidoItem,
+  CeuPedidoItem, MatComentario, MatReabertura,
+} from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 
 export type NivelAcesso =
@@ -392,6 +397,9 @@ export interface Fornecedor {
   cnpj: string | null
   telefone: string | null
   email: string | null
+  contato?: string | null
+  observacao?: string | null
+  ativo?: boolean
   created_at?: string
 }
 
@@ -618,6 +626,102 @@ export type Database = {
         Row: ResultadoVR & Record<string, unknown>
         Insert: Partial<ResultadoVR> & Record<string, unknown>
         Update: Partial<ResultadoVR> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_itens: {
+        Row: MatItem & Record<string, unknown>
+        Insert: Partial<MatItem> & Record<string, unknown>
+        Update: Partial<MatItem> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_item_variacoes: {
+        Row: MatItemVariacao & Record<string, unknown>
+        Insert: Partial<MatItemVariacao> & Record<string, unknown>
+        Update: Partial<MatItemVariacao> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_precos: {
+        Row: MatPreco & Record<string, unknown>
+        Insert: Partial<MatPreco> & Record<string, unknown>
+        Update: Partial<MatPreco> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_aliases: {
+        Row: MatAlias & Record<string, unknown>
+        Insert: Partial<MatAlias> & Record<string, unknown>
+        Update: Partial<MatAlias> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_contratos: {
+        Row: MatContrato & Record<string, unknown>
+        Insert: Partial<MatContrato> & Record<string, unknown>
+        Update: Partial<MatContrato> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_contrato_acesso: {
+        Row: MatContratoAcesso & Record<string, unknown>
+        Insert: Partial<MatContratoAcesso> & Record<string, unknown>
+        Update: Partial<MatContratoAcesso> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_acesso_log: {
+        Row: MatAcessoLog & Record<string, unknown>
+        Insert: Partial<MatAcessoLog> & Record<string, unknown>
+        Update: Partial<MatAcessoLog> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_kit_itens: {
+        Row: MatKitItem & Record<string, unknown>
+        Insert: Partial<MatKitItem> & Record<string, unknown>
+        Update: Partial<MatKitItem> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_kit_alteracoes: {
+        Row: MatKitAlteracao & Record<string, unknown>
+        Insert: Partial<MatKitAlteracao> & Record<string, unknown>
+        Update: Partial<MatKitAlteracao> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_historico_consumo: {
+        Row: MatHistoricoConsumo & Record<string, unknown>
+        Insert: Partial<MatHistoricoConsumo> & Record<string, unknown>
+        Update: Partial<MatHistoricoConsumo> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_pedidos: {
+        Row: MatPedido & Record<string, unknown>
+        Insert: Partial<MatPedido> & Record<string, unknown>
+        Update: Partial<MatPedido> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_pedido_envios: {
+        Row: MatPedidoEnvio & Record<string, unknown>
+        Insert: Partial<MatPedidoEnvio> & Record<string, unknown>
+        Update: Partial<MatPedidoEnvio> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_pedido_itens: {
+        Row: MatPedidoItem & Record<string, unknown>
+        Insert: Partial<MatPedidoItem> & Record<string, unknown>
+        Update: Partial<MatPedidoItem> & Record<string, unknown>
+        Relationships: []
+      }
+      ceu_pedido_itens: {
+        Row: CeuPedidoItem & Record<string, unknown>
+        Insert: Partial<CeuPedidoItem> & Record<string, unknown>
+        Update: Partial<CeuPedidoItem> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_comentarios: {
+        Row: MatComentario & Record<string, unknown>
+        Insert: Partial<MatComentario> & Record<string, unknown>
+        Update: Partial<MatComentario> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_reaberturas: {
+        Row: MatReabertura & Record<string, unknown>
+        Insert: Partial<MatReabertura> & Record<string, unknown>
+        Update: Partial<MatReabertura> & Record<string, unknown>
         Relationships: []
       }
       fornecedores: {

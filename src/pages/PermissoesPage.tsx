@@ -124,6 +124,23 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'ceu', acao: 'importar', label: 'Importar planilha', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'ver_relatorios', label: 'Ver relatórios', grupo: 'CEU' },
   { recurso: 'ceu', acao: 'emitir_cracha', label: 'Emitir crachás', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'conferir_pedido', label: 'Conferir pedidos (aba Pedidos)', grupo: 'CEU' },
+  { recurso: 'ceu', acao: 'atender_pedido', label: 'Atender pedidos (aba Pedidos)', grupo: 'CEU' },
+
+  // Materiais
+  { recurso: 'materiais', acao: 'editar_catalogo', label: 'Editar catálogo, preços e fornecedores', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'editar_kit', label: 'Editar Kit Mensal direto', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'editar_rota', label: 'Alterar rota padrão do contrato', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'alterar_rota_pedido', label: 'Trocar a rota de um pedido', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'solicitar_alteracao_kit', label: 'Solicitar alteração do kit', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'decidir_alteracao_kit', label: 'Decidir alteração do kit', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'gerenciar_links', label: 'Gerenciar links e QR dos contratos', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'ver_sem_pedido', label: 'Ver contratos que ainda não pediram', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'preencher_pelo_kit', label: 'Preencher pedido pelo kit', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'validar', label: 'Validar exceções dos pedidos', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'aprovar', label: 'Aprovar pedidos', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'pedido_extra', label: 'Lançar pedido extra', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'reabrir_pedido', label: 'Reabrir link fora do prazo', grupo: 'Materiais' },
 
   // Férias
   { recurso: 'ferias', acao: 'importar', label: 'Importar planilha do Flit', grupo: 'Férias' },
@@ -147,6 +164,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'relatorios', label: 'Ver menu Relatórios', grupo: 'Menus' },
   { recurso: 'menu', acao: 'ferias', label: 'Ver menu Férias', grupo: 'Menus' },
   { recurso: 'menu', acao: 'bi', label: 'Ver menu PerformanceLab', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'materiais', label: 'Ver menu Materiais', grupo: 'Menus' },
   { recurso: 'menu', acao: 'crachas', label: 'Ver menu Crachás (só aparece a quem não tem o menu CEU)', grupo: 'Menus' },
 
   // Rotas
@@ -157,6 +175,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'rota', acao: 'extras', label: 'Acessar rotas de extras', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'vr', label: 'Acessar rotas de VR', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'ceu', label: 'Acessar rotas de CEU', grupo: 'Rotas' },
+  { recurso: 'rota', acao: 'materiais', label: 'Acessar rotas de Materiais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'adicionais', label: 'Acessar rotas de adicionais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'importar_econtador', label: 'Acessar importação e-Contador', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'configuracoes', label: 'Acessar configurações', grupo: 'Rotas' },

@@ -18,6 +18,21 @@ import {
   podeVerDetalhesOcorrencia,
   podeAprovarOcorrencia,
   podeEmitirCrachaCEU,
+  podeConferirPedidoCEU,
+  podeAtenderPedidoCEU,
+  podeEditarCatalogoMateriais,
+  podeEditarKitMateriais,
+  podeEditarRotaMateriais,
+  podeAlterarRotaPedidoMateriais,
+  podeSolicitarAlteracaoKit,
+  podeDecidirAlteracaoKit,
+  podeGerenciarLinksMateriais,
+  podeVerSemPedidoMateriais,
+  podePreencherPeloKitMateriais,
+  podeValidarMateriais,
+  podeAprovarMateriais,
+  podeCriarPedidoExtraMateriais,
+  podeReabrirPedidoMateriais,
   podeRegistrarEntregaCEU,
   podeValidarOcorrencia,
   podeCancelarOcorrencia,
@@ -313,5 +328,63 @@ describe('Emissão de crachás (ceu.emitir_cracha) e perfil dp3', () => {
   it('revogar no cache (tela Permissões) prevalece sobre o padrão', () => {
     setPermissoesCache([{ perfil: 'dp2', recurso: 'ceu', acao: 'emitir_cracha', permitido: false }])
     expect(podeEmitirCrachaCEU('dp2')).toBe(false)
+  })
+})
+
+describe('Permissões do módulo Materiais (migrations 121 a 123)', () => {
+  beforeEach(() => setPermissoesCache([]))
+
+  const comAdm = (...ps: NivelAcesso[]) => ['admin', 'adm', ...ps].sort()
+
+  it('catálogo, kit, decisão de kit e links: só gestor (além de admin/adm)', () => {
+    for (const fn of [
+      podeEditarCatalogoMateriais,
+      podeEditarKitMateriais,
+      podeDecidirAlteracaoKit,
+      podeGerenciarLinksMateriais,
+      podeAprovarMateriais,
+    ]) {
+      expect(perfisQuePermitem(fn).sort()).toEqual(comAdm('gestor'))
+    }
+  })
+
+  it('rota padrão, rota do pedido e reabertura: gestor e mesa', () => {
+    for (const fn of [podeEditarRotaMateriais, podeAlterarRotaPedidoMateriais, podeReabrirPedidoMateriais]) {
+      expect(perfisQuePermitem(fn).sort()).toEqual(comAdm('gestor', 'mesa'))
+    }
+  })
+
+  it('solicitar alteração de kit e pedido extra: mesa e inspetoria (gestor não)', () => {
+    for (const fn of [podeSolicitarAlteracaoKit, podeCriarPedidoExtraMateriais]) {
+      expect(perfisQuePermitem(fn).sort()).toEqual(comAdm('mesa', 'inspetoria'))
+    }
+  })
+
+  it('validar e preencher pelo kit: gestor e inspetoria; lista "sem pedido" inclui a mesa', () => {
+    expect(perfisQuePermitem(podeValidarMateriais).sort()).toEqual(comAdm('gestor', 'inspetoria'))
+    expect(perfisQuePermitem(podePreencherPeloKitMateriais).sort()).toEqual(comAdm('gestor', 'inspetoria'))
+    expect(perfisQuePermitem(podeVerSemPedidoMateriais).sort()).toEqual(comAdm('gestor', 'inspetoria', 'mesa'))
+  })
+
+  it('aba CEU → Pedidos: inspetor confere, Beth (dp2) atende', () => {
+    expect(perfisQuePermitem(podeConferirPedidoCEU).sort()).toEqual(comAdm('gestor', 'inspetoria'))
+    expect(perfisQuePermitem(podeAtenderPedidoCEU).sort()).toEqual(comAdm('gestor', 'dp2'))
+  })
+
+  it('dp3 e visualizador não têm nenhuma ação de Materiais', () => {
+    for (const fn of [
+      podeEditarCatalogoMateriais,
+      podeValidarMateriais,
+      podeCriarPedidoExtraMateriais,
+      podeVerSemPedidoMateriais,
+    ]) {
+      expect(fn('dp3')).toBe(false)
+      expect(fn('visualizador')).toBe(false)
+    }
+  })
+
+  it('linha dinâmica concedida pela tela Permissões prevalece sobre o padrão', () => {
+    setPermissoesCache([{ perfil: 'rh', recurso: 'materiais', acao: 'ver_sem_pedido', permitido: true }])
+    expect(podeVerSemPedidoMateriais('rh')).toBe(true)
   })
 })

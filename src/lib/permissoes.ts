@@ -101,6 +101,26 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     importar: ['gestor', 'dp1', 'dp2'],
     ver_relatorios: ['gestor', 'dp1', 'dp2', 'mesa', 'inspetoria'],
     emitir_cracha: ['dp2', 'mesa', 'dp3'],
+    // Aba CEU → Pedidos (migrations 122/123): inspetor confere, Beth atende
+    conferir_pedido: ['gestor', 'inspetoria'],
+    atender_pedido: ['gestor', 'dp2'],
+  },
+  // Módulo Materiais (migrations 121 a 123). As funções pode_*() do banco têm
+  // listas fixas que espelham este mapa; ampliar exige migration.
+  materiais: {
+    editar_catalogo: ['gestor'], // itens, variações, preços, fornecedores, nomes antigos
+    editar_kit: ['gestor'], // edição direta do Kit Mensal
+    editar_rota: ['gestor', 'mesa'], // rota padrão do contrato
+    alterar_rota_pedido: ['gestor', 'mesa'], // rota do dia de um pedido (override)
+    solicitar_alteracao_kit: ['mesa', 'inspetoria'],
+    decidir_alteracao_kit: ['gestor'],
+    gerenciar_links: ['gestor'],
+    ver_sem_pedido: ['gestor', 'inspetoria', 'mesa'],
+    preencher_pelo_kit: ['gestor', 'inspetoria'],
+    validar: ['gestor', 'inspetoria'],
+    aprovar: ['gestor'],
+    pedido_extra: ['mesa', 'inspetoria'],
+    reabrir_pedido: ['gestor', 'mesa'],
   },
   ferias: {
     importar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
@@ -288,6 +308,53 @@ export const podeVerRelatoriosCEU = (p: NivelAcesso) => temPermissaoComPadrao(p,
 
 /** Quem pode emitir crachás (admin/adm sempre; padrão dp2, mesa e dp3 — a estagiária dp3 só faz isso) */
 export const podeEmitirCrachaCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'emitir_cracha')
+
+/** Quem confere (tamanho/quantidade) os pedidos da aba CEU → Pedidos */
+export const podeConferirPedidoCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'conferir_pedido')
+
+/** Quem atende (marca como atendido) a fila de pedidos do CEU */
+export const podeAtenderPedidoCEU = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ceu', 'atender_pedido')
+
+// ================= MATERIAIS =================
+
+/** Itens, variações, preços, fornecedores e nomes antigos do catálogo */
+export const podeEditarCatalogoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_catalogo')
+
+/** Edição direta do Kit Mensal */
+export const podeEditarKitMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_kit')
+
+/** Rota padrão do contrato */
+export const podeEditarRotaMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_rota')
+
+/** Rota do dia de um pedido específico */
+export const podeAlterarRotaPedidoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'alterar_rota_pedido')
+
+/** Solicitar alteração do kit (vale após aprovação do gestor) */
+export const podeSolicitarAlteracaoKit = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'solicitar_alteracao_kit')
+
+/** Decidir alterações de kit */
+export const podeDecidirAlteracaoKit = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'decidir_alteracao_kit')
+
+/** Gerar/ver/regenerar o link e o QR dos contratos */
+export const podeGerenciarLinksMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'gerenciar_links')
+
+/** Ver a lista "Contratos que ainda não pediram" */
+export const podeVerSemPedidoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'ver_sem_pedido')
+
+/** "Preencher pelo kit" um contrato que não pediu */
+export const podePreencherPeloKitMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'preencher_pelo_kit')
+
+/** Validar exceções dos pedidos de produtos */
+export const podeValidarMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'validar')
+
+/** Aprovação final dos pedidos de produtos */
+export const podeAprovarMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'aprovar')
+
+/** Lançar pedido extra/operacional (ferista, faltista, urgência) */
+export const podeCriarPedidoExtraMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'pedido_extra')
+
+/** Reabrir o link de um contrato fora da janela 1–15 */
+export const podeReabrirPedidoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'reabrir_pedido')
 
 // ================= ADICIONAIS CONTRATUAIS =================
 
