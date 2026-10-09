@@ -48,18 +48,18 @@ AS $$
 $$;
 
 -- Fornecedores (cadastro único): decisão da gestão em 09/10/2026 — quem
--- cadastra é principalmente a mesa (Maciel). Separado de
--- pode_editar_cadastro_materiais (catálogo/preços seguem só gestor/admin).
--- dp1/dp2 aguardam decisão.
+-- cadastra é a mesa (Maciel), dp2 e financeiro, além de gestor/admin.
+-- Separado de pode_editar_cadastro_materiais (catálogo/preços/kit seguem só
+-- gestor/admin). dp1 não.
 CREATE OR REPLACE FUNCTION public.pode_gerenciar_fornecedores()
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.perfis
     WHERE id = auth.uid()
-      AND nivel_acesso IN ('admin', 'adm', 'gestor', 'mesa')
+      AND nivel_acesso IN ('admin', 'adm', 'gestor', 'mesa', 'dp2', 'financeiro')
   );
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.pode_aprovar_materiais()
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -133,7 +133,7 @@ ALTER TABLE public.fornecedores ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "fornecedores_select" ON public.fornecedores
   FOR SELECT TO authenticated
-  USING (public.pode_ver_ceu() OR public.pode_ver_materiais());
+  USING (public.pode_ver_ceu() OR public.pode_ver_materiais() OR public.pode_gerenciar_fornecedores());
 CREATE POLICY "fornecedores_insert" ON public.fornecedores
   FOR INSERT TO authenticated
   WITH CHECK (public.pode_gerenciar_fornecedores());

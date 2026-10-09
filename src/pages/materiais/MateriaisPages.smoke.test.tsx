@@ -91,6 +91,7 @@ vi.mock('@/hooks/useMateriaisKit', () => ({
   }),
 }))
 
+import { setPermissoesCache } from '@/lib/permissoes'
 import { MateriaisContratosPage } from './MateriaisContratosPage'
 import { MateriaisKitPage } from './MateriaisKitPage'
 import { MateriaisCatalogoPage } from './MateriaisCatalogoPage'
@@ -140,6 +141,18 @@ describe('Páginas Materiais — smoke test', () => {
     renderizar(<MateriaisAlteracoesKitPage />)
     expect(screen.getByText('Mais um andar')).toBeTruthy()
     expect(screen.getByText('Aprovar')).toBeTruthy()
+  })
+
+  it('shell: sem rota.materiais (dp2/financeiro) só aparece a aba Fornecedores', () => {
+    setPermissoesCache([])
+    const { unmount } = renderizar(<MateriaisFornecedoresPage />)
+    expect(screen.queryByRole('link', { name: /Catálogo/ })).toBeNull()
+    expect(screen.getByRole('link', { name: /Fornecedores/ })).toBeTruthy()
+    unmount()
+    setPermissoesCache([{ perfil: 'gestor', recurso: 'rota', acao: 'materiais', permitido: true }])
+    renderizar(<MateriaisFornecedoresPage />)
+    expect(screen.getByRole('link', { name: /Catálogo/ })).toBeTruthy()
+    setPermissoesCache([])
   })
 
   it('sem as tabelas no banco, todas as telas mostram o aviso de preparação', () => {

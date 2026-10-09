@@ -407,7 +407,16 @@ function App() {
               <Route
                 path="/materiais/fornecedores"
                 element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                  // Quem não tem o módulo inteiro (dp2, financeiro) entra só nesta aba
+                  <ProtectedRoute
+                    user={user}
+                    permissao={{ recurso: 'rota', acao: 'materiais' }}
+                    fallback={
+                      <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais_fornecedores' }}>
+                        <MateriaisFornecedoresPage />
+                      </ProtectedRoute>
+                    }
+                  >
                     <MateriaisFornecedoresPage />
                   </ProtectedRoute>
                 }

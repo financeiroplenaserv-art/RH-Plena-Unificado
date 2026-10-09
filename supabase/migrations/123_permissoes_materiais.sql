@@ -4,12 +4,15 @@
 -- depende da 121/122). Espelha o PERMISSOES_PADRAO (src/lib/permissoes.ts) e
 -- a tela Permissões:
 --  - recurso 'materiais': editar_catalogo, gerenciar_fornecedores (gestor,
---    mesa — decisão de 09/10/2026), editar_kit, editar_rota,
+--    mesa, dp2, financeiro — decisão de 09/10/2026), editar_kit, editar_rota,
 --    alterar_rota_pedido, solicitar_alteracao_kit, decidir_alteracao_kit,
 --    gerenciar_links, ver_sem_pedido, preencher_pelo_kit, validar, aprovar,
 --    pedido_extra, reabrir_pedido;
 --  - recurso 'ceu': conferir_pedido (gestor, inspetoria) e atender_pedido
 --    (gestor, dp2) — a aba CEU → Pedidos;
+--  - menu/rota.materiais_fornecedores: só a aba Fornecedores — true para
+--    gestor, mesa, inspetoria, dp2, financeiro (dp2/financeiro não abrem o
+--    resto do módulo); false para rh, dp1, visualizador, dp3;
 --  - menu.materiais / rota.materiais: true para gestor, mesa, inspetoria;
 --    false para os demais (dp2 entra pela aba do CEU; dp3 não acessa).
 --  - reset_permissoes_perfil recriada: idêntica à 117 + estas linhas, para o
@@ -18,7 +21,7 @@
 --
 -- A ação ceu.gerenciar_fornecedores sai (passo 3 do plano): a aba Fornecedores
 -- do CEU virou /materiais/fornecedores (cadastro único, escrita só por
--- pode_gerenciar_fornecedores — admin/adm/gestor/mesa, migration 121). As linhas dinâmicas
+-- pode_gerenciar_fornecedores — admin/adm/gestor/mesa/dp2/financeiro, migration 121). As linhas dinâmicas
 -- semeadas pela 064 são apagadas abaixo. As funções pode_*()
 -- (migration 121) têm listas fixas — conceder uma ação a outro perfil pela
 -- tela Permissões exige migration (limitação da migration 087).
@@ -28,6 +31,8 @@
 INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('visualizador', 'menu', 'materiais', false),
       ('visualizador', 'rota', 'materiais', false),
+      ('visualizador', 'menu', 'materiais_fornecedores', false),
+      ('visualizador', 'rota', 'materiais_fornecedores', false),
       ('gestor', 'materiais', 'editar_catalogo', true),
       ('gestor', 'materiais', 'gerenciar_fornecedores', true),
       ('gestor', 'materiais', 'editar_kit', true),
@@ -44,13 +49,22 @@ INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('gestor', 'ceu', 'atender_pedido', true),
       ('gestor', 'menu', 'materiais', true),
       ('gestor', 'rota', 'materiais', true),
+      ('gestor', 'menu', 'materiais_fornecedores', true),
+      ('gestor', 'rota', 'materiais_fornecedores', true),
       ('rh', 'menu', 'materiais', false),
       ('rh', 'rota', 'materiais', false),
+      ('rh', 'menu', 'materiais_fornecedores', false),
+      ('rh', 'rota', 'materiais_fornecedores', false),
       ('dp1', 'menu', 'materiais', false),
       ('dp1', 'rota', 'materiais', false),
+      ('dp1', 'menu', 'materiais_fornecedores', false),
+      ('dp1', 'rota', 'materiais_fornecedores', false),
       ('dp2', 'ceu', 'atender_pedido', true),
       ('dp2', 'menu', 'materiais', false),
       ('dp2', 'rota', 'materiais', false),
+      ('dp2', 'materiais', 'gerenciar_fornecedores', true),
+      ('dp2', 'menu', 'materiais_fornecedores', true),
+      ('dp2', 'rota', 'materiais_fornecedores', true),
       ('mesa', 'materiais', 'editar_rota', true),
       ('mesa', 'materiais', 'gerenciar_fornecedores', true),
       ('mesa', 'materiais', 'alterar_rota_pedido', true),
@@ -60,6 +74,8 @@ INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('mesa', 'materiais', 'reabrir_pedido', true),
       ('mesa', 'menu', 'materiais', true),
       ('mesa', 'rota', 'materiais', true),
+      ('mesa', 'menu', 'materiais_fornecedores', true),
+      ('mesa', 'rota', 'materiais_fornecedores', true),
       ('inspetoria', 'materiais', 'solicitar_alteracao_kit', true),
       ('inspetoria', 'materiais', 'ver_sem_pedido', true),
       ('inspetoria', 'materiais', 'preencher_pelo_kit', true),
@@ -68,10 +84,17 @@ INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('inspetoria', 'ceu', 'conferir_pedido', true),
       ('inspetoria', 'menu', 'materiais', true),
       ('inspetoria', 'rota', 'materiais', true),
+      ('inspetoria', 'menu', 'materiais_fornecedores', true),
+      ('inspetoria', 'rota', 'materiais_fornecedores', true),
       ('financeiro', 'menu', 'materiais', false),
       ('financeiro', 'rota', 'materiais', false),
+      ('financeiro', 'materiais', 'gerenciar_fornecedores', true),
+      ('financeiro', 'menu', 'materiais_fornecedores', true),
+      ('financeiro', 'rota', 'materiais_fornecedores', true),
       ('dp3', 'menu', 'materiais', false),
-      ('dp3', 'rota', 'materiais', false)
+      ('dp3', 'rota', 'materiais', false),
+      ('dp3', 'menu', 'materiais_fornecedores', false),
+      ('dp3', 'rota', 'materiais_fornecedores', false)
 ON CONFLICT (perfil, recurso, acao) DO UPDATE SET permitido = EXCLUDED.permitido;
 
 -- Ação removida do mapa e da tela Permissões (aba Fornecedores saiu do CEU).
@@ -141,7 +164,9 @@ BEGIN
       ('visualizador', 'rota', 'bi', false),
       ('visualizador', 'ocorrencia', 'validar', false),
       ('visualizador', 'menu', 'materiais', false),
-      ('visualizador', 'rota', 'materiais', false);
+      ('visualizador', 'rota', 'materiais', false),
+      ('visualizador', 'menu', 'materiais_fornecedores', false),
+      ('visualizador', 'rota', 'materiais_fornecedores', false);
     RETURN;
   END IF;
 
@@ -217,7 +242,9 @@ BEGIN
       ('gestor', 'ceu', 'conferir_pedido', true),
       ('gestor', 'ceu', 'atender_pedido', true),
       ('gestor', 'menu', 'materiais', true),
-      ('gestor', 'rota', 'materiais', true);
+      ('gestor', 'rota', 'materiais', true),
+      ('gestor', 'menu', 'materiais_fornecedores', true),
+      ('gestor', 'rota', 'materiais_fornecedores', true);
     RETURN;
   END IF;
 
@@ -266,7 +293,9 @@ BEGIN
       ('rh', 'rota', 'bi', false),
       ('rh', 'ocorrencia', 'validar', false),
       ('rh', 'menu', 'materiais', false),
-      ('rh', 'rota', 'materiais', false);
+      ('rh', 'rota', 'materiais', false),
+      ('rh', 'menu', 'materiais_fornecedores', false),
+      ('rh', 'rota', 'materiais_fornecedores', false);
     RETURN;
   END IF;
 
@@ -335,7 +364,9 @@ BEGIN
       ('dp1', 'rota', 'bi', false),
       ('dp1', 'ocorrencia', 'validar', true),
       ('dp1', 'menu', 'materiais', false),
-      ('dp1', 'rota', 'materiais', false);
+      ('dp1', 'rota', 'materiais', false),
+      ('dp1', 'menu', 'materiais_fornecedores', false),
+      ('dp1', 'rota', 'materiais_fornecedores', false);
     RETURN;
   END IF;
 
@@ -409,7 +440,10 @@ BEGIN
       ('dp2', 'ceu', 'emitir_cracha', true),
       ('dp2', 'ceu', 'atender_pedido', true),
       ('dp2', 'menu', 'materiais', false),
-      ('dp2', 'rota', 'materiais', false);
+      ('dp2', 'rota', 'materiais', false),
+      ('dp2', 'materiais', 'gerenciar_fornecedores', true),
+      ('dp2', 'menu', 'materiais_fornecedores', true),
+      ('dp2', 'rota', 'materiais_fornecedores', true);
     RETURN;
   END IF;
 
@@ -476,7 +510,9 @@ BEGIN
       ('mesa', 'materiais', 'pedido_extra', true),
       ('mesa', 'materiais', 'reabrir_pedido', true),
       ('mesa', 'menu', 'materiais', true),
-      ('mesa', 'rota', 'materiais', true);
+      ('mesa', 'rota', 'materiais', true),
+      ('mesa', 'menu', 'materiais_fornecedores', true),
+      ('mesa', 'rota', 'materiais_fornecedores', true);
     RETURN;
   END IF;
 
@@ -522,7 +558,9 @@ BEGIN
       ('inspetoria', 'materiais', 'pedido_extra', true),
       ('inspetoria', 'ceu', 'conferir_pedido', true),
       ('inspetoria', 'menu', 'materiais', true),
-      ('inspetoria', 'rota', 'materiais', true);
+      ('inspetoria', 'rota', 'materiais', true),
+      ('inspetoria', 'menu', 'materiais_fornecedores', true),
+      ('inspetoria', 'rota', 'materiais_fornecedores', true);
     RETURN;
   END IF;
 
@@ -567,7 +605,10 @@ BEGIN
       ('financeiro', 'rota', 'bi', false),
       ('financeiro', 'ocorrencia', 'validar', false),
       ('financeiro', 'menu', 'materiais', false),
-      ('financeiro', 'rota', 'materiais', false);
+      ('financeiro', 'rota', 'materiais', false),
+      ('financeiro', 'materiais', 'gerenciar_fornecedores', true),
+      ('financeiro', 'menu', 'materiais_fornecedores', true),
+      ('financeiro', 'rota', 'materiais_fornecedores', true);
     RETURN;
   END IF;
 
@@ -580,7 +621,9 @@ BEGIN
       ('dp3', 'menu', 'crachas', true),
       ('dp3', 'menu', 'dashboard', false),
       ('dp3', 'menu', 'materiais', false),
-      ('dp3', 'rota', 'materiais', false);
+      ('dp3', 'rota', 'materiais', false),
+      ('dp3', 'menu', 'materiais_fornecedores', false),
+      ('dp3', 'rota', 'materiais_fornecedores', false);
     RETURN;
   END IF;
 

@@ -165,6 +165,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'ferias', label: 'Ver menu Férias', grupo: 'Menus' },
   { recurso: 'menu', acao: 'bi', label: 'Ver menu PerformanceLab', grupo: 'Menus' },
   { recurso: 'menu', acao: 'materiais', label: 'Ver menu Materiais', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'materiais_fornecedores', label: 'Ver menu Fornecedores (sem o resto de Materiais)', grupo: 'Menus' },
   { recurso: 'menu', acao: 'crachas', label: 'Ver menu Crachás (só aparece a quem não tem o menu CEU)', grupo: 'Menus' },
 
   // Rotas
@@ -176,6 +177,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'rota', acao: 'vr', label: 'Acessar rotas de VR', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'ceu', label: 'Acessar rotas de CEU', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais', label: 'Acessar rotas de Materiais', grupo: 'Rotas' },
+  { recurso: 'rota', acao: 'materiais_fornecedores', label: 'Acessar só Fornecedores (Materiais)', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'adicionais', label: 'Acessar rotas de adicionais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'importar_econtador', label: 'Acessar importação e-Contador', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'configuracoes', label: 'Acessar configurações', grupo: 'Rotas' },

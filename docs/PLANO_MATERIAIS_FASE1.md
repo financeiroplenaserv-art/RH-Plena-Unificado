@@ -62,7 +62,7 @@ Todas `SECURITY DEFINER`, `STABLE`, `search_path = public`, `GRANT EXECUTE ... T
 
 ### 3.2 Tabelas — migration 121 (`121_materiais_cadastro.sql`)
 
-**`fornecedores` (existente)** — `ALTER TABLE add column if not exists`: `contato text`, `observacao text`, `ativo boolean default true`. Policies: SELECT passa a `pode_ver_ceu() OR pode_ver_materiais()`; INSERT/UPDATE `pode_gerenciar_fornecedores()` (admin, adm, gestor, mesa — decisão de 09/10/2026); DELETE `is_admin()`. Remover as policies antigas de escrita que existirem (conferir `pg_policies` antes; backup das policies em `dados-locais/`).
+**`fornecedores` (existente)** — `ALTER TABLE add column if not exists`: `contato text`, `observacao text`, `ativo boolean default true`. Policies: SELECT passa a `pode_ver_ceu() OR pode_ver_materiais() OR pode_gerenciar_fornecedores()`; INSERT/UPDATE `pode_gerenciar_fornecedores()` (admin, adm, gestor, mesa, dp2, financeiro — decisão de 09/10/2026; dp1 não); DELETE `is_admin()`. Remover as policies antigas de escrita que existirem (conferir `pg_policies` antes; backup das policies em `dados-locais/`).
 
 **`mat_itens`** — catálogo de produtos (limpeza, kit portaria, outros).
 - `nome text not null` (nome padronizado, `unique` sobre `lower(nome)`), `categoria text check in ('limpeza','portaria','outros')`, `unidade_pedido text not null` ("bombona 5L", "pacote", "unidade"), `fornecedor_id uuid → fornecedores`, `validade_meses int null` (balde 6, doblô 24, escova 3, kit limpa vidros 18), `tem_variacao boolean default false`, `ativo boolean default true`, `ordem int`.
@@ -230,7 +230,7 @@ Pedido operacional (ferista/faltista sem posto, urgência): botão "Pedido extra
 ```ts
 materiais: {
   editar_catalogo:          ['gestor'],                  // itens, variações, preços, nomes antigos
-  gerenciar_fornecedores:   ['gestor', 'mesa'],          // cadastro único de fornecedores (decisão 09/10/2026; dp1/dp2 pendente)
+  gerenciar_fornecedores:   ['gestor', 'mesa', 'dp2', 'financeiro'], // cadastro único (decisão 09/10/2026); dp2/financeiro entram só na aba Fornecedores (menu/rota.materiais_fornecedores)
   editar_kit:               ['gestor'],                  // edição direta do Kit Mensal
   editar_rota:              ['gestor', 'mesa'],          // rota padrão do contrato
   alterar_rota_pedido:      ['gestor', 'mesa'],          // rota do dia de um pedido (override)
@@ -251,7 +251,7 @@ ceu: {
 },
 ```
 
-`permissoes_perfil` (migration 123): `menu.materiais` / `rota.materiais` = true para gestor, mesa, inspetoria; false para rh, dp1, dp2, financeiro, visualizador, dp3 (dp2 entra pela aba do CEU). As ações acima também semeadas (mesmo padrão da 115/117) e `reset_permissoes_perfil` recriada idêntica à da 117 + essas linhas, para "Restaurar padrão" não revogar o acesso. Rotas com `<ProtectedRoute permissao={{ recurso: 'rota', acao: 'materiais' }}>`; `/ceu/pedidos` usa a rota do CEU + a ação.
+`permissoes_perfil` (migration 123): `menu.materiais` / `rota.materiais` = true para gestor, mesa, inspetoria; false para rh, dp1, dp2, financeiro, visualizador, dp3 (dp2 entra pela aba do CEU). `menu.materiais_fornecedores` / `rota.materiais_fornecedores` = true para gestor, mesa, inspetoria, dp2, financeiro (só a aba Fornecedores — a rota `/materiais/fornecedores` aceita `rota.materiais` ou `rota.materiais_fornecedores`; o shell mostra só essa aba para quem não tem o módulo inteiro). As ações acima também semeadas (mesmo padrão da 115/117) e `reset_permissoes_perfil` recriada idêntica à da 117 + essas linhas, para "Restaurar padrão" não revogar o acesso. Rotas com `<ProtectedRoute permissao={{ recurso: 'rota', acao: 'materiais' }}>`; `/ceu/pedidos` usa a rota do CEU + a ação.
 
 Alinhamento banco × tela: as funções `pode_*` têm listas fixas (seção 3.1) que espelham este mapa. Se a tela Permissões conceder uma ação a outro perfil, a RLS/RPC continuará bloqueando — limitação conhecida do projeto (ver migration 087); concessões novas exigem migration.
 

@@ -108,9 +108,10 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
   // listas fixas que espelham este mapa; ampliar exige migration.
   materiais: {
     editar_catalogo: ['gestor'], // itens, variações, preços, nomes antigos
-    // Fornecedores (cadastro único): mesa cadastra (decisão de 09/10/2026);
-    // dp1/dp2 aguardam decisão. Banco: pode_gerenciar_fornecedores() (121).
-    gerenciar_fornecedores: ['gestor', 'mesa'],
+    // Fornecedores (cadastro único): mesa, dp2 e financeiro cadastram (decisão
+    // de 09/10/2026). Banco: pode_gerenciar_fornecedores() (121). dp2 e
+    // financeiro entram só na aba Fornecedores (rota/menu.materiais_fornecedores).
+    gerenciar_fornecedores: ['gestor', 'mesa', 'dp2', 'financeiro'],
     editar_kit: ['gestor'], // edição direta do Kit Mensal
     editar_rota: ['gestor', 'mesa'], // rota padrão do contrato
     alterar_rota_pedido: ['gestor', 'mesa'], // rota do dia de um pedido (override)

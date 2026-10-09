@@ -384,11 +384,13 @@ describe('Permissões do módulo Materiais (migrations 121 a 123)', () => {
     }
   })
 
-  it('fornecedores: mesa cadastra (decisão de 09/10/2026); catálogo segue só gestor; dp1/dp2 ainda não', () => {
-    expect(podeGerenciarFornecedoresMateriais('gestor')).toBe(true)
-    expect(podeGerenciarFornecedoresMateriais('mesa')).toBe(true)
-    expect(podeGerenciarFornecedoresMateriais('admin')).toBe(true)
-    for (const p of ['dp1', 'dp2', 'inspetoria', 'rh', 'financeiro', 'visualizador', 'dp3'] as const) {
+  it('fornecedores: mesa, dp2 e financeiro cadastram (decisão de 09/10/2026); catálogo segue só gestor; dp1 não', () => {
+    for (const p of ['gestor', 'mesa', 'dp2', 'financeiro', 'admin'] as const) {
+      expect(podeGerenciarFornecedoresMateriais(p)).toBe(true)
+    }
+    expect(podeEditarCatalogoMateriais('dp2')).toBe(false)
+    expect(podeEditarCatalogoMateriais('financeiro')).toBe(false)
+    for (const p of ['dp1', 'inspetoria', 'rh', 'visualizador', 'dp3'] as const) {
       expect(podeGerenciarFornecedoresMateriais(p)).toBe(false)
     }
     expect(podeEditarCatalogoMateriais('mesa')).toBe(false)
