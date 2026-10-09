@@ -52,7 +52,7 @@ grant select, insert, update, delete on public.<tabela> to service_role;
 | Função | Perfis | Uso |
 |---|---|---|
 | `pode_ver_materiais()` | admin, adm, gestor, mesa, inspetoria, dp2 | SELECT nas tabelas `mat_*` e `ceu_pedido_*` (dp2 precisa ver o cabeçalho do pedido e fornecedores) |
-| `pode_editar_cadastro_materiais()` | admin, adm, gestor | Escrita em catálogo, variações, preços, fornecedores, aliases, histórico; geração de links |
+| `pode_editar_cadastro_materiais()` | admin, adm, gestor | Escrita em catálogo, variações, preços, aliases, histórico; geração de links |
 | `pode_aprovar_materiais()` | admin, adm, gestor | Aprovação final, edição direta do kit, decisão de alteração de kit |
 | `pode_alterar_rota_materiais()` | admin, adm, gestor, mesa | Rota padrão do contrato e rota de um pedido específico (RPCs da seção 3.3) |
 | `pode_validar_materiais()` | admin, adm, gestor, inspetoria | Validação de exceções (produtos) e conferência (uniformes) |
@@ -62,7 +62,7 @@ Todas `SECURITY DEFINER`, `STABLE`, `search_path = public`, `GRANT EXECUTE ... T
 
 ### 3.2 Tabelas — migration 121 (`121_materiais_cadastro.sql`)
 
-**`fornecedores` (existente)** — `ALTER TABLE add column if not exists`: `contato text`, `observacao text`, `ativo boolean default true`. Policies: SELECT passa a `pode_ver_ceu() OR pode_ver_materiais()`; INSERT/UPDATE `pode_editar_cadastro_materiais()`; DELETE `is_admin()`. Remover as policies antigas de escrita que existirem (conferir `pg_policies` antes; backup das policies em `dados-locais/`).
+**`fornecedores` (existente)** — `ALTER TABLE add column if not exists`: `contato text`, `observacao text`, `ativo boolean default true`. Policies: SELECT passa a `pode_ver_ceu() OR pode_ver_materiais()`; INSERT/UPDATE `pode_gerenciar_fornecedores()` (admin, adm, gestor, mesa — decisão de 09/10/2026); DELETE `is_admin()`. Remover as policies antigas de escrita que existirem (conferir `pg_policies` antes; backup das policies em `dados-locais/`).
 
 **`mat_itens`** — catálogo de produtos (limpeza, kit portaria, outros).
 - `nome text not null` (nome padronizado, `unique` sobre `lower(nome)`), `categoria text check in ('limpeza','portaria','outros')`, `unidade_pedido text not null` ("bombona 5L", "pacote", "unidade"), `fornecedor_id uuid → fornecedores`, `validade_meses int null` (balde 6, doblô 24, escova 3, kit limpa vidros 18), `tem_variacao boolean default false`, `ativo boolean default true`, `ordem int`.
@@ -229,7 +229,8 @@ Pedido operacional (ferista/faltista sem posto, urgência): botão "Pedido extra
 
 ```ts
 materiais: {
-  editar_catalogo:          ['gestor'],                  // itens, variações, preços, fornecedores, nomes antigos
+  editar_catalogo:          ['gestor'],                  // itens, variações, preços, nomes antigos
+  gerenciar_fornecedores:   ['gestor', 'mesa'],          // cadastro único de fornecedores (decisão 09/10/2026; dp1/dp2 pendente)
   editar_kit:               ['gestor'],                  // edição direta do Kit Mensal
   editar_rota:              ['gestor', 'mesa'],          // rota padrão do contrato
   alterar_rota_pedido:      ['gestor', 'mesa'],          // rota do dia de um pedido (override)

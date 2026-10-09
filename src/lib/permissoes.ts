@@ -107,7 +107,10 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
   // Módulo Materiais (migrations 121 a 123). As funções pode_*() do banco têm
   // listas fixas que espelham este mapa; ampliar exige migration.
   materiais: {
-    editar_catalogo: ['gestor'], // itens, variações, preços, fornecedores, nomes antigos
+    editar_catalogo: ['gestor'], // itens, variações, preços, nomes antigos
+    // Fornecedores (cadastro único): mesa cadastra (decisão de 09/10/2026);
+    // dp1/dp2 aguardam decisão. Banco: pode_gerenciar_fornecedores() (121).
+    gerenciar_fornecedores: ['gestor', 'mesa'],
     editar_kit: ['gestor'], // edição direta do Kit Mensal
     editar_rota: ['gestor', 'mesa'], // rota padrão do contrato
     alterar_rota_pedido: ['gestor', 'mesa'], // rota do dia de um pedido (override)
@@ -313,8 +316,11 @@ export const podeAtenderPedidoCEU = (p: NivelAcesso) => temPermissaoComPadrao(p,
 
 // ================= MATERIAIS =================
 
-/** Itens, variações, preços, fornecedores e nomes antigos do catálogo */
+/** Itens, variações, preços e nomes antigos do catálogo (fornecedores: ação própria) */
 export const podeEditarCatalogoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_catalogo')
+
+/** Quem cadastra/edita fornecedores (cadastro único do módulo Materiais) */
+export const podeGerenciarFornecedoresMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'gerenciar_fornecedores')
 
 /** Edição direta do Kit Mensal */
 export const podeEditarKitMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_kit')

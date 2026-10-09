@@ -127,7 +127,8 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'ceu', acao: 'atender_pedido', label: 'Atender pedidos (aba Pedidos)', grupo: 'CEU' },
 
   // Materiais
-  { recurso: 'materiais', acao: 'editar_catalogo', label: 'Editar catálogo, preços e fornecedores', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'editar_catalogo', label: 'Editar catálogo e preços', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'gerenciar_fornecedores', label: 'Cadastrar e editar fornecedores', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'editar_kit', label: 'Editar Kit Mensal direto', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'editar_rota', label: 'Alterar rota padrão do contrato', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'alterar_rota_pedido', label: 'Trocar a rota de um pedido', grupo: 'Materiais' },

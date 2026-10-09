@@ -19,7 +19,7 @@ import { MateriaisShell } from './MateriaisShell'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
-import { podeEditarCatalogoMateriais } from '@/lib/permissoes'
+import { podeGerenciarFornecedoresMateriais } from '@/lib/permissoes'
 import { nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
 import { formatarCNPJ, mascaraTelefone } from '@/lib/utils'
@@ -47,7 +47,7 @@ const FORM_VAZIO: FormFornecedor = { id: null, nome: '', cnpj: '', telefone: '',
 
 export function MateriaisFornecedoresPage() {
   const { user } = useAuth()
-  const podeEditar = user ? podeEditarCatalogoMateriais(user.nivel_acesso) : false
+  const podeEditar = user ? podeGerenciarFornecedoresMateriais(user.nivel_acesso) : false
   const { fornecedores, loading, estruturaPendente, carregar, salvar } = useMateriaisFornecedores()
 
   const [filtro, setFiltro] = useFiltroPersistente<FiltroFornecedores>('materiais.fornecedores', FILTRO_PADRAO)

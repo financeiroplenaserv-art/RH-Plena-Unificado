@@ -21,6 +21,7 @@ import {
   podeConferirPedidoCEU,
   podeAtenderPedidoCEU,
   podeEditarCatalogoMateriais,
+  podeGerenciarFornecedoresMateriais,
   podeEditarKitMateriais,
   podeEditarRotaMateriais,
   podeAlterarRotaPedidoMateriais,
@@ -381,6 +382,16 @@ describe('Permissões do módulo Materiais (migrations 121 a 123)', () => {
       expect(fn('dp3')).toBe(false)
       expect(fn('visualizador')).toBe(false)
     }
+  })
+
+  it('fornecedores: mesa cadastra (decisão de 09/10/2026); catálogo segue só gestor; dp1/dp2 ainda não', () => {
+    expect(podeGerenciarFornecedoresMateriais('gestor')).toBe(true)
+    expect(podeGerenciarFornecedoresMateriais('mesa')).toBe(true)
+    expect(podeGerenciarFornecedoresMateriais('admin')).toBe(true)
+    for (const p of ['dp1', 'dp2', 'inspetoria', 'rh', 'financeiro', 'visualizador', 'dp3'] as const) {
+      expect(podeGerenciarFornecedoresMateriais(p)).toBe(false)
+    }
+    expect(podeEditarCatalogoMateriais('mesa')).toBe(false)
   })
 
   it('linha dinâmica concedida pela tela Permissões prevalece sobre o padrão', () => {

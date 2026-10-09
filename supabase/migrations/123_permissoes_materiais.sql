@@ -3,7 +3,8 @@
 -- Terceira parte do módulo (docs/PLANO_MATERIAIS_FASE1.md, seções 3.4 e 5.2;
 -- depende da 121/122). Espelha o PERMISSOES_PADRAO (src/lib/permissoes.ts) e
 -- a tela Permissões:
---  - recurso 'materiais': editar_catalogo, editar_kit, editar_rota,
+--  - recurso 'materiais': editar_catalogo, gerenciar_fornecedores (gestor,
+--    mesa — decisão de 09/10/2026), editar_kit, editar_rota,
 --    alterar_rota_pedido, solicitar_alteracao_kit, decidir_alteracao_kit,
 --    gerenciar_links, ver_sem_pedido, preencher_pelo_kit, validar, aprovar,
 --    pedido_extra, reabrir_pedido;
@@ -17,7 +18,7 @@
 --
 -- A ação ceu.gerenciar_fornecedores sai (passo 3 do plano): a aba Fornecedores
 -- do CEU virou /materiais/fornecedores (cadastro único, escrita só por
--- pode_editar_cadastro_materiais — migration 121). As linhas dinâmicas
+-- pode_gerenciar_fornecedores — admin/adm/gestor/mesa, migration 121). As linhas dinâmicas
 -- semeadas pela 064 são apagadas abaixo. As funções pode_*()
 -- (migration 121) têm listas fixas — conceder uma ação a outro perfil pela
 -- tela Permissões exige migration (limitação da migration 087).
@@ -28,6 +29,7 @@ INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('visualizador', 'menu', 'materiais', false),
       ('visualizador', 'rota', 'materiais', false),
       ('gestor', 'materiais', 'editar_catalogo', true),
+      ('gestor', 'materiais', 'gerenciar_fornecedores', true),
       ('gestor', 'materiais', 'editar_kit', true),
       ('gestor', 'materiais', 'editar_rota', true),
       ('gestor', 'materiais', 'alterar_rota_pedido', true),
@@ -50,6 +52,7 @@ INSERT INTO public.permissoes_perfil (perfil, recurso, acao, permitido) VALUES
       ('dp2', 'menu', 'materiais', false),
       ('dp2', 'rota', 'materiais', false),
       ('mesa', 'materiais', 'editar_rota', true),
+      ('mesa', 'materiais', 'gerenciar_fornecedores', true),
       ('mesa', 'materiais', 'alterar_rota_pedido', true),
       ('mesa', 'materiais', 'solicitar_alteracao_kit', true),
       ('mesa', 'materiais', 'ver_sem_pedido', true),
@@ -200,6 +203,7 @@ BEGIN
       ('gestor', 'rota', 'bi', true),
       ('gestor', 'ocorrencia', 'validar', false),
       ('gestor', 'materiais', 'editar_catalogo', true),
+      ('gestor', 'materiais', 'gerenciar_fornecedores', true),
       ('gestor', 'materiais', 'editar_kit', true),
       ('gestor', 'materiais', 'editar_rota', true),
       ('gestor', 'materiais', 'alterar_rota_pedido', true),
@@ -465,6 +469,7 @@ BEGIN
       ('mesa', 'ocorrencia', 'validar', false),
       ('mesa', 'ceu', 'emitir_cracha', true),
       ('mesa', 'materiais', 'editar_rota', true),
+      ('mesa', 'materiais', 'gerenciar_fornecedores', true),
       ('mesa', 'materiais', 'alterar_rota_pedido', true),
       ('mesa', 'materiais', 'solicitar_alteracao_kit', true),
       ('mesa', 'materiais', 'ver_sem_pedido', true),

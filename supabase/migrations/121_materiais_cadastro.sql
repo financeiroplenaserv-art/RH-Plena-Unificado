@@ -47,6 +47,20 @@ AS $$
   );
 $$;
 
+-- Fornecedores (cadastro único): decisão da gestão em 09/10/2026 — quem
+-- cadastra é principalmente a mesa (Maciel). Separado de
+-- pode_editar_cadastro_materiais (catálogo/preços seguem só gestor/admin).
+-- dp1/dp2 aguardam decisão.
+CREATE OR REPLACE FUNCTION public.pode_gerenciar_fornecedores()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $
+  SELECT EXISTS (
+    SELECT 1 FROM public.perfis
+    WHERE id = auth.uid()
+      AND nivel_acesso IN ('admin', 'adm', 'gestor', 'mesa')
+  );
+$;
+
 CREATE OR REPLACE FUNCTION public.pode_aprovar_materiais()
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
@@ -89,6 +103,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.pode_ver_materiais() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pode_editar_cadastro_materiais() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.pode_gerenciar_fornecedores() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pode_aprovar_materiais() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pode_alterar_rota_materiais() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pode_validar_materiais() TO authenticated;
@@ -121,11 +136,11 @@ CREATE POLICY "fornecedores_select" ON public.fornecedores
   USING (public.pode_ver_ceu() OR public.pode_ver_materiais());
 CREATE POLICY "fornecedores_insert" ON public.fornecedores
   FOR INSERT TO authenticated
-  WITH CHECK (public.pode_editar_cadastro_materiais());
+  WITH CHECK (public.pode_gerenciar_fornecedores());
 CREATE POLICY "fornecedores_update" ON public.fornecedores
   FOR UPDATE TO authenticated
-  USING (public.pode_editar_cadastro_materiais())
-  WITH CHECK (public.pode_editar_cadastro_materiais());
+  USING (public.pode_gerenciar_fornecedores())
+  WITH CHECK (public.pode_gerenciar_fornecedores());
 CREATE POLICY "fornecedores_delete" ON public.fornecedores
   FOR DELETE TO authenticated
   USING (public.is_admin());
