@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarDays, CalendarPlus, UserCheck, Wand2 } from 'lucide-react'
 import { agoraBrasil, formatarData } from '@/lib/utils'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { Button } from '@/components/corh/Button'
@@ -223,28 +224,35 @@ export function FeriasProgramacaoPage() {
   const gerarPreviaPlano = async () => {
     if (!planoDe || !planoAte || planoAte < planoDe) return
     setGerandoPlano(true)
-    const [colaboradores, regras, { data: inssData, error: erroInss }] = await Promise.all([
-      listarColaboradoresResumo(),
-      listarRegras(),
-      supabase.from('ocorrencias').select('colaborador_id').eq('status', 'Ativa').eq('tipo_ocorrencia', TIPO_LICENCA_INSS),
-    ])
-    if (erroInss) console.error('Erro ao verificar licenças INSS:', erroInss)
-    setInssAtivos(new Set((inssData || []).map((o) => o.colaborador_id)))
-    const enriquecidos = colaboradores.map((c) => ({
-      ...c,
-      funcao_id: resolverFuncao(c.cargo, funcoes)?.id ?? null,
-    }))
-    const resultado = gerarPlanoAutomatico({
-      colaboradores: enriquecidos,
-      solicitacoes,
-      regras,
-      periodoInicio: planoDe,
-      periodoFim: planoAte,
-    })
-    // Padrão: todas marcadas — o RH desmarca caso a caso (ex.: afastados INSS)
-    setSelecionadasPlano(new Set(resultado.propostas.map((p) => p.colaborador.id)))
-    setPlanoResultado(resultado)
-    setGerandoPlano(false)
+    setPlanoResultado(null)
+    try {
+      const [colaboradores, regras, { data: inssData, error: erroInss }] = await Promise.all([
+        listarColaboradoresResumo(),
+        listarRegras(),
+        supabase.from('ocorrencias').select('colaborador_id').eq('status', 'Ativa').eq('tipo_ocorrencia', TIPO_LICENCA_INSS),
+      ])
+      if (erroInss) console.error('Erro ao verificar licenças INSS:', erroInss)
+      setInssAtivos(new Set((inssData || []).map((o) => o.colaborador_id)))
+      const enriquecidos = colaboradores.map((c) => ({
+        ...c,
+        funcao_id: resolverFuncao(c.cargo, funcoes)?.id ?? null,
+      }))
+      const resultado = gerarPlanoAutomatico({
+        colaboradores: enriquecidos,
+        solicitacoes,
+        regras,
+        periodoInicio: planoDe,
+        periodoFim: planoAte,
+      })
+      // Padrão: todas marcadas — o RH desmarca caso a caso (ex.: afastados INSS)
+      setSelecionadasPlano(new Set(resultado.propostas.map((p) => p.colaborador.id)))
+      setPlanoResultado(resultado)
+    } catch (erro) {
+      console.error('Erro ao gerar prévia do plano automático:', erro)
+      toast.error('Não foi possível gerar a prévia. Tente de novo.')
+    } finally {
+      setGerandoPlano(false)
+    }
   }
 
   const confirmarPlano = async () => {
@@ -468,11 +476,11 @@ export function FeriasProgramacaoPage() {
             <div className="flex flex-wrap items-end gap-3">
               <div>
                 <Label>De</Label>
-                <Input type="date" value={planoDe} onChange={(e) => setPlanoDe(e.target.value)} className="w-44" />
+                <Input type="date" value={planoDe} onChange={(e) => { setPlanoDe(e.target.value); setPlanoResultado(null) }} className="w-44" />
               </div>
               <div>
                 <Label>Até</Label>
-                <Input type="date" value={planoAte} onChange={(e) => setPlanoAte(e.target.value)} className="w-44" />
+                <Input type="date" value={planoAte} onChange={(e) => { setPlanoAte(e.target.value); setPlanoResultado(null) }} className="w-44" />
               </div>
               <Button variant="outline" size="sm" onClick={gerarPreviaPlano} loading={gerandoPlano} disabled={!planoDe || !planoAte || planoAte < planoDe}>
                 Gerar prévia
@@ -541,6 +549,11 @@ export function FeriasProgramacaoPage() {
           </div>
 
           <DialogFooter>
+            {planoResultado && planoResultado.propostas.length > 0 && selecionadasPlano.size === 0 && (
+              <p className="mr-auto text-[12px] text-muted-foreground">
+                Nenhuma pessoa selecionada — nada a criar. Marque alguém ou clique em Fechar.
+              </p>
+            )}
             <Button variant="ghost" onClick={() => setPlanoAberto(false)} disabled={loading}>
               Fechar
             </Button>
