@@ -437,11 +437,24 @@ async function agendarFerias(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'Token do e-Contador não configurado' }), { status: 400 })
   }
 
-  // Mesma minimização LGPD do /funcionarios: só empresas permitidas
-  const permitidas = await idsEmpresasPermitidas(token)
-  if (!permitidas.has(empresaId)) {
+  // O CORH guarda em empresas.codigo_alterdata o CÓDIGO da empresa no Pack
+  // (externoid, ex.: 00032); a API do e-Contador filtra pelo ID INTERNO (34).
+  // Resolve aceitando os dois formatos. (Decisão/ajuste de 13/10/2026.)
+  const empresasData = await fetchAlterdata('/empresas?page[limit]=25&page[offset]=0', token) as { data?: EContadorResponseItem[] }
+  const empresaAlvo = (empresasData.data || []).find((e) => {
+    const idInterno = String(e.id ?? '')
+    const externoid = String((e.attributes as Record<string, unknown> | undefined)?.externoid ?? '')
+    return idInterno === empresaId || externoid === empresaId.padStart(5, '0') || externoid.replace(/^0+/, '') === empresaId.replace(/^0+/, '')
+  })
+  if (!empresaAlvo) {
+    return new Response(JSON.stringify({ error: 'Empresa não encontrada no e-Contador' }), { status: 404 })
+  }
+  // Mesma minimização LGPD do /funcionarios: só empresas do grupo Plena
+  const nomeEmpresa = String((empresaAlvo.attributes as Record<string, unknown> | undefined)?.nome ?? '').toLowerCase()
+  if (!PERMITIDAS.some((p) => nomeEmpresa.includes(p))) {
     return new Response(JSON.stringify({ error: 'Empresa não permitida' }), { status: 403 })
   }
+  const empresaIdInterno = String(empresaAlvo.id)
 
   // Resolve o funcionário pelo código (matrícula com zeros à esquerda)
   const codigo = matricula.replace(/\D/g, '').padStart(6, '0')
@@ -450,7 +463,7 @@ async function agendarFerias(req: Request): Promise<Response> {
   let offset = 0
   while (funcionarioId === null) {
     const data = await fetchAlterdata(
-      `/funcionarios?filter[funcionarios][empresa.id][EQ]=${encodeURIComponent(empresaId)}&page[limit]=100&page[offset]=${offset}`,
+      `/funcionarios?filter[funcionarios][empresa.id][EQ]=${encodeURIComponent(empresaIdInterno)}&page[limit]=100&page[offset]=${offset}`,
       token
     ) as { data?: FuncionarioItem[] }
     if (!data.data || data.data.length === 0) break
