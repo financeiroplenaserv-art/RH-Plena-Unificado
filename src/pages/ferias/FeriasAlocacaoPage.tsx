@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowLeftRight, CalendarDays, Play, Undo2, UserCheck } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, CalendarDays, ClipboardList, Play, Undo2, UserCheck } from 'lucide-react'
 import { formatarData, hojeBrasil, parseDataLocal } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
@@ -41,6 +41,7 @@ import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/depart
 import {
   sugerirAlocacoes,
   elegiveisParaVaga,
+  precisaTreinamento,
   type ResultadoAlocacao,
 } from '@/lib/ferias/alocacaoFeristas'
 import type {
@@ -50,6 +51,12 @@ import type {
   FeriasSolicitacao,
 } from '@/types/ferias'
 import { FeriasShell } from './FeriasShell'
+import {
+  CoberturaDetalheDialog,
+  type CamposComunicacao,
+  type CamposTreinamento,
+} from './CoberturaDetalheDialog'
+import { progressoComunicacao } from '@/lib/ferias/comunicacaoCobertura'
 
 function diasAte(inicioISO: string, hojeISO: string): number {
   return Math.round((parseDataLocal(inicioISO).getTime() - parseDataLocal(hojeISO).getTime()) / (24 * 60 * 60 * 1000))
@@ -93,6 +100,8 @@ export function FeriasAlocacaoPage() {
     alocarManual,
     desfazerAlocacao,
     trocarFerista,
+    atualizarAlocacao,
+    atualizarComunicacaoSolicitacao,
   } = useFerias()
 
   const [solicitacoes, setSolicitacoes] = useState<FeriasSolicitacao[]>([])
@@ -110,6 +119,8 @@ export function FeriasAlocacaoPage() {
   const [trocaLotePara, setTrocaLotePara] = useState('')
   const [periodoDe, setPeriodoDe] = useState('')
   const [periodoAte, setPeriodoAte] = useState('')
+  const [detalheAberto, setDetalheAberto] = useState<FeriasSolicitacao | null>(null)
+  const [salvandoDetalhe, setSalvandoDetalhe] = useState(false)
 
   const hojeISO = hojeBrasil()
 
@@ -266,10 +277,18 @@ export function FeriasAlocacaoPage() {
         funcoes,
         alocacoes,
         feriasFeristas: solicitacoes,
+        solicitacoes,
         hoje: hojeISO,
       })
     )
   }
+
+  /** Sugestão da regra de treinamento para um ferista numa vaga (migration 125). */
+  const sugestaoTreinamento = useCallback(
+    (vaga: FeriasSolicitacao, feristaId: string) =>
+      precisaTreinamento({ alocacoes, solicitacoes, feristaId, vaga }),
+    [alocacoes, solicitacoes]
+  )
 
   const confirmar = async () => {
     if (!resultado) return
@@ -284,6 +303,7 @@ export function FeriasAlocacaoPage() {
       score: s.score,
       motivo: s.motivo,
       origem: 'automatica',
+      precisaTreinamento: s.precisaTreinamento,
     }))
     const ok = await confirmarAlocacoes(lote)
     if (ok) {
@@ -295,7 +315,7 @@ export function FeriasAlocacaoPage() {
   const handleAlocarManual = async (vaga: FeriasSolicitacao, feristaId: string) => {
     const ferista = feristas.find((f) => f.id === feristaId)
     if (!ferista) return
-    const ok = await alocarManual(vaga, ferista)
+    const ok = await alocarManual(vaga, ferista, sugestaoTreinamento(vaga, ferista.id))
     if (ok) await carregar()
   }
 
@@ -322,7 +342,7 @@ export function FeriasAlocacaoPage() {
   const handleTrocar = async (vaga: FeriasSolicitacao, novoFeristaId: string) => {
     const novo = feristas.find((f) => f.id === novoFeristaId)
     if (!novo) return
-    const ok = await trocarFerista(vaga, novo)
+    const ok = await trocarFerista(vaga, novo, sugestaoTreinamento(vaga, novo.id))
     if (ok) {
       toast.success(`Cobertura trocada para ${novo.colaborador?.nome_completo ?? 'novo ferista'}.`)
       await carregar()
@@ -343,7 +363,7 @@ export function FeriasAlocacaoPage() {
         puladas++
         continue
       }
-      if (await trocarFerista(vaga, para)) trocadas++
+      if (await trocarFerista(vaga, para, sugestaoTreinamento(vaga, para.id))) trocadas++
     }
     setTrocaLoteAberta(false)
     setTrocaLoteDe('')
@@ -358,6 +378,31 @@ export function FeriasAlocacaoPage() {
 
   const feristaDeLote = feristas.find((f) => f.id === trocaLoteDe) ?? null
   const feristaParaLote = feristas.find((f) => f.id === trocaLotePara) ?? null
+
+  /** Alocação confirmada ligada a uma solicitação (para o dialog de cobertura). */
+  const alocacaoDaSolicitacao = useCallback(
+    (solicitacaoId: string) =>
+      alocacoes.find((a) => a.solicitacao_id === solicitacaoId && a.status === 'confirmada') ?? null,
+    [alocacoes]
+  )
+
+  /** Salva o dialog de cobertura: treinamento na alocação, comunicação na solicitação. */
+  const salvarDetalhe = async (treinamento: CamposTreinamento | null, comunicacao: CamposComunicacao): Promise<boolean> => {
+    if (!detalheAberto) return false
+    setSalvandoDetalhe(true)
+    let ok = true
+    const alocacao = alocacaoDaSolicitacao(detalheAberto.id)
+    if (treinamento && alocacao) {
+      ok = await atualizarAlocacao(alocacao.id, treinamento)
+    }
+    if (ok) {
+      ok = await atualizarComunicacaoSolicitacao(detalheAberto.id, comunicacao)
+      if (ok) toast.success('Detalhes da cobertura salvos.')
+    }
+    setSalvandoDetalhe(false)
+    if (ok) await carregar()
+    return ok
+  }
   const feristasComCobertura = feristas.filter((f) =>
     vagasCobertas.some((s) => s.ferista_alocado_id === f.colaborador_id)
   )
@@ -414,7 +459,14 @@ export function FeriasAlocacaoPage() {
                           {formatarData(s.vaga.data_inicio)} a {formatarData(s.vaga.data_fim)} · {nomeContrato(s.vaga.departamento_id)}
                         </span>
                       </p>
-                      <p className="text-[12px] text-muted-foreground">{s.motivo}</p>
+                      <p className="text-[12px] text-muted-foreground">
+                        {s.motivo}
+                        {s.precisaTreinamento && (
+                          <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+                            treinar (2d)
+                          </span>
+                        )}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-[13px] font-medium text-primary">{s.ferista.colaborador?.nome_completo}</p>
@@ -494,6 +546,7 @@ export function FeriasAlocacaoPage() {
                 <TableHead>Função</TableHead>
                 <TableHead>Período</TableHead>
                 <TableHead>Início em</TableHead>
+                <TableHead>Comunicação</TableHead>
                 {podeGerenciar && <TableHead>Troca manual</TableHead>}
               </TableRow>
             </TableHeader>
@@ -516,6 +569,19 @@ export function FeriasAlocacaoPage() {
                     </TableCell>
                     <TableCell className={`tabular-nums whitespace-nowrap ${dias <= 15 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>
                       {dias < 0 ? 'em andamento' : dias === 0 ? 'hoje' : `${dias}d`}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => setDetalheAberto(vaga)}
+                        className="flex items-center gap-1.5"
+                        title="Abrir detalhes da cobertura (treinamento e comunicação)"
+                      >
+                        <StatusBadge variant={progressoComunicacao(vaga) === 4 ? 'success' : progressoComunicacao(vaga) > 0 ? 'warning' : 'neutral'}>
+                          {progressoComunicacao(vaga)}/4
+                        </StatusBadge>
+                        <ClipboardList className="size-4 text-muted-foreground" />
+                      </button>
                     </TableCell>
                     {podeGerenciar && (
                       <TableCell>
@@ -562,6 +628,7 @@ export function FeriasAlocacaoPage() {
                 <TableHead>Período</TableHead>
                 <TableHead>Ferista</TableHead>
                 <TableHead>Origem</TableHead>
+                <TableHead>Comunicação</TableHead>
                 {podeGerenciar && <TableHead>Trocar por</TableHead>}
                 {podeGerenciar && <TableHead className="w-16"></TableHead>}
               </TableRow>
@@ -571,6 +638,7 @@ export function FeriasAlocacaoPage() {
                 const elegiveisTroca = podeGerenciar
                   ? elegiveisDaVaga(s).elegiveis.filter((e) => e.ferista.colaborador_id !== s.ferista_alocado_id)
                   : []
+                const alocacaoAtual = alocacaoDaSolicitacao(s.id)
                 return (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium text-foreground">
@@ -582,11 +650,34 @@ export function FeriasAlocacaoPage() {
                   <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">
                     {formatarData(s.data_inicio)} a {formatarData(s.data_fim)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{s.ferista?.nome_completo ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {s.ferista?.nome_completo ?? '—'}
+                    {alocacaoAtual?.precisa_treinamento && (
+                      <span
+                        className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
+                        title={alocacaoAtual.treinamento_detalhe ?? 'Treinamento de 2 dias (padrão)'}
+                      >
+                        treinar
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge variant={s.origem_alocacao === 'automatica' ? 'info' : 'neutral'}>
                       {s.origem_alocacao === 'automatica' ? 'Automática' : s.origem_alocacao === 'manual' ? 'Manual' : '—'}
                     </StatusBadge>
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => setDetalheAberto(s)}
+                      className="flex items-center gap-1.5"
+                      title="Abrir detalhes da cobertura (treinamento e comunicação)"
+                    >
+                      <StatusBadge variant={progressoComunicacao(s) === 4 ? 'success' : progressoComunicacao(s) > 0 ? 'warning' : 'neutral'}>
+                        {progressoComunicacao(s)}/4
+                      </StatusBadge>
+                      <ClipboardList className="size-4 text-muted-foreground" />
+                    </button>
                   </TableCell>
                   {podeGerenciar && (
                     <TableCell>
@@ -625,6 +716,16 @@ export function FeriasAlocacaoPage() {
           </Table>
         )}
       </DataTable>
+
+      <CoberturaDetalheDialog
+        aberto={detalheAberto !== null}
+        onFechar={() => setDetalheAberto(null)}
+        solicitacao={detalheAberto}
+        alocacao={detalheAberto ? alocacaoDaSolicitacao(detalheAberto.id) : null}
+        nomeContrato={detalheAberto ? nomeContrato(detalheAberto.departamento_id) : ''}
+        salvando={salvandoDetalhe}
+        onSalvar={salvarDetalhe}
+      />
 
       <ConfirmDialog
         open={desfazendo !== null}

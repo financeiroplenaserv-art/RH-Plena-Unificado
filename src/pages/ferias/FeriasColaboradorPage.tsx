@@ -311,6 +311,7 @@ export function FeriasColaboradorPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Cobrindo</TableHead>
+                      <TableHead>Contrato</TableHead>
                       <TableHead>Período</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Origem</TableHead>
@@ -328,6 +329,12 @@ export function FeriasColaboradorPage() {
                           ) : (
                             '—'
                           )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {(() => {
+                            const postoId = a.departamento_id ?? a.solicitacao?.departamento_id ?? null
+                            return postoId ? nomeCurtoDepartamentoFuzzy(departamentos, postoId, null) : '—'
+                          })()}
                         </TableCell>
                         <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">
                           {formatarData(a.data_inicio)} a {formatarData(a.data_fim)}

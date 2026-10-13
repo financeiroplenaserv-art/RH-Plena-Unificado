@@ -83,6 +83,8 @@ export interface SugestaoAlocacao {
   ferista: FeriasFerista
   score: number
   motivo: string
+  /** Sugestão automática da regra de treinamento (decisão da gestão, 13/10/2026) */
+  precisaTreinamento: boolean
 }
 
 export interface CoberturaCritica {
@@ -297,11 +299,13 @@ export function sugerirAlocacoes(entrada: {
   vagas: FeriasSolicitacao[]
   feristas: FeriasFerista[]
   funcoes: FeriasFuncao[]
-  alocacoes: Pick<FeriasAlocacao, 'ferista_id' | 'departamento_id' | 'data_inicio' | 'data_fim' | 'status'>[]
+  alocacoes: (Pick<FeriasAlocacao, 'ferista_id' | 'departamento_id' | 'data_inicio' | 'data_fim' | 'status'> & { solicitacao_id?: string })[]
   feriasFeristas: Pick<FeriasSolicitacao, 'colaborador_id' | 'data_inicio' | 'data_fim' | 'tipo' | 'status'>[]
+  /** Solicitações conhecidas (id + colaborador) — usadas pela regra de treinamento (parcelada) */
+  solicitacoes?: Pick<FeriasSolicitacao, 'id' | 'colaborador_id'>[]
   hoje?: string
 }): ResultadoAlocacao {
-  const { vagas, feristas, funcoes, alocacoes, feriasFeristas, hoje } = entrada
+  const { vagas, feristas, funcoes, alocacoes, feriasFeristas, solicitacoes = [], hoje } = entrada
   const ocupacoes: OcupacaoFerista[] = []
   const sugestoes: SugestaoAlocacao[] = []
   const criticas: CoberturaCritica[] = []
@@ -323,7 +327,18 @@ export function sugerirAlocacoes(entrada: {
       criticas.push({ vaga, motivo: motivoSemElegiveis ?? 'nenhum ferista elegível' })
       continue
     }
-    sugestoes.push({ vaga, ferista: melhor.ferista, score: melhor.score, motivo: melhor.motivo })
+    const treinamento = precisaTreinamento({
+      alocacoes: alocacoes.map((a) => ({
+        ferista_id: a.ferista_id,
+        departamento_id: a.departamento_id,
+        solicitacao_id: a.solicitacao_id ?? '',
+        status: a.status,
+      })),
+      solicitacoes,
+      feristaId: melhor.ferista.id,
+      vaga,
+    })
+    sugestoes.push({ vaga, ferista: melhor.ferista, score: melhor.score, motivo: melhor.motivo, precisaTreinamento: treinamento })
     ocupacoes.push({
       ferista_id: melhor.ferista.id,
       departamento_id: vaga.departamento_id,
@@ -333,6 +348,42 @@ export function sugerirAlocacoes(entrada: {
   }
 
   return { sugestoes, criticas }
+}
+
+/**
+ * Regra de treinamento do ferista (decisão da gestão, 13/10/2026 — planilha
+ * "Planejamento Operacional"): posto novo para o ferista => precisa treinar
+ * (padrão operacional: 2 dias, em geral seguidos, compensados depois).
+ * NÃO precisa quando:
+ *   * ele já tem alocação confirmada no mesmo departamento (já conhece o posto);
+ *   * a vaga é parcelada e ele já cobre/cobriu outra solicitação do MESMO
+ *     colaborador (segunda parcela das mesmas férias, mesmo posto).
+ */
+export function precisaTreinamento(entrada: {
+  alocacoes: Pick<FeriasAlocacao, 'ferista_id' | 'departamento_id' | 'solicitacao_id' | 'status'>[]
+  /** Solicitações conhecidas (para achar o colaborador de cada alocação) */
+  solicitacoes: Pick<FeriasSolicitacao, 'id' | 'colaborador_id'>[]
+  feristaId: string
+  vaga: Pick<FeriasSolicitacao, 'id' | 'departamento_id' | 'colaborador_id' | 'parcelada'>
+}): boolean {
+  const { alocacoes, solicitacoes, feristaId, vaga } = entrada
+  const confirmadasDoFerista = alocacoes.filter(
+    (a) => a.ferista_id === feristaId && a.status === 'confirmada' && a.solicitacao_id !== vaga.id
+  )
+  if (
+    vaga.departamento_id !== null &&
+    confirmadasDoFerista.some((a) => a.departamento_id === vaga.departamento_id)
+  ) {
+    return false
+  }
+  if (vaga.parcelada) {
+    const colaboradorPorSolicitacao = new Map(solicitacoes.map((s) => [s.id, s.colaborador_id]))
+    const cobreOutraParcela = confirmadasDoFerista.some(
+      (a) => colaboradorPorSolicitacao.get(a.solicitacao_id) === vaga.colaborador_id
+    )
+    if (cobreOutraParcela) return false
+  }
+  return true
 }
 
 /** Origem gravada na alocação conforme quem disparou (RN-10). */

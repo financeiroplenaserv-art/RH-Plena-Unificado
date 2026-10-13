@@ -14,6 +14,8 @@ const COLUNAS_SOLICITACAO = `
   id, colaborador_id, departamento_id, funcao_id, data_inicio, data_fim, tipo, status,
   dias_abono, adiantamento_13, parcelada, origem, observacao, ferista_alocado_id,
   origem_alocacao, registrado_por, aprovado_por, data_aprovacao, created_at, updated_at,
+  informativo_cliente_em, contato_titular_por, contato_titular_em,
+  contato_ferista_por, contato_ferista_em, encarregado_lider,
   colaborador:colaboradores!colaborador_id(id, nome_completo, matricula, departamento, departamento_id, data_admissao, status, cargo),
   ferista:colaboradores!ferista_alocado_id(id, nome_completo, matricula)
 `
@@ -27,7 +29,7 @@ const COLUNAS_CONFLITO_TETO = `
 
 const COLUNAS_ALOCACAO = `
   id, solicitacao_id, ferista_id, departamento_id, funcao_id, data_inicio, data_fim,
-  status, origem, score, motivo, usuario_id, created_at, updated_at,
+  status, origem, score, motivo, precisa_treinamento, treinamento_detalhe, usuario_id, created_at, updated_at,
   solicitacao:ferias_solicitacoes(id, departamento_id, data_inicio, data_fim, tipo, status,
     colaborador:colaboradores!colaborador_id(id, nome_completo, matricula))
 `
@@ -119,6 +121,8 @@ export interface SugestaoParaGravar {
   score: number | null
   motivo: string | null
   origem: OrigemAlocacaoFerias
+  /** Sugestão da regra de treinamento (migration 125) — editável depois na alocação */
+  precisaTreinamento?: boolean | null
 }
 
 /** Status derivado das datas na importação Flit (espelha o backfill da migração 112). */
@@ -707,6 +711,7 @@ export function useFerias() {
           origem: s.origem,
           score: s.score,
           motivo: s.motivo,
+          precisa_treinamento: s.precisaTreinamento ?? null,
           usuario_id: usuarioId,
         }))
       )
@@ -737,7 +742,7 @@ export function useFerias() {
   }, [])
 
   /** Alocação manual de um ferista em uma vaga (RN-10: origem 'manual'). */
-  const alocarManual = useCallback(async (vaga: FeriasSolicitacao, ferista: FeriasFerista): Promise<boolean> => {
+  const alocarManual = useCallback(async (vaga: FeriasSolicitacao, ferista: FeriasFerista, precisaTreinamento: boolean | null = null): Promise<boolean> => {
     return confirmarAlocacoes([
       {
         solicitacaoId: vaga.id,
@@ -750,9 +755,54 @@ export function useFerias() {
         score: null,
         motivo: 'alocação manual pelo RH',
         origem: 'manual',
+        precisaTreinamento,
       },
     ])
   }, [confirmarAlocacoes])
+
+  /** Atualiza os campos de treinamento de uma alocação (migration 125). */
+  const atualizarAlocacao = useCallback(async (id: string, campos: { precisa_treinamento?: boolean | null; treinamento_detalhe?: string | null }): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('ferias_alocacoes')
+      .update(campos)
+      .eq('id', id)
+      .select('id')
+    if (error) {
+      toast.error('Erro ao atualizar cobertura: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar esta cobertura')
+      return false
+    }
+    toast.success('Cobertura atualizada.')
+    return true
+  }, [])
+
+  /** Atualiza o checklist de comunicação de uma solicitação (migration 125). */
+  const atualizarComunicacaoSolicitacao = useCallback(async (id: string, campos: {
+    informativo_cliente_em?: string | null
+    contato_titular_por?: string | null
+    contato_titular_em?: string | null
+    contato_ferista_por?: string | null
+    contato_ferista_em?: string | null
+    encarregado_lider?: string | null
+  }): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('ferias_solicitacoes')
+      .update(campos)
+      .eq('id', id)
+      .select('id')
+    if (error) {
+      toast.error('Erro ao salvar comunicação: ' + error.message)
+      return false
+    }
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar esta solicitação')
+      return false
+    }
+    return true
+  }, [])
 
   /** Desfaz a cobertura de uma solicitação: cancela a alocação confirmada e limpa o ferista dela. */
   const desfazerAlocacao = useCallback(async (solicitacaoId: string): Promise<boolean> => {
@@ -957,7 +1007,7 @@ export function useFerias() {
    * ferista_alocado_id da solicitação — sem toast de sucesso (a tela consolida,
    * inclusive na troca em lote).
    */
-  const trocarFerista = useCallback(async (vaga: FeriasSolicitacao, novoFerista: FeriasFerista): Promise<boolean> => {
+  const trocarFerista = useCallback(async (vaga: FeriasSolicitacao, novoFerista: FeriasFerista, precisaTreinamento: boolean | null = null): Promise<boolean> => {
     const { error: erroCancela } = await supabase
       .from('ferias_alocacoes')
       .update({ status: 'cancelada' })
@@ -982,6 +1032,7 @@ export function useFerias() {
         status: 'confirmada',
         origem: 'manual',
         motivo: 'troca manual pelo RH',
+        precisa_treinamento: precisaTreinamento,
         usuario_id: authData.user?.id ?? null,
       })
       .select('id')
@@ -1026,6 +1077,8 @@ export function useFerias() {
     alocarManual,
     desfazerAlocacao,
     trocarFerista,
+    atualizarAlocacao,
+    atualizarComunicacaoSolicitacao,
     listarFeristas,
     adicionarFerista,
     atualizarFerista,

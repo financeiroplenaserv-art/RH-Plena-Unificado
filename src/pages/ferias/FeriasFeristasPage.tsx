@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Pencil, Plus, Power, Trash2, UserCheck, Users } from 'lucide-react'
-import { agoraBrasil, formatarData, hojeBrasil } from '@/lib/utils'
+import { Briefcase, Pencil, Plus, Power, Route, Trash2, UserCheck, Users } from 'lucide-react'
+import { agoraBrasil, formatarData, hojeBrasil, parseDataLocal } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
 import { StatusBadge } from '@/components/corh/StatusBadge'
@@ -101,6 +101,7 @@ export function FeriasFeristasPage() {
   const [excluindoFerista, setExcluindoFerista] = useState<FeriasFerista | null>(null)
   const [modalFuncao, setModalFuncao] = useState(false)
   const [editandoFuncao, setEditandoFuncao] = useState<FeriasFuncao | null>(null)
+  const [rotaDeFerista, setRotaDeFerista] = useState<FeriasFerista | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -174,6 +175,22 @@ export function FeriasFeristasPage() {
   }, [colaboradores, funcoes])
 
   const alocacaoPorId = useMemo(() => new Map(alocacoes.map((a) => [a.id, a])), [alocacoes])
+
+  // Rota do ferista: coberturas não canceladas em ordem cronológica (a
+  // "sequência do ano" da planilha Planejamento Operacional)
+  const rotaPorFerista = useMemo(() => {
+    const mapa = new Map<string, FeriasAlocacaoComSolicitacao[]>()
+    for (const a of alocacoes) {
+      if (a.status === 'cancelada') continue
+      const lista = mapa.get(a.ferista_id) ?? []
+      lista.push(a)
+      mapa.set(a.ferista_id, lista)
+    }
+    for (const lista of mapa.values()) {
+      lista.sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
+    }
+    return mapa
+  }, [alocacoes])
 
   const nomeFuncaoPorId = useMemo(() => new Map(funcoes.map((f) => [f.id, f.nome])), [funcoes])
 
@@ -332,6 +349,7 @@ export function FeriasFeristasPage() {
                     <TableHead>Coberturas no ano</TableHead>
                     <TableHead>Limites de carga</TableHead>
                     <TableHead>Ativo</TableHead>
+                    <TableHead className="w-12">Rota</TableHead>
                     {podeGerenciar && <TableHead className="w-28"></TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -374,6 +392,16 @@ export function FeriasFeristasPage() {
                           <StatusBadge variant={ferista.ativo ? 'success' : 'neutral'}>
                             {ferista.ativo ? 'Ativo' : 'Inativo'}
                           </StatusBadge>
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            title="Rota do ferista (coberturas em sequência)"
+                            onClick={() => setRotaDeFerista(ferista)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-primary"
+                          >
+                            <Route className="size-4" />
+                          </button>
                         </TableCell>
                         {podeGerenciar && (
                           <TableCell>
@@ -551,6 +579,56 @@ export function FeriasFeristasPage() {
         destructive
         onConfirm={handleExcluirFerista}
       />
+
+      <Dialog open={rotaDeFerista !== null} onOpenChange={(aberto) => { if (!aberto) setRotaDeFerista(null) }}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Rota de {rotaDeFerista?.colaborador?.nome_completo ?? 'ferista'}</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const rota = rotaDeFerista ? (rotaPorFerista.get(rotaDeFerista.id) ?? []) : []
+            if (rota.length === 0) {
+              return <p className="text-[13px] text-muted-foreground">Nenhuma cobertura registrada ainda.</p>
+            }
+            return (
+              <ul className="max-h-[60vh] divide-y divide-border/60 overflow-y-auto">
+                {rota.map((a) => {
+                  const postoId = a.departamento_id ?? a.solicitacao?.departamento_id ?? null
+                  const posto = postoId ? nomeCurtoDepartamentoFuzzy(departamentos, postoId, null) : 'Sem contrato'
+                  const futura = a.data_inicio >= hojeISO
+                  return (
+                    <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                      <span className="w-24 shrink-0 text-[12px] font-medium capitalize tabular-nums text-muted-foreground">
+                        {parseDataLocal(a.data_inicio).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-medium text-foreground">{posto}</p>
+                        <p className="text-[12px] text-muted-foreground">
+                          cobrindo {a.solicitacao?.colaborador?.nome_completo ?? '—'}
+                        </p>
+                      </div>
+                      {a.precisa_treinamento && (
+                        <span
+                          className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
+                          title={a.treinamento_detalhe ?? 'Treinamento de 2 dias (padrão)'}
+                        >
+                          treinar
+                        </span>
+                      )}
+                      <span className="text-[12px] tabular-nums text-muted-foreground">
+                        {formatarData(a.data_inicio)} a {formatarData(a.data_fim)}
+                      </span>
+                      <StatusBadge variant={a.status === 'confirmada' ? (futura ? 'info' : 'success') : 'neutral'}>
+                        {a.status === 'confirmada' ? (futura ? 'Confirmada' : 'Cumprida') : 'Sugerida'}
+                      </StatusBadge>
+                    </li>
+                  )
+                })}
+              </ul>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </FeriasShell>
   )
 }

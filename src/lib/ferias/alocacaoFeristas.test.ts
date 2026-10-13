@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sugerirAlocacoes, elegiveisParaVaga } from './alocacaoFeristas'
+import { sugerirAlocacoes, elegiveisParaVaga, precisaTreinamento } from './alocacaoFeristas'
 import type { FeriasFerista, FeriasFuncao, FeriasSolicitacao } from '@/types/ferias'
 
 // ============================================================
@@ -285,5 +285,53 @@ describe('elegiveisParaVaga', () => {
       ...SEM_NADA,
     })
     expect(elegiveis.map((e) => e.ferista.id)).toEqual(['F2'])
+  })
+})
+
+describe('precisaTreinamento (decisão da gestão, 13/10/2026)', () => {
+  const SOLS = [
+    { id: 'v1', colaborador_id: 'c1' },
+    { id: 'v2', colaborador_id: 'c1' }, // outra parcela do mesmo colaborador
+    { id: 'v3', colaborador_id: 'c9' },
+  ]
+  function coberturaCompleta(feristaId: string, departamentoId: string | null, solicitacaoId: string) {
+    return { ferista_id: feristaId, departamento_id: departamentoId, solicitacao_id: solicitacaoId, status: 'confirmada' as const }
+  }
+
+  it('posto novo para o ferista (sem histórico) => precisa treinar', () => {
+    expect(precisaTreinamento({ alocacoes: [], solicitacoes: SOLS, feristaId: 'F1', vaga: vaga('v1', 'D1', 'fp', '2026-10-01', '2026-10-30', 'c1') })).toBe(true)
+  })
+
+  it('já cobriu o mesmo posto antes => NÃO precisa treinar', () => {
+    const alocacoes = [coberturaCompleta('F1', 'D1', 'v3')]
+    expect(precisaTreinamento({ alocacoes, solicitacoes: SOLS, feristaId: 'F1', vaga: vaga('v1', 'D1', 'fp', '2026-10-01', '2026-10-30', 'c1') })).toBe(false)
+  })
+
+  it('segunda parcela das mesmas férias com o mesmo ferista => NÃO precisa treinar', () => {
+    const alocacoes = [coberturaCompleta('F2', 'D2', 'v1')] // F2 cobriu a 1ª parcela do c1
+    const segundaParcela = { ...vaga('v2', 'D2', 'fp', '2026-12-01', '2026-12-15', 'c1'), parcelada: true }
+    expect(precisaTreinamento({ alocacoes, solicitacoes: SOLS, feristaId: 'F2', vaga: segundaParcela })).toBe(false)
+  })
+
+  it('segunda parcela com ferista DIFERENTE => precisa treinar', () => {
+    const alocacoes = [coberturaCompleta('F1', 'D2', 'v1')]
+    const segundaParcela = { ...vaga('v2', 'D2', 'fp', '2026-12-01', '2026-12-15', 'c1'), parcelada: true }
+    expect(precisaTreinamento({ alocacoes, solicitacoes: SOLS, feristaId: 'F2', vaga: segundaParcela })).toBe(true)
+  })
+
+  it('alocação cancelada no posto NÃO conta como "já conhece"', () => {
+    const alocacoes = [{ ...coberturaCompleta('F1', 'D1', 'v3'), status: 'cancelada' as const }]
+    expect(precisaTreinamento({ alocacoes, solicitacoes: SOLS, feristaId: 'F1', vaga: vaga('v1', 'D1', 'fp', '2026-10-01', '2026-10-30', 'c1') })).toBe(true)
+  })
+
+  it('cobertura em OUTRO posto não isenta o treinamento', () => {
+    const alocacoes = [coberturaCompleta('F1', 'D2', 'v3')]
+    expect(precisaTreinamento({ alocacoes, solicitacoes: SOLS, feristaId: 'F1', vaga: vaga('v1', 'D1', 'fp', '2026-10-01', '2026-10-30', 'c1') })).toBe(true)
+  })
+
+  it('sugerirAlocacoes propaga a sugestão de treinamento', () => {
+    const vagas = [vaga('v1', 'D1', 'fp', '2026-10-01', '2026-10-30', 'c1')]
+    const { sugestoes } = sugerirAlocacoes({ vagas, feristas: CINCO_FERISTAS, ...SEM_NADA, solicitacoes: [{ id: 'v1', colaborador_id: 'c1' }] })
+    expect(sugestoes[0].precisaTreinamento).toBe(true)
   })
 })

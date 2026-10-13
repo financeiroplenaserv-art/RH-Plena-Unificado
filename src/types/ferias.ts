@@ -48,6 +48,13 @@ export interface FeriasSolicitacao {
   origem_alocacao: OrigemAlocacaoFerias | null
   /** true = período pedido pelo próprio colaborador (registrado pelo RH) — prioridade na aprovação e o plano automático não mexe */
   pedido_colaborador: boolean
+  /** Checklist de comunicação da cobertura (migration 125, decisão da gestão 13/10/2026) */
+  informativo_cliente_em?: string | null
+  contato_titular_por?: string | null
+  contato_titular_em?: string | null
+  contato_ferista_por?: string | null
+  contato_ferista_em?: string | null
+  encarregado_lider?: string | null
   registrado_por: string | null
   aprovado_por: string | null
   data_aprovacao: string | null
@@ -87,6 +94,10 @@ export interface FeriasAlocacao {
   origem: OrigemAlocacaoFerias
   score: number | null
   motivo: string | null
+  /** Treinamento do ferista no posto (migration 125): NULL = não avaliado */
+  precisa_treinamento?: boolean | null
+  /** Dias/horário do treinamento, texto livre */
+  treinamento_detalhe?: string | null
   usuario_id: string | null
   created_at?: string
   updated_at?: string
