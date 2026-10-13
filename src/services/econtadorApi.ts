@@ -111,3 +111,34 @@ export async function listarFuncionarios(
   onProgress?.(todos.length, todos.length)
   return todos
 }
+
+export interface AgendarFeriasInput {
+  /** ID da empresa na Alterdata (empresas.codigo_alterdata) */
+  empresaId: string
+  matricula: string
+  /** AAAA-MM-DD */
+  de: string
+  /** AAAA-MM-DD */
+  ate: string
+  abonodias: number
+  adiantamentodecimoterceiro: boolean
+  anotacoes?: string
+}
+
+export interface AgendarFeriasResultado {
+  agendamentoId: string
+  funcionario: string | null
+}
+
+/** Envia o agendamento de férias para o módulo de Agendamento de Férias do e-Contador (decisão da gestão, 13/10/2026). */
+export async function agendarFerias(input: AgendarFeriasInput): Promise<AgendarFeriasResultado> {
+  const response = await fetchEdgeFunction('agendar-ferias', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  const corpo = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(corpo?.error || 'Erro ao agendar férias no e-Contador')
+  }
+  return { agendamentoId: String(corpo?.agendamentoId ?? ''), funcionario: corpo?.funcionario ?? null }
+}

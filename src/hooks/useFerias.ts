@@ -7,6 +7,7 @@ import type { Colaborador, FeriasPeriodo, FeriasNotificacao, DestinatarioNotific
 import type { FeriasAlocacaoComSolicitacao, FeriasFerista, FeriasFuncao, FeriasRegra, FeriasSolicitacao, OrigemAlocacaoFerias, StatusSolicitacaoFerias } from '@/types/ferias'
 import type { NovoPeriodoFerias } from '@/lib/ferias/importarFeriasFlit'
 import { avaliarTetoSimultaneo, type AvaliacaoTeto } from '@/lib/ferias/tetoSimultaneo'
+import * as econtadorApi from '@/services/econtadorApi'
 
 const COLUNAS_RESUMIDO = 'id, matricula, nome_completo, status, cargo, departamento, departamento_id, empresa_id, cpf, data_admissao'
 
@@ -16,6 +17,7 @@ const COLUNAS_SOLICITACAO = `
   origem_alocacao, registrado_por, aprovado_por, data_aprovacao, created_at, updated_at,
   informativo_cliente_em, contato_titular_por, contato_titular_em,
   contato_ferista_por, contato_ferista_em, encarregado_lider,
+  enviado_dp_em, enviado_dp_por, dp_agendamento_id,
   colaborador:colaboradores!colaborador_id(id, nome_completo, matricula, departamento, departamento_id, data_admissao, status, cargo),
   ferista:colaboradores!ferista_alocado_id(id, nome_completo, matricula)
 `
@@ -804,6 +806,83 @@ export function useFerias() {
     return true
   }, [])
 
+  /**
+   * Envia o agendamento de férias aprovado para o e-Contador (módulo
+   * Agendamento de Férias — o DP processa sem lançamento manual).
+   * Decisão da gestão, 13/10/2026. Carimba enviado_dp_* na solicitação.
+   */
+  const enviarAoDP = useCallback(async (solicitacao: FeriasSolicitacao): Promise<boolean> => {
+    if (solicitacao.status !== 'aprovada') {
+      toast.error('Só é possível enviar ao DP férias já aprovadas.')
+      return false
+    }
+    if (solicitacao.enviado_dp_em) {
+      toast.info('Esta solicitação já foi enviada ao DP.')
+      return false
+    }
+    const matricula = solicitacao.colaborador?.matricula
+    if (!matricula) {
+      toast.error('Colaborador sem matrícula — cadastre a matrícula antes de enviar ao DP.')
+      return false
+    }
+
+    setLoading(true)
+    // Empresa do colaborador → código Alterdata
+    const { data: colab } = await supabase
+      .from('colaboradores')
+      .select('empresa_id')
+      .eq('id', solicitacao.colaborador_id)
+      .maybeSingle()
+    const empresaId = colab?.empresa_id ?? null
+    let codigoAlterdata: string | null = null
+    if (empresaId) {
+      const { data: empresa } = await supabase
+        .from('empresas')
+        .select('codigo_alterdata')
+        .eq('id', empresaId)
+        .maybeSingle()
+      codigoAlterdata = empresa?.codigo_alterdata ?? null
+    }
+    if (!codigoAlterdata) {
+      setLoading(false)
+      toast.error('A empresa do colaborador não tem código Alterdata cadastrado (tela Empresas).')
+      return false
+    }
+
+    try {
+      const resultado = await econtadorApi.agendarFerias({
+        empresaId: codigoAlterdata,
+        matricula,
+        de: solicitacao.data_inicio,
+        ate: solicitacao.data_fim,
+        abonodias: solicitacao.dias_abono,
+        adiantamentodecimoterceiro: solicitacao.adiantamento_13,
+        anotacoes: solicitacao.observacao ?? undefined,
+      })
+      const { data: authData } = await supabase.auth.getUser()
+      const { data, error } = await supabase
+        .from('ferias_solicitacoes')
+        .update({
+          enviado_dp_em: new Date().toISOString(),
+          enviado_dp_por: authData.user?.id ?? null,
+          dp_agendamento_id: resultado.agendamentoId || null,
+        })
+        .eq('id', solicitacao.id)
+        .select('id')
+      setLoading(false)
+      if (error || !data || data.length === 0) {
+        toast.error('Agendamento CRIADO no e-Contador, mas não consegui marcar a solicitação como enviada: ' + (error?.message ?? 'sem permissão') + ' — anote o id ' + resultado.agendamentoId)
+        return false
+      }
+      toast.success(`Férias enviadas ao DP${resultado.funcionario ? ` (${resultado.funcionario})` : ''}. O DP processa no e-Contador.`)
+      return true
+    } catch (err) {
+      setLoading(false)
+      toast.error('Falha ao enviar ao DP: ' + (err instanceof Error ? err.message : 'erro'))
+      return false
+    }
+  }, [])
+
   /** Desfaz a cobertura de uma solicitação: cancela a alocação confirmada e limpa o ferista dela. */
   const desfazerAlocacao = useCallback(async (solicitacaoId: string): Promise<boolean> => {
     const { data: canceladas, error: erroCancela } = await supabase
@@ -1079,6 +1158,7 @@ export function useFerias() {
     trocarFerista,
     atualizarAlocacao,
     atualizarComunicacaoSolicitacao,
+    enviarAoDP,
     listarFeristas,
     adicionarFerista,
     atualizarFerista,

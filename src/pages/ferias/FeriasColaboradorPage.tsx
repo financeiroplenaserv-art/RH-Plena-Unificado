@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Bell, CalendarDays, CalendarPlus, User, UserCheck } from 'lucide-react'
-import { formatarData, hojeBrasil } from '@/lib/utils'
+import { formatarData, formatarDataDeTimestamp, hojeBrasil } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
 import { StatusBadge } from '@/components/corh/StatusBadge'
@@ -288,7 +288,17 @@ export function FeriasColaboradorPage() {
                         <StatusBadge variant={VARIANTE_STATUS[s.status]}>{ROTULO_STATUS[s.status]}</StatusBadge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{condicoes(s)}</TableCell>
-                      <TableCell className="text-muted-foreground">{s.ferista?.nome_completo ?? '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {s.ferista?.nome_completo ?? '—'}
+                        {s.enviado_dp_em && (
+                          <span
+                            className="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-medium text-blue-800"
+                            title={`Agendamento enviado ao e-Contador em ${formatarDataDeTimestamp(s.enviado_dp_em)}${s.dp_agendamento_id ? ` · id ${s.dp_agendamento_id}` : ''}`}
+                          >
+                            no DP
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{ROTULO_ORIGEM[s.origem]}</TableCell>
                       <TableCell className="text-muted-foreground">{s.observacao ?? '—'}</TableCell>
                     </TableRow>

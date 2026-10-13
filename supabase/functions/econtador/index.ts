@@ -189,6 +189,28 @@ async function fetchAlterdata(path: string, token: string, timeoutMs = ALTERDATA
   }
 }
 
+/** POST na API Alterdata (JSON:API) — usado pelo agendamento de férias. */
+async function postAlterdata(path: string, token: string, payload: unknown): Promise<{ status: number; corpo: unknown }> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), ALTERDATA_TIMEOUT_MS)
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/vnd.api+json',
+        Accept: 'application/vnd.api+json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    const corpo = await response.json().catch(() => null)
+    return { status: response.status, corpo }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 // ============================================================
 // Handlers
 // ============================================================
@@ -387,6 +409,94 @@ async function listarFuncionarios(req: Request): Promise<Response> {
   return new Response(JSON.stringify(todos), { status: 200 })
 }
 
+/**
+ * Agendar férias no e-Contador (módulo Agendamento de Férias — cai para o DP
+ * processar). Decisão da gestão, 13/10/2026: o CORH planeja e, ao aprovar,
+ * envia o agendamento oficial para a Alterdata — sem lançamento manual do DP.
+ * Body: { empresaId, matricula, de, ate, abonodias, adiantamentodecimoterceiro, anotacoes }
+ */
+async function agendarFerias(req: Request): Promise<Response> {
+  const body = await req.json().catch(() => null)
+  const empresaId = String(body?.empresaId ?? '')
+  const matricula = String(body?.matricula ?? '').trim()
+  const de = String(body?.de ?? '')
+  const ate = String(body?.ate ?? '')
+  const abonodias = Number(body?.abonodias ?? 0)
+  const adiantamento13 = Boolean(body?.adiantamentodecimoterceiro)
+  const anotacoes = String(body?.anotacoes ?? '').slice(0, 500)
+
+  if (!empresaId || !matricula || !/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || ate < de) {
+    return new Response(JSON.stringify({ error: 'Informe empresaId, matricula, de e ate (AAAA-MM-DD, ate >= de)' }), { status: 400 })
+  }
+  if (!Number.isInteger(abonodias) || abonodias < 0 || abonodias > 10) {
+    return new Response(JSON.stringify({ error: 'abonodias deve ser um inteiro de 0 a 10' }), { status: 400 })
+  }
+
+  const token = await getToken()
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Token do e-Contador não configurado' }), { status: 400 })
+  }
+
+  // Mesma minimização LGPD do /funcionarios: só empresas permitidas
+  const permitidas = await idsEmpresasPermitidas(token)
+  if (!permitidas.has(empresaId)) {
+    return new Response(JSON.stringify({ error: 'Empresa não permitida' }), { status: 403 })
+  }
+
+  // Resolve o funcionário pelo código (matrícula com zeros à esquerda)
+  const codigo = matricula.replace(/\D/g, '').padStart(6, '0')
+  let funcionarioId: string | null = null
+  let nomeFuncionario: string | null = null
+  let offset = 0
+  while (funcionarioId === null) {
+    const data = await fetchAlterdata(
+      `/funcionarios?filter[funcionarios][empresa.id][EQ]=${encodeURIComponent(empresaId)}&page[limit]=100&page[offset]=${offset}`,
+      token
+    ) as { data?: FuncionarioItem[] }
+    if (!data.data || data.data.length === 0) break
+    for (const item of data.data) {
+      if (String(item.attributes?.codigo ?? '') === codigo) {
+        funcionarioId = String(item.id || '')
+        nomeFuncionario = asStringOrNull(item.attributes?.nome)
+        break
+      }
+    }
+    if (data.data.length < 100) break
+    offset += 100
+  }
+
+  if (!funcionarioId) {
+    return new Response(JSON.stringify({ error: `Funcionário de matrícula ${codigo} não encontrado nessa empresa no e-Contador` }), { status: 404 })
+  }
+
+  // status id 1 = aguardando processamento do DP (tipos-status-agendamento)
+  const { status, corpo } = await postAlterdata('/agendamentos-ferias', token, {
+    data: {
+      type: 'agendamentos-ferias',
+      relationships: {
+        funcionario: { data: { id: funcionarioId, type: 'funcionarios' } },
+        status: { data: { id: 1, type: 'tipos-status-agendamento' } },
+      },
+      attributes: {
+        de,
+        ate,
+        solicitacao: new Date().toISOString(),
+        abonodias,
+        adiantamentodecimoterceiro: adiantamento13,
+        anotacoes: anotacoes || undefined,
+      },
+    },
+  })
+
+  if (status !== 200 && status !== 201) {
+    const detalhe = corpo ? JSON.stringify(corpo).slice(0, 400) : ''
+    return new Response(JSON.stringify({ error: `Alterdata recusou o agendamento (HTTP ${status}) ${detalhe}` }), { status: 502 })
+  }
+
+  const agendamentoId = String((corpo as { data?: { id?: string } })?.data?.id ?? '')
+  return new Response(JSON.stringify({ ok: true, agendamentoId, funcionarioId, funcionario: nomeFuncionario }), { status: 200 })
+}
+
 // ============================================================
 // Entrypoint
 // ============================================================
@@ -449,6 +559,8 @@ Deno.serve(async (req: Request) => {
       response = await listarEmpresas()
     } else if (path === 'funcionarios' && req.method === 'GET') {
       response = await listarFuncionarios(req)
+    } else if (path === 'agendar-ferias' && req.method === 'POST') {
+      response = await agendarFerias(req)
     } else {
       response = new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), { status: 404 })
     }

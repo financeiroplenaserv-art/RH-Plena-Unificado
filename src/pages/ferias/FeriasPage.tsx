@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowDown, ArrowUp, ArrowUpDown, Bell, CalendarDays, CalendarPlus, Check, Download, Trash2, User } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Bell, CalendarDays, CalendarPlus, Check, Download, Send, Trash2, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { hojeBrasil, agoraBrasil, formatarData } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
@@ -33,7 +33,7 @@ import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useFerias } from '@/hooks/useFerias'
 import { useColaboradores } from '@/hooks/useColaboradores'
 import { supabase } from '@/lib/supabase'
-import { podeExportarFerias, podeGerenciarFerias } from '@/lib/permissoes'
+import { podeExportarFerias, podeGerenciarEContador, podeGerenciarFerias } from '@/lib/permissoes'
 import { normalizarTexto } from '@/lib/escalas/normalizarTexto'
 import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import {
@@ -111,8 +111,10 @@ export function FeriasPage() {
   const perfil = user?.nivel_acesso
   const podeExportar = perfil ? podeExportarFerias(perfil) : false
   const podeGerenciar = perfil ? podeGerenciarFerias(perfil) : false
+  // Envio do agendamento ao DP passa pela Edge Function econtador (admin/adm/dp1/dp2)
+  const podeEnviarDP = perfil ? podeGerenciarEContador(perfil) : false
 
-  const { loading, listarSolicitacoes, excluirPeriodo, aprovarSolicitacao, registrarNotificacao } = useFerias()
+  const { loading, listarSolicitacoes, excluirPeriodo, aprovarSolicitacao, registrarNotificacao, enviarAoDP } = useFerias()
   const { colaboradores, listarResumido } = useColaboradores()
   const [solicitacoes, setSolicitacoes] = useState<FeriasSolicitacao[]>([])
   const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
@@ -125,6 +127,7 @@ export function FeriasPage() {
   const [programarSolicitacao, setProgramarSolicitacao] = useState<FeriasSolicitacao | null>(null)
   const [notificacaoLinha, setNotificacaoLinha] = useState<LinhaFerias | null>(null)
   const [excluirPrevisao, setExcluirPrevisao] = useState<LinhaFerias | null>(null)
+  const [enviandoDP, setEnviandoDP] = useState<FeriasSolicitacao | null>(null)
 
   const carregar = async () => {
     setCarregando(true)
@@ -162,6 +165,15 @@ export function FeriasPage() {
         if (admA !== admB) return admA.localeCompare(admB)
         return a.data_inicio.localeCompare(b.data_inicio)
       })
+  }, [solicitacoes])
+
+  // Fila de envio ao DP (decisão da gestão, 13/10/2026 — migration 126):
+  // férias aprovadas, correntes ou futuras, ainda não enviadas ao e-Contador.
+  const filaEnvioDP = useMemo(() => {
+    const hoje = hojeBrasil()
+    return solicitacoes
+      .filter((s) => s.status === 'aprovada' && !s.enviado_dp_em && s.data_fim >= hoje)
+      .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
   }, [solicitacoes])
 
   // Monta uma linha por colaborador ativo, juntando suas solicitações
@@ -309,6 +321,15 @@ export function FeriasPage() {
     if (ok) await carregar()
   }
 
+  const handleEnviarDP = async () => {
+    if (!enviandoDP) return
+    const ok = await enviarAoDP(enviandoDP)
+    if (ok) {
+      setEnviandoDP(null)
+      await carregar()
+    }
+  }
+
   const exportarExcel = async () => {
     if (linhasFiltradas.length === 0) {
       toast.info('Nenhum registro para exportar. Aplique um filtro primeiro.')
@@ -420,6 +441,46 @@ export function FeriasPage() {
                     Aprovar
                   </Button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {podeEnviarDP && filaEnvioDP.length > 0 && (
+        <section className="mb-4 overflow-hidden rounded-2xl border border-blue-200 bg-blue-50/60 shadow-sm">
+          <div className="border-b border-blue-200 px-5 py-3.5">
+            <h2 className="text-[14px] font-semibold text-foreground">
+              Aguardando envio ao DP
+              <span className="ml-1.5 rounded-full bg-blue-200/70 px-2 py-0.5 text-[11px] font-bold text-blue-800">
+                {filaEnvioDP.length}
+              </span>
+            </h2>
+            <p className="text-[12px] text-muted-foreground">
+              Férias aprovadas que ainda não foram enviadas ao e-Contador. O envio registra o agendamento na Alterdata para o DP processar — sem lançamento manual.
+            </p>
+          </div>
+          <ul className="divide-y divide-blue-200/60">
+            {filaEnvioDP.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/ferias/colaborador/${s.colaborador_id}`}
+                    className="block truncate text-[13px] font-medium text-primary hover:underline"
+                  >
+                    {s.colaborador?.nome_completo ?? 'Colaborador'}
+                  </Link>
+                  <p className="text-[12px] tabular-nums text-muted-foreground">
+                    {formatarData(s.data_inicio)} a {formatarData(s.data_fim)}
+                    {s.dias_abono > 0 ? ` · abono ${s.dias_abono}d` : ''}
+                    {s.adiantamento_13 ? ' · 13º adiantado' : ''}
+                    {s.parcelada ? ' · parcelada' : ''}
+                  </p>
+                </div>
+                <Button variant="primary" size="sm" onClick={() => setEnviandoDP(s)} loading={loading}>
+                  <Send className="size-4" />
+                  Enviar ao DP
+                </Button>
               </li>
             ))}
           </ul>
@@ -605,6 +666,23 @@ export function FeriasPage() {
         confirmLabel="Excluir"
         destructive
         onConfirm={handleExcluirPrevisao}
+      />
+
+      <ConfirmDialog
+        open={enviandoDP !== null}
+        onOpenChange={(aberto) => {
+          if (!aberto) setEnviandoDP(null)
+        }}
+        icon={<Send className="size-6 text-blue-600" />}
+        iconClassName="bg-blue-50"
+        title="Enviar agendamento ao DP"
+        description={
+          enviandoDP
+            ? `Enviar as férias de ${enviandoDP.colaborador?.nome_completo ?? 'colaborador'} (${formatarData(enviandoDP.data_inicio)} a ${formatarData(enviandoDP.data_fim)}) para o Agendamento de Férias do e-Contador? O DP será sinalizado para processar na Alterdata.`
+            : ''
+        }
+        confirmLabel="Enviar ao DP"
+        onConfirm={handleEnviarDP}
       />
     </FeriasShell>
   )

@@ -55,6 +55,10 @@ export interface FeriasSolicitacao {
   contato_ferista_por?: string | null
   contato_ferista_em?: string | null
   encarregado_lider?: string | null
+  /** Rastreio do envio do agendamento ao DP via e-Contador (migration 126) */
+  enviado_dp_em?: string | null
+  enviado_dp_por?: string | null
+  dp_agendamento_id?: string | null
   registrado_por: string | null
   aprovado_por: string | null
   data_aprovacao: string | null
