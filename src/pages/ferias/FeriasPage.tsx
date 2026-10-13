@@ -169,10 +169,11 @@ export function FeriasPage() {
 
   // Fila de envio ao DP (decisão da gestão, 13/10/2026 — migration 126):
   // férias aprovadas, correntes ou futuras, ainda não enviadas ao e-Contador.
+  // Origem 'econtador' fica DE FORA: vieram da Alterdata — o DP já lançou lá.
   const filaEnvioDP = useMemo(() => {
     const hoje = hojeBrasil()
     return solicitacoes
-      .filter((s) => s.status === 'aprovada' && !s.enviado_dp_em && s.data_fim >= hoje)
+      .filter((s) => s.status === 'aprovada' && !s.enviado_dp_em && s.origem !== 'econtador' && s.data_fim >= hoje)
       .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
   }, [solicitacoes])
 
