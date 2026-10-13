@@ -178,6 +178,9 @@ export function FeriasProgramacaoPage() {
     [linhas, contrato]
   )
 
+  // Chip só no mês de INÍCIO das férias (decisão da gestão, 13/10/2026 —
+  // repetir o nome no mês seguinte poluía a grade). Exceção: férias que
+  // começaram no ano anterior e terminam em janeiro aparecem em Jan.
   const solicitacoesNoMes = useCallback(
     (lista: FeriasSolicitacao[], mes: number): FeriasSolicitacao[] => {
       const mm = String(mes).padStart(2, '0')
@@ -185,10 +188,14 @@ export function FeriasProgramacaoPage() {
       const inicioMes = `${ano}-${mm}-01`
       const fimMes = `${ano}-${mm}-${String(ultimoDia).padStart(2, '0')}`
       return lista
-        .filter((s) => s.data_inicio <= fimMes && s.data_fim >= inicioMes)
+        .filter((s) =>
+          s.data_inicio >= inicioMes && s.data_inicio <= fimMes
+            ? true
+            : mes === 1 && s.data_inicio < inicioAno && s.data_fim >= inicioAno
+        )
         .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
     },
-    [ano]
+    [ano, inicioAno]
   )
 
   // KPIs do ano
