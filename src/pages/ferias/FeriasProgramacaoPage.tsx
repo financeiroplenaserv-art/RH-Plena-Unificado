@@ -37,6 +37,11 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 
 const SEM_CONTRATO = 'sem_contrato'
 
+/** Tipo de ocorrência de afastamento INSS (espelha tiposOcorrencia.ts) — usado
+ * para sinalizar no plano automático quem está afastado sem previsão de retorno
+ * (decisão da gestão, 13/10/2026: NÃO excluir — o RH decide caso a caso). */
+const TIPO_LICENCA_INSS = 'Licença Médica (acima 15 dias — INSS)'
+
 type CorChip = 'azul' | 'verde' | 'amarelo' | 'vermelho'
 
 const CLASSE_CHIP: Record<CorChip, string> = {
@@ -65,6 +70,10 @@ export function FeriasProgramacaoPage() {
   const [planoDe, setPlanoDe] = useState('')
   const [planoAte, setPlanoAte] = useState('')
   const [planoResultado, setPlanoResultado] = useState<ResultadoPlano | null>(null)
+  /** Colaboradores com licença INSS ativa (sinalização, não exclusão) */
+  const [inssAtivos, setInssAtivos] = useState<Set<string>>(new Set())
+  /** Ids das propostas marcadas para gravar (o RH decide caso a caso) */
+  const [selecionadasPlano, setSelecionadasPlano] = useState<Set<string>>(new Set())
   const [gerandoPlano, setGerandoPlano] = useState(false)
 
   const [solicitacoes, setSolicitacoes] = useState<FeriasSolicitacao[]>([])
@@ -207,27 +216,36 @@ export function FeriasProgramacaoPage() {
   const gerarPreviaPlano = async () => {
     if (!planoDe || !planoAte || planoAte < planoDe) return
     setGerandoPlano(true)
-    const [colaboradores, regras] = await Promise.all([listarColaboradoresResumo(), listarRegras()])
+    const [colaboradores, regras, { data: inssData, error: erroInss }] = await Promise.all([
+      listarColaboradoresResumo(),
+      listarRegras(),
+      supabase.from('ocorrencias').select('colaborador_id').eq('status', 'Ativa').eq('tipo_ocorrencia', TIPO_LICENCA_INSS),
+    ])
+    if (erroInss) console.error('Erro ao verificar licenças INSS:', erroInss)
+    setInssAtivos(new Set((inssData || []).map((o) => o.colaborador_id)))
     const enriquecidos = colaboradores.map((c) => ({
       ...c,
       funcao_id: resolverFuncao(c.cargo, funcoes)?.id ?? null,
     }))
-    setPlanoResultado(
-      gerarPlanoAutomatico({
-        colaboradores: enriquecidos,
-        solicitacoes,
-        regras,
-        periodoInicio: planoDe,
-        periodoFim: planoAte,
-      })
-    )
+    const resultado = gerarPlanoAutomatico({
+      colaboradores: enriquecidos,
+      solicitacoes,
+      regras,
+      periodoInicio: planoDe,
+      periodoFim: planoAte,
+    })
+    // Padrão: todas marcadas — o RH desmarca caso a caso (ex.: afastados INSS)
+    setSelecionadasPlano(new Set(resultado.propostas.map((p) => p.colaborador.id)))
+    setPlanoResultado(resultado)
     setGerandoPlano(false)
   }
 
   const confirmarPlano = async () => {
     if (!planoResultado) return
+    const selecionadas = planoResultado.propostas.filter((p) => selecionadasPlano.has(p.colaborador.id))
+    if (selecionadas.length === 0) return
     const ok = await criarPrevisoesEmLote(
-      planoResultado.propostas.map((p) => ({
+      selecionadas.map((p) => ({
         colaborador_id: p.colaborador.id,
         departamento_id: p.colaborador.departamento_id ?? null,
         funcao_id: p.colaborador.funcao_id ?? null,
@@ -464,22 +482,46 @@ export function FeriasProgramacaoPage() {
                 {planoResultado.propostas.length === 0 ? (
                   <p className="text-[13px] text-muted-foreground">Ninguém para planejar neste período.</p>
                 ) : (
-                  <ul className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
-                    {planoResultado.propostas.map((p) => (
-                      <li key={p.colaborador.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2">
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-                          {p.colaborador.nome_completo}
-                          <span className="ml-2 text-[12px] font-normal text-muted-foreground">{nomeContratoPlano(p.colaborador.departamento_id)}</span>
-                        </span>
-                        <span className="text-[12px] tabular-nums text-muted-foreground">
-                          {formatarData(p.data_inicio)} a {formatarData(p.data_fim)}
-                        </span>
-                        <span className={`text-[11px] ${p.motivo.includes('vencido') ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
-                          {p.motivo}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <p className="text-[12px] text-muted-foreground">
+                      Todas vêm marcadas — desmarque quem não deve receber previsão agora (ex.: afastado pelo INSS sem previsão de retorno).
+                    </p>
+                    <ul className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+                      {planoResultado.propostas.map((p) => {
+                        const selecionada = selecionadasPlano.has(p.colaborador.id)
+                        const deInss = inssAtivos.has(p.colaborador.id)
+                        return (
+                          <li key={p.colaborador.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selecionada}
+                              onChange={(e) => {
+                                const nova = new Set(selecionadasPlano)
+                                if (e.target.checked) nova.add(p.colaborador.id)
+                                else nova.delete(p.colaborador.id)
+                                setSelecionadasPlano(nova)
+                              }}
+                            />
+                            <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${selecionada ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
+                              {p.colaborador.nome_completo}
+                              <span className="ml-2 text-[12px] font-normal text-muted-foreground">{nomeContratoPlano(p.colaborador.departamento_id)}</span>
+                              {deInss && (
+                                <span className="ml-1.5 rounded bg-red-100 px-1.5 py-0.5 text-[11px] font-medium text-red-700" title="Licença médica INSS ativa — sem previsão de retorno">
+                                  afastado INSS
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-[12px] tabular-nums text-muted-foreground">
+                              {formatarData(p.data_inicio)} a {formatarData(p.data_fim)}
+                            </span>
+                            <span className={`text-[11px] ${p.motivo.includes('vencido') ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
+                              {p.motivo}
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </>
                 )}
 
                 {planoResultado.naoCouberam.length > 0 && (
@@ -499,9 +541,9 @@ export function FeriasProgramacaoPage() {
               variant="primary"
               onClick={confirmarPlano}
               loading={loading}
-              disabled={!planoResultado || planoResultado.propostas.length === 0}
+              disabled={!planoResultado || selecionadasPlano.size === 0}
             >
-              Criar {planoResultado ? planoResultado.propostas.length : 0} previsões
+              Criar {selecionadasPlano.size} previsões
             </Button>
           </DialogFooter>
         </DialogContent>
