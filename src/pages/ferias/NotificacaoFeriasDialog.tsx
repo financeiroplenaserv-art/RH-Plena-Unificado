@@ -20,8 +20,8 @@ interface NotificacaoFeriasDialogProps {
   onOpenChange: (open: boolean) => void
   /** Colaborador pré-selecionado (quando aberto a partir da linha da Visão geral) */
   colaboradorInicial?: Pick<Colaborador, 'id' | 'nome_completo'> | null
-  /** Período de férias vinculado (previsão/agendado mais próximo), quando houver */
-  periodoId?: string | null
+  /** Solicitação de férias vinculada (prevista/agendada mais próxima), quando houver */
+  solicitacaoId?: string | null
   onSalvar: (notificacao: NovaNotificacao) => Promise<boolean>
   loading?: boolean
 }
@@ -34,7 +34,7 @@ export function NotificacaoFeriasDialog({
   open,
   onOpenChange,
   colaboradorInicial = null,
-  periodoId = null,
+  solicitacaoId = null,
   onSalvar,
   loading = false,
 }: NotificacaoFeriasDialogProps) {
@@ -68,7 +68,7 @@ export function NotificacaoFeriasDialog({
     setErro(null)
     const ok = await onSalvar({
       colaborador_id: colaboradorId,
-      ferias_periodo_id: periodoId,
+      solicitacao_id: solicitacaoId,
       destinatario,
       data_notificacao: dataNotificacao,
       observacao: observacao.trim() || null,

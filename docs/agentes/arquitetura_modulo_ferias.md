@@ -1,5 +1,10 @@
 # Plano de Arquitetura — Módulo de Gestão de Férias e Alocação de Feristas
 
+> **⚠️ SUPERADO — implementado em 25/09/2026 (migration 112 + Etapas 1–5 da reconstrução).**
+> Este documento é o plano ORIGINAL (histórico). O estado vigente do módulo está no
+> `AGENTS.md` §11 (bullet "Férias — módulo reconstruído") e em `docs/REGRAS_NEGOCIO.md`
+> (seção "Módulo Férias"). Não usar este plano como referência de implementação atual.
+
 > **Projeto:** RH Plena Unificado (CORH)  
 > **Local:** `c:\Projetos\RH-Plena-Unificado`  
 > **Elaborado por:** Arquiteto de Software Sênior  

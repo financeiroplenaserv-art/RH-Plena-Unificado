@@ -10,6 +10,7 @@
 // ============================================================
 
 import { agoraBrasil } from '@/lib/utils'
+import type { StatusSolicitacaoFerias, TipoFerias } from '@/types/ferias'
 
 /** Dias de antecedência para alertar "A vencer" antes do limite concessivo. */
 export const DIAS_ALERTA_VENCIMENTO = 60
@@ -17,9 +18,11 @@ export const DIAS_ALERTA_VENCIMENTO = 60
 export type SituacaoFerias = 'Em gozo' | 'Agendado' | 'Previsto' | 'Vencido' | 'A vencer' | 'Em dia' | 'Sem dados'
 
 export interface PeriodoSimples {
-  tipo: 'gozo' | 'agendado' | 'previsto'
+  tipo: TipoFerias
   data_inicio: string // YYYY-MM-DD
   data_fim: string // YYYY-MM-DD
+  /** Opcional para não quebrar chamadores antigos; 'cancelada' é ignorada no cálculo */
+  status?: StatusSolicitacaoFerias
 }
 
 export interface ResumoFerias {
@@ -101,17 +104,20 @@ export function resumirFerias(
 ): ResumoFerias {
   const hojeISO = paraISO(hoje)
 
-  const gozos = periodos.filter((p) => p.tipo === 'gozo')
+  // Solicitações canceladas não contam para nada (workflow da migração 112)
+  const validos = periodos.filter((p) => p.status !== 'cancelada')
+
+  const gozos = validos.filter((p) => p.tipo === 'gozo')
   const ultimoGozo = gozos.reduce<PeriodoSimples | null>(
     (maior, p) => (maior === null || p.data_fim > maior.data_fim ? p : maior),
     null
   )
-  const agendados = periodos
+  const agendados = validos
     .filter((p) => p.tipo === 'agendado' && p.data_fim >= hojeISO)
     .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
   const proximoAgendado = agendados[0] ?? null
 
-  const previsoes = periodos
+  const previsoes = validos
     .filter((p) => p.tipo === 'previsto' && p.data_fim >= hojeISO)
     .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
   const proximaPrevisao = previsoes[0] ?? null
@@ -123,7 +129,7 @@ export function resumirFerias(
   }
 
   // Em gozo hoje (vale apenas para período confirmado: gozo ou agendado)
-  const emGozo = periodos.some(
+  const emGozo = validos.some(
     (p) => p.tipo !== 'previsto' && p.data_inicio <= hojeISO && hojeISO <= p.data_fim
   )
   if (emGozo) {
@@ -170,4 +176,52 @@ export function resumirFerias(
   }
 
   return { ...resumoBase, situacao: 'Em dia', limiteConcessivo: limite }
+}
+
+/** Linha da linha do tempo de períodos aquisitivos da ficha do colaborador. */
+export interface AquisitivoInfo {
+  inicio: string // YYYY-MM-DD
+  fim: string // YYYY-MM-DD
+  /** Limite legal para gozar este aquisitivo (fim + 12 meses) */
+  limiteConcessivo: string
+  /** Coberto por um gozo encerrado dentro do período concessivo */
+  coberto: boolean
+  /** Aquisitivo que contém a data de hoje */
+  atual: boolean
+}
+
+/**
+ * Linha do tempo dos períodos aquisitivos (ciclos de 12 meses da admissão),
+ * do primeiro até o que contém hoje. Um gozo cobre o aquisitivo quando
+ * termina dentro do período concessivo dele (fim do aquisitivo + 12 meses).
+ */
+export function listarAquisitivos(
+  dataAdmissao: string | null,
+  gozos: { inicio: string; fim: string }[],
+  hoje: Date = agoraBrasil()
+): AquisitivoInfo[] {
+  if (!dataAdmissao) return []
+  const admissao = paraData(dataAdmissao)
+  if (isNaN(admissao.getTime())) return []
+
+  const hojeISO = paraISO(hoje)
+  const lista: AquisitivoInfo[] = []
+  // Teto de 60 ciclos só como guarda contra data de admissão absurda
+  for (let k = 1; k <= 60; k++) {
+    const inicio = addAnos(admissao, k - 1)
+    const fim = new Date(addAnos(admissao, k).getTime() - 24 * 60 * 60 * 1000)
+    const inicioISO = paraISO(inicio)
+    const fimISO = paraISO(fim)
+    const limite = paraISO(addAnos(fim, 1))
+    lista.push({
+      inicio: inicioISO,
+      fim: fimISO,
+      limiteConcessivo: limite,
+      coberto: gozos.some((g) => g.fim >= fimISO && g.fim <= limite),
+      atual: inicioISO <= hojeISO && hojeISO <= fimISO,
+    })
+    // Para no aquisitivo que contém hoje (o primeiro cujo fim ainda não passou)
+    if (fimISO >= hojeISO) break
+  }
+  return lista
 }

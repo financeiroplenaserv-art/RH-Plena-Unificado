@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Bell, BellPlus } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
@@ -15,21 +16,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useFerias } from '@/hooks/useFerias'
 import { podeGerenciarFerias } from '@/lib/permissoes'
 import { normalizarTexto } from '@/lib/escalas/normalizarTexto'
+import { formatarData } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import type { FeriasNotificacao } from '@/types/database'
 import { FeriasShell } from './FeriasShell'
 import { NotificacaoFeriasDialog } from './NotificacaoFeriasDialog'
-
-function formatarData(iso: string | null | undefined): string {
-  if (!iso) return '-'
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR')
-}
 
 export function FeriasNotificacoesPage() {
   const { user } = useAuth()
@@ -127,38 +132,52 @@ export function FeriasNotificacoesPage() {
             description="Registre os avisos de férias enviados aos colaboradores e aos responsáveis pelos contratos."
           />
         ) : (
-          <table className="w-full min-w-[720px] text-[13px]">
-            <thead>
-              <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <th className="px-5 py-3">Data</th>
-                <th className="px-3 py-3">Colaborador</th>
-                <th className="px-3 py-3">Matrícula</th>
-                <th className="px-3 py-3">Departamento</th>
-                <th className="px-3 py-3">Destinatário</th>
-                <th className="px-5 py-3">Observação</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Colaborador</TableHead>
+                <TableHead>Matrícula</TableHead>
+                <TableHead>Departamento</TableHead>
+                <TableHead>Destinatário</TableHead>
+                <TableHead>Observação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtradas.map((n) => (
-                <tr key={n.id} className="border-b border-border/60 hover:bg-accent/40">
-                  <td className="px-5 py-3 tabular-nums whitespace-nowrap">{formatarData(n.data_notificacao)}</td>
-                  <td className="px-3 py-3 font-medium text-foreground">{n.colaborador?.nome_completo ?? '-'}</td>
-                  <td className="px-3 py-3 tabular-nums text-muted-foreground">{n.colaborador?.matricula ?? '-'}</td>
-                  <td className="px-3 py-3">
+                <TableRow key={n.id}>
+                  <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">
+                    {formatarData(n.data_notificacao) || '—'}
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {n.colaborador ? (
+                      <Link
+                        to={`/ferias/colaborador/${n.colaborador.id}`}
+                        title={n.solicitacao_id ? 'Ver a solicitação na ficha do colaborador' : 'Ver a ficha de férias'}
+                        className="text-primary hover:underline"
+                      >
+                        {n.colaborador.nome_completo}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{n.colaborador?.matricula ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">
                     {n.colaborador
                       ? nomeCurtoDepartamentoFuzzy(departamentos, n.colaborador.departamento_id, n.colaborador.departamento, n.colaborador.empresa_id)
-                      : '-'}
-                  </td>
-                  <td className="px-3 py-3">
+                      : '—'}
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge variant={n.destinatario === 'colaborador' ? 'info' : 'warning'}>
                       {n.destinatario === 'colaborador' ? 'Colaborador' : 'Responsável contrato'}
                     </StatusBadge>
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground">{n.observacao ?? '-'}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{n.observacao ?? '—'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </DataTable>
 

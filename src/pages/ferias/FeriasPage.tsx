@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Bell, CalendarDays, CalendarPlus, Download, Trash2, User } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowDown, ArrowUp, ArrowUpDown, Bell, CalendarDays, CalendarPlus, Check, Download, Trash2, User } from 'lucide-react'
 import { toast } from 'sonner'
-import { hojeBrasil, agoraBrasil } from '@/lib/utils'
+import { hojeBrasil, agoraBrasil, formatarData } from '@/lib/utils'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
 import { DataTable } from '@/components/corh/DataTable'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
+import { FiltrosAtivosBadge } from '@/components/corh/FiltrosAtivosBadge'
 import { Button } from '@/components/corh/Button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -30,19 +32,20 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useFerias } from '@/hooks/useFerias'
 import { useColaboradores } from '@/hooks/useColaboradores'
-import { useDepartamentos } from '@/hooks/useDepartamentos'
+import { supabase } from '@/lib/supabase'
 import { podeExportarFerias, podeGerenciarFerias } from '@/lib/permissoes'
 import { normalizarTexto } from '@/lib/escalas/normalizarTexto'
-import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
 import {
   resumirFerias,
   DIAS_ALERTA_VENCIMENTO,
   type SituacaoFerias,
   type ResumoFerias,
 } from '@/lib/ferias/calculoFerias'
-import type { Colaborador, FeriasPeriodo } from '@/types/database'
+import type { Colaborador } from '@/types/database'
+import type { FeriasSolicitacao } from '@/types/ferias'
 import { FeriasShell } from './FeriasShell'
-import { NovaPrevisaoDialog } from './NovaPrevisaoDialog'
+import { ProgramarFeriasDialog } from './ProgramarFeriasDialog'
 import { NotificacaoFeriasDialog } from './NotificacaoFeriasDialog'
 
 interface LinhaFerias {
@@ -50,10 +53,12 @@ interface LinhaFerias {
   resumo: ResumoFerias
   /** Nome curto do departamento para exibição (padrão da aba Colaboradores) */
   departamentoExibido: string
-  /** Linha da previsão manual mais próxima (para excluir/vincular notificação) */
-  previsaoPeriodo: FeriasPeriodo | null
-  /** Linha do próximo período confirmado (agendado), para vincular notificação */
-  agendadoPeriodo: FeriasPeriodo | null
+  /** Previsão manual mais próxima (para excluir/vincular notificação) */
+  previsaoSolicitacao: FeriasSolicitacao | null
+  /** Próximo período confirmado (agendado), para vincular notificação e ferista */
+  agendadoSolicitacao: FeriasSolicitacao | null
+  /** Nome do ferista alocado na solicitação confirmada, quando houver */
+  feristaNome: string | null
 }
 
 /** Colunas da tabela com ordenação crescente/decrescente (setinha no cabeçalho) */
@@ -85,13 +90,12 @@ const VARIANTE_SITUACAO: Record<SituacaoFerias, 'success' | 'warning' | 'danger'
   'Sem dados': 'neutral',
 }
 
-function formatarData(iso: string | null | undefined): string {
-  if (!iso) return '-'
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR')
+function exibirData(iso: string | null | undefined): string {
+  return formatarData(iso) || '—'
 }
 
 function formatarPeriodo(periodo: { inicio: string; fim: string } | null): string {
-  if (!periodo) return '-'
+  if (!periodo) return '—'
   return `${formatarData(periodo.inicio)} a ${formatarData(periodo.fim)}`
 }
 
@@ -108,23 +112,33 @@ export function FeriasPage() {
   const podeExportar = perfil ? podeExportarFerias(perfil) : false
   const podeGerenciar = perfil ? podeGerenciarFerias(perfil) : false
 
-  const { loading, listarPeriodos, adicionarPrevisao, excluirPeriodo, registrarNotificacao } = useFerias()
+  const { loading, listarSolicitacoes, excluirPeriodo, aprovarSolicitacao, registrarNotificacao } = useFerias()
   const { colaboradores, listarResumido } = useColaboradores()
-  const { departamentos, listar: listarDepartamentos } = useDepartamentos()
-  const [periodos, setPeriodos] = useState<FeriasPeriodo[]>([])
+  const [solicitacoes, setSolicitacoes] = useState<FeriasSolicitacao[]>([])
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
   const [carregando, setCarregando] = useState(true)
 
   const [input, setInput] = useFiltroPersistente('ferias.lista.draft', { busca: '', departamento: 'todos', situacao: 'todas' })
   const [aplicado, setAplicado] = useFiltroPersistente('ferias.lista.aplicado', { busca: '', departamento: 'todos', situacao: 'todas' })
 
-  const [modalPrevisao, setModalPrevisao] = useState(false)
+  const [modalProgramar, setModalProgramar] = useState(false)
+  const [programarSolicitacao, setProgramarSolicitacao] = useState<FeriasSolicitacao | null>(null)
   const [notificacaoLinha, setNotificacaoLinha] = useState<LinhaFerias | null>(null)
   const [excluirPrevisao, setExcluirPrevisao] = useState<LinhaFerias | null>(null)
 
   const carregar = async () => {
     setCarregando(true)
-    const [, listaPeriodos] = await Promise.all([listarResumido(), listarPeriodos(), listarDepartamentos()])
-    setPeriodos(listaPeriodos)
+    // Lista completa de departamentos (sem filtro de nome_curto) para a
+    // resolução fuzzy funcionar — useDepartamentos.listar() filtra nome_curto
+    // NOT NULL e não serve para resolução (ver AGENTS.md §11).
+    const [, lista, { data: deptData, error: erroDept }] = await Promise.all([
+      listarResumido(),
+      listarSolicitacoes(),
+      supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
+    ])
+    if (erroDept) console.error('Erro ao carregar departamentos:', erroDept)
+    setSolicitacoes(lista)
+    setDepartamentos((deptData || []) as DepartamentoFuzzy[])
     setCarregando(false)
   }
 
@@ -133,13 +147,31 @@ export function FeriasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Monta uma linha por colaborador ativo, juntando seus períodos
+  // Solicitações pendentes de aprovação: primeiro os pedidos do próprio
+  // colaborador (prioridade — decisão da gestão 25/09/2026), depois por
+  // antiguidade de admissão (RN-01).
+  const pendencias = useMemo(() => {
+    return solicitacoes
+      .filter((s) => s.status === 'pendente')
+      .sort((a, b) => {
+        const pedidoA = a.pedido_colaborador ? 0 : 1
+        const pedidoB = b.pedido_colaborador ? 0 : 1
+        if (pedidoA !== pedidoB) return pedidoA - pedidoB
+        const admA = a.colaborador?.data_admissao ?? '9999-12-31'
+        const admB = b.colaborador?.data_admissao ?? '9999-12-31'
+        if (admA !== admB) return admA.localeCompare(admB)
+        return a.data_inicio.localeCompare(b.data_inicio)
+      })
+  }, [solicitacoes])
+
+  // Monta uma linha por colaborador ativo, juntando suas solicitações
   const linhas = useMemo<LinhaFerias[]>(() => {
-    const periodosPorColaborador = new Map<string, FeriasPeriodo[]>()
-    for (const periodo of periodos) {
-      const lista = periodosPorColaborador.get(periodo.colaborador_id) ?? []
-      lista.push(periodo)
-      periodosPorColaborador.set(periodo.colaborador_id, lista)
+    const porColaborador = new Map<string, FeriasSolicitacao[]>()
+    for (const s of solicitacoes) {
+      if (s.status === 'cancelada') continue
+      const lista = porColaborador.get(s.colaborador_id) ?? []
+      lista.push(s)
+      porColaborador.set(s.colaborador_id, lista)
     }
 
     const hoje = agoraBrasil()
@@ -148,19 +180,23 @@ export function FeriasPage() {
     return colaboradores
       .filter((c) => c.status === 'Ativo')
       .map((colaborador) => {
-        const doColaborador = periodosPorColaborador.get(colaborador.id) ?? []
+        const doColaborador = porColaborador.get(colaborador.id) ?? []
         const previsoes = doColaborador
-          .filter((p) => p.tipo === 'previsto' && p.data_fim >= hojeISO)
+          .filter((s) => s.tipo === 'previsto' && s.data_fim >= hojeISO)
           .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
-        const agendados = doColaborador
-          .filter((p) => p.tipo === 'agendado' && p.data_fim >= hojeISO)
+        const confirmadas = doColaborador
+          .filter((s) => s.tipo === 'agendado' && s.data_fim >= hojeISO)
           .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))
+        const agendadoSolicitacao = confirmadas[0] ?? null
+        const comFerista = doColaborador
+          .filter((s) => s.ferista && (s.status === 'aprovada' || s.status === 'em_andamento') && s.data_fim >= hojeISO)
+          .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio))[0]
 
         return {
           colaborador,
           resumo: resumirFerias(
             colaborador.data_admissao,
-            doColaborador.map((p) => ({ tipo: p.tipo, data_inicio: p.data_inicio, data_fim: p.data_fim })),
+            doColaborador.map((s) => ({ tipo: s.tipo, data_inicio: s.data_inicio, data_fim: s.data_fim, status: s.status })),
             hoje
           ),
           departamentoExibido: nomeCurtoDepartamentoFuzzy(
@@ -169,11 +205,12 @@ export function FeriasPage() {
             colaborador.departamento,
             colaborador.empresa_id
           ),
-          previsaoPeriodo: previsoes[0] ?? null,
-          agendadoPeriodo: agendados[0] ?? null,
+          previsaoSolicitacao: previsoes[0] ?? null,
+          agendadoSolicitacao,
+          feristaNome: comFerista?.ferista?.nome_completo ?? null,
         }
       })
-  }, [colaboradores, periodos, departamentos])
+  }, [colaboradores, solicitacoes, departamentos])
 
   const opcoesDepartamento = useMemo(() => {
     const nomes = new Set<string>()
@@ -206,6 +243,9 @@ export function FeriasPage() {
       return true
     })
   }, [linhas, aplicado])
+
+  const totalFiltrosAtivos =
+    (aplicado.busca.trim() ? 1 : 0) + (aplicado.departamento !== 'todos' ? 1 : 0) + (aplicado.situacao !== 'todas' ? 1 : 0)
 
   const [ordenacao, setOrdenacao] = useFiltroPersistente<{ coluna: ColunaOrdenacao; direcao: 'asc' | 'desc' } | null>('ferias.lista.ordenacao', null)
 
@@ -256,12 +296,17 @@ export function FeriasPage() {
   }
 
   const handleExcluirPrevisao = async () => {
-    if (!excluirPrevisao?.previsaoPeriodo) return
-    const ok = await excluirPeriodo(excluirPrevisao.previsaoPeriodo.id)
+    if (!excluirPrevisao?.previsaoSolicitacao) return
+    const ok = await excluirPeriodo(excluirPrevisao.previsaoSolicitacao.id)
     if (ok) {
       setExcluirPrevisao(null)
       await carregar()
     }
+  }
+
+  const handleAprovar = async (id: string) => {
+    const ok = await aprovarSolicitacao(id)
+    if (ok) await carregar()
   }
 
   const exportarExcel = async () => {
@@ -279,6 +324,7 @@ export function FeriasPage() {
         'Último gozo': formatarPeriodo(linha.resumo.ultimoGozo),
         'Previsão RH': formatarPeriodo(linha.resumo.proximaPrevisao),
         'Próximo agendado': formatarPeriodo(linha.resumo.proximoAgendado),
+        'Ferista alocado': linha.feristaNome ?? '',
         'Limite concessivo': formatarData(linha.resumo.limiteConcessivo),
         Situação: linha.resumo.situacao,
       }))
@@ -297,7 +343,7 @@ export function FeriasPage() {
     <FeriasShell>
       <PageHeader backTo="/" title="Férias">
         {podeGerenciar && (
-          <Button variant="primary" size="sm" onClick={() => setModalPrevisao(true)}>
+          <Button variant="primary" size="sm" onClick={() => setModalProgramar(true)}>
             <CalendarPlus className="size-4" />
             Nova previsão
           </Button>
@@ -331,6 +377,57 @@ export function FeriasPage() {
           <p className="text-[12px] font-medium text-muted-foreground">Vencidos</p>
           <p className="mt-1 text-[24px] font-bold tabular-nums text-red-600">{contadores['Vencido']}</p>
         </div>
+      </div>
+
+      {podeGerenciar && pendencias.length > 0 && (
+        <section className="mb-4 overflow-hidden rounded-2xl border border-amber-300 bg-amber-50/60 shadow-sm">
+          <div className="border-b border-amber-200 px-5 py-3.5">
+            <h2 className="text-[14px] font-semibold text-foreground">
+              Pendências de aprovação
+              <span className="ml-1.5 rounded-full bg-amber-200/70 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                {pendencias.length}
+              </span>
+            </h2>
+            <p className="text-[12px] text-muted-foreground">Pedidos do próprio colaborador primeiro; depois por antiguidade (admissão mais antiga).</p>
+          </div>
+          <ul className="divide-y divide-amber-200/60">
+            {pendencias.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/ferias/colaborador/${s.colaborador_id}`}
+                    className="block truncate text-[13px] font-medium text-primary hover:underline"
+                  >
+                    {s.colaborador?.nome_completo ?? 'Colaborador'}
+                  </Link>
+                  {s.pedido_colaborador && (
+                    <span className="mt-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      pedido do colaborador
+                    </span>
+                  )}
+                  <p className="text-[12px] tabular-nums text-muted-foreground">
+                    {formatarData(s.data_inicio)} a {formatarData(s.data_fim)}
+                    {s.colaborador?.data_admissao ? ` · admissão ${formatarData(s.colaborador.data_admissao)}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setProgramarSolicitacao(s)}>
+                    <CalendarDays className="size-4" />
+                    Programar
+                  </Button>
+                  <Button variant="primary" size="sm" onClick={() => handleAprovar(s.id)} loading={loading}>
+                    <Check className="size-4" />
+                    Aprovar
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="mb-2 flex items-center justify-end">
+        <FiltrosAtivosBadge total={totalFiltrosAtivos} onLimpar={limparFiltros} />
       </div>
 
       <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={carregando} className="mb-4">
@@ -382,7 +479,7 @@ export function FeriasPage() {
             icon={<CalendarDays className="size-6" />}
             title="Nenhum colaborador encontrado"
             description={
-              periodos.length === 0
+              solicitacoes.length === 0
                 ? 'Importe a planilha de férias do Flit na aba Importar para começar.'
                 : 'Ajuste os filtros e clique em Aplicar.'
             }
@@ -397,6 +494,7 @@ export function FeriasPage() {
                 {cabecalhoOrdenavel('ultimoGozo', 'Último gozo')}
                 {cabecalhoOrdenavel('previsao', 'Previsão RH')}
                 {cabecalhoOrdenavel('agendado', 'Próximo agendado')}
+                <TableHead>Ferista alocado</TableHead>
                 {cabecalhoOrdenavel('limite', 'Limite concessivo')}
                 <TableHead>Situação</TableHead>
                 {podeGerenciar && <TableHead className="w-24"></TableHead>}
@@ -414,15 +512,21 @@ export function FeriasPage() {
                           <User className="size-4" />
                         )}
                       </div>
-                      <span className="line-clamp-2 break-words sm:line-clamp-1">{linha.colaborador.nome_completo}</span>
+                      <Link
+                        to={`/ferias/colaborador/${linha.colaborador.id}`}
+                        className="line-clamp-2 break-words text-primary hover:underline sm:line-clamp-1"
+                      >
+                        {linha.colaborador.nome_completo}
+                      </Link>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{linha.departamentoExibido}</TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">{formatarData(linha.colaborador.data_admissao)}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{exibirData(linha.colaborador.data_admissao)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">{formatarPeriodo(linha.resumo.ultimoGozo)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">{formatarPeriodo(linha.resumo.proximaPrevisao)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">{formatarPeriodo(linha.resumo.proximoAgendado)}</TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">{formatarData(linha.resumo.limiteConcessivo)}</TableCell>
+                  <TableCell className="text-muted-foreground">{linha.feristaNome ?? '—'}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">{exibirData(linha.resumo.limiteConcessivo)}</TableCell>
                   <TableCell>
                     <StatusBadge variant={VARIANTE_SITUACAO[linha.resumo.situacao]}>
                       {linha.resumo.situacao}
@@ -439,7 +543,7 @@ export function FeriasPage() {
                         >
                           <Bell className="size-4" />
                         </button>
-                        {linha.previsaoPeriodo && (
+                        {linha.previsaoSolicitacao && (
                           <button
                             type="button"
                             title="Excluir previsão"
@@ -459,15 +563,19 @@ export function FeriasPage() {
         )}
       </DataTable>
 
-      <NovaPrevisaoDialog
-        open={modalPrevisao}
-        onOpenChange={setModalPrevisao}
-        loading={loading}
-        onSalvar={async (previsao) => {
-          const ok = await adicionarPrevisao(previsao)
-          if (ok) await carregar()
-          return ok
+      <ProgramarFeriasDialog
+        open={modalProgramar}
+        onOpenChange={setModalProgramar}
+        onSalvo={carregar}
+      />
+
+      <ProgramarFeriasDialog
+        open={programarSolicitacao !== null}
+        onOpenChange={(aberto) => {
+          if (!aberto) setProgramarSolicitacao(null)
         }}
+        solicitacao={programarSolicitacao}
+        onSalvo={carregar}
       />
 
       <NotificacaoFeriasDialog
@@ -476,7 +584,7 @@ export function FeriasPage() {
           if (!aberto) setNotificacaoLinha(null)
         }}
         colaboradorInicial={notificacaoLinha?.colaborador ?? null}
-        periodoId={notificacaoLinha?.agendadoPeriodo?.id ?? notificacaoLinha?.previsaoPeriodo?.id ?? null}
+        solicitacaoId={notificacaoLinha?.agendadoSolicitacao?.id ?? notificacaoLinha?.previsaoSolicitacao?.id ?? null}
         loading={loading}
         onSalvar={registrarNotificacao}
       />
