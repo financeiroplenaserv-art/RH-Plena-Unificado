@@ -5,5 +5,7 @@ export const CLASSE_SELECT =
 export const ROTULO_CATEGORIA: Record<string, string> = {
   limpeza: 'Limpeza',
   portaria: 'Portaria',
-  outros: 'Outros',
+  descartaveis: 'Descartáveis',
+  acessorios: 'Acessórios',
+  piscina: 'Piscina',
 }

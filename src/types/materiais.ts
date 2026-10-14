@@ -1,6 +1,6 @@
 // Tipos do módulo Materiais (migrations 121 a 123 — docs/PLANO_MATERIAIS_FASE1.md)
 
-export type CategoriaMaterial = 'limpeza' | 'portaria' | 'outros'
+export type CategoriaMaterial = 'limpeza' | 'portaria' | 'descartaveis' | 'acessorios' | 'piscina'
 export type RotaMaterial = 1 | 2 | 3
 
 export interface MatItem {

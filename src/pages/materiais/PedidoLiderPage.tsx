@@ -214,7 +214,7 @@ export function PedidoLiderPage() {
   )
 
   const categoriaDe = useCallback(
-    (itemId: string | null) => (itemId ? dados?.catalogo.find((c) => c.id === itemId)?.categoria : 'outros'),
+    (itemId: string | null) => (itemId ? dados?.catalogo.find((c) => c.id === itemId)?.categoria : null),
     [dados]
   )
   const linhasMateriais = produtos.filter((l) => categoriaDe(l.item_id) !== 'portaria')

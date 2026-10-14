@@ -159,7 +159,7 @@ export function MateriaisCatalogoPage() {
       <PageHeader
         showBackButton={false}
         title="Catálogo de materiais"
-        description="Itens de limpeza, portaria e outros, com variações e histórico de preços"
+        description="Itens de limpeza, portaria, descartáveis, acessórios e piscina, com variações e histórico de preços"
       >
         {podeEditar && !estruturaPendente && (
           <Button onClick={() => abrir()}>

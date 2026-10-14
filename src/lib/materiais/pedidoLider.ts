@@ -12,7 +12,8 @@
 // recalcula as exceções (acima do kit, antes da validade, fora do kit), que
 // exigem justificativa mas NÃO bloqueiam o pedido — vão para o inspetor.
 
-export type CategoriaPublica = 'limpeza' | 'portaria' | 'outros'
+// 'portaria' é o único valor com regra própria; as demais contam como material (recebe_limpeza).
+export type CategoriaPublica = 'limpeza' | 'portaria' | 'descartaveis' | 'acessorios' | 'piscina'
 export type TipoLinhaCeu = 'uniforme' | 'epi' | 'cracha'
 export type DestinoFilaPublico = 'novo' | 'mesclar' | 'extra'
 
