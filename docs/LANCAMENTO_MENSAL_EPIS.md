@@ -93,6 +93,13 @@ node scripts/lancar-epis-mensal.mjs --csv=docs/epis_outubro_lancamentos.csv --da
 - Antes de gravar, o script salva em `dados-locais/` o backup dos IDs
   inseridos (`backup_epis_<AAAAMM>_entregas_<data>.json`) — é com ele que
   uma eventual reversão é feita.
+- **Linhas inferidas nunca gravam sozinhas** (regra "importação nunca grava
+  palpite", incidente de 13/07/2026): o relatório destaca a seção "LINHAS A
+  CONFIRMAR" (itens resolvidos por regra/palpite, com o motivo) e o
+  `--aplicar` é **recusado** enquanto houver alguma — confira uma a uma com a
+  usuária e, se todas estiverem certas, repita com `--confirmar-inferidos`.
+  Só o casamento exato (coluna opcional `codigo`, 6ª coluna do CSV, ou nome
+  idêntico ao catálogo) dispensa confirmação.
 - Ao final, conferir na tela **CEU → Entregas** filtrando pela data.
 
 ### Se um item não for resolvido
@@ -105,4 +112,4 @@ assim com máscara → respirador com válvula, óculos → incolor etc.).
 ---
 
 *Criado em 26/09/2026, a partir do script de setembro
-(`scripts/lancar-epis-setembro.mjs`, mantido como histórico).*
+(`scripts/_aposentados/lancar-epis-setembro.mjs`, aposentado em 14/10/2026 — não executar).*

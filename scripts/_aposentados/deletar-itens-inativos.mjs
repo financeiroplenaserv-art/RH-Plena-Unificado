@@ -1,3 +1,9 @@
+// ⛔ APOSENTADO em 14/10/2026 — NÃO EXECUTAR.
+// Apaga entregas (inclusive com recibo emitido) e itens, sem dry-run.
+// Detalhes: dados-locais/investigacao_revisao_independente_2026-10-14/relatorio_revisao.md
+// e AGENTS.md §11. Reativar exige autorização expressa da gestão.
+throw new Error('Script aposentado em 14/10/2026 — não executar (AGENTS.md §11)')
+
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
 import path from 'path'

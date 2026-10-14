@@ -641,7 +641,7 @@ export function CeuMovimentacoesPage() {
         open={modalLote}
         onOpenChange={(open) => !open && setModalLote(false)}
         title="Emitir recibos em lote"
-        description="Selecione o período para gerar os recibos agrupados por colaborador."
+        description="Selecione o período para gerar os recibos agrupados por colaborador, data de entrega e tipo (EPI separado de Uniforme/Crachá)."
       >
         <div className="bg-white rounded-lg">
           <div className="space-y-4">

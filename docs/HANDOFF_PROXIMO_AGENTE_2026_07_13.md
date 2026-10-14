@@ -90,7 +90,7 @@ Foram criados 3 itens de crachá que não estavam na planilha original:
 ### Scripts criados
 
 - `scripts/criar-itens-cracha.mjs` — cria os itens de crachá
-- `scripts/importar-movimentacoes-ceu.mjs` — importa as movimentações com snapshot_item e validação de datas
+- ~~`scripts/importar-movimentacoes-ceu.mjs`~~ — ⛔ **APOSENTADO em 14/10/2026** (movido para `scripts/_aposentados/`): causou o incidente de itens errados no histórico (1.918 entregas, ex.: "LUVA LATEX G/M/P" gravadas como "LUVA DE CORTE"). Não executar — ver `dados-locais/investigacao_revisao_independente_2026-10-14/relatorio_revisao.md` e AGENTS.md §11.
 
 ## ✅ Ajustes de UI realizados
 

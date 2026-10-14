@@ -56,7 +56,9 @@ export type EntregaComSnapshot = EntregaCEU & {
 }
 
 export function nomeItem(e: EntregaComSnapshot) {
-  return e.item?.nome || e.snapshot_item?.nome || '—'
+  // Nome do snapshot (data da entrega) tem prioridade: o item pode ser
+  // renomeado no cadastro e o histórico/recibo emitido não muda.
+  return e.snapshot_item?.nome || e.item?.nome || '—'
 }
 
 export function tipoItem(e: EntregaComSnapshot) {

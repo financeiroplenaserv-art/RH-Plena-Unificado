@@ -187,6 +187,8 @@ export function CeuRelatoriosPage() {
               Serão gerados recibos para{' '}
               <strong>{new Set(entregasFiltradas.map((e) => e.colaborador_id)).size} colaborador(es)</strong>,
               cobrindo <strong>{entregasFiltradas.length} entrega(s)</strong> nos filtros aplicados.
+              Cada recibo é de <strong>uma data e um tipo só</strong> (EPI separado de Uniforme/Crachá),
+              então um colaborador pode gerar mais de um recibo.
               As entregas serão marcadas como <strong>recibo emitido</strong> e a numeração será consumida.
             </>
           }

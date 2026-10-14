@@ -10,9 +10,26 @@
 //   node scripts/lancar-epis-mensal.mjs --csv=<arquivo.csv> [--data=AAAA-MM-DD] [--aplicar]
 //
 //   --csv     obrigatório; colunas separadas por ';':
-//             colaborador;quantidade;item;tamanho;descricao_original
+//             colaborador;quantidade;item;tamanho;descricao_original;codigo
+//             (codigo é opcional: casa exato pelo código do catálogo,
+//             para desambiguar itens de mesmo nome, ex.: CORDINHA)
 //   --data    opcional; padrão = dia 1 do mês corrente (horário de Brasília)
 //   --aplicar sem ele, roda em dry-run (só relatório, nada é gravado)
+//   --confirmar-inferidos
+//             com --aplicar, permite gravar linhas INFERIDAS (regra/palpite);
+//             sem ele, --aplicar é RECUSADO enquanto houver linha inferida no
+//             lote (regra "importação nunca grava palpite" — incidente de
+//             13/07/2026, §11 do AGENTS.md). Casamento exato (código ou nome
+//             idêntico ao catálogo) nunca exige confirmação.
+//
+// Toda linha classifica COMO o item foi resolvido:
+//   exato   — coluna codigo, ou nome normalizado idêntico ao catálogo
+//   regra   — palavra-chave/escolha fixa do histórico (PREFERE_EXATO) ou
+//             palavra-chave + tamanho
+//   palpite — candidato único / primeiro sem tamanho (nunca decide por
+//             semelhança entre 2+ candidatos)
+// O dry-run destaca as inferidas em "LINHAS A CONFIRMAR"; as não resolvidas
+// ficam em PROBLEMAS e nunca gravam.
 //
 // Antes de gravar, salva backup dos IDs inseridos em dados-locais/.
 // Guarda anti-duplicidade: linhas já existentes na data (mesmo
@@ -102,13 +119,14 @@ const linhasCsv = fs
   .filter((l) => l.trim())
 const registros = []
 for (const linha of linhasCsv.slice(1)) {
-  const [colaborador, quantidade, item, tamanho, descricao_original] = linha.split(';')
+  const [colaborador, quantidade, item, tamanho, descricao_original, codigo] = linha.split(';')
   registros.push({
     colaborador: (colaborador || '').trim(),
     quantidade: parseInt(quantidade, 10),
     item: (item || '').trim(),
     tamanho: (tamanho || '').trim(),
     descricao_original: (descricao_original || '').trim(),
+    codigo: (codigo || '').trim(),
   })
 }
 console.log(`CSV ${CSV}: ${registros.length} linhas de entrega — data de entrega ${DATA_ENTREGA}`)
@@ -119,7 +137,9 @@ function chaveBuscaItem(item) {
   const n = norm(item)
   if (n.includes('nitril')) return { kw: 'nitril' }
   if (n.includes('pvc')) return { kw: 'pvc' }
-  if (n.includes('pu')) return { kw: ' pu' } // evita casar com outras palavras
+  // "pu" só como PALAVRA INTEIRA: "espuma"/"capuz" contêm "pu" e NÃO são
+  // luva PU (bug: viravam LUVA PARA ELETRICISTA como candidato único)
+  if (/\bpu\b/.test(n)) return { kw: 'pu' }
   if (n.includes('latex')) return { kw: 'latex' }
   if (n.includes('pigment')) return { kw: 'pigment' }
   if (n.includes('botina')) return { kw: 'botina' }
@@ -281,34 +301,85 @@ for (const reg of registros) {
   }
 
   const { kw } = chaveBuscaItem(reg.item)
-  let candidatosItens = itensAtivos.filter((i) => norm(i.nome).includes(kw))
+  let candidatosItens = itensAtivos.filter((i) => {
+    const nome = norm(i.nome)
+    return kw === 'pu' ? /\bpu\b/.test(nome) : nome.includes(kw)
+  })
   if (kw === 'bota') candidatosItens = candidatosItens.filter((i) => !norm(i.nome).includes('botina'))
 
   let item = null
-  // 1) escolha fixa confirmada pelo histórico
-  const nomePreferido = PREFERE_EXATO[kw.trim()]
-  if (nomePreferido) {
+  // COMO o item foi resolvido: 'exato' | 'regra' | 'palpite' (ver cabeçalho)
+  let metodo = null
+  let motivo = null
+  // 0) código exato do catálogo (coluna opcional do CSV — desambigua homônimos)
+  if (reg.codigo) {
+    item = itensAtivos.find((i) => String(i.codigo) === String(reg.codigo)) || null
+    if (!item) {
+      problemas.push(`ITEM NÃO RESOLVIDO: "${reg.descricao_original}" (código ${reg.codigo} não existe ou está inativo)`)
+      continue
+    }
+    metodo = 'exato'
+    motivo = `código ${reg.codigo} exato no catálogo`
+  }
+  // 1) nome normalizado idêntico ao catálogo (incluindo tamanho no nome)
+  if (!item) {
+    const exatos = itensAtivos.filter((i) => norm(i.nome) === norm(reg.item))
+    if (exatos.length === 1) {
+      item = exatos[0]
+      metodo = 'exato'
+      motivo = 'nome idêntico ao catálogo'
+    }
+  }
+  // 2) escolha fixa confirmada pelo histórico
+  const nomePreferido = PREFERE_EXATO[kw]
+  if (!item && nomePreferido) {
     item = candidatosItens.find((i) => norm(i.nome) === nomePreferido) || null
+    if (item) {
+      metodo = 'regra'
+      motivo = `escolha fixa do histórico (PREFERE_EXATO: ${kw} → ${nomePreferido})`
+    }
   }
-  // 2) por tamanho
-  if (!item && tamanhoCsv) {
-    let tam = normTamanho(tamanhoCsv)
-    if (kw === 'nitril' && MAPA_NUM_NITRILICA[tam]) tam = MAPA_NUM_NITRILICA[tam]
-    item = candidatosItens.find((i) => tamanhoDoNomeItem(i.nome) === tam) || null
+  // 3) palavra-chave + tamanho
+  let tamPedido = tamanhoCsv ? normTamanho(tamanhoCsv) : null
+  if (tamPedido && kw === 'nitril' && MAPA_NUM_NITRILICA[tamPedido]) tamPedido = MAPA_NUM_NITRILICA[tamPedido]
+  if (!item && tamPedido) {
+    item = candidatosItens.find((i) => tamanhoDoNomeItem(i.nome) === tamPedido) || null
+    if (item) {
+      metodo = 'regra'
+      motivo = `palavra-chave "${kw}" + tamanho ${tamPedido}`
+    }
   }
-  if (!item && candidatosItens.length === 1) item = candidatosItens[0]
+  // 4) palpites — nascem para confirmação; NUNCA gravam sem --confirmar-inferidos
+  if (!item && candidatosItens.length === 1) {
+    const unico = candidatosItens[0]
+    const tamUnico = tamanhoDoNomeItem(unico.nome)
+    if (tamPedido && tamUnico && tamUnico !== tamPedido) {
+      // candidato único com tamanho divergente do pedido: NÃO resolve
+      problemas.push(
+        `ITEM NÃO RESOLVIDO: "${reg.descricao_original}" (busca "${kw}" tam ${tamPedido}) — candidato único "${unico.nome}" tem tamanho ${tamUnico} divergente do pedido; confirmar manualmente`
+      )
+      continue
+    }
+    item = unico
+    metodo = 'palpite'
+    motivo = `candidato único para a palavra-chave "${kw}"`
+  }
   if (!item && !tamanhoCsv && candidatosItens.length > 0) {
     // sem tamanho no CSV: prefere item também sem tamanho no nome
     item = candidatosItens.find((i) => !tamanhoDoNomeItem(i.nome)) || null
+    if (item) {
+      metodo = 'palpite'
+      motivo = 'pedido sem tamanho; primeiro candidato também sem tamanho no nome'
+    }
   }
   if (!item) {
     problemas.push(
-      `ITEM NÃO RESOLVIDO: "${reg.descricao_original}" (busca "${kw}"${tamanhoCsv ? ` tam ${normTamanho(tamanhoCsv)}` : ''}) — candidatos: ${candidatosItens.map((i) => i.nome).join(' | ') || 'nenhum'}`
+      `ITEM NÃO RESOLVIDO: "${reg.descricao_original}" (busca "${kw}"${tamPedido ? ` tam ${tamPedido}` : ''}) — candidatos: ${candidatosItens.map((i) => i.nome).join(' | ') || 'nenhum'}`
     )
     continue
   }
 
-  plano.push({ reg, colab, item })
+  plano.push({ reg, colab, item, metodo, motivo })
 }
 
 console.log(`\nPlano: ${plano.length} entregas prontas, ${problemas.length} problema(s)`)
@@ -339,7 +410,34 @@ for (const [k, v] of [...porItem.entries()].sort()) console.log(`  ${v}x ${k}`)
 
 console.log('\n--- Plano linha a linha (colaborador → item) ---')
 for (const p of plano) {
-  console.log(`  ${p.colab.nome_completo} [${p.colab.matricula}] → ${p.reg.quantidade}x ${p.item.nome}`)
+  console.log(`  ${p.colab.nome_completo} [${p.colab.matricula}] → ${p.reg.quantidade}x ${p.item.nome} (${p.metodo})`)
+}
+
+// Linhas inferidas (regra/palpite) — regra "importação nunca grava palpite":
+// destacadas para confirmação humana; --aplicar é recusado enquanto houver
+// alguma, a menos que o operador passe --confirmar-inferidos de propósito
+const inferidas = plano.filter((p) => p.metodo !== 'exato')
+
+console.log('\n=== LINHAS A CONFIRMAR (inferidas por regra/palpite — não gravam sem --confirmar-inferidos) ===')
+if (inferidas.length === 0) {
+  console.log('  nenhuma — todas as linhas do plano resolveram por casamento exato')
+} else {
+  for (const p of inferidas) {
+    console.log(`  [${p.metodo}] ${p.colab.nome_completo} [${p.colab.matricula}] → ${p.reg.quantidade}x ${p.item.nome}`)
+    console.log(`      pedido: "${p.reg.descricao_original || p.reg.item}" — motivo: ${p.motivo}`)
+  }
+  // salva a lista em arquivo (dados-locais/), mesmo padrão das divergências;
+  // o BOM (﻿) faz o Excel reconhecer o UTF-8 e separar as colunas
+  const hojeInf = new Date().toISOString().slice(0, 10)
+  const arqInf = `dados-locais/linhas_a_confirmar_${COMPETENCIA}_${hojeInf}.csv`
+  const linhasInf = ['colaborador;matricula;quantidade;item_escolhido;metodo;motivo;pedido']
+  for (const p of inferidas) {
+    linhasInf.push(
+      [p.colab.nome_completo, p.colab.matricula, p.reg.quantidade, p.item.nome, p.metodo, p.motivo, p.reg.descricao_original || p.reg.item].join(';')
+    )
+  }
+  fs.writeFileSync(arqInf, '﻿' + linhasInf.join('\n') + '\n')
+  console.log(`  (lista salva em ${arqInf})`)
 }
 
 if (problemas.length) {
@@ -377,6 +475,19 @@ if (divergencias.length === 0) {
   console.log(`  (lista salva em ${arqDiv})`)
 }
 
+// GUARDA "importação nunca grava palpite" (incidente de 13/07/2026, §11 do
+// AGENTS.md): --aplicar é RECUSADO enquanto houver linha inferida
+// (regra/palpite) no lote, a menos que o operador confirme de propósito com
+// --confirmar-inferidos. Linhas não resolvidas nunca entram no plano. O
+// guarda fica ANTES de qualquer escrita — acima desta linha o script só fez
+// SELECTs (mesma leitura do dry-run).
+const CONFIRMAR_INFERIDOS = process.argv.includes('--confirmar-inferidos')
+if (APLICAR && inferidas.length > 0 && !CONFIRMAR_INFERIDOS) {
+  console.error(`\n✋ RECUSADO: o lote tem ${inferidas.length} linha(s) inferida(s) (regra/palpite) — ver "LINHAS A CONFIRMAR" acima.`)
+  console.error('   Nada foi gravado. Confirme cada uma com a usuária; se todas estiverem certas, repita com --confirmar-inferidos.')
+  process.exit(1)
+}
+
 // guarda anti-duplicidade: entregas já existentes na data para os mesmos pares
 const idsColab = [...new Set(plano.map((p) => p.colab.id))]
 const existentes = []
@@ -396,6 +507,9 @@ if (jaExistiam > 0) console.log(`\n⚠ ${jaExistiam} linha(s) já existem em ${D
 
 if (!APLICAR) {
   console.log('\nDry-run — nada foi gravado. Rode com --aplicar para inserir.')
+  if (inferidas.length > 0) {
+    console.log(`⚠ Este lote tem ${inferidas.length} linha(s) inferida(s) (regra/palpite): --aplicar será RECUSADO sem --confirmar-inferidos.`)
+  }
   process.exit(problemas.length ? 1 : 0)
 }
 

@@ -23,6 +23,7 @@ import { parseMoedaParaCentavos, agoraBrasil } from '@/lib/utils'
 import {
   analisarLinhas,
   chaveDuplicidade,
+  linhaInferida,
   mapearLinhasArquivo,
   pareceEntregas,
   parseCsvEntregas,
@@ -207,7 +208,10 @@ export function CeuImportarPage() {
         ? prev.map((l) => {
             if (l.indice !== indice) return l
             const mensagens = l.mensagens.filter(
-              (m) => !m.startsWith('Item não resolvido') && !m.startsWith('Nenhum item')
+              (m) =>
+                !m.startsWith('Item não resolvido') &&
+                !m.startsWith('Nenhum item') &&
+                !m.startsWith('Item inferido')
             )
             const status = !l.colaborador ? 'erro' : mensagens.length > 0 ? 'aviso' : 'ok'
             const dup = duplicadas.has(
@@ -386,11 +390,41 @@ export function CeuImportarPage() {
     URL.revokeObjectURL(url)
   }
 
+  /** Baixa em CSV as linhas de entrega não resolvidas (erro), para tratativa fora da tela. */
+  const exportarNaoResolvidos = () => {
+    if (!linhasEntregas) return
+    const pendentes = linhasEntregas.filter((l) => l.status === 'erro')
+    if (pendentes.length === 0) return
+    const csv = [
+      'linha;colaborador_arquivo;item_arquivo;tamanho;quantidade;motivo',
+      ...pendentes.map((l) =>
+        [
+          l.indice + 2, // +2: cabeçalho + base 1, para bater com a linha da planilha
+          l.original.colaborador,
+          l.original.item,
+          l.original.tamanho,
+          l.original.quantidade,
+          l.mensagens.join(' | '),
+        ]
+          .map((v) => String(v).replace(/;/g, ','))
+          .join(';')
+      ),
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'entregas-nao-resolvidas.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const resumoEntregas = linhasEntregas
     ? {
         incluidas: linhasEntregas.filter((l) => l.incluir && l.colaborador && l.item).length,
         avisos: linhasEntregas.filter((l) => statusEfetivo(l, linhaDuplicada(l, duplicadas)) === 'aviso').length,
         erros: linhasEntregas.filter((l) => l.status === 'erro').length,
+        aConfirmar: linhasEntregas.filter((l) => linhaInferida(l) && !l.incluir).length,
       }
     : null
 
@@ -509,9 +543,16 @@ export function CeuImportarPage() {
 
         {linhasEntregas && resumoEntregas && (
           <ModuleCard
-            title={`Entregas: ${resumoEntregas.incluidas} marcada(s) / ${resumoEntregas.avisos} com aviso / ${resumoEntregas.erros} com erro`}
+            title={`Entregas: ${resumoEntregas.incluidas} marcada(s) / ${resumoEntregas.avisos} com aviso / ${resumoEntregas.aConfirmar} a confirmar / ${resumoEntregas.erros} com erro`}
             icon={<AlertTriangle className="w-4 h-4" />}
           >
+            {resumoEntregas.aConfirmar > 0 && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+                {resumoEntregas.aConfirmar} linha(s) foram inferidas (item por conversão/palpite ou nome aproximado) e
+                nasceram <strong>desmarcadas</strong>. Confira o item no seletor, troque se necessário e marque a
+                linha para confirmar — só linhas marcadas são importadas.
+              </p>
+            )}
             <div className="max-h-[28rem] overflow-auto border rounded-lg border-slate-200">
               <table className="w-full text-xs min-w-[900px]">
                 <thead className="bg-slate-50 sticky top-0">
@@ -571,14 +612,19 @@ export function CeuImportarPage() {
                         </td>
                         <td className="px-3 py-2 break-words max-w-[160px]">{linha.original.descricaoOriginal}</td>
                         <td className="px-3 py-2">
-                          {linha.item && linha.status !== 'erro' ? (
+                          {linha.item && linha.matchTipoItem === 'exato' && linha.status !== 'erro' ? (
                             linha.item.nome
                           ) : (
                             <Select
                               value={linha.item?.id || ''}
                               onValueChange={(v) => escolherItem(linha.indice, v)}
                             >
-                              <SelectTrigger className="h-8 text-xs">
+                              <SelectTrigger
+                                className={cn(
+                                  'h-8 text-xs',
+                                  linha.item && 'border-amber-400 bg-amber-50'
+                                )}
+                              >
                                 <SelectValue placeholder="Escolher item..." />
                               </SelectTrigger>
                               <SelectContent>
@@ -600,6 +646,12 @@ export function CeuImportarPage() {
               </table>
             </div>
             <div className="flex justify-end gap-2 mt-4">
+              {resumoEntregas.erros > 0 && (
+                <ModuleButton variant="outline" size="sm" onClick={exportarNaoResolvidos}>
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  Baixar não resolvidos ({resumoEntregas.erros})
+                </ModuleButton>
+              )}
               <ModuleButton variant="outline" size="sm" onClick={() => { setLinhasEntregas(null); setNomeArquivo('') }}>
                 Cancelar
               </ModuleButton>
