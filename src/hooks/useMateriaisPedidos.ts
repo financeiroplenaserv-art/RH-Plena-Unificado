@@ -10,6 +10,7 @@ import type { PayloadAprovacao, PayloadValidacao } from '@/lib/materiais/filas'
 import type { PrecoHistorico } from '@/lib/materiais/precos'
 import type { ConsumoMes } from '@/lib/materiais/media'
 import { escritaMateriaisOk } from './useMateriaisCatalogo'
+import { carregarVinculosSubstituicao } from './useMateriaisSubstituicao'
 import type {
   CeuPedidoItem,
   MatComentario,
@@ -255,7 +256,7 @@ export function useMateriaisPainel() {
     const comp = competenciaDe(competencia)
     const desde = adicionarMeses(comp, -12)
     const hoje = hojeBrasil()
-    const [rc, rp, rk, rpr, rh, ra] = await Promise.all([
+    const [rc, rp, rk, rpr, rh, ra, vinculos] = await Promise.all([
       supabase.from('mat_contratos').select('id, nome, ativo').order('nome'),
       supabase
         .from('mat_pedidos')
@@ -281,6 +282,7 @@ export function useMateriaisPainel() {
         .eq('status_produtos', 'aprovado')
         .gte('competencia', desde)
         .lt('competencia', comp),
+      carregarVinculosSubstituicao(),
     ])
     const erro = rc.error ?? rp.error ?? rk.error ?? rpr.error ?? rh.error ?? ra.error
     if (erro) {
@@ -312,6 +314,7 @@ export function useMateriaisPainel() {
         historico: (rh.data ?? []).map((h) => ({ ...h, quantidade: Number(h.quantidade) })),
         pedidosAnteriores: anteriores,
         itensAnteriores: rant.data.map((i) => ({ ...i, qtd_aprovada: i.qtd_aprovada == null ? null : Number(i.qtd_aprovada) })),
+        substituicoes: vinculos,
         hoje,
       })
     )

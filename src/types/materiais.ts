@@ -14,6 +14,10 @@ export interface MatItem {
   ativo: boolean
   ordem: number | null
   created_at?: string
+  /** Migration 128: item que substituiu este em todos os kits (a média dele soma o histórico deste). */
+  substituido_por_id?: string | null
+  substituido_por_variacao_id?: string | null
+  substituido_em?: string | null
 }
 
 export interface MatItemVariacao {
@@ -23,6 +27,21 @@ export interface MatItemVariacao {
   ativo: boolean
   ordem: number | null
   created_at?: string
+  /** Migration 128: item que substituiu SÓ esta variação. */
+  substituido_por_id?: string | null
+  substituido_por_variacao_id?: string | null
+  substituido_em?: string | null
+}
+
+/** Retorno da RPC mat_substituir_item_kits (migration 128). */
+export interface ResultadoSubstituicaoItem {
+  contratos: number
+  linhas_trocadas: number
+  linhas_somadas: number
+  contratos_com_soma: number
+  alteracoes_pendentes: number
+  inativado: boolean
+  historico_vinculado: boolean
 }
 
 /** Histórico de preços: nunca se altera o valor, entra uma linha nova. */

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Pencil, Plus, X } from 'lucide-react'
+import { ArrowRightLeft, Check, Pencil, Plus, X } from 'lucide-react'
 import { Button } from '@/components/corh/Button'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { Input } from '@/components/ui/input'
@@ -20,10 +20,12 @@ interface Props {
   podeEditar: boolean
   catalogo: ReturnType<typeof useMateriaisCatalogo>
   fornecedores: Fornecedor[]
+  /** "Substituir em todos os kits" — só para quem edita o kit (materiais.editar_kit). */
+  onSubstituir?: () => void
 }
 
 /** Variações do item e preço vigente + histórico ("Novo preço a partir de…"). */
-export function ItemMaterialDetalhe({ item, onFechar, podeEditar, catalogo, fornecedores }: Props) {
+export function ItemMaterialDetalhe({ item, onFechar, podeEditar, catalogo, fornecedores, onSubstituir }: Props) {
   const { variacoes, precos, carregar, salvarVariacao, alternarVariacao, registrarPreco } = catalogo
   const hoje = hojeBrasil()
   const [novaVariacao, setNovaVariacao] = useState('')
@@ -93,6 +95,15 @@ export function ItemMaterialDetalhe({ item, onFechar, podeEditar, catalogo, forn
             Unidade de pedido: {item.unidade_pedido}. O preço nunca é sobrescrito — cada mudança entra no histórico com a data de início.
           </DialogDescription>
         </DialogHeader>
+
+        {onSubstituir && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Item descontinuado ou trocado por outro?</span>
+            <Button variant="outline" size="sm" onClick={onSubstituir}>
+              <ArrowRightLeft className="size-4" /> Substituir em todos os kits
+            </Button>
+          </div>
+        )}
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">Variações</h3>

@@ -3,6 +3,7 @@ import { competenciaDe } from './datas'
 import { consumoDePedidosAprovados, mediasReferencia, unirConsumo, type ConsumoMes } from './media'
 import { arredondar, compararComLimite, limiteContrato, precoVigente, type PrecoHistorico } from './precos'
 import { qtdEfetiva, temExcecao } from './filas'
+import { aplicarSubstituicoes, aplicarSubstituicoesLinhas, type VinculoSubstituicao } from './substituicao'
 
 // Painel do gestor (docs/PLANO_MATERIAIS_FASE1.md §5.1): por contrato, valor
 // pedido no mês × limite (Kit × preço vigente) × média dos últimos 6 meses
@@ -49,11 +50,19 @@ export interface EntradaPainel {
   pedidosAnteriores: { id: string; contrato_id: string; competencia: string; status_produtos: string }[]
   itensAnteriores: { pedido_id: string; item_id: string | null; variacao_id: string | null; qtd_aprovada: number | null }[]
   hoje: string
+  /**
+   * Vínculos de substituição (migration 128): o consumo de um item substituído
+   * conta na média do substituto (cadeia X→Y→W). Sem vínculos, nada muda.
+   */
+  substituicoes?: VinculoSubstituicao[]
 }
 
 const SEM_PRODUTOS = new Set(['cancelado', 'nao_se_aplica', 'rascunho'])
 
 export function montarPainel(e: EntradaPainel): LinhaPainel[] {
+  const vinculos = e.substituicoes ?? []
+  const historico = aplicarSubstituicoes(e.historico, vinculos)
+  const itensAnteriores = aplicarSubstituicoesLinhas(e.itensAnteriores, vinculos)
   const pedidosPorContrato = new Map<string, EntradaPainel['pedidosDoMes']>()
   for (const p of e.pedidosDoMes) {
     if (SEM_PRODUTOS.has(p.status_produtos)) continue
@@ -93,8 +102,8 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
       const anteriores = e.pedidosAnteriores.filter((p) => p.contrato_id === c.id)
       const idsAnteriores = new Set(anteriores.map((p) => p.id))
       const consumo = unirConsumo(
-        e.historico.filter((h) => h.contrato_id === c.id),
-        consumoDePedidosAprovados(anteriores, e.itensAnteriores.filter((i) => idsAnteriores.has(i.pedido_id)))
+        historico.filter((h) => h.contrato_id === c.id),
+        consumoDePedidosAprovados(anteriores, itensAnteriores.filter((i) => idsAnteriores.has(i.pedido_id)))
       )
       const { media6, media12 } = mediasReferencia(consumo, e.precos, e.hoje)
       const valorPedido = arredondar(valor)

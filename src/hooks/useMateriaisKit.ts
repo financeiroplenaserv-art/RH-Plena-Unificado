@@ -6,7 +6,9 @@ import { adicionarMeses, competenciaDe } from '@/lib/materiais/datas'
 import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import type { ConsumoMes } from '@/lib/materiais/media'
+import { aplicarSubstituicoes } from '@/lib/materiais/substituicao'
 import { escritaMateriaisOk } from './useMateriaisCatalogo'
+import { carregarVinculosSubstituicao } from './useMateriaisSubstituicao'
 import type { MatKitAlteracao, MatKitItem, StatusAlteracaoKit } from '@/types/materiais'
 
 // Kit Mensal do contrato (mat_kit_itens) e solicitações de alteração
@@ -31,7 +33,7 @@ export function useMateriaisKit() {
     setLoading(true)
     // 12 meses fechados bastam para as médias de 6 e 12 meses
     const desde = adicionarMeses(competenciaDe(hojeBrasil()), -12)
-    const [rk, rh] = await Promise.all([
+    const [rk, rh, vinculos] = await Promise.all([
       supabase.from('mat_kit_itens').select(COLUNAS_KIT).eq('contrato_id', contratoId),
       selecionarTudo<ConsumoMes>((de, ate) =>
         supabase
@@ -42,6 +44,7 @@ export function useMateriaisKit() {
           .order('id')
           .range(de, ate)
       ),
+      carregarVinculosSubstituicao(),
     ])
     const erro = rk.error ?? rh.error
     if (erro) {
@@ -52,7 +55,8 @@ export function useMateriaisKit() {
     } else {
       setEstruturaPendente(false)
       setKit(((rk.data as MatKitItem[]) ?? []).map((k) => ({ ...k, quantidade: Number(k.quantidade) })))
-      setConsumos((rh.data ?? []).map((c) => ({ ...c, quantidade: Number(c.quantidade) })))
+      // Item substituído (migration 128): o consumo dele conta na média do substituto.
+      setConsumos(aplicarSubstituicoes((rh.data ?? []).map((c) => ({ ...c, quantidade: Number(c.quantidade) })), vinculos))
     }
     setLoading(false)
   }, [])

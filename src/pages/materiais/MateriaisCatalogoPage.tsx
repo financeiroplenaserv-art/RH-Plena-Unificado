@@ -16,11 +16,12 @@ import { EstruturaPendente } from '@/components/materiais/EstruturaPendente'
 import { CLASSE_SELECT, ROTULO_CATEGORIA } from '@/components/materiais/estilos'
 import { MateriaisShell } from './MateriaisShell'
 import { ItemMaterialDetalhe } from './ItemMaterialDetalhe'
+import { SubstituirItemDialog } from './SubstituirItemDialog'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
-import { podeEditarCatalogoMateriais } from '@/lib/permissoes'
+import { podeEditarCatalogoMateriais, podeEditarKitMateriais } from '@/lib/permissoes'
 import { lerNumero, nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
 import { precoVigente } from '@/lib/materiais/precos'
@@ -61,6 +62,9 @@ const FORM_VAZIO: FormItem = {
 export function MateriaisCatalogoPage() {
   const { user } = useAuth()
   const podeEditar = user ? podeEditarCatalogoMateriais(user.nivel_acesso) : false
+  // Substituir em todos os kits mexe no Kit Mensal: mesma ação da edição direta do kit
+  // (banco: pode_aprovar_materiais(), reconferido na RPC da migration 128).
+  const podeSubstituir = user ? podeEditarKitMateriais(user.nivel_acesso) : false
   const catalogo = useMateriaisCatalogo()
   const { itens, variacoes, precos, loading, estruturaPendente, carregar, salvarItem } = catalogo
   const { fornecedores, carregar: carregarFornecedores } = useMateriaisFornecedores()
@@ -70,6 +74,7 @@ export function MateriaisCatalogoPage() {
   const [form, setForm] = useState<FormItem | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [detalheId, setDetalheId] = useState<string | null>(null)
+  const [substituirId, setSubstituirId] = useState<string | null>(null)
   const hoje = hojeBrasil()
 
   useEffect(() => {
@@ -153,6 +158,7 @@ export function MateriaisCatalogoPage() {
   }
 
   const itemDetalhe = itens.find((i) => i.id === detalheId) ?? null
+  const itemSubstituir = itens.find((i) => i.id === substituirId) ?? null
 
   return (
     <MateriaisShell>
@@ -402,7 +408,26 @@ export function MateriaisCatalogoPage() {
         podeEditar={podeEditar}
         catalogo={catalogo}
         fornecedores={fornecedoresAtivos}
+        onSubstituir={
+          podeSubstituir
+            ? () => {
+                setDetalheId(null)
+                setSubstituirId(itemDetalhe.id)
+              }
+            : undefined
+        }
       />
+      )}
+
+      {itemSubstituir && (
+        <SubstituirItemDialog
+          key={itemSubstituir.id}
+          item={itemSubstituir}
+          itens={itens}
+          variacoes={variacoes}
+          onFechar={() => setSubstituirId(null)}
+          onConcluido={carregar}
+        />
       )}
     </MateriaisShell>
   )

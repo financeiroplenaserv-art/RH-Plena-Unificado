@@ -8,7 +8,7 @@ import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
 import type {
   MatItem, MatItemVariacao, MatPreco, MatAlias, MatContrato, MatContratoAcesso, MatAcessoLog,
   MatKitItem, MatKitAlteracao, MatHistoricoConsumo, MatPedido, MatPedidoEnvio, MatPedidoItem,
-  CeuPedidoItem, MatComentario, MatReabertura, MatStatusLink,
+  CeuPedidoItem, MatComentario, MatReabertura, MatStatusLink, ResultadoSubstituicaoItem,
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 import type { FeriasFuncao, FeriasSolicitacao, FeriasFerista, FeriasAlocacao, FeriasRegra } from '@/types/ferias'
@@ -903,6 +903,18 @@ export type Database = {
       decidir_alteracao_kit: {
         Args: { p_id: string; p_aprovar: boolean; p_comentario?: string | null }
         Returns: void
+      }
+      // Migration 128: substituir um item em todos os kits
+      mat_substituir_item_kits: {
+        Args: {
+          p_de: string
+          p_de_variacao: string | null
+          p_para: string
+          p_para_variacao: string | null
+          p_inativar?: boolean
+          p_levar_historico?: boolean
+        }
+        Returns: ResultadoSubstituicaoItem
       }
       // Filas do módulo Materiais (migrations 122 e 124)
       enviar_pedido_interno: { Args: { p_pedido: string }; Returns: void }
