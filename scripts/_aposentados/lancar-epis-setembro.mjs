@@ -1,3 +1,10 @@
+// ⛔ APOSENTADO em 14/10/2026 — NÃO EXECUTAR.
+// Superado pelo scripts/lancar-epis-mensal.mjs e mantém a lógica de palpite
+// com o bug do "pu" (espuma/capuz → luva de eletricista). Detalhes:
+// dados-locais/investigacao_revisao_independente_2026-10-14/relatorio_revisao.md
+// e AGENTS.md §11. Reativar exige autorização expressa da gestão.
+throw new Error('Script aposentado em 14/10/2026 — não executar (AGENTS.md §11)')
+
 // Lança as entregas de EPI de setembro (docs/epis_setembro_lancamentos.csv)
 // ⚠ SUPERADO: para lançamentos novos use o script genérico
 //   scripts/lancar-epis-mensal.mjs (roteiro em docs/LANCAMENTO_MENSAL_EPIS.md).

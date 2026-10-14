@@ -1,3 +1,10 @@
+// ⛔ APOSENTADO em 14/10/2026 — NÃO EXECUTAR.
+// Causou o incidente de 13/07/2026 (1.918 entregas ligadas ao item errado;
+// apaga TODAS as entregas antes de importar, sem dry-run). Detalhes:
+// dados-locais/investigacao_revisao_independente_2026-10-14/relatorio_revisao.md
+// e AGENTS.md §11. Reativar exige autorização expressa da gestão.
+throw new Error('Script aposentado em 14/10/2026 — não executar (AGENTS.md §11)')
+
 import { createClient } from '@supabase/supabase-js'
 import XLSX from '@e965/xlsx'
 import fs from 'fs'
@@ -29,10 +36,9 @@ if (!url || !key) {
 
 const supabase = createClient(url, key)
 
-const COLABORADOR_ID = 'cd5c6089-7914-4a5a-ae7a-045ff9a35bbc'
-const NOVA_MATRICULA = '001107'
-const ARQUIVO = 'dados-locais/relatorio_por_colaborador que estava no CEU - colabs ativos.xls'
-const NOME_ALVO = 'RAFAEL DE CARVALHO LEMOS'
+function limparMatricula(valor) {
+  return String(valor || '').replace(/\D/g, '').replace(/^0+/, '')
+}
 
 function corrigirEncoding(str) {
   const s = String(str || '')
@@ -83,6 +89,23 @@ function formatarData(valor) {
   return data.toISOString().split('T')[0]
 }
 
+async function carregarColaboradores(matriculas) {
+  const mapa = new Map()
+  for (let i = 0; i < matriculas.length; i += 50) {
+    const lote = matriculas.slice(i, i + 50).map(m => String(m).padStart(6, '0'))
+    const { data, error } = await supabase.from('colaboradores').select('id, matricula, nome_completo').in('matricula', lote)
+    if (error) {
+      console.error('Erro ao buscar colaboradores:', error.message)
+      continue
+    }
+    for (const c of data || []) {
+      const matriculaLimpa = limparMatricula(c.matricula)
+      mapa.set(matriculaLimpa, c.id)
+    }
+  }
+  return mapa
+}
+
 async function carregarItens() {
   const { data, error } = await supabase.from('itens').select('id, codigo, nome, tipo, ca, validade, unidade, valor')
   if (error) {
@@ -104,6 +127,7 @@ const MAPEAMENTO_ITENS = {
 }
 
 function encontrarItem(nomeItem, itens) {
+  // Mapeamentos manuais primeiro
   const nomeNormalizado = normalizar(nomeItem)
   if (MAPEAMENTO_ITENS[nomeNormalizado]) {
     const codigo = MAPEAMENTO_ITENS[nomeNormalizado]
@@ -111,6 +135,7 @@ function encontrarItem(nomeItem, itens) {
     if (item) return item
   }
 
+  // Mapeamento por palavras-chave
   const nomeUpper = String(nomeItem || '').trim().toUpperCase()
   if (nomeUpper.includes('MASCARA') && nomeUpper.includes('DESCARTAVEL')) {
     const item = itens.find(i => i.codigo === '624')
@@ -119,6 +144,7 @@ function encontrarItem(nomeItem, itens) {
 
   const nomeTokens = tokens(nomeItem)
 
+  // Estratégia 1: contém exato
   let melhor = null
   let melhorTamanho = Infinity
   for (const item of itens) {
@@ -132,6 +158,7 @@ function encontrarItem(nomeItem, itens) {
   }
   if (melhor) return melhor
 
+  // Estratégia 2: maior quantidade de tokens em comum
   let melhorScore = 0
   for (const item of itens) {
     const itemTokens = tokens(item.nome)
@@ -146,6 +173,7 @@ function encontrarItem(nomeItem, itens) {
 
 function lerArquivoMovimentacoes(caminho) {
   const buffer = fs.readFileSync(caminho)
+  // Verifica se o arquivo é texto (TSV exportado pelo Excel com extensão .xls)
   const amostra = buffer.slice(0, 200).toString('utf-8')
   const pareceTexto = /^[\s\S]*Colaborador[\t\s]/.test(amostra)
 
@@ -164,6 +192,7 @@ function lerArquivoMovimentacoes(caminho) {
     })
   }
 
+  // Fallback para arquivos binários reais (.xls/.xlsx)
   const workbook = XLSX.read(buffer, {
     type: 'buffer',
     cellFormula: false,
@@ -182,54 +211,52 @@ async function buscarUsuarioAdmin() {
   return data[0].id
 }
 
-async function main() {
-  console.log('=== Resolvendo pendência do colaborador RAFAEL DE CARVALHO LEMOS ===\n')
-
-  // 1. Atualizar matrícula
-  console.log(`Atualizando matrícula do colaborador ${COLABORADOR_ID} para ${NOVA_MATRICULA}...`)
-  const { error: erroUpdate } = await supabase
-    .from('colaboradores')
-    .update({ matricula: NOVA_MATRICULA, updated_at: new Date().toISOString() })
-    .eq('id', COLABORADOR_ID)
-
-  if (erroUpdate) {
-    console.error('Erro ao atualizar matrícula:', erroUpdate.message)
-    process.exit(1)
-  }
-  console.log('Matrícula atualizada com sucesso.\n')
-
-  // 2. Importar movimentações pendentes
+async function importar() {
   const usuarioId = await buscarUsuarioAdmin()
   console.log('Usuário admin para importação:', usuarioId)
 
-  if (!fs.existsSync(ARQUIVO)) {
-    console.error('Arquivo não encontrado:', ARQUIVO)
+  console.log('Apagando entregas antigas...')
+  const { error: erroDelete } = await supabase.from('entregas').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  if (erroDelete) {
+    console.error('Erro ao apagar entregas:', erroDelete.message)
+    process.exit(1)
+  }
+  console.log('Entregas antigas apagadas.')
+
+  const arquivo = 'dados-locais/relatorio_por_colaborador que estava no CEU - colabs ativos.xls'
+  if (!fs.existsSync(arquivo)) {
+    console.error('Arquivo não encontrado:', arquivo)
     process.exit(1)
   }
 
   console.log('Lendo planilha de movimentações...')
-  const rows = lerArquivoMovimentacoes(ARQUIVO)
-  console.log(`Total de movimentações na planilha: ${rows.length}`)
+  const rows = lerArquivoMovimentacoes(arquivo)
+  console.log(`Total de movimentações: ${rows.length}`)
 
-  const pendentes = rows.filter(row => {
-    const nome = corrigirEncoding(row['Colaborador'] || '').trim().toUpperCase()
-    return nome === NOME_ALVO
-  })
-  console.log(`Movimentações do ${NOME_ALVO}: ${pendentes.length}`)
-
-  if (pendentes.length === 0) {
-    console.log('Nenhuma movimentação pendente encontrada.')
-    return
+  const matriculasUnicas = new Set()
+  for (const row of rows) {
+    const matricula = limparMatricula(row['Matrícula'] || row['MatrÃ­cula'])
+    if (matricula) matriculasUnicas.add(matricula)
   }
+  console.log(`Colaboradores únicos: ${matriculasUnicas.size}`)
 
+  console.log('Carregando colaboradores...')
+  const colaboradoresMap = await carregarColaboradores(Array.from(matriculasUnicas))
+  console.log(`Colaboradores encontrados: ${colaboradoresMap.size}`)
+
+  console.log('Carregando itens...')
   const itens = await carregarItens()
   console.log(`Itens carregados: ${itens.length}`)
 
+  console.log('Preparando movimentações...')
   const movimentacoes = []
   const itensNaoEncontrados = new Map()
+  const colaboradoresNaoEncontrados = new Map()
   let datasInvalidas = 0
 
-  for (const row of pendentes) {
+  for (const row of rows) {
+    const matricula = limparMatricula(row['Matrícula'] || row['MatrÃ­cula'])
+    const nomeColaborador = corrigirEncoding(row['Colaborador'] || '').trim()
     const nomeItem = corrigirEncoding(row['Item'] || '').trim()
     const quantidade = parseInt(String(row['Quantidade'] || '0').trim(), 10)
     const dataEntrega = formatarData(row['Data de Entrega'])
@@ -238,14 +265,25 @@ async function main() {
       continue
     }
 
+    const colaboradorId = colaboradoresMap.get(matricula)
+    if (!colaboradorId) {
+      if (!colaboradoresNaoEncontrados.has(matricula)) {
+        colaboradoresNaoEncontrados.set(matricula, nomeColaborador)
+      }
+      continue
+    }
+
     const item = encontrarItem(nomeItem, itens)
     if (!item) {
-      itensNaoEncontrados.set(nomeItem, (itensNaoEncontrados.get(nomeItem) || 0) + 1)
+      if (!itensNaoEncontrados.has(nomeItem)) {
+        itensNaoEncontrados.set(nomeItem, 0)
+      }
+      itensNaoEncontrados.set(nomeItem, itensNaoEncontrados.get(nomeItem) + 1)
       continue
     }
 
     movimentacoes.push({
-      colaborador_id: COLABORADOR_ID,
+      colaborador_id: colaboradorId,
       item_id: item.id,
       data_entrega: dataEntrega,
       data_devolucao: null,
@@ -268,9 +306,12 @@ async function main() {
 
   console.log(`Movimentações válidas: ${movimentacoes.length}`)
   console.log(`Datas inválidas ignoradas: ${datasInvalidas}`)
+  console.log(`Colaboradores não encontrados: ${colaboradoresNaoEncontrados.size}`)
+  console.log(`Itens não encontrados: ${itensNaoEncontrados.size}`)
+
   if (itensNaoEncontrados.size > 0) {
-    console.log('Itens não encontrados:')
-    for (const [nome, qtd] of itensNaoEncontrados.entries()) {
+    console.log('\nExemplos de itens não encontrados:')
+    for (const [nome, qtd] of Array.from(itensNaoEncontrados.entries()).slice(0, 20)) {
       console.log(`  - ${nome} (${qtd}x)`)
     }
   }
@@ -280,19 +321,31 @@ async function main() {
     return
   }
 
-  console.log('\nImportando movimentações pendentes...')
-  const { error: erroInsert } = await supabase.from('entregas').insert(movimentacoes)
-  if (erroInsert) {
-    console.error('Erro ao inserir movimentações:', erroInsert.message)
-    process.exit(1)
+  console.log('\nImportando em lotes...')
+  let inseridos = 0
+  let erros = 0
+  const loteTamanho = 300
+
+  for (let i = 0; i < movimentacoes.length; i += loteTamanho) {
+    const lote = movimentacoes.slice(i, i + loteTamanho)
+    try {
+      const { error } = await supabase.from('entregas').insert(lote)
+      if (error) throw error
+      inseridos += lote.length
+      console.log(`  Inseridos ${inseridos}/${movimentacoes.length}`)
+    } catch (err) {
+      erros += lote.length
+      console.error(`Erro ao inserir lote ${i}:`, err)
+    }
   }
 
-  console.log(`\n=== Resumo ===`)
-  console.log(`Matrícula atualizada: ${NOVA_MATRICULA}`)
-  console.log(`Movimentações importadas: ${movimentacoes.length}`)
+  console.log('\n=== Resumo da importação ===')
+  console.log(`Movimentações válidas: ${movimentacoes.length}`)
+  console.log(`Inseridos: ${inseridos}`)
+  console.log(`Erros: ${erros}`)
 }
 
-main().catch(err => {
+importar().catch((err) => {
   console.error(err)
   process.exit(1)
 })

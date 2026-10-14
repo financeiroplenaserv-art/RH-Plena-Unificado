@@ -1,3 +1,10 @@
+// ⛔ APOSENTADO em 14/10/2026 — NÃO EXECUTAR.
+// Rodado hoje desfaria recibos legítimos emitidos após 05/09/2026 (UPDATE em
+// massa de recibo_emitido/numero_recibo de todas as entregas de 01/09).
+// Detalhes: dados-locais/investigacao_revisao_independente_2026-10-14/relatorio_revisao.md
+// e AGENTS.md §11. Reativar exige autorização expressa da gestão.
+throw new Error('Script aposentado em 14/10/2026 — não executar (AGENTS.md §11)')
+
 // Reverte a emissão acidental dos recibos das entregas de 01/09/2026
 // (pedido da usuária em 05/09/2026): todas as entregas do dia voltam para
 // recibo_emitido = false e numero_recibo = NULL ("recibo a emitir").

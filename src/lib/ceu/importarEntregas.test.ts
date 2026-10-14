@@ -17,8 +17,8 @@ function colab(nome: string, status = 'Ativo'): Colaborador {
   return { id: `id-${nome}`, nome_completo: nome, matricula: '000001', status } as Colaborador
 }
 
-function item(nome: string, ca = '1.000'): ItemCEU {
-  return { id: `item-${nome}`, nome, tipo: 'EPI', ca, situacao: 'A' } as ItemCEU
+function item(nome: string, ca = '1.000', codigo = ''): ItemCEU {
+  return { id: `item-${nome}`, nome, tipo: 'EPI', ca, codigo: codigo || null, situacao: 'A' } as ItemCEU
 }
 
 const CATALOGO: ItemCEU[] = [
@@ -47,9 +47,24 @@ const CATALOGO: ItemCEU[] = [
 ]
 
 describe('resolverItem', () => {
-  it('resolve luva látex por tamanho', () => {
-    expect(resolverItem('Luvas látex', 'G', CATALOGO).item?.nome).toBe('LUVA LÁTEX G - Tam. G')
+  it('resolve luva látex por tamanho (regra — exige confirmação)', () => {
+    const r = resolverItem('Luvas látex', 'G', CATALOGO)
+    expect(r.item?.nome).toBe('LUVA LÁTEX G - Tam. G')
+    expect(r.matchTipo).toBe('regra')
     expect(resolverItem('Luvas lãtex', 'M', CATALOGO).item?.nome).toBe('LUVA LÁTEX M - Tam. M') // typo do arquivo
+  })
+
+  it('nome idêntico ao catálogo é exato (nasce aceito)', () => {
+    const r = resolverItem('LUVA LÁTEX G - Tam. G', '', CATALOGO)
+    expect(r.item?.nome).toBe('LUVA LÁTEX G - Tam. G')
+    expect(r.matchTipo).toBe('exato')
+  })
+
+  it('código do item é exato', () => {
+    const catalogo = [item('CADEADO 40MM', '', 'CD-40')]
+    const r = resolverItem('CD-40', '', catalogo)
+    expect(r.matchTipo).toBe('exato')
+    expect(r.item?.nome).toBe('CADEADO 40MM')
   })
 
   it('converte "extra G" para EG', () => {
@@ -69,24 +84,34 @@ describe('resolverItem', () => {
     expect(resolverItem('luva nitrílica9', '', CATALOGO).item?.nome).toBe('LUVA NITRÍLICA G - Tam. G')
   })
 
-  it('máscara genérica vai para a respirador com válvula (item em uso)', () => {
-    expect(resolverItem('máscaras', '', CATALOGO).item?.nome).toBe('MÁSCARA RESPIRADOR COM VÁLVULA')
+  it('máscara genérica vai para a respirador com válvula (item em uso), como regra', () => {
+    const r = resolverItem('máscaras', '', CATALOGO)
+    expect(r.item?.nome).toBe('MÁSCARA RESPIRADOR COM VÁLVULA')
+    expect(r.matchTipo).toBe('regra')
   })
 
-  it('óculos genérico vai para lente incolor', () => {
-    expect(resolverItem('óculos', '', CATALOGO).item?.nome).toBe('ÓCULOS LENTE INCOLOR')
+  it('óculos genérico vai para lente incolor, como regra', () => {
+    const r = resolverItem('óculos', '', CATALOGO)
+    expect(r.item?.nome).toBe('ÓCULOS LENTE INCOLOR')
+    expect(r.matchTipo).toBe('regra')
   })
 
-  it('avental para copa vai para o AVENTAL liso', () => {
-    expect(resolverItem('Avental para copa', '', CATALOGO).item?.nome).toBe('AVENTAL')
+  it('avental para copa vai para o AVENTAL liso, como regra', () => {
+    const r = resolverItem('Avental para copa', '', CATALOGO)
+    expect(r.item?.nome).toBe('AVENTAL')
+    expect(r.matchTipo).toBe('regra')
   })
 
-  it('protetores auriculares vai para o auricular (não o facial)', () => {
-    expect(resolverItem('protetores auriculares', '', CATALOGO).item?.nome).toBe('PROTETOR AURICULAR')
+  it('protetores auriculares vai para o auricular (não o facial), como regra', () => {
+    const r = resolverItem('protetores auriculares', '', CATALOGO)
+    expect(r.item?.nome).toBe('PROTETOR AURICULAR')
+    expect(r.matchTipo).toBe('regra')
   })
 
-  it('luva PVC não casa com as botas de PVC', () => {
-    expect(resolverItem('luva PVC', '', CATALOGO).item?.nome).toBe('LUVA PVC')
+  it('luva PVC não casa com as botas de PVC (nome exato no catálogo)', () => {
+    const r = resolverItem('luva PVC', '', CATALOGO)
+    expect(r.item?.nome).toBe('LUVA PVC')
+    expect(r.matchTipo).toBe('exato')
   })
 
   it('bota não casa com botina', () => {
@@ -94,13 +119,49 @@ describe('resolverItem', () => {
     expect(resolverItem('Botina', '38', CATALOGO).item?.nome).toBe('BOTINA COM ELÁSTICO 38 - Tam. 38')
   })
 
-  it('luva PU vai para a luva de eletricista', () => {
-    expect(resolverItem('Luvas PU(preta)', '', CATALOGO).item?.nome).toBe('LUVA PARA ELETRICISTA (LUVA PU)')
+  it('luva PU vai para a luva de eletricista, como palpite (candidato único)', () => {
+    const r = resolverItem('Luvas PU(preta)', '', CATALOGO)
+    expect(r.item?.nome).toBe('LUVA PARA ELETRICISTA (LUVA PU)')
+    expect(r.matchTipo).toBe('palpite')
+  })
+
+  it('"pu" é palavra inteira: espuma e capuz NÃO acionam a luva de eletricista', () => {
+    const espuma = resolverItem('protetor auricular espuma', '', CATALOGO)
+    expect(espuma.item?.nome).not.toBe('LUVA PARA ELETRICISTA (LUVA PU)')
+    expect(espuma.item?.nome).toBe('PROTETOR AURICULAR')
+    const capuz = resolverItem('capuz', '', CATALOGO)
+    expect(capuz.item).toBeNull()
+  })
+
+  it('candidato único com tamanho divergente do pedido fica NÃO resolvido', () => {
+    const r = resolverItem('Botina', '42', CATALOGO) // catálogo só tem botina 38
+    expect(r.item).toBeNull()
+    expect(r.matchTipo).toBeNull()
+    expect(r.candidatos.map((i) => i.nome)).toEqual(['BOTINA COM ELÁSTICO 38 - Tam. 38'])
+  })
+
+  it('"LUVA LATEX G" (tamanho em letra grudado) não casa automaticamente com LÁTEX VERDE', () => {
+    const catalogoComVerde = [...CATALOGO, item('LUVA LÁTEX VERDE G - Tam. G', '16.312')]
+    const r = resolverItem('LUVA LATEX G', '', catalogoComVerde)
+    // 2 candidatos com tamanho G: nenhuma semelhança decide sozinha
+    expect(r.item).toBeNull()
+    expect(r.candidatos.length).toBeGreaterThan(1)
+    // sem a verde no catálogo, resolve pelo tamanho mas como regra (nunca exato)
+    const semVerde = resolverItem('LUVA LATEX G', '', CATALOGO)
+    expect(semVerde.item?.nome).toBe('LUVA LÁTEX G - Tam. G')
+    expect(semVerde.matchTipo).toBe('regra')
+  })
+
+  it('camisa bege nunca casa com camisa azul', () => {
+    const catalogoCamisas = [item('CAMISA MALHA AZUL - ASG'), item('CAMISA MALHA POLO AZUL')]
+    const r = resolverItem('CAMISA MALHA POLO BEGE', '', catalogoCamisas)
+    expect(r.item).toBeNull()
   })
 
   it('retorna null com candidatos quando não resolve', () => {
     const r = resolverItem('Cadeado', '', CATALOGO)
     expect(r.item).toBeNull()
+    expect(r.matchTipo).toBeNull()
     expect(r.candidatos).toHaveLength(0)
   })
 })
@@ -126,6 +187,13 @@ describe('resolverColaborador', () => {
     expect(r.aproximado).toBe(true)
   })
 
+  it('casa por matrícula exata', () => {
+    const lista = [{ ...colab('MARIA SOUZA'), matricula: '000123' }]
+    const r = resolverColaborador('000123', lista)
+    expect(r.colaborador?.nome_completo).toBe('MARIA SOUZA')
+    expect(r.aproximado).toBe(false)
+  })
+
   it('retorna null quando não existe', () => {
     expect(resolverColaborador('FULANO INEXISTENTE', colaboradores).colaborador).toBeNull()
   })
@@ -134,20 +202,57 @@ describe('resolverColaborador', () => {
 describe('analisarLinhas', () => {
   const colaboradores = [colab('DAGNO DA SILVA ALVES'), colab('GISELE SOARES AUGUSTO', 'Inativo')]
 
-  it('linha válida fica ok e incluída', () => {
+  it('linha com casamentos exatos fica ok e incluída', () => {
     const [l] = analisarLinhas(
-      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 2, item: 'Luvas látex', tamanho: 'G', descricaoOriginal: '02 Luvas látex G' }],
+      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 2, item: 'LUVA LÁTEX G - Tam. G', tamanho: '', descricaoOriginal: '02 LUVA LÁTEX G' }],
       colaboradores,
       CATALOGO
     )
     expect(l.status).toBe('ok')
     expect(l.incluir).toBe(true)
+    expect(l.matchTipoItem).toBe('exato')
     expect(l.item?.nome).toBe('LUVA LÁTEX G - Tam. G')
+  })
+
+  it('linha com item inferido por regra nasce DESMARCADA com aviso', () => {
+    const [l] = analisarLinhas(
+      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 2, item: 'Luvas látex', tamanho: 'G', descricaoOriginal: '02 Luvas látex G' }],
+      colaboradores,
+      CATALOGO
+    )
+    expect(l.item?.nome).toBe('LUVA LÁTEX G - Tam. G') // sugere, mas não decide
+    expect(l.matchTipoItem).toBe('regra')
+    expect(l.status).toBe('aviso')
+    expect(l.incluir).toBe(false)
+    expect(l.mensagens.join(' ')).toMatch(/inferido/i)
+  })
+
+  it('linha com item por palpite nasce desmarcada', () => {
+    const [l] = analisarLinhas(
+      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 1, item: 'Luvas PU(preta)', tamanho: '', descricaoOriginal: '' }],
+      colaboradores,
+      CATALOGO
+    )
+    expect(l.matchTipoItem).toBe('palpite')
+    expect(l.incluir).toBe(false)
+    expect(l.status).toBe('aviso')
+  })
+
+  it('colaborador casado por prefixo (nome truncado) nasce desmarcado', () => {
+    const [l] = analisarLinhas(
+      [{ colaborador: 'DAGNO DA SILVA ALV', quantidade: 1, item: 'LUVA PVC', tamanho: '', descricaoOriginal: '' }],
+      colaboradores,
+      CATALOGO
+    )
+    expect(l.colaborador?.nome_completo).toBe('DAGNO DA SILVA ALVES')
+    expect(l.colaboradorAproximado).toBe(true)
+    expect(l.incluir).toBe(false)
+    expect(l.status).toBe('aviso')
   })
 
   it('colaborador inativo fica aviso e desmarcado', () => {
     const [l] = analisarLinhas(
-      [{ colaborador: 'GISELE SOARES AUGUSTO', quantidade: 2, item: 'Luvas látex', tamanho: 'G', descricaoOriginal: '' }],
+      [{ colaborador: 'GISELE SOARES AUGUSTO', quantidade: 2, item: 'LUVA PVC', tamanho: '', descricaoOriginal: '' }],
       colaboradores,
       CATALOGO
     )
@@ -157,7 +262,7 @@ describe('analisarLinhas', () => {
 
   it('colaborador não encontrado fica erro', () => {
     const [l] = analisarLinhas(
-      [{ colaborador: 'NINGUÉM', quantidade: 1, item: 'Luvas látex', tamanho: 'G', descricaoOriginal: '' }],
+      [{ colaborador: 'NINGUÉM', quantidade: 1, item: 'LUVA PVC', tamanho: '', descricaoOriginal: '' }],
       colaboradores,
       CATALOGO
     )
@@ -165,10 +270,22 @@ describe('analisarLinhas', () => {
     expect(l.incluir).toBe(false)
   })
 
+  it('item não resolvido fica erro e exige escolha manual', () => {
+    const [l] = analisarLinhas(
+      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 1, item: 'Cadeado', tamanho: '', descricaoOriginal: '' }],
+      colaboradores,
+      CATALOGO
+    )
+    expect(l.status).toBe('erro')
+    expect(l.incluir).toBe(false)
+    expect(l.item).toBeNull()
+    expect(l.matchTipoItem).toBeNull()
+  })
+
   it('entrega duplicada na data fica aviso e desmarcada', () => {
     const existentes = new Set([chaveDuplicidade('id-DAGNO DA SILVA ALVES', 'item-LUVA LÁTEX G - Tam. G', 2)])
     const [l] = analisarLinhas(
-      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 2, item: 'Luvas látex', tamanho: 'G', descricaoOriginal: '' }],
+      [{ colaborador: 'DAGNO DA SILVA ALVES', quantidade: 2, item: 'LUVA LÁTEX G - Tam. G', tamanho: '', descricaoOriginal: '' }],
       colaboradores,
       CATALOGO,
       existentes
