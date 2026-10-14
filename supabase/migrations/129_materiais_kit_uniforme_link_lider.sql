@@ -1,6 +1,6 @@
 -- 129_materiais_kit_uniforme_link_lider.sql
 -- Módulo Materiais — redesenho da tela do líder (pedido da gestão, 14/10/2026).
--- VERSIONADA, NÃO APLICADA (aplicar só com autorização; backup antes:
+-- Aplicada via Management API em 14/10/2026 (backup em dados-locais/backup_materiais_129_2026-10-14/; antes:
 -- mat_acesso_log (contagem), definição atual de mat_registrar_envio).
 --
 --  A) Kit de uniforme/EPI por contrato: mat_contrato_ceu_itens. Cada linha
@@ -126,7 +126,7 @@ ALTER TABLE public.ceu_pedido_itens
 
 CREATE OR REPLACE FUNCTION public.identificar_linhas_pedido_ceu(p_linhas jsonb)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $
+AS $$
 DECLARE e jsonb; l public.ceu_pedido_itens%ROWTYPE; n integer := 0; v_ped uuid;
 BEGIN
   IF NOT (public.pode_validar_materiais() OR public.pode_atender_pedido_ceu()) THEN
@@ -163,7 +163,7 @@ BEGIN
      WHERE id = v_ped AND status_ceu = 'enviado';
   END IF;
   RETURN n;
-END $;
+END $$;
 
 -- ============================================================
 -- C) mat_registrar_envio com colaborador_id (pessoa da lista da equipe)
