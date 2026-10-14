@@ -130,6 +130,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'materiais', acao: 'editar_catalogo', label: 'Editar catálogo e preços', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'gerenciar_fornecedores', label: 'Cadastrar e editar fornecedores', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'editar_kit', label: 'Editar Kit Mensal direto', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'editar_kit_uniforme', label: 'Editar peças de uniforme/EPI do contrato', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'editar_rota', label: 'Alterar rota padrão do contrato', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'alterar_rota_pedido', label: 'Trocar a rota de um pedido', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'solicitar_alteracao_kit', label: 'Solicitar alteração do kit', grupo: 'Materiais' },
@@ -166,6 +167,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'bi', label: 'Ver menu PerformanceLab', grupo: 'Menus' },
   { recurso: 'menu', acao: 'materiais', label: 'Ver menu Materiais', grupo: 'Menus' },
   { recurso: 'menu', acao: 'materiais_fornecedores', label: 'Ver menu Fornecedores (sem o resto de Materiais)', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'materiais_kit', label: 'Ver menu Kit Mensal (sem o resto de Materiais)', grupo: 'Menus' },
   { recurso: 'menu', acao: 'crachas', label: 'Ver menu Crachás (só aparece a quem não tem o menu CEU)', grupo: 'Menus' },
 
   // Rotas
@@ -178,6 +180,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'rota', acao: 'ceu', label: 'Acessar rotas de CEU', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais', label: 'Acessar rotas de Materiais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais_fornecedores', label: 'Acessar só Fornecedores (Materiais)', grupo: 'Rotas' },
+  { recurso: 'rota', acao: 'materiais_kit', label: 'Acessar só Kit Mensal (Materiais — uniformes/EPIs do contrato)', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'adicionais', label: 'Acessar rotas de adicionais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'importar_econtador', label: 'Acessar importação e-Contador', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'configuracoes', label: 'Acessar configurações', grupo: 'Rotas' },

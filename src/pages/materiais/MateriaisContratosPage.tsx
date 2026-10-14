@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
 import { podeEditarCatalogoMateriais, podeEditarRotaMateriais, podeGerenciarLinksMateriais } from '@/lib/permissoes'
-import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { departamentosSelecionaveis, nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
 import type { MatContrato, RotaMaterial } from '@/types/materiais'
@@ -44,9 +44,11 @@ interface FormContrato {
   recebe_limpeza: boolean
   ativo: boolean
   observacao: string
+  /** Departamentos extras da equipe do link (migration 129). */
+  equipeExtra: string[]
 }
 
-const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '' }
+const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '', equipeExtra: [] }
 
 function lerRota(valor: string): RotaMaterial | null {
   return valor === '1' || valor === '2' || valor === '3' ? (Number(valor) as RotaMaterial) : null
@@ -58,7 +60,8 @@ export function MateriaisContratosPage() {
   const podeEditar = user ? podeEditarCatalogoMateriais(user.nivel_acesso) : false
   const podeRota = user ? podeEditarRotaMateriais(user.nivel_acesso) : false
   const podeLinks = user ? podeGerenciarLinksMateriais(user.nivel_acesso) : false
-  const { contratos, itensNoKit, statusLinks, departamentos, loading, estruturaPendente, carregar, salvar, definirRota } = useMateriaisContratos()
+  const { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, loading, estruturaPendente, carregar, salvar, definirRota } =
+    useMateriaisContratos()
 
   const [filtro, setFiltro] = useFiltroPersistente<FiltroContratos>('materiais.contratos', FILTRO_PADRAO)
   const [rascunho, setRascunho] = useState<FiltroContratos>(filtro)
@@ -106,6 +109,7 @@ export function MateriaisContratosPage() {
             recebe_limpeza: c.recebe_limpeza,
             ativo: c.ativo,
             observacao: c.observacao ?? '',
+            equipeExtra: c.departamentos_equipe_extra ?? [],
           }
         : FORM_VAZIO
     )
@@ -134,6 +138,7 @@ export function MateriaisContratosPage() {
         recebe_limpeza: form.recebe_limpeza,
         ativo: form.ativo,
         observacao: form.observacao.trim() || null,
+        ...(suportaEquipeExtra ? { departamentos_equipe_extra: form.equipeExtra.filter((d) => d !== form.departamento_id) } : {}),
       },
       form.id
     )
@@ -356,6 +361,51 @@ export function MateriaisContratosPage() {
                   <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} />
                   Contrato ativo
                 </label>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="ctr-equipe-extra">A equipe também inclui o(s) departamento(s)</Label>
+                {suportaEquipeExtra ? (
+                  <>
+                    {form.equipeExtra.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {form.equipeExtra.map((id) => (
+                          <span key={id} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-xs">
+                            {nomeCurtoDepartamentoFuzzy(departamentos, id)}
+                            <button
+                              type="button"
+                              className="px-1 text-muted-foreground hover:text-foreground"
+                              aria-label={`Tirar ${nomeCurtoDepartamentoFuzzy(departamentos, id)}`}
+                              onClick={() => setForm({ ...form, equipeExtra: form.equipeExtra.filter((x) => x !== id) })}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <select
+                      id="ctr-equipe-extra"
+                      className={CLASSE_SELECT}
+                      value=""
+                      onChange={(e) => e.target.value && setForm({ ...form, equipeExtra: [...form.equipeExtra, e.target.value] })}
+                    >
+                      <option value="">Adicionar departamento…</option>
+                      {departamentosSelecionaveis(departamentos)
+                        .filter((d) => d.id !== form.departamento_id && !form.equipeExtra.includes(d.id))
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.nome_curto}
+                          </option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Use quando os colaboradores do posto estão cadastrados em outro departamento (ex.: lojas Telex com contrato da DuoConnect). A
+                      lista da equipe no link junta todos.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Disponível depois da atualização do banco (migration 129).</p>
+                )}
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="ctr-obs">Observação</Label>

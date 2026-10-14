@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  excecoesLinhaPedido,
   janelaPublica,
+  linhaCeuVazia,
+  perguntaJustificativa,
   linhasIniciaisDoKit,
   montarResumoMes,
   secoesUsadas,
@@ -93,9 +96,9 @@ describe('validarEnvioPedido', () => {
       ctx
     )
     expect(r.ok).toBe(false)
-    expect(r.erros.join(' ')).toMatch(/Cloro: justifique \(acima do kit \(3\)\)/)
-    expect(r.erros.join(' ')).toMatch(/Balde 8L: justifique \(antes da validade/)
-    expect(r.erros.join(' ')).toMatch(/Pá de lixo: justifique/)
+    expect(r.erros.join(' ')).toMatch(/Cloro: conte para a gente o motivo \(acima do kit \(3\)\)/)
+    expect(r.erros.join(' ')).toMatch(/Balde 8L: conte para a gente o motivo \(antes da validade/)
+    expect(r.erros.join(' ')).toMatch(/Pá de lixo: conte para a gente/)
     const ok = validarEnvioPedido(
       {
         ...base,
@@ -135,12 +138,12 @@ describe('validarEnvioPedido', () => {
   it('item com variação exige escolher a opção; variação de outro item é recusada', () => {
     const ctxSemBase = { ...ctx, kit: ctx.kit.filter((k) => k.item_id !== 'rodo') }
     expect(validarEnvioPedido({ ...base, produtos: [{ item_id: 'rodo', quantidade: 1, justificativa: 'x' }] }, ctxSemBase).erros[0]).toMatch(
-      /escolha a variação/
+      /escolha a opção/
     )
     expect(validarEnvioPedido({ ...base, produtos: [{ item_id: 'rodo', variacao_id: 'zzz', quantidade: 1 }] }, ctx).ok).toBe(false)
   })
 
-  it('contrato sem limpeza ignora produtos que não são de portaria', () => {
+  it('contrato sem limpeza ignora produtos que não são de portaria (texto livre vale como portaria)', () => {
     const r = validarEnvioPedido(
       {
         ...base,
@@ -152,8 +155,9 @@ describe('validarEnvioPedido', () => {
       },
       { ...ctx, recebeLimpeza: false }
     )
-    expect(r.ok).toBe(true)
-    expect(r.produtos.map((p) => p.item_id)).toEqual(['livro'])
+    expect(r.ok).toBe(false) // texto livre sem justificativa
+    expect(r.produtos.map((p) => p.item_id)).toEqual(['livro', null])
+    expect(r.erros.join(' ')).toMatch(/Algo: conte para a gente/)
   })
 
   it('exige seu nome, a declaração de cada seção usada e pedido não vazio', () => {
@@ -187,7 +191,7 @@ describe('validarEnvioPedido', () => {
     expect(r.ok).toBe(false)
     const erros = r.erros.join(' | ')
     expect(erros).toMatch(/Uniforme\/EPI 2: escolha a peça/)
-    expect(erros).toMatch(/Uniforme\/EPI 3: informe o nome/)
+    expect(erros).toMatch(/Uniforme\/EPI 3: escolha para quem é/)
     expect(erros).toMatch(/Uniforme\/EPI 3: quantidade deve ser de 1 a 20/)
     expect(erros).toMatch(/Crachá 5: escolha o motivo/)
     expect(r.ceu[0]).toMatchObject({ tipo: 'uniforme', item_id: 'camisa', tamanho: 'M', qtd_pedida: 2 })
@@ -251,10 +255,126 @@ describe('QR do link', () => {
 })
 
 describe('cópia na Edge Function', () => {
-  it('supabase/functions/pedido-materiais/index.ts contém a lógica pura idêntica (rode scripts/sincronizar-pedido-materiais.mjs)', () => {
-    const raiz = resolve(__dirname, '../../..')
-    const lib = readFileSync(resolve(raiz, 'src/lib/materiais/pedidoLider.ts'), 'utf8').replace(/\r\n/g, '\n').trimEnd()
-    const fn = readFileSync(resolve(raiz, 'supabase/functions/pedido-materiais/index.ts'), 'utf8').replace(/\r\n/g, '\n')
-    expect(fn.includes(lib)).toBe(true)
+  const raiz = resolve(__dirname, '../../..')
+  const fn = readFileSync(resolve(raiz, 'supabase/functions/pedido-materiais/index.ts'), 'utf8').replace(/\r\n/g, '\n')
+  // Mesmo tratamento de scripts/sincronizar-pedido-materiais.mjs (sem as linhas de import).
+  const copiado = (arq: string) =>
+    readFileSync(resolve(raiz, arq), 'utf8')
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .filter((l) => !/^import\s.*\sfrom\s+['"][^'"]+['"]\s*;?\s*$/.test(l))
+      .join('\n')
+      .trimEnd()
+  it.each(['src/lib/materiais/pecasCeu.ts', 'src/lib/materiais/buscaItens.ts', 'src/lib/materiais/pedidoLider.ts', 'src/lib/departamentos.ts'])(
+    'a function contém %s idêntico (rode node scripts/sincronizar-pedido-materiais.mjs)',
+    (arq) => {
+      expect(fn.includes(`// >>> LÓGICA PURA: ${arq} (cópia — não editar aqui)\n` + copiado(arq) + `\n// <<< FIM: ${arq}`)).toBe(true)
+    }
+  )
+  it('carregar não devolve o catálogo inteiro nem dados pessoais além do nome curto', () => {
+    const carregar = fn.slice(fn.indexOf('async function acaoCarregar'), fn.indexOf('async function acaoBuscarItem'))
+    expect(carregar).toMatch(/catalogo: itensDoKit/)
+    expect(carregar).not.toMatch(/nome_completo|cpf|matricula|foto_path|tamanho_/)
+    expect(fn).toMatch(/case 'buscar_item'/)
+  })
+})
+
+describe('linhas de uniforme/EPI/crachá vazias e equipe', () => {
+  const pecas = [
+    {
+      id: 'uniforme:camisa',
+      rotulo: 'Camisa polo azul',
+      tipo: 'uniforme' as const,
+      funcoes: [],
+      opcoes: [
+        { tamanho: 'P', item_id: 'camisa' },
+        { tamanho: 'M', item_id: 'camisa' },
+      ],
+    },
+    { id: 'epi:luva', rotulo: 'Luva látex', tipo: 'epi' as const, funcoes: [], opcoes: [{ tamanho: 'M', item_id: 'luva' }] },
+  ]
+  const ctxEquipe: ContextoPedido = {
+    ...ctx,
+    pecas,
+    equipe: [
+      { ref: 'refAAAAAAAAA', nome: 'Michelle A.', funcao: 'asg' },
+      { ref: 'refBBBBBBBBB', nome: 'João S.', funcao: 'portaria' },
+    ],
+  }
+  const base = { seu_nome: 'Ana Souza', termos: termosTodos }
+
+  it('linhas de colaboradores 3 e 4 sem peça/tamanho são ignoradas (nem erro, nem pendência)', () => {
+    const r = validarEnvioPedido(
+      {
+        ...base,
+        ceu: [
+          { chave: 'c1', tipo: 'uniforme', colaborador_ref: 'refAAAAAAAAA', item_id: 'camisa', tamanho: 'M', quantidade: 1 },
+          { chave: 'c2', tipo: 'epi', colaborador_ref: 'refBBBBBBBBB', item_id: 'luva', tamanho: 'M', quantidade: 2 },
+          { chave: 'c3', tipo: 'uniforme', nome_digitado: '', item_id: '', tamanho: '', quantidade: '1' },
+          { chave: 'c4', tipo: 'epi', colaborador_ref: 'refAAAAAAAAA', item_id: '', tamanho: '', quantidade: '1' },
+          { chave: 'c5', tipo: 'cracha', nome_digitado: '', cracha_nome: '', cracha_motivo: '', quantidade: 1 },
+        ],
+      },
+      ctxEquipe
+    )
+    expect(r.erros).toEqual([])
+    expect(r.ok).toBe(true)
+    expect(r.ceu).toHaveLength(2)
+    expect(linhaCeuVazia({ tipo: 'uniforme', item_id: '', tamanho: '' })).toBe(true)
+    expect(linhaCeuVazia({ tipo: 'uniforme', item_id: 'camisa' })).toBe(false)
+  })
+
+  it('pessoa da equipe vira nome curto + ref; ref desconhecido pede recarga; tamanho fora da peça é recusado', () => {
+    const r = validarEnvioPedido(
+      {
+        ...base,
+        ceu: [
+          { chave: 'a', tipo: 'uniforme', colaborador_ref: 'refAAAAAAAAA', nome_digitado: 'Tentativa de outro nome', item_id: 'camisa', tamanho: 'M' },
+          { chave: 'b', tipo: 'uniforme', colaborador_ref: 'refZZZZZZZZZ', item_id: 'camisa', tamanho: 'M' },
+          { chave: 'c', tipo: 'uniforme', nome_digitado: 'Carla (ferista)', item_id: 'camisa', tamanho: 'GG' },
+          { chave: 'd', tipo: 'uniforme', nome_digitado: 'Carla (ferista)', item_id: 'camisa', tamanho: '' },
+        ],
+      },
+      ctxEquipe
+    )
+    expect(r.ceu[0]).toMatchObject({ colaborador_ref: 'refAAAAAAAAA', nome_digitado: 'Michelle A.' })
+    expect(r.errosCampo).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ chave: 'b', campo: 'pessoa' }),
+        expect.objectContaining({ chave: 'c', campo: 'tamanho' }),
+        expect.objectContaining({ chave: 'd', campo: 'tamanho', mensagem: expect.stringMatching(/escolha o tamanho/) }),
+      ])
+    )
+  })
+
+  it('crachá de pessoa da equipe pode ir sem o nome do crachá; de outra pessoa usa o nome digitado', () => {
+    const r = validarEnvioPedido(
+      {
+        ...base,
+        ceu: [
+          { tipo: 'cracha', colaborador_ref: 'refAAAAAAAAA', cracha_motivo: 'Perda', cracha_cordao: true },
+          { tipo: 'cracha', nome_digitado: 'Carla Souza', cracha_motivo: 'Desgaste natural' },
+        ],
+      },
+      ctxEquipe
+    )
+    expect(r.ok).toBe(true)
+    expect(r.ceu[0]).toMatchObject({ colaborador_ref: 'refAAAAAAAAA', nome_digitado: 'Michelle A.', cracha_nome: null })
+    expect(r.ceu[1]).toMatchObject({ colaborador_ref: null, nome_digitado: 'Carla Souza', cracha_nome: 'Carla Souza' })
+  })
+
+  it('erros ficam ligados à chave da linha (a tela apaga o aviso assim que o campo é corrigido)', () => {
+    const errado = validarEnvioPedido({ ...base, produtos: [{ chave: 'p1', item_id: 'cloro', quantidade: 5 }] }, ctx)
+    expect(errado.errosCampo).toEqual([expect.objectContaining({ chave: 'p1', campo: 'justificativa' })])
+    const certo = validarEnvioPedido({ ...base, produtos: [{ chave: 'p1', item_id: 'cloro', quantidade: 5, justificativa: 'Obra' }] }, ctx)
+    expect(certo.errosCampo).toEqual([])
+  })
+
+  it('pergunta amigável da justificativa', () => {
+    expect(perguntaJustificativa(excecoesLinhaPedido(ctx, 'cloro', null, 8), 8)).toBe(
+      'Você pediu 8, mas o kit do mês é 3. Pode contar para a gente o motivo?'
+    )
+    expect(perguntaJustificativa(excecoesLinhaPedido(ctx, 'livro-nao', null, 1), 1)).toMatch(/não faz parte do kit/)
+    expect(perguntaJustificativa(excecoesLinhaPedido(ctx, 'cloro', null, 3), 3)).toBe('')
   })
 })

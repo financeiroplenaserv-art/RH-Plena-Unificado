@@ -29,6 +29,7 @@ import {
   IdCard,
   Boxes,
   Truck,
+  PackageCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
@@ -82,6 +83,7 @@ const groups: MenuGroup[] = [
       { path: '/mobile/falta', label: 'Lançar Falta', icon: Smartphone, permissao: { recurso: 'rota', acao: 'mobile_falta' } },
       { path: '/materiais', label: 'Materiais', icon: Boxes, permissao: { recurso: 'menu', acao: 'materiais' } },
       { path: '/materiais/fornecedores', label: 'Fornecedores', icon: Truck, permissao: { recurso: 'menu', acao: 'materiais_fornecedores' }, ocultarSePode: { recurso: 'menu', acao: 'materiais' } },
+      { path: '/materiais/kit', label: 'Kit Mensal', icon: PackageCheck, permissao: { recurso: 'menu', acao: 'materiais_kit' }, ocultarSePode: { recurso: 'menu', acao: 'materiais' } },
       { path: '/bi', label: 'PerformanceLab', icon: ChartColumn, permissao: { recurso: 'menu', acao: 'bi' } },
     ],
   },

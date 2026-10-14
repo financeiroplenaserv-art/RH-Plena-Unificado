@@ -170,6 +170,7 @@ Mantidos: token longo por contrato, **revogável** (gerar link novo invalida o a
 | Ação | Entrada | Retorno |
 |---|---|---|
 | `carregar` | `token` | contrato (nome_curto), janela (`aberta`, prazo, hoje), `recebe_limpeza`, itens do kit e do catálogo ativo (nome, variações, unidade, quantidade do kit, `validade_meses`, data da última entrega do item **ao contrato**) — **sem preço, sem nomes, sem tamanhos**; itens CEU de uniforme/EPI ativos (só nome do item); se já houve envio no mês: mês, data/hora e "Seu nome" de cada envio, a **lista de produtos já pedidos com quantidades** e, de uniforme/EPI/crachá, **só a contagem** de linhas |
+| `buscar_item` (14/10/2026) | `token`, `termo` (≥ 3 letras), `secao` opcional | até 5 itens ATIVOS que casam (nome, categoria, unidade, validade, variações) — busca fuzzy local (sem acento, prefixo, Levenshtein por palavra, trigramas, nomes antigos de `mat_aliases`); nunca a lista completa; rate limit 60/min por IP (evento `buscar`) |
 | `enviar` | `token`, `seu_nome` (obrigatório), produtos, linhas de uniforme/EPI/crachá digitadas, termos | `{ ok, protocolo }`; grava `enviado_em`, IP (`x-forwarded-for`/`cf-connecting-ip`), user agent; registra em `mat_acesso_log` |
 
 - **Sem rascunho no servidor** (um rascunho salvo seria visível a qualquer um que abrisse o link): o rascunho fica só no aparelho (`localStorage`, try/catch).
@@ -183,6 +184,8 @@ Mantidos: token longo por contrato, **revogável** (gerar link novo invalida o a
 - **Rate limit por IP** (contagem em `mat_acesso_log`): > 30 chamadas/min ou > 5 envios/h no mesmo IP → 429; > 20 envios/dia no mesmo contrato → aviso no CORH.
 - **Ações internas** (chamadas pelo CORH com JWT do usuário, validado com `auth.getUser()` + `perfis.nivel_acesso`, como o "Atualizar agora" do BI): `gerar_link` (novo token, `versao++`, invalida o anterior; devolve o link e o QR), `ver_link` (decifra e devolve o link para reimprimir o QR). Perfis: **admin, adm e gestor** (`materiais.gerenciar_links`), conferidos também no servidor.
 - Hora: "hoje" calculado com `Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' })` — nunca o relógio UTC cru.
+
+> **Redesenho de 14/10/2026 (migration 129, não aplicada):** `carregar` passou a devolver SÓ os itens do Kit Mensal (não o catálogo), as peças de uniforme/EPI do contrato (`mat_contrato_ceu_itens`) e a equipe (primeiro nome + inicial + identificador opaco HMAC). O `enviar` troca o identificador pelo `colaborador_id` e grava a linha já identificada com a última entrega da PEÇA e a medida do cadastro. Detalhes na regra "Materiais — link do líder" do AGENTS.md §11.
 
 ### 4.2 Tela pública `/pedido/:token`
 
@@ -359,7 +362,7 @@ Roteiro — parte B (histórico, "vale ouro"; depois da parte A, porque depende 
 10. **Contrato de pedido ≠ departamento** (exceção): um departamento pode ter vários contratos de pedido — CENTRO AUDITIVO TELEX tem 4, cada um com kit, link/QR, pedido mensal e rota próprios; tudo no módulo referencia o contrato de pedido. **Kit Mensal oficial = o do formulário** (aba "Kit Mensal e Link por cliente"); a cota MODELO da planilha completa é só referência. Escritório Plena → ADM PLENA; Punta Del Mar encerrado (só histórico).
 11. Detalhes técnicos mantidos (a gestão não comentou): link reexibível (guardado cifrado, para reimprimir o QR); preço próprio opcional por variação.
 
-12. **Redesenho futuro da tela do líder (09/10/2026 — registrar, NÃO implementar agora)**: quando os kits forem definidos (~semana de 12/10), uniforme/EPI/crachá poderão ser escolhidos **por toque numa lista da equipe** exibindo só **primeiro nome + inicial do sobrenome** (ex.: "Michelle A."), em vez de digitar o nome. A gestão aceita esse dado pessoal mínimo no link público; nada além disso (sem sobrenome completo, CPF, matrícula, foto ou tamanhos). Enquanto não houver o redesenho, vale a seção 4.2 (nome digitado, resolução interna).
+12. **Redesenho da tela do líder — IMPLEMENTADO em 14/10/2026 (aguarda migration 129 + deploy)**; registro original de 09/10/2026: quando os kits forem definidos (~semana de 12/10), uniforme/EPI/crachá poderão ser escolhidos **por toque numa lista da equipe** exibindo só **primeiro nome + inicial do sobrenome** (ex.: "Michelle A."), em vez de digitar o nome. A gestão aceita esse dado pessoal mínimo no link público; nada além disso (sem sobrenome completo, CPF, matrícula, foto ou tamanhos). Enquanto não houver o redesenho, vale a seção 4.2 (nome digitado, resolução interna).
 
 ## 12. Filas internas — o que foi implementado (09/10/2026)
 

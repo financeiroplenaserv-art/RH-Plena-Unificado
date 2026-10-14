@@ -24,6 +24,7 @@ import { useCeuPedidos } from '@/hooks/useCeuPedidos'
 import { podeAtenderPedidoCEU, podeConferirPedidoCEU, podeEmitirCrachaCEU } from '@/lib/permissoes'
 import { formatarData, formatarDataHora, hojeBrasil } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { tamanhoDoNomeItem } from '@/lib/ceu/tamanhosPuro'
 import {
   analisarTamanho,
   entregaRecente,
@@ -161,13 +162,20 @@ export function CeuPedidosPage() {
     const colab = colaboradorDaLinha(l)
     const item = l.item_id ? itemPorId.get(l.item_id) : undefined
     const tam = l.tipo === 'cracha' ? null : analisarTamanho(item?.nome ?? null, l.tamanho, colab ? dados.tamanhos.get(colab.id) : null)
-    const ultima = colab && l.item_id ? (dados.ultimasEntregas.get(`${colab.id}|${l.item_id}`) ?? l.ultima_entrega_em) : l.ultima_entrega_em
+    // Última entrega da PEÇA (qualquer tamanho) — pediu a bota 39, recebeu a 38.
+    const daPeca =
+      colab && l.item_id ? dados.ultimasEntregas.get(`${colab.id}|${dados.pecaDoItem.get(l.item_id) ?? l.item_id}`) : undefined
+    const ultima = daPeca?.data ?? l.ultima_entrega_em
+    const itemUltima = daPeca ? itemPorId.get(daPeca.item_id) : undefined
+    const tamanhoUltima = itemUltima ? tamanhoDoNomeItem(itemUltima.nome) : null
     return {
       colab,
       item,
       tamanhoCadastro: tam?.tamanhoCadastro ?? l.tamanho_cadastro,
       diverge: tam ? tam.diverge : l.alerta_tamanho,
       ultima,
+      ultimaItemId: daPeca?.item_id ?? null,
+      tamanhoUltima,
       recente: entregaRecente(ultima, item?.prazo_uso_dias, hoje),
     }
   }
@@ -190,6 +198,8 @@ export function CeuPedidosPage() {
           colaborador_id: e.id,
           tamanho_cadastro: a.tamanhoCadastro ?? null,
           alerta_tamanho: a.diverge,
+          ultima_entrega_em: a.ultima ?? null,
+          ultima_entrega_item_id: a.ultimaItemId,
           fora_da_equipe: p ? !(equipes.get(p.contrato_id)?.has(e.id) ?? false) : false,
         }
       })
@@ -483,6 +493,7 @@ export function CeuPedidosPage() {
                               {a.ultima ? (
                                 <span className={a.recente ? 'font-semibold text-amber-700 dark:text-amber-400' : ''} title={a.recente ? 'Dentro do prazo de uso da peça' : undefined}>
                                   {formatarData(a.ultima)}
+                                  {a.tamanhoUltima && <span className="block text-[11px] text-muted-foreground">tam. {a.tamanhoUltima}</span>}
                                   {a.recente && <span className="block text-[11px]">entregue há pouco</span>}
                                 </span>
                               ) : (

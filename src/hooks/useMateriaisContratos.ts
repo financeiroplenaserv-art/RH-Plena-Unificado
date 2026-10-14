@@ -11,9 +11,13 @@ import type { MatContrato, MatStatusLink, RotaMaterial } from '@/types/materiais
 // vários contratos (caso Telex: 4). O departamento só serve para exibir o
 // posto (sempre pelo nome_curto) e resolver a equipe.
 
-const COLUNAS = 'id, departamento_id, nome, rota, recebe_limpeza, ativo, observacao, created_at'
+// '*' de propósito: lê departamentos_equipe_extra quando a migration 129 já
+// foi aplicada, sem quebrar antes dela (mat_contratos não tem segredo).
+const COLUNAS = '*'
 
-export type ContratoInput = Pick<MatContrato, 'departamento_id' | 'nome' | 'rota' | 'recebe_limpeza' | 'ativo' | 'observacao'>
+export type ContratoInput = Pick<MatContrato, 'departamento_id' | 'nome' | 'rota' | 'recebe_limpeza' | 'ativo' | 'observacao'> & {
+  departamentos_equipe_extra?: string[]
+}
 
 export function useMateriaisContratos() {
   const [contratos, setContratos] = useState<MatContrato[]>([])
@@ -25,6 +29,8 @@ export function useMateriaisContratos() {
   const [estruturaPendente, setEstruturaPendente] = useState(false)
   /** contrato_id → situação do link público (sem token nem hash). */
   const [statusLinks, setStatusLinks] = useState<Record<string, MatStatusLink>>({})
+  /** A coluna departamentos_equipe_extra existe (migration 129 aplicada)? */
+  const [suportaEquipeExtra, setSuportaEquipeExtra] = useState(false)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -42,7 +48,9 @@ export function useMateriaisContratos() {
       else toast.error(mensagemErroMateriais(erro, 'carregar os contratos'))
     } else {
       setEstruturaPendente(false)
-      setContratos((rc.data as MatContrato[]) ?? [])
+      const lista = (rc.data as MatContrato[]) ?? []
+      setContratos(lista)
+      setSuportaEquipeExtra(lista.some((c) => Array.isArray(c.departamentos_equipe_extra)))
       const contagem: Record<string, number> = {}
       for (const k of rk.data ?? []) contagem[k.contrato_id] = (contagem[k.contrato_id] ?? 0) + 1
       setItensNoKit(contagem)
@@ -56,7 +64,9 @@ export function useMateriaisContratos() {
     setLoading(false)
   }, [])
 
-  const salvar = useCallback(async (dados: ContratoInput, id?: string | null) => {
+  const salvar = useCallback(async (entrada: ContratoInput, id?: string | null) => {
+    const { departamentos_equipe_extra, ...resto } = entrada
+    const dados = departamentos_equipe_extra === undefined ? resto : { ...resto, departamentos_equipe_extra }
     const resultado = id
       ? await supabase.from('mat_contratos').update(dados).eq('id', id).select('id')
       : await supabase.from('mat_contratos').insert(dados).select('id')
@@ -76,5 +86,5 @@ export function useMateriaisContratos() {
     return true
   }, [])
 
-  return { contratos, itensNoKit, statusLinks, departamentos, loading, estruturaPendente, carregar, salvar, definirRota }
+  return { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, loading, estruturaPendente, carregar, salvar, definirRota }
 }

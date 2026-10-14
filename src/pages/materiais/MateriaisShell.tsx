@@ -13,9 +13,11 @@ const TAB_VALIDACAO: ModuleTab = { path: '/materiais/validacao', label: 'Valida�
 const TAB_PAINEL: ModuleTab = { path: '/materiais/painel', label: 'Painel', icon: BarChart3 }
 const TAB_SEM_PEDIDO: ModuleTab = { path: '/materiais/sem-pedido', label: 'Sem pedido', icon: Timer }
 
+const TAB_KIT: ModuleTab = { path: '/materiais/kit', label: 'Kit Mensal', icon: PackageCheck }
+
 const TABS_CADASTRO: ModuleTab[] = [
   { path: '/materiais/contratos', label: 'Contratos', icon: FileSignature },
-  { path: '/materiais/kit', label: 'Kit Mensal', icon: PackageCheck },
+  TAB_KIT,
   { path: '/materiais/catalogo', label: 'Catálogo', icon: BookOpen },
   TAB_FORNECEDORES,
   { path: '/materiais/alteracoes-kit', label: 'Alterações de kit', icon: ClipboardList },
@@ -23,9 +25,19 @@ const TABS_CADASTRO: ModuleTab[] = [
 
 export function MateriaisShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  // dp2 e financeiro só têm rota.materiais_fornecedores: veem apenas a aba Fornecedores
+  // Sem o módulo inteiro (dp2, financeiro): só as abas avulsas que a pessoa tem —
+  // Fornecedores (rota.materiais_fornecedores) e, para a dp2, Kit Mensal
+  // (rota.materiais_kit, migration 129: edita as peças de uniforme/EPI).
   const moduloInteiro = user ? verificarPermissao(user.nivel_acesso, 'rota', 'materiais') : false
-  if (!user || !moduloInteiro) return <ModuleShell tabs={[TAB_FORNECEDORES]}>{children}</ModuleShell>
+  if (!user || !moduloInteiro) {
+    const avulsas = user
+      ? [
+          ...(verificarPermissao(user.nivel_acesso, 'rota', 'materiais_kit') ? [TAB_KIT] : []),
+          ...(verificarPermissao(user.nivel_acesso, 'rota', 'materiais_fornecedores') ? [TAB_FORNECEDORES] : []),
+        ]
+      : []
+    return <ModuleShell tabs={avulsas.length ? avulsas : [TAB_FORNECEDORES]}>{children}</ModuleShell>
+  }
   const n = user.nivel_acesso
   const tabs = [
     TAB_PEDIDOS,

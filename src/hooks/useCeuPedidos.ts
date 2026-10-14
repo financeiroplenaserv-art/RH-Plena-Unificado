@@ -5,6 +5,7 @@ import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import type { PayloadAtendimento } from '@/lib/materiais/filas'
 import type { DepartamentoFuzzy } from '@/lib/departamentos'
+import { chavePeca, separarTamanhoDoNome } from '@/lib/materiais/pecasCeu'
 import type { CeuTamanhos } from '@/types/database'
 import type { CeuPedidoItem, MatContrato, MatPedido, MatPedidoEnvio } from '@/types/materiais'
 import { buscarPorIds, COLUNAS_CEU_PEDIDO, COLUNAS_ENVIO } from './useMateriaisPedidos'
@@ -78,8 +79,13 @@ export function useCeuPedidos() {
   const [colaboradores, setColaboradores] = useState<ColaboradorApoio[]>([])
   const [itens, setItens] = useState<ItemCeuApoio[]>([])
   const [tamanhos, setTamanhos] = useState<Map<string, CeuTamanhos>>(new Map())
-  /** colaborador|item → última data de entrega (entregas do CEU). */
-  const [ultimasEntregas, setUltimasEntregas] = useState<Map<string, string>>(new Map())
+  /**
+   * colaborador|peça → última entrega da PEÇA (qualquer tamanho) e o item
+   * entregue (para mostrar o tamanho). Pediu a bota 39, recebeu a 38: vale a 38.
+   */
+  const [ultimasEntregas, setUltimasEntregas] = useState<Map<string, { data: string; item_id: string }>>(new Map())
+  /** item → chave da peça (agrupamento por nome base — src/lib/materiais/pecasCeu.ts). */
+  const [pecaDoItem, setPecaDoItem] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(false)
   const [estruturaPendente, setEstruturaPendente] = useState(false)
 
@@ -98,7 +104,19 @@ export function useCeuPedidos() {
     if (apoio.erro) toast.error(mensagemErroMateriais(apoio.erro, 'carregar o cadastro de apoio'))
     const lista = ((rl.data as CeuPedidoItem[]) ?? []).map((l) => ({ ...l, qtd_pedida: Number(l.qtd_pedida) }))
     const pedidoIds = [...new Set(lista.map((l) => l.pedido_id))]
-    const itemIds = [...new Set(lista.map((l) => l.item_id).filter((x): x is string => !!x))]
+    // Peça de cada item do CEU: a última entrega considera todos os tamanhos.
+    const pecaPorItem = new Map<string, string>()
+    for (const i of apoio.itens) {
+      if (i.tipo !== 'Uniforme' && i.tipo !== 'EPI') continue
+      pecaPorItem.set(i.id, chavePeca(separarTamanhoDoNome(i.nome).base, i.tipo === 'EPI' ? 'epi' : 'uniforme'))
+    }
+    const pecasPedidas = new Set(lista.map((l) => (l.item_id ? pecaPorItem.get(l.item_id) : undefined)).filter(Boolean))
+    const itemIds = [
+      ...new Set([
+        ...lista.map((l) => l.item_id).filter((x): x is string => !!x),
+        ...[...pecaPorItem.entries()].filter(([, p]) => pecasPedidas.has(p)).map(([id]) => id),
+      ]),
+    ]
 
     // Identificados que não estão mais ativos (o nome precisa aparecer).
     const ativos = new Set(apoio.colaboradores.map((c) => c.id))
@@ -124,11 +142,11 @@ export function useCeuPedidos() {
     const erro = rp.error ?? re.error ?? ren.error ?? rcol.error
     if (erro) toast.error(mensagemErroMateriais(erro, 'carregar os dados dos pedidos'))
 
-    const ultimas = new Map<string, string>()
+    const ultimas = new Map<string, { data: string; item_id: string }>()
     for (const e of ren.data) {
-      const k = `${e.colaborador_id}|${e.item_id}`
+      const k = `${e.colaborador_id}|${pecaPorItem.get(e.item_id) ?? e.item_id}`
       const atual = ultimas.get(k)
-      if (!atual || e.data_entrega > atual) ultimas.set(k, e.data_entrega)
+      if (!atual || e.data_entrega > atual.data) ultimas.set(k, { data: e.data_entrega, item_id: e.item_id })
     }
 
     setLinhas(lista)
@@ -140,13 +158,23 @@ export function useCeuPedidos() {
     setItens(apoio.itens)
     setTamanhos(new Map(apoio.tamanhos.map((t) => [t.colaborador_id, t])))
     setUltimasEntregas(ultimas)
+    setPecaDoItem(pecaPorItem)
     setLoading(false)
   }, [])
 
   /** Grava o colaborador de cada linha (e os snapshots de tamanho/equipe). */
   const identificar = useCallback(
     async (
-      payload: { id: string; colaborador_id: string; tamanho_cadastro: string | null; alerta_tamanho: boolean; fora_da_equipe: boolean }[]
+      payload: {
+        id: string
+        colaborador_id: string
+        tamanho_cadastro: string | null
+        alerta_tamanho: boolean
+        fora_da_equipe: boolean
+        /** Última entrega da PEÇA (migration 129; a RPC antiga ignora). */
+        ultima_entrega_em?: string | null
+        ultima_entrega_item_id?: string | null
+      }[]
     ) => {
       if (payload.length === 0) {
         toast.error('Escolha o colaborador de ao menos uma linha')
@@ -235,6 +263,7 @@ export function useCeuPedidos() {
     itens,
     tamanhos,
     ultimasEntregas,
+    pecaDoItem,
     loading,
     estruturaPendente,
     carregar,

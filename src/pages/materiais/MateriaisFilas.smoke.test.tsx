@@ -146,6 +146,7 @@ vi.mock('@/hooks/useCeuPedidos', () => estabilizar({
     itens: [{ id: 'bota', nome: 'Botina de segurança', tipo: 'EPI', estoque: 1, prazo_uso_dias: 180 }],
     tamanhos: new Map([['k1', { colaborador_id: 'k1', tamanho_camisa: null, tamanho_calca: null, tamanho_calcado: '40', tamanho_luva: null }]]),
     ultimasEntregas: new Map(),
+    pecaDoItem: new Map(),
     loading: false,
     estruturaPendente: false,
     carregar: vi.fn(),

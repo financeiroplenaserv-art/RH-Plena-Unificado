@@ -74,6 +74,8 @@ export interface MatContrato {
   recebe_limpeza: boolean
   ativo: boolean
   observacao: string | null
+  /** Departamentos cuja equipe também entra no link do líder (migration 129; caso Telex × DuoConnect). */
+  departamentos_equipe_extra?: string[]
   created_at?: string
 }
 
@@ -117,6 +119,20 @@ export interface MatKitItem {
   periodicidade_meses: number
   observacao: string | null
   atualizado_por?: string | null
+  updated_at?: string
+}
+
+/** Peça de uniforme/EPI do contrato (migration 129) — uma linha por peça, apontando para um item de qualquer tamanho. */
+export interface MatContratoCeuItem {
+  id: string
+  contrato_id: string
+  item_id: string
+  rotulo: string | null
+  funcoes: string[]
+  ordem: number | null
+  ativo: boolean
+  origem: 'form' | 'ceu' | 'form_ceu' | 'manual'
+  observacao: string | null
   updated_at?: string
 }
 

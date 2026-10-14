@@ -19,7 +19,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
 import { useMateriaisKit } from '@/hooks/useMateriaisKit'
-import { podeEditarKitMateriais, podeSolicitarAlteracaoKit } from '@/lib/permissoes'
+import { KitUniformeContrato } from '@/components/materiais/KitUniformeContrato'
+import { podeEditarKitMateriais, podeEditarKitUniforme, podeSolicitarAlteracaoKit } from '@/lib/permissoes'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { jaNoKit, lerNumero, montarLinhasKit, type LinhaKit } from '@/lib/materiais/cadastro'
 import { mediasReferencia } from '@/lib/materiais/media'
@@ -57,6 +58,7 @@ export function MateriaisKitPage() {
   const { user } = useAuth()
   const podeEditar = user ? podeEditarKitMateriais(user.nivel_acesso) : false
   const podeSolicitar = user ? podeSolicitarAlteracaoKit(user.nivel_acesso) : false
+  const podeEditarUniforme = user ? podeEditarKitUniforme(user.nivel_acesso) : false
   const [params, setParams] = useSearchParams()
   const contratoId = params.get('contrato') ?? ''
 
@@ -171,7 +173,7 @@ export function MateriaisKitPage() {
       <PageHeader
         showBackButton={false}
         title="Kit Mensal"
-        description="Quantidades que o contrato recebe por mês. O limite em R$ é o kit × preço vigente."
+        description="Quantidades que o contrato recebe por mês (o limite em R$ é o kit × preço vigente) e as peças de uniforme/EPI que o líder vê no link."
       >
         {contrato && !estruturaPendente && podeEditar && (
           <Button onClick={() => abrir('editar')}>
@@ -231,6 +233,11 @@ export function MateriaisKitPage() {
                 </p>
               )}
 
+              {!podeEditar && !podeSolicitar && podeEditarUniforme && (
+                <p className="text-sm text-muted-foreground">
+                  O Kit de produtos é editado pelo gestor (aqui fica só para consulta). As peças de uniforme/EPI do contrato você edita logo abaixo.
+                </p>
+              )}
               <DataTable title="Itens do kit" count={linhas.length}>
                 {carregando ? (
                   <LoadingScreen className="h-48" />
@@ -297,6 +304,8 @@ export function MateriaisKitPage() {
                   </Table>
                 )}
               </DataTable>
+
+              <KitUniformeContrato contratoId={contrato.id} podeEditar={podeEditarUniforme} />
             </>
           )}
         </div>

@@ -2,22 +2,35 @@
 // Link público do líder (QR code no quadro do contrato) para o pedido mensal
 // de materiais, uniformes, EPIs, crachás e kit portaria —
 // docs/PLANO_MATERIAIS_FASE1.md §4. SEM login e SEM PIN (decisão da gestão,
-// 09/10/2026): por isso nada de dado pessoal sai daqui.
+// 09/10/2026).
+//
+// Dados pessoais no link público: SÓ a lista da equipe do contrato com
+// primeiro nome + inicial do sobrenome ("Michelle A.") e um identificador
+// opaco (HMAC) por pessoa — decisão da gestão de 09/10/2026, reiterada em
+// 14/10/2026. Nunca sobrenome completo, CPF, matrícula, foto, tamanhos ou
+// cargo por extenso. No envio o servidor troca o identificador pelo
+// colaborador_id. CENTRO AUDITIVO TELEX: os 4 contratos de pedido mostram a
+// equipe do departamento inteiro (exceção aceita pela gestão em 14/10/2026).
 //
 // Ações (POST, campo `acao`):
-//   públicas (token do link):  carregar, enviar
+//   públicas (token do link):  carregar, buscar_item, enviar
 //   internas (JWT admin/adm/gestor — materiais.gerenciar_links):
 //                              gerar_link, ver_link, revogar_link
 //
+// `carregar` devolve SÓ os itens do Kit Mensal do contrato (nunca o catálogo
+// inteiro); "Preciso de outro item" usa `buscar_item` (termo ≥ 3 letras, até 5
+// itens ativos, busca fuzzy local — src/lib/materiais/buscaItens.ts).
+//
 // Secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (padrão da plataforma) e
 // ENCRYPTION_KEY (já existe — mesma da function econtador; cifra o token para
-// o escritório reexibir o link/QR). Opcional: ALLOWED_ORIGINS.
+// o escritório reexibir o link/QR e deriva a chave HMAC dos identificadores
+// da equipe). Opcional: ALLOWED_ORIGINS.
 //
 // Deploy (verify_jwt false — a chamada pública não tem JWT):
 //   powershell scripts/lib/implantar-edge-function.ps1 -Slug pedido-materiais -Arquivo supabase/functions/pedido-materiais/index.ts
 //
-// O bloco "LÓGICA PURA" abaixo é cópia de src/lib/materiais/pedidoLider.ts
-// (deploy de arquivo único). Não edite aqui: edite o arquivo de src e rode
+// Os blocos "LÓGICA PURA" abaixo são cópia de arquivos de src/ (deploy de
+// arquivo único). Não edite aqui: edite os arquivos de src e rode
 // `node scripts/sincronizar-pedido-materiais.mjs`.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
@@ -44,20 +57,705 @@ function getCorsHeaders(origin: string): Record<string, string> {
   }
 }
 
-// >>> LÓGICA PURA (cópia de src/lib/materiais/pedidoLider.ts — não editar aqui)
+// Dependências de src/lib/departamentos.ts (vêm de src/lib/utils.ts no app).
+function removerAcentos(texto: string): string {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+function distanciaLevenshtein(a: string, b: string): number {
+  return distanciaEdicao(a, b)
+}
+
+// >>> LÓGICA PURA: src/lib/materiais/pecasCeu.ts (cópia — não editar aqui)
+// Peças de uniforme/EPI do contrato e equipe do link do líder — lógica pura.
+//
+// ESTE ARQUIVO É COPIADO PARA DENTRO DA EDGE FUNCTION
+// supabase/functions/pedido-materiais/index.ts (deploy de arquivo único) por
+// `node scripts/sincronizar-pedido-materiais.mjs`. Só importa de arquivos que
+// também são copiados (o script remove as linhas de import — na function tudo
+// fica no mesmo escopo); o teste pedidoLider.test.ts falha se as cópias divergirem.
+//
+// - O cadastro `itens` do CEU tem UM item por tamanho ("BOTA PVC CANO CURTO
+//   38 - Tam. 38"). Aqui eles viram uma PEÇA com os tamanhos como opções. O
+//   agrupamento é DERIVADO em tempo de execução pelo nome base (não é gravado):
+//   tamanho novo cadastrado no CEU aparece sozinho; tamanho inativado some.
+// - A função da peça (ASG, portaria...) vem do kit de uniforme do contrato
+//   (mat_contrato_ceu_itens, migration 129); a do colaborador, do cargo.
+// - Equipe no link público: SÓ primeiro nome + inicial do sobrenome
+//   ("Michelle A."; homônimos ganham mais letras). Decisão da gestão de
+//   09/10/2026, reiterada em 14/10/2026. Nada de sobrenome completo, CPF,
+//   matrícula, foto ou tamanhos.
+
+
+export type TipoPeca = 'uniforme' | 'epi'
+
+export type FuncaoPeca =
+  | 'asg'
+  | 'portaria'
+  | 'encarregado'
+  | 'manutencao'
+  | 'jardinagem'
+  | 'recepcao'
+  | 'administrativo'
+  | 'monitoramento'
+
+export const FUNCOES_PECA: { id: FuncaoPeca; rotulo: string }[] = [
+  { id: 'asg', rotulo: 'ASG' },
+  { id: 'portaria', rotulo: 'Porteiro/Vigia' },
+  { id: 'encarregado', rotulo: 'Encarregado/Zelador/Líder' },
+  { id: 'manutencao', rotulo: 'Manutenção' },
+  { id: 'jardinagem', rotulo: 'Jardinagem' },
+  { id: 'recepcao', rotulo: 'Recepção' },
+  { id: 'administrativo', rotulo: 'Administrativo' },
+  { id: 'monitoramento', rotulo: 'Monitoramento' },
+]
+
+const IDS_FUNCOES = new Set<string>(FUNCOES_PECA.map((f) => f.id))
+
+export function ehFuncaoPeca(valor: unknown): valor is FuncaoPeca {
+  return typeof valor === 'string' && IDS_FUNCOES.has(valor)
+}
+
+function soLetras(texto: string | null | undefined): string {
+  return (texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+}
+
+function normalizarPeca(texto: string | null | undefined): string {
+  return (texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Função de um cargo (texto livre e sujo do cadastro: "PORTEIRO (a)",
+ * "AUXILIAR DE SERV GERAIS (LIMPEZA)", "AUXILIARDE JARDINAGEM"). null = não
+ * reconhecido (o link mostra todas as peças do contrato).
+ */
+export function funcaoDoCargo(cargo: string | null | undefined): FuncaoPeca | null {
+  const c = soLetras(cargo)
+  if (!c) return null
+  if (c.includes('MONITORAMENTO') || c.startsWith('OPERADOR')) return 'monitoramento'
+  if (c.includes('PORTEIR') || c.includes('PORTARIA') || c.includes('VIGIA') || c.includes('VIGILANT') || c.includes('CONTROLADORDEACESSO'))
+    return 'portaria'
+  if (c.includes('JARDIN')) return 'jardinagem'
+  if (c.includes('MANUTEN') || c.includes('ELETRIC') || c.includes('HIDRAUL') || c.includes('TECNICO')) return 'manutencao'
+  if (c.includes('ADMINISTRAT') || c.includes('ASSISTENTE') || c.includes('ANALISTA') || c.includes('COMERCIAL') || c.includes('GERENTE') || c.includes('CHEFE') || c.includes('ESTAGI') || c.includes('AUXILIARDETI'))
+    return 'administrativo'
+  if (c.includes('ENCARREGAD') || c.includes('ZELADOR') || c.includes('LIDER') || c.includes('LIDERES') || c.includes('SUPERVISOR') || c.includes('INSPETOR'))
+    return 'encarregado'
+  if (c.includes('RECEPC') || c.includes('ATENDIMENTO')) return 'recepcao'
+  if (c.includes('SERVICOSGERAIS') || c.includes('SERVGERAIS') || c.startsWith('ASG') || c.includes('SERVENTE') || c.includes('FAXIN') || c.includes('LIMPEZA') || c.includes('COPEIR'))
+    return 'asg'
+  return null
+}
+
+/**
+ * Funções citadas num texto de formulário ("UTILIZADA POR AUXILIARES DE
+ * SERVIÇOS GERAIS / LÍDERES / AUXILARES DE MANUTENÇÃO"). Sem repetição, na
+ * ordem de FUNCOES_PECA.
+ */
+export function funcoesDoTexto(texto: string | null | undefined): FuncaoPeca[] {
+  const partes = (texto ?? '').split(/[/,;]| E | OU /i)
+  const achadas = new Set<FuncaoPeca>()
+  for (const p of partes) {
+    const f = funcaoDoCargo(p)
+    if (f) achadas.add(f)
+  }
+  return FUNCOES_PECA.map((f) => f.id).filter((id) => achadas.has(id))
+}
+
+export function rotuloFuncoes(funcoes: FuncaoPeca[]): string {
+  return FUNCOES_PECA.filter((f) => funcoes.includes(f.id))
+    .map((f) => f.rotulo)
+    .join(' / ')
+}
+
+// ---------- Tamanho embutido no nome do item ----------
+
+const TAMANHOS_LETRA = ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG', 'XGG', 'XXGG']
+
+/**
+ * Separa o tamanho do nome do item CEU. Mesma regra de tamanhoDoNomeItem
+ * (src/lib/ceu/tamanhosPuro.ts — o teste trava a paridade): "Tam. X" no fim
+ * ou último token com 2 dígitos / letra de tamanho. "LUVA NITRÍLICA EXTRA EG"
+ * agrupa com as demais nitrílicas ("extra G" = EG).
+ */
+export function separarTamanhoDoNome(nome: string): { base: string; tamanho: string | null } {
+  let base = nome.trim()
+  let tamanho: string | null = null
+  const m = base.match(/tam\.?\s*:?\s*([a-z0-9]+)/i)
+  if (m) {
+    tamanho = m[1].toUpperCase()
+    base = base.slice(0, m.index).replace(/[\s\-–—]+$/, '')
+  }
+  const tokens = base.split(/\s+/).filter(Boolean)
+  const ultimo = (tokens[tokens.length - 1] ?? '').toUpperCase()
+  if (tokens.length > 1 && (/^\d{2}$/.test(ultimo) || TAMANHOS_LETRA.includes(ultimo))) {
+    if (!tamanho) tamanho = ultimo
+    if (ultimo === tamanho) tokens.pop()
+  }
+  if (tamanho && tokens.length > 1 && tokens[tokens.length - 1].toUpperCase() === 'EXTRA') tokens.pop()
+  base = tokens.join(' ').replace(/[\s\-–—]+$/, '')
+  return { base, tamanho }
+}
+
+const PALAVRAS_VAZIAS = new Set(['DE', 'DA', 'DO', 'DAS', 'DOS', 'EM', 'COM', 'E', 'TIPO'])
+
+/** Chave da peça: tokens do nome base sem palavras vazias, em ordem alfabética. */
+export function chavePeca(nomeBase: string, tipo: TipoPeca): string {
+  const tokens = normalizarPeca(nomeBase)
+    .split(' ')
+    .filter((t) => t && !PALAVRAS_VAZIAS.has(t))
+    .sort()
+  return `${tipo}:${tokens.join(' ')}`
+}
+
+function pesoTamanho(t: string): number {
+  const i = TAMANHOS_LETRA.indexOf(t)
+  if (i >= 0) return i
+  const n = Number(t)
+  if (Number.isFinite(n)) return 100 + n
+  return 1000
+}
+
+export function ordenarTamanhos(lista: string[]): string[] {
+  return [...lista].sort((a, b) => pesoTamanho(a) - pesoTamanho(b) || a.localeCompare(b))
+}
+
+const ROUPA = /\b(CAMISA|CALCA|JALECO|BLUSA|BERMUDA|BLAZER|CASACO|TERNO|CONJUNTO|MACACAO|CAMISETA|COLETE)\b/
+const CALCADO = /\b(BOTA|BOTINA|SAPATO|TENIS|CALCADO)\b/
+
+/**
+ * Tamanhos para uma peça que NÃO tem tamanho no cadastro (um item só):
+ * roupa → P a XXGG (os do formulário); calçado → 34 a 46; o resto é tamanho
+ * único (sem botões).
+ */
+export function tamanhosGenericos(nomeBase: string): string[] {
+  const n = normalizarPeca(nomeBase)
+  if (CALCADO.test(n)) return Array.from({ length: 13 }, (_, i) => String(34 + i))
+  if (ROUPA.test(n)) return ['P', 'M', 'G', 'GG', 'XGG', 'XXGG']
+  return []
+}
+
+const SIGLAS = new Set(['ASG', 'PVC', 'UV', 'EPI', 'PU', 'TI', 'PFF2', 'N95', 'CNOOP', 'TECH', 'II'])
+
+/** "CAMISA MALHA POLO AZUL CLARA - ASG" → "Camisa malha polo azul clara — ASG". */
+export function nomeAmigavelPeca(nome: string): string {
+  const limpo = nome.trim().replace(/\s+-\s+/g, ' — ')
+  let primeira = true
+  return limpo
+    .split(' ')
+    .map((p) => {
+      if (!p) return p
+      const so = normalizarPeca(p).replace(/ /g, '')
+      if (SIGLAS.has(so)) return p.toUpperCase()
+      const minusc = p.toLocaleLowerCase('pt-BR')
+      if (primeira && /[a-zà-ú]/i.test(minusc)) {
+        primeira = false
+        return minusc.charAt(0).toLocaleUpperCase('pt-BR') + minusc.slice(1)
+      }
+      return minusc
+    })
+    .join(' ')
+}
+
+// ---------- Agrupamento em peças ----------
+
+export interface ItemCeuCadastro {
+  id: string
+  nome: string
+  tipo: TipoPeca
+  ativo: boolean
+}
+
+export interface OpcaoPeca {
+  /** '' = tamanho único */
+  tamanho: string
+  item_id: string
+}
+
+export interface PecaPublica {
+  /** Chave da peça (derivada do nome base) — não é dado pessoal. */
+  id: string
+  rotulo: string
+  tipo: TipoPeca
+  /** Vazio = serve para qualquer função. */
+  funcoes: FuncaoPeca[]
+  opcoes: OpcaoPeca[]
+}
+
+interface GrupoPeca {
+  chave: string
+  base: string
+  tipo: TipoPeca
+  itens: { id: string; tamanho: string | null; ativo: boolean }[]
+}
+
+export function agruparItensEmPecas(itens: ItemCeuCadastro[]): Map<string, GrupoPeca> {
+  const grupos = new Map<string, GrupoPeca>()
+  for (const i of itens) {
+    const { base, tamanho } = separarTamanhoDoNome(i.nome)
+    const chave = chavePeca(base, i.tipo)
+    const g = grupos.get(chave) ?? { chave, base, tipo: i.tipo, itens: [] }
+    // O nome exibido vem de um item ativo, se houver.
+    if (i.ativo && !g.itens.some((x) => x.ativo)) g.base = base
+    g.itens.push({ id: i.id, tamanho, ativo: i.ativo })
+    grupos.set(chave, g)
+  }
+  return grupos
+}
+
+/** Opções de tamanho da peça: os tamanhos ATIVOS do cadastro; sem tamanho no cadastro, a lista genérica. */
+export function opcoesDoGrupo(g: GrupoPeca): OpcaoPeca[] {
+  const ativos = g.itens.filter((i) => i.ativo)
+  const comTamanho = ativos.filter((i) => i.tamanho)
+  if (comTamanho.length > 0) {
+    const porTamanho = new Map<string, string>()
+    for (const i of comTamanho) if (!porTamanho.has(i.tamanho!)) porTamanho.set(i.tamanho!, i.id)
+    return ordenarTamanhos([...porTamanho.keys()]).map((t) => ({ tamanho: t, item_id: porTamanho.get(t)! }))
+  }
+  const unico = ativos[0]
+  if (!unico) return []
+  const genericos = tamanhosGenericos(g.base)
+  return genericos.length > 0 ? genericos.map((t) => ({ tamanho: t, item_id: unico.id })) : [{ tamanho: '', item_id: unico.id }]
+}
+
+export interface ConfigPecaContrato {
+  item_id: string
+  rotulo: string | null
+  funcoes: string[] | null
+  ordem: number | null
+  ativo: boolean
+}
+
+/**
+ * Peças que o líder vê: as do kit de uniforme do contrato (cada linha da
+ * configuração aponta para UM item da peça — qualquer tamanho — e a peça
+ * inteira entra). Sem configuração, cai em todas as peças ativas do CEU
+ * (fallback; `semKitUniforme` avisa a tela).
+ */
+export function pecasDoContrato(
+  config: ConfigPecaContrato[],
+  itens: ItemCeuCadastro[]
+): { pecas: PecaPublica[]; semKitUniforme: boolean } {
+  const grupos = agruparItensEmPecas(itens)
+  const chavePorItem = new Map<string, string>()
+  for (const g of grupos.values()) for (const i of g.itens) chavePorItem.set(i.id, g.chave)
+
+  const ativas = config.filter((c) => c.ativo)
+  if (ativas.length === 0) {
+    const pecas = [...grupos.values()]
+      .map((g) => ({ id: g.chave, rotulo: nomeAmigavelPeca(g.base), tipo: g.tipo, funcoes: [] as FuncaoPeca[], opcoes: opcoesDoGrupo(g) }))
+      .filter((p) => p.opcoes.length > 0)
+      .sort((a, b) => (a.tipo === b.tipo ? a.rotulo.localeCompare(b.rotulo, 'pt-BR') : a.tipo === 'uniforme' ? -1 : 1))
+    return { pecas, semKitUniforme: true }
+  }
+
+  const porChave = new Map<string, PecaPublica & { ordem: number }>()
+  for (const c of ativas) {
+    const chave = chavePorItem.get(c.item_id)
+    const g = chave ? grupos.get(chave) : undefined
+    if (!g) continue
+    const funcoes = (c.funcoes ?? []).filter(ehFuncaoPeca)
+    const atual = porChave.get(g.chave)
+    if (atual) {
+      // Mesma peça em duas linhas: une as funções (vazio = todas).
+      atual.funcoes = atual.funcoes.length === 0 || funcoes.length === 0 ? [] : [...new Set([...atual.funcoes, ...funcoes])]
+      continue
+    }
+    const opcoes = opcoesDoGrupo(g)
+    if (opcoes.length === 0) continue
+    porChave.set(g.chave, {
+      id: g.chave,
+      rotulo: c.rotulo?.trim() || nomeAmigavelPeca(g.base),
+      tipo: g.tipo,
+      funcoes,
+      opcoes,
+      ordem: c.ordem ?? 9999,
+    })
+  }
+  const pecas = [...porChave.values()]
+    .sort((a, b) => (a.tipo !== b.tipo ? (a.tipo === 'uniforme' ? -1 : 1) : a.ordem - b.ordem || a.rotulo.localeCompare(b.rotulo, 'pt-BR')))
+    .map((p) => ({ id: p.id, rotulo: p.rotulo, tipo: p.tipo, funcoes: p.funcoes, opcoes: p.opcoes }))
+  return { pecas, semKitUniforme: false }
+}
+
+/** Peças para a função da pessoa; função desconhecida ou nada que case = todas. */
+export function pecasParaFuncao(pecas: PecaPublica[], funcao: FuncaoPeca | null): PecaPublica[] {
+  if (!funcao) return pecas
+  const daFuncao = pecas.filter((p) => p.funcoes.length === 0 || p.funcoes.includes(funcao))
+  return daFuncao.length > 0 ? daFuncao : pecas
+}
+
+// ---------- Equipe (primeiro nome + inicial) ----------
+
+const PARTICULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'd'])
+
+function capitalizar(p: string): string {
+  const m = p.toLocaleLowerCase('pt-BR')
+  return m.charAt(0).toLocaleUpperCase('pt-BR') + m.slice(1)
+}
+
+function tokensNome(nome: string): string[] {
+  return nome
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t && !PARTICULAS.has(t.toLocaleLowerCase('pt-BR')))
+    .map((t) => t.replace(/[^\p{L}'-]/gu, ''))
+    .filter(Boolean)
+}
+
+/**
+ * Nomes curtos sem ambiguidade: "Michelle A."; homônimos ganham mais letras
+ * do 1º sobrenome ("Michelle Al." / "Michelle An."), depois a inicial do
+ * sobrenome seguinte e, por fim, um número. Nunca o sobrenome completo de
+ * propósito (até no pior caso só se expõem as letras necessárias).
+ */
+export function nomesCurtos(nomes: string[]): string[] {
+  const partes = nomes.map(tokensNome)
+  const primeiro = (i: number) => capitalizar(partes[i][0] ?? 'Colaborador')
+  const sobrenomes = (i: number) => partes[i].slice(1)
+
+  const rotulo = (i: number, letras: number, extra: number): string => {
+    const s = sobrenomes(i)
+    if (s.length === 0) return primeiro(i)
+    const pedaco = capitalizar(s[0].slice(0, letras))
+    const extras = s
+      .slice(1, 1 + extra)
+      .map((x) => capitalizar(x.charAt(0)) + '.')
+      .join(' ')
+    return `${primeiro(i)} ${pedaco}.${extras ? ' ' + extras : ''}`
+  }
+
+  const resultado = nomes.map((_, i) => rotulo(i, 1, 0))
+  const conflitos = () => {
+    const contagem = new Map<string, number[]>()
+    resultado.forEach((r, i) => contagem.set(r.toLocaleLowerCase('pt-BR'), [...(contagem.get(r.toLocaleLowerCase('pt-BR')) ?? []), i]))
+    return [...contagem.values()].filter((l) => l.length > 1)
+  }
+
+  let grupos = conflitos()
+  for (const grupo of grupos) {
+    const maxLetras = Math.max(...grupo.map((i) => sobrenomes(i)[0]?.length ?? 0))
+    let resolvido = false
+    for (let letras = 2; letras <= Math.max(2, maxLetras); letras++) {
+      const tent = grupo.map((i) => rotulo(i, letras, 0))
+      if (new Set(tent.map((t) => t.toLocaleLowerCase('pt-BR'))).size === tent.length) {
+        grupo.forEach((i, k) => (resultado[i] = tent[k]))
+        resolvido = true
+        break
+      }
+    }
+    // Mais letras não resolveu (mesmo 1º sobrenome): volta para a inicial —
+    // nunca expõe o sobrenome inteiro.
+    if (!resolvido) grupo.forEach((i) => (resultado[i] = rotulo(i, 1, 0)))
+  }
+  grupos = conflitos()
+  for (const grupo of grupos) {
+    const maxExtra = Math.max(...grupo.map((i) => Math.max(0, sobrenomes(i).length - 1)))
+    for (let extra = 1; extra <= maxExtra; extra++) {
+      const letras = 1
+      const tent = grupo.map((i) => rotulo(i, letras, extra))
+      if (new Set(tent.map((t) => t.toLocaleLowerCase('pt-BR'))).size === tent.length) {
+        grupo.forEach((i, k) => (resultado[i] = tent[k]))
+        break
+      }
+    }
+  }
+  for (const grupo of conflitos()) grupo.forEach((i, k) => (resultado[i] = k === 0 ? resultado[i] : `${resultado[i]} (${k + 1})`))
+  return resultado
+}
+
+export interface MembroEquipePublico {
+  /** Identificador opaco (HMAC no servidor) — nunca o uuid do colaborador. */
+  ref: string
+  nome: string
+  funcao: FuncaoPeca | null
+}
+
+/** Lista da equipe para o link público, ordenada pelo nome exibido. */
+export function montarEquipePublica(membros: { ref: string; nome_completo: string; cargo: string | null }[]): MembroEquipePublico[] {
+  const curtos = nomesCurtos(membros.map((m) => m.nome_completo))
+  return membros
+    .map((m, i) => ({ ref: m.ref, nome: curtos[i], funcao: funcaoDoCargo(m.cargo) }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+// ---------- Snapshots da linha identificada (servidor e fila CEU → Pedidos) ----------
+
+export interface TamanhosCadastro {
+  tamanho_camisa: string | null
+  tamanho_calca: string | null
+  tamanho_calcado: string | null
+  tamanho_luva: string | null
+}
+
+/**
+ * Medida do cadastro (ceu_tamanhos) que vale para o item. Mesma regra de
+ * tamanhoParaItem (src/lib/ceu/tamanhosPuro.ts — o teste trava a paridade).
+ */
+export function tamanhoCadastroParaItem(nomeItem: string, t: TamanhosCadastro | null | undefined): string | null {
+  if (!t) return null
+  const nome = nomeItem.toLowerCase()
+  if (nome.includes('luva')) return t.tamanho_luva
+  if (nome.includes('camisa') || nome.includes('jaleco')) return t.tamanho_camisa
+  if (nome.includes('calça') || nome.includes('calca')) return t.tamanho_calca
+  if (/bota|botina|sapato|calçado|calcado|tênis|tenis|sandália|sandalia/.test(nome)) return t.tamanho_calcado
+  return null
+}
+
+/** Mesma regra de tamanhosDivergem (src/lib/materiais/pedidos.ts). */
+export function tamanhosDivergemPeca(pedido: string | null | undefined, cadastro: string | null | undefined): boolean {
+  const norm = (x: string | null | undefined) => (x ?? '').toUpperCase().replace(/\s+/g, '')
+  if (!norm(pedido) || !norm(cadastro)) return false
+  return norm(pedido) !== norm(cadastro)
+}
+
+/** Ids de TODOS os itens (qualquer tamanho, ativos ou não) da mesma peça do item. */
+export function itensDaMesmaPeca(itens: ItemCeuCadastro[], itemId: string): Set<string> {
+  const alvo = itens.find((i) => i.id === itemId)
+  if (!alvo) return new Set([itemId])
+  const chave = chavePeca(separarTamanhoDoNome(alvo.nome).base, alvo.tipo)
+  return new Set(itens.filter((i) => i.tipo === alvo.tipo && chavePeca(separarTamanhoDoNome(i.nome).base, i.tipo) === chave).map((i) => i.id))
+}
+
+/**
+ * Última entrega da PEÇA ao colaborador (qualquer tamanho): pediu "BOTA PVC
+ * 39" e recebeu a 38 em março → devolve a entrega de março e o item (38).
+ */
+export function ultimaEntregaDaPeca(
+  entregas: { item_id: string; data_entrega: string }[],
+  idsDaPeca: Set<string>
+): { data: string; item_id: string } | null {
+  let melhor: { data: string; item_id: string } | null = null
+  for (const e of entregas) {
+    if (!idsDaPeca.has(e.item_id) || !e.data_entrega) continue
+    if (!melhor || e.data_entrega > melhor.data) melhor = { data: e.data_entrega.slice(0, 10), item_id: e.item_id }
+  }
+  return melhor
+}
+
+// ---------- Equipe do contrato de pedido ----------
+
+/**
+ * Colaboradores da equipe do contrato: união do departamento principal com
+ * os departamentos extras (mat_contratos.departamentos_equipe_extra —
+ * decisão da gestão de 14/10/2026, caso Telex × DuoConnect), cada um pela
+ * regra de idsColaboradoresDoDepartamento (fuzzy + linhas irmãs, sem ILIKE).
+ */
+export function idsEquipeDoContrato(
+  departamentos: DepartamentoFuzzy[],
+  colaboradores: ColaboradorDepartamento[],
+  departamentoIds: string[]
+): Set<string> {
+  const ids = new Set<string>()
+  for (const depId of new Set(departamentoIds)) {
+    const alvo = departamentos.find((d) => d.id === depId)
+    if (!alvo) continue
+    for (const id of idsColaboradoresDoDepartamento(departamentos, colaboradores, alvo.nome_curto?.trim() || alvo.nome)) ids.add(id)
+  }
+  return ids
+}
+// <<< FIM: src/lib/materiais/pecasCeu.ts
+
+// >>> LÓGICA PURA: src/lib/materiais/buscaItens.ts (cópia — não editar aqui)
+// Busca tolerante a erro de digitação no catálogo de materiais — lógica pura.
+// Usada pelo "Preciso de outro item" do link do líder (ação `buscar_item` da
+// Edge Function pedido-materiais): o líder digita "cab", "cabo vasora",
+// "detergete" e recebe até 5 sugestões de itens ATIVOS.
+//
+// ESTE ARQUIVO É COPIADO PARA DENTRO DA EDGE FUNCTION
+// supabase/functions/pedido-materiais/index.ts por
+// `node scripts/sincronizar-pedido-materiais.mjs` (sem imports).
+//
+// Decisão (14/10/2026): busca fuzzy LOCAL, instantânea e gratuita — sem
+// chamada externa. Normalização sem acento + prefixo + Levenshtein por
+// palavra + trigramas, olhando o nome do item e os nomes antigos/grafias
+// reais de `mat_aliases`.
+//
+// PONTO DE EXTENSÃO (não implementado): quando `buscarItens` não devolver
+// nada, a function poderia consultar um classificador externo (ex.: Jev, da
+// TypeSafe) com o termo e a lista de nomes do catálogo, aceitando só
+// respostas de alta confiança. Ver `FallbackBusca` abaixo — hoje a function
+// não passa nenhum fallback e o líder usa "Não achei, enviar assim".
+
+export interface ItemBuscavel {
+  id: string
+  nome: string
+  /** Nomes antigos e grafias (mat_aliases.nome_legado). */
+  aliases?: string[]
+}
+
+/** Assinatura do fallback futuro (não usado hoje). Deve devolver ids do catálogo. */
+export type FallbackBusca = (termo: string, nomes: { id: string; nome: string }[]) => Promise<string[]>
+
+export const BUSCA_MIN_CARACTERES = 3
+export const BUSCA_MAX_RESULTADOS = 5
+const NOTA_MINIMA = 0.6
+
+export function normalizarBusca(texto: string | null | undefined): string {
+  return (texto ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const VAZIAS_BUSCA = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'com', 'em', 'e', 'p', 'c'])
+
+function palavrasBusca(texto: string): string[] {
+  return normalizarBusca(texto)
+    .split(' ')
+    .filter((p) => p && !VAZIAS_BUSCA.has(p))
+}
+
+/** Levenshtein com corte: devolve limite + 1 quando passa do limite. */
+export function distanciaEdicao(a: string, b: string, limite = 99): number {
+  if (a === b) return 0
+  if (Math.abs(a.length - b.length) > limite) return limite + 1
+  let anterior = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const atual = [i]
+    let menor = i
+    for (let j = 1; j <= b.length; j++) {
+      const v = Math.min(anterior[j] + 1, atual[j - 1] + 1, anterior[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      atual.push(v)
+      if (v < menor) menor = v
+    }
+    if (menor > limite) return limite + 1
+    anterior = atual
+  }
+  return anterior[b.length]
+}
+
+function trigramasDe(texto: string): Set<string> {
+  const s = `  ${texto} `
+  const t = new Set<string>()
+  for (let i = 0; i < s.length - 2; i++) t.add(s.slice(i, i + 3))
+  return t
+}
+
+export function similaridadeTrigramas(a: string, b: string): number {
+  const ta = trigramasDe(a)
+  const tb = trigramasDe(b)
+  if (ta.size === 0 || tb.size === 0) return 0
+  let comuns = 0
+  for (const x of ta) if (tb.has(x)) comuns++
+  return comuns / (ta.size + tb.size - comuns)
+}
+
+/** Erros de digitação aceitos por palavra: 0 até 3 letras, 1 até 5, 2 a partir de 6. */
+function tolerancia(n: number): number {
+  return n <= 3 ? 0 : n <= 5 ? 1 : 2
+}
+
+/** Nota de 0 a 1 de uma palavra digitada contra uma palavra do nome. */
+function notaPalavra(t: string, p: string): number {
+  if (t === p) return 1
+  if (p.startsWith(t)) return t.length >= 2 ? 0.92 : 0.5
+  if (t.startsWith(p) && p.length >= 3) return 0.8
+  const tol = tolerancia(t.length)
+  if (tol > 0) {
+    if (distanciaEdicao(t, p, tol) <= tol) return 0.82
+  }
+  if (tol > 0 && t.length >= 5) {
+    // prefixo com erro: "vasor" ~ "vassoura"
+    if (p.length > t.length && distanciaEdicao(t, p.slice(0, t.length), tol) <= tol) return 0.72
+    if (p.length > t.length + 1 && distanciaEdicao(t, p.slice(0, t.length + 1), tol) <= tol) return 0.72
+  }
+  return similaridadeTrigramas(t, p) * 0.7
+}
+
+/** Nota de um termo contra um nome (média das palavras digitadas, cada uma no melhor par). */
+export function notaNome(termo: string, nome: string): number {
+  const ts = palavrasBusca(termo)
+  const ps = palavrasBusca(nome)
+  if (ts.length === 0 || ps.length === 0) return 0
+  let soma = 0
+  let melhorPalavra = 0
+  for (const t of ts) {
+    let melhor = 0
+    for (const p of ps) melhor = Math.max(melhor, notaPalavra(t, p))
+    soma += melhor
+    melhorPalavra = Math.max(melhorPalavra, melhor)
+  }
+  let nota = soma / ts.length
+  // Várias palavras: uma delas casando bem já sugere o item ("cabo vasora"
+  // traz os cabos e as vassouras quando não existe "cabo de vassoura").
+  if (ts.length > 1) nota = Math.max(nota, melhorPalavra * 0.75)
+  const tn = normalizarBusca(termo)
+  const nn = normalizarBusca(nome)
+  if (nn.startsWith(tn)) nota = Math.min(1, nota + 0.08)
+  return Math.max(nota, similaridadeTrigramas(tn, nn) * 0.9)
+}
+
+export interface ResultadoBusca<T> {
+  item: T
+  nota: number
+  /** Nome (ou alias) que casou melhor. */
+  casouCom: string
+}
+
+/**
+ * Até `limite` itens que casam com o termo, do melhor para o pior. Termo com
+ * menos de BUSCA_MIN_CARACTERES letras não busca (evita "listar tudo").
+ */
+export function buscarItens<T extends ItemBuscavel>(
+  termo: string,
+  itens: T[],
+  limite = BUSCA_MAX_RESULTADOS,
+  notaMinima = NOTA_MINIMA
+): ResultadoBusca<T>[] {
+  const tn = normalizarBusca(termo)
+  if (tn.replace(/ /g, '').length < BUSCA_MIN_CARACTERES) return []
+  const resultados: ResultadoBusca<T>[] = []
+  for (const item of itens) {
+    let melhor = notaNome(tn, item.nome)
+    let casouCom = item.nome
+    for (const a of item.aliases ?? []) {
+      // alias vale um pouco menos que o nome oficial (desempate)
+      const n = notaNome(tn, a) * 0.97
+      if (n > melhor) {
+        melhor = n
+        casouCom = a
+      }
+    }
+    if (melhor >= notaMinima) resultados.push({ item, nota: melhor, casouCom })
+  }
+  return resultados
+    .sort((a, b) => b.nota - a.nota || a.item.nome.localeCompare(b.item.nome, 'pt-BR'))
+    .slice(0, Math.max(0, Math.min(limite, BUSCA_MAX_RESULTADOS)))
+}
+// <<< FIM: src/lib/materiais/buscaItens.ts
+
+// >>> LÓGICA PURA: src/lib/materiais/pedidoLider.ts (cópia — não editar aqui)
 // Pedido do líder pelo link público (/pedido/:token) — lógica pura.
 //
-// ESTE ARQUIVO É COPIADO, SEM ALTERAÇÃO, PARA DENTRO DA EDGE FUNCTION
-// supabase/functions/pedido-materiais/index.ts (o deploy é de arquivo único).
-// Por isso não tem nenhum import. Ao mudar aqui, rode
+// ESTE ARQUIVO É COPIADO PARA DENTRO DA EDGE FUNCTION
+// supabase/functions/pedido-materiais/index.ts (o deploy é de arquivo único),
+// junto com buscaItens.ts e pecasCeu.ts. Por isso só importa TIPOS dos
+// arquivos irmãos (o script remove as linhas de import). Ao mudar aqui, rode
 // `node scripts/sincronizar-pedido-materiais.mjs` — o teste
-// pedidoLider.test.ts falha se as duas cópias divergirem.
+// pedidoLider.test.ts falha se as cópias divergirem.
 //
-// Regras (docs/PLANO_MATERIAIS_FASE1.md §4): o link é público, então nada de
-// dado pessoal sai daqui (sem equipe, tamanhos cadastrados, CPF, preço). O
-// cliente não é confiável: o servidor revalida tudo com validarEnvioPedido e
-// recalcula as exceções (acima do kit, antes da validade, fora do kit), que
+// Regras (docs/PLANO_MATERIAIS_FASE1.md §4): o link é público, então o único
+// dado pessoal que sai daqui é a lista da equipe com PRIMEIRO NOME + INICIAL
+// do sobrenome e um identificador opaco (decisão da gestão, 09/10/2026,
+// reiterada em 14/10/2026) — nada de CPF, matrícula, foto, tamanhos, preço.
+// O cliente não é confiável: o servidor revalida tudo com validarEnvioPedido
+// e recalcula as exceções (acima do kit, antes da validade, fora do kit), que
 // exigem justificativa mas NÃO bloqueiam o pedido — vão para o inspetor.
+
 
 // 'portaria' é o único valor com regra própria; as demais contam como material (recebe_limpeza).
 export type CategoriaPublica = 'limpeza' | 'portaria' | 'descartaveis' | 'acessorios' | 'piscina'
@@ -115,6 +813,7 @@ export const MOTIVOS_CRACHA = [
   'Não se aplica. Pedido apenas do cordão com prendedor.',
 ]
 
+/** Lista genérica (pedido interno do escritório — PedidoExtraDialog). O link do líder usa os tamanhos de cada peça. */
 export const TAMANHOS_SUGERIDOS = [
   'P', 'M', 'G', 'GG', 'XGG', 'XXGG', 'EG', 'Único', '8', '9',
   '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46',
@@ -154,9 +853,19 @@ export interface PrecoSimples {
 export interface ContextoPedido {
   hoje: string
   recebeLimpeza: boolean
+  /**
+   * Itens que podem ser pedidos. No navegador: os do kit + os escolhidos na
+   * busca "Preciso de outro item". No servidor: o catálogo ativo inteiro
+   * (nunca devolvido ao link).
+   */
   catalogo: ItemPublico[]
   kit: KitPublico[]
+  /** Itens CEU (um por tamanho) das peças do contrato. */
   itensCeu: ItemCeuPublico[]
+  /** Peças do kit de uniforme do contrato (tamanhos válidos por item). */
+  pecas?: PecaPublica[]
+  /** Equipe do contrato (ref opaco + nome curto). */
+  equipe?: MembroEquipePublico[]
   /** item_id → última competência (AAAA-MM-DD) em que o item foi entregue/aprovado ao contrato. */
   ultimasEntregas: Record<string, string>
   precos?: PrecoSimples[]
@@ -180,6 +889,8 @@ export interface LinhaProdutoRpc {
 
 export interface LinhaCeuRpc {
   tipo: TipoLinhaCeu
+  /** Identificador opaco da equipe; o servidor troca por colaborador_id. */
+  colaborador_ref: string | null
   nome_digitado: string
   item_id: string | null
   tamanho: string | null
@@ -189,9 +900,17 @@ export interface LinhaCeuRpc {
   cracha_cordao: boolean | null
 }
 
+/** Erro ligado a uma linha (chave do formulário) e a um campo — a tela mostra ao lado do campo. */
+export interface ErroCampo {
+  chave: string | null
+  campo: string
+  mensagem: string
+}
+
 export interface ResultadoValidacaoPedido {
   ok: boolean
   erros: string[]
+  errosCampo: ErroCampo[]
   seuNome: string
   observacao: string | null
   termos: Record<string, boolean>
@@ -308,6 +1027,22 @@ export function motivoExcecao(e: ExcecoesLinha): string {
   return motivos.join(', ')
 }
 
+const fmtQtd = (n: number) => String(arred2(n)).replace('.', ',')
+
+/**
+ * Pergunta amigável da justificativa (a tela mostra em vermelho, com o campo
+ * logo abaixo). Ex.: "Você pediu 8, mas o kit do mês é 5. Pode contar para a
+ * gente o motivo?"
+ */
+export function perguntaJustificativa(e: ExcecoesLinha, quantidade: number): string {
+  if (e.foraKit) return 'Este item não faz parte do kit do posto. Pode contar para a gente por que precisa dele?'
+  if (e.acimaKit && e.validade)
+    return `Você pediu ${fmtQtd(quantidade)}, mas o kit do mês é ${fmtQtd(e.qtdKit ?? 0)} e o último ainda está no prazo de uso. Pode contar para a gente o motivo?`
+  if (e.acimaKit) return `Você pediu ${fmtQtd(quantidade)}, mas o kit do mês é ${fmtQtd(e.qtdKit ?? 0)}. Pode contar para a gente o motivo?`
+  if (e.validade) return 'O último deste item ainda está no prazo de uso. Pode contar para a gente por que precisa trocar?'
+  return ''
+}
+
 /**
  * Linhas iniciais do formulário: o Kit Mensal do contrato (só produtos).
  * Item com periodicidade N (> 1) já entregue nos N-1 meses anteriores começa
@@ -353,18 +1088,41 @@ export function precoVigentePedido(
   return base ? Number(base.preco) : null
 }
 
+// ---------- Linhas de uniforme/EPI/crachá ----------
+
+/**
+ * Linha de uniforme/EPI/crachá sem nada escolhido — é IGNORADA (não é erro
+ * nem pendência). Uniforme/EPI: sem peça e sem tamanho (a pessoa sozinha não
+ * é pedido). Crachá: sem pessoa, sem nome, sem motivo.
+ */
+export function linhaCeuVazia(c: Record<string, unknown>): boolean {
+  if (c.tipo === 'cracha') {
+    return !texto(c.colaborador_ref) && !texto(c.nome_digitado) && !texto(c.cracha_nome) && !texto(c.cracha_motivo)
+  }
+  return !texto(c.item_id) && !texto(c.tamanho)
+}
+
+/** Tamanhos válidos para o item (pelas peças do contrato); null = qualquer (sem peças no contexto). */
+export function tamanhosDoItemCeu(pecas: PecaPublica[] | undefined, itemId: string): string[] | null {
+  if (!pecas) return null
+  const tamanhos: string[] = []
+  for (const p of pecas) for (const o of p.opcoes) if (o.item_id === itemId) tamanhos.push(o.tamanho)
+  return tamanhos
+}
+
 // ---------- Validação do envio (cliente e servidor) ----------
 
 export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): ResultadoValidacaoPedido {
-  const erros: string[] = []
+  const errosCampo: ErroCampo[] = []
+  const erro = (chave: string | null, campo: string, mensagem: string) => errosCampo.push({ chave, campo, mensagem })
   const e = (entrada && typeof entrada === 'object' ? entrada : {}) as Record<string, unknown>
 
   const seuNome = texto(e.seu_nome)
-  if (seuNome.length < 2) erros.push('Informe o seu nome.')
-  else if (seuNome.length > LIMITES_PEDIDO.nome) erros.push(`O seu nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
+  if (seuNome.length < 2) erro(null, 'seu_nome', 'Informe o seu nome.')
+  else if (seuNome.length > LIMITES_PEDIDO.nome) erro(null, 'seu_nome', `O seu nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
 
   const obs = texto(e.observacao)
-  if (obs.length > LIMITES_PEDIDO.texto) erros.push(`A observação passa de ${LIMITES_PEDIDO.texto} caracteres.`)
+  if (obs.length > LIMITES_PEDIDO.texto) erro(null, 'observacao', `A observação passa de ${LIMITES_PEDIDO.texto} caracteres.`)
 
   const termosEntrada = (e.termos && typeof e.termos === 'object' ? e.termos : {}) as Record<string, unknown>
   const termos: Record<string, boolean> = {}
@@ -372,34 +1130,39 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 
   // ---- Produtos ----
   const produtosEntrada = Array.isArray(e.produtos) ? e.produtos : []
-  if (produtosEntrada.length > LIMITES_PEDIDO.linhasProdutos) erros.push('Pedido com linhas de produto demais.')
+  if (produtosEntrada.length > LIMITES_PEDIDO.linhasProdutos) erro(null, 'geral', 'Pedido com linhas de produto demais.')
   const catalogo = new Map(ctx.catalogo.map((c) => [c.id, c]))
-  const agrupados = new Map<string, { item: ItemPublico; variacao_id: string | null; qtd: number; justificativas: string[] }>()
+  const agrupados = new Map<
+    string,
+    { item: ItemPublico; variacao_id: string | null; qtd: number; justificativas: string[]; chave: string | null }
+  >()
   const livres: LinhaProdutoRpc[] = []
 
   for (const bruto of produtosEntrada.slice(0, LIMITES_PEDIDO.linhasProdutos)) {
     const p = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
+    const chave = texto(p.chave) || null
     const qtd = numero(p.quantidade)
     const itemId = texto(p.item_id) || null
-    const nomeLinha = itemId ? catalogo.get(itemId)?.nome ?? 'Item' : texto(p.descricao_livre) || 'Outros materiais'
+    const nomeLinha = itemId ? catalogo.get(itemId)?.nome ?? 'Item' : texto(p.descricao_livre) || 'Outro item'
     if (qtd == null || qtd < 0) {
-      erros.push(`${nomeLinha}: quantidade inválida.`)
+      erro(chave, 'quantidade', `${nomeLinha}: quantidade inválida.`)
       continue
     }
     if (qtd === 0) continue
     const justificativa = texto(p.justificativa)
-    if (justificativa.length > LIMITES_PEDIDO.texto) erros.push(`${nomeLinha}: justificativa passa de ${LIMITES_PEDIDO.texto} caracteres.`)
+    if (justificativa.length > LIMITES_PEDIDO.texto) erro(chave, 'justificativa', `${nomeLinha}: justificativa passa de ${LIMITES_PEDIDO.texto} caracteres.`)
 
     if (!itemId) {
-      if (!ctx.recebeLimpeza) continue
+      // Texto livre ("Não achei, enviar assim"): sempre exceção fora do kit,
+      // o inspetor decide o item.
       const descricao = texto(p.descricao_livre)
       if (!descricao) {
-        erros.push('Outros materiais: descreva o item.')
+        erro(chave, 'descricao', 'Outro item: escreva o que precisa.')
         continue
       }
-      if (descricao.length > LIMITES_PEDIDO.nome) erros.push(`Outros materiais: descrição passa de ${LIMITES_PEDIDO.nome} caracteres.`)
-      if (qtd > LIMITES_PEDIDO.qtdMaxima) erros.push(`${descricao}: quantidade acima do permitido (${LIMITES_PEDIDO.qtdMaxima}).`)
-      if (!justificativa) erros.push(`${descricao}: justifique (item fora do kit).`)
+      if (descricao.length > LIMITES_PEDIDO.nome) erro(chave, 'descricao', `Outro item: descrição passa de ${LIMITES_PEDIDO.nome} caracteres.`)
+      if (qtd > LIMITES_PEDIDO.qtdMaxima) erro(chave, 'quantidade', `${descricao}: quantidade acima do permitido (${LIMITES_PEDIDO.qtdMaxima}).`)
+      if (!justificativa) erro(chave, 'justificativa', `${descricao}: conte para a gente por que precisa (item fora do kit).`)
       livres.push({
         item_id: null,
         variacao_id: null,
@@ -418,26 +1181,26 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 
     const item = catalogo.get(itemId)
     if (!item) {
-      erros.push('Há um item que não está mais no catálogo. Recarregue a página.')
+      erro(chave, 'geral', 'Há um item que não está mais no catálogo. Recarregue a página.')
       continue
     }
     if (!ctx.recebeLimpeza && item.categoria !== 'portaria') continue
     const variacaoId = texto(p.variacao_id) || null
     if (variacaoId && !item.variacoes.some((v) => v.id === variacaoId)) {
-      erros.push(`${item.nome}: variação inválida. Recarregue a página.`)
+      erro(chave, 'variacao', `${item.nome}: opção inválida. Recarregue a página.`)
       continue
     }
     if (!variacaoId && item.variacoes.length > 0 && qtdKitPublico(ctx.kit, item.id, null) == null) {
-      erros.push(`${item.nome}: escolha a variação.`)
+      erro(chave, 'variacao', `${item.nome}: escolha a opção.`)
       continue
     }
-    const chave = `${item.id}|${variacaoId ?? ''}`
-    const atual = agrupados.get(chave)
+    const chaveGrupo = `${item.id}|${variacaoId ?? ''}`
+    const atual = agrupados.get(chaveGrupo)
     if (atual) {
       atual.qtd += qtd
       if (justificativa) atual.justificativas.push(justificativa)
     } else {
-      agrupados.set(chave, { item, variacao_id: variacaoId, qtd, justificativas: justificativa ? [justificativa] : [] })
+      agrupados.set(chaveGrupo, { item, variacao_id: variacaoId, qtd, justificativas: justificativa ? [justificativa] : [], chave })
     }
   }
 
@@ -448,9 +1211,9 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     const rotulo = g.variacao_id ? g.item.variacoes.find((v) => v.id === g.variacao_id)?.rotulo : null
     const nome = rotulo ? `${g.item.nome} (${rotulo})` : g.item.nome
     const teto = tetoQuantidade(exc.qtdKit)
-    if (qtd > teto) erros.push(`${nome}: quantidade acima do permitido (${teto}).`)
+    if (qtd > teto) erro(g.chave, 'quantidade', `${nome}: quantidade acima do permitido (${teto}).`)
     const justificativa = g.justificativas.join(' / ').slice(0, LIMITES_PEDIDO.texto)
-    if (exc.exigeJustificativa && !justificativa) erros.push(`${nome}: justifique (${motivoExcecao(exc)}).`)
+    if (exc.exigeJustificativa && !justificativa) erro(g.chave, 'justificativa', `${nome}: conte para a gente o motivo (${motivoExcecao(exc)}).`)
     produtos.push({
       item_id: g.item.id,
       variacao_id: g.variacao_id,
@@ -467,43 +1230,61 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
   }
   produtos.push(...livres)
 
-  // ---- Uniforme, EPI e crachá (tudo digitado; nada vem do cadastro) ----
-  const ceuEntrada = Array.isArray(e.ceu) ? e.ceu : []
-  if (ceuEntrada.length > LIMITES_PEDIDO.linhasCeu) erros.push('Pedido com linhas de uniforme/EPI/crachá demais.')
+  // ---- Uniforme, EPI e crachá ----
+  const ceuEntrada = (Array.isArray(e.ceu) ? e.ceu : []).filter(
+    (b) => !linhaCeuVazia((b && typeof b === 'object' ? b : {}) as Record<string, unknown>)
+  )
+  if (ceuEntrada.length > LIMITES_PEDIDO.linhasCeu) erro(null, 'geral', 'Pedido com linhas de uniforme/EPI/crachá demais.')
   const itensCeu = new Map(ctx.itensCeu.map((i) => [i.id, i]))
+  const equipe = ctx.equipe ? new Map(ctx.equipe.map((m) => [m.ref, m])) : null
   const ceu: LinhaCeuRpc[] = []
   ceuEntrada.slice(0, LIMITES_PEDIDO.linhasCeu).forEach((bruto, i) => {
     const c = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
+    const chave = texto(c.chave) || null
     const tipo = c.tipo
     const rotuloLinha = `${tipo === 'cracha' ? 'Crachá' : 'Uniforme/EPI'} ${i + 1}`
     if (tipo !== 'uniforme' && tipo !== 'epi' && tipo !== 'cracha') {
-      erros.push(`${rotuloLinha}: tipo inválido.`)
+      erro(chave, 'geral', `${rotuloLinha}: tipo inválido.`)
       return
     }
-    // Crachá: o formulário pede só o nome que vai no crachá; ele também
-    // serve de nome digitado para a identificação interna.
-    const nome = texto(c.nome_digitado) || (tipo === 'cracha' ? texto(c.cracha_nome) : '')
-    if (!nome) erros.push(`${rotuloLinha}: informe o nome do colaborador.`)
-    else if (nome.length > LIMITES_PEDIDO.nome) erros.push(`${rotuloLinha}: nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
+
+    // Pessoa: da lista da equipe (ref opaco) ou "outra pessoa" (nome digitado).
+    let ref = texto(c.colaborador_ref) || null
+    let nome = texto(c.nome_digitado)
+    if (ref) {
+      const membro = equipe?.get(ref)
+      if (equipe && !membro) {
+        erro(chave, 'pessoa', `${rotuloLinha}: a pessoa escolhida não está mais na lista. Recarregue a página.`)
+        ref = null
+      } else if (membro) {
+        nome = membro.nome
+      }
+    }
+    if (!ref && tipo === 'cracha' && !nome) nome = texto(c.cracha_nome)
+    if (!nome) erro(chave, 'pessoa', `${rotuloLinha}: escolha para quem é.`)
+    else if (nome.length > LIMITES_PEDIDO.nome) erro(chave, 'pessoa', `${rotuloLinha}: nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
     const qtdBruta = c.quantidade == null || c.quantidade === '' ? 1 : numero(c.quantidade)
     const qtd = qtdBruta == null ? NaN : qtdBruta
     if (!Number.isInteger(qtd) || qtd < 1 || qtd > LIMITES_PEDIDO.qtdCeuMaxima) {
-      erros.push(`${rotuloLinha}: quantidade deve ser de 1 a ${LIMITES_PEDIDO.qtdCeuMaxima}.`)
+      erro(chave, 'quantidade', `${rotuloLinha}: quantidade deve ser de 1 a ${LIMITES_PEDIDO.qtdCeuMaxima}.`)
     }
 
     if (tipo === 'cracha') {
       const crachaNome = texto(c.cracha_nome)
       const motivo = texto(c.cracha_motivo)
-      if (!crachaNome) erros.push(`${rotuloLinha}: informe o nome que vai no crachá.`)
-      else if (crachaNome.length > LIMITES_PEDIDO.crachaNome) erros.push(`${rotuloLinha}: nome do crachá passa de ${LIMITES_PEDIDO.crachaNome} caracteres.`)
-      if (!MOTIVOS_CRACHA.includes(motivo)) erros.push(`${rotuloLinha}: escolha o motivo.`)
+      // Pessoa da equipe: o nome do crachá pode ficar em branco (o escritório
+      // usa o do cadastro). "Outra pessoa": o nome digitado vai no crachá.
+      if (!ref && !crachaNome && !nome) erro(chave, 'cracha_nome', `${rotuloLinha}: informe o nome que vai no crachá.`)
+      if (crachaNome.length > LIMITES_PEDIDO.crachaNome) erro(chave, 'cracha_nome', `${rotuloLinha}: nome do crachá passa de ${LIMITES_PEDIDO.crachaNome} caracteres.`)
+      if (!MOTIVOS_CRACHA.includes(motivo)) erro(chave, 'motivo', `${rotuloLinha}: escolha o motivo.`)
       ceu.push({
         tipo,
+        colaborador_ref: ref,
         nome_digitado: nome.slice(0, LIMITES_PEDIDO.nome),
         item_id: null,
         tamanho: null,
         qtd_pedida: Number.isInteger(qtd) ? qtd : 1,
-        cracha_nome: crachaNome.slice(0, LIMITES_PEDIDO.crachaNome) || null,
+        cracha_nome: crachaNome.slice(0, LIMITES_PEDIDO.crachaNome) || (ref ? null : nome.slice(0, LIMITES_PEDIDO.crachaNome) || null),
         cracha_motivo: motivo.slice(0, LIMITES_PEDIDO.nome) || null,
         cracha_cordao: c.cracha_cordao === true,
       })
@@ -512,11 +1293,19 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 
     const itemId = texto(c.item_id)
     const item = itemId ? itensCeu.get(itemId) : undefined
-    if (!item || item.tipo !== tipo) erros.push(`${rotuloLinha}: escolha a peça na lista.`)
+    if (!item || item.tipo !== tipo) erro(chave, 'peca', `${rotuloLinha}: escolha a peça na lista.`)
     const tamanho = texto(c.tamanho)
-    if (tamanho.length > LIMITES_PEDIDO.tamanho) erros.push(`${rotuloLinha}: tamanho passa de ${LIMITES_PEDIDO.tamanho} caracteres.`)
+    if (tamanho.length > LIMITES_PEDIDO.tamanho) erro(chave, 'tamanho', `${rotuloLinha}: tamanho passa de ${LIMITES_PEDIDO.tamanho} caracteres.`)
+    if (item) {
+      const validos = tamanhosDoItemCeu(ctx.pecas, item.id)
+      if (validos && validos.some((t) => t !== '')) {
+        if (!tamanho) erro(chave, 'tamanho', `${rotuloLinha}: escolha o tamanho.`)
+        else if (!validos.includes(tamanho)) erro(chave, 'tamanho', `${rotuloLinha}: tamanho fora da lista desta peça.`)
+      }
+    }
     ceu.push({
       tipo,
+      colaborador_ref: ref,
       nome_digitado: nome.slice(0, LIMITES_PEDIDO.nome),
       item_id: item ? item.id : null,
       tamanho: tamanho.slice(0, LIMITES_PEDIDO.tamanho) || null,
@@ -527,15 +1316,16 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     })
   })
 
-  if (produtos.length === 0 && ceu.length === 0) erros.push('O pedido está vazio: informe ao menos um item.')
+  if (produtos.length === 0 && ceu.length === 0) erro(null, 'vazio', 'O pedido está vazio: informe ao menos um item.')
 
-  const secoes = secoesUsadas(produtos, ceu, ctx.catalogo)
+  const secoes = secoesUsadas(produtos, ceu, ctx.catalogo, ctx.recebeLimpeza)
   const semTermo = TERMOS_PEDIDO.filter((t) => secoes.includes(t.id) && !termos[t.id])
-  if (semTermo.length > 0) erros.push('Marque a declaração de cada parte do pedido antes de enviar.')
+  if (semTermo.length > 0) erro(null, 'termos', 'Marque a declaração de cada parte do pedido antes de enviar.')
 
   return {
-    ok: erros.length === 0,
-    erros,
+    ok: errosCampo.length === 0,
+    erros: errosCampo.map((x) => x.mensagem),
+    errosCampo,
     seuNome,
     observacao: obs ? obs.slice(0, LIMITES_PEDIDO.texto) : null,
     termos,
@@ -544,15 +1334,19 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
   }
 }
 
-/** Seções com linhas no envio — cada uma exige a sua declaração. */
+/**
+ * Seções com linhas no envio — cada uma exige a sua declaração. Texto livre
+ * conta como "materiais" (ou "portaria", no contrato que não recebe limpeza).
+ */
 export function secoesUsadas(
   produtos: { item_id: string | null }[],
   ceu: { tipo: TipoLinhaCeu }[],
-  catalogo: ItemPublico[]
+  catalogo: ItemPublico[],
+  recebeLimpeza = true
 ): SecaoPedido[] {
   const usadas = new Set<SecaoPedido>()
   for (const p of produtos) {
-    const cat = p.item_id ? catalogo.find((c) => c.id === p.item_id)?.categoria : null
+    const cat = p.item_id ? catalogo.find((c) => c.id === p.item_id)?.categoria : recebeLimpeza ? null : 'portaria'
     usadas.add(cat === 'portaria' ? 'portaria' : 'materiais')
   }
   for (const c of ceu) usadas.add(c.tipo)
@@ -642,13 +1436,292 @@ export function textoDestino(destino: { produtos: DestinoFilaPublico; ceu: Desti
   const c = ceu === 'extra' ? 'uniformes, EPIs e crachás viram pedido extra' : 'uniformes, EPIs e crachás são somados ao pedido do mês'
   return `Num novo envio, ${p}; ${c}.`
 }
-// <<< FIM DA LÓGICA PURA
+// <<< FIM: src/lib/materiais/pedidoLider.ts
+
+// >>> LÓGICA PURA: src/lib/departamentos.ts (cópia — não editar aqui)
+
+export interface DepartamentoFuzzy {
+  id: string
+  nome: string
+  nome_curto: string | null
+  empresa_id?: string | null
+  status?: string | null
+}
+
+function normalizarTexto(texto: string): string {
+  return removerAcentos(texto)
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Normalização usada nos matches de departamento (sem acentos/pontuação, maiúsculas). */
+export function normalizarDepartamento(texto: string): string {
+  return normalizarTexto(texto)
+}
+
+function tokens(texto: string): string[] {
+  return texto.split(' ').filter((t) => t.length >= 2)
+}
+
+function scoreSimilaridade(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length)
+  if (maxLen === 0) return 1
+  return 1 - distanciaLevenshtein(a, b) / maxLen
+}
+
+function tokensBatem(a: string[], b: string[]): boolean {
+  if (a.length === 0 || b.length === 0) return false
+  return a.every((ta) => b.some((tb) => ta === tb || ta.startsWith(tb) || tb.startsWith(ta)))
+}
+
+/**
+ * Desempate determinístico entre matches de um mesmo passo do fuzzy (a lista
+ * chega em ordenações diferentes conforme a tela, e o `find` devolvia o
+ * primeiro do array — 27 ativos resolviam diferente por tela). Preferência:
+ * (a) status Ativo, depois (b) tem nome_curto, depois (c) nome mais longo
+ * (mais específico). O id fecha o desempate para independência total da ordem.
+ */
+export function compararPreferenciaDepartamento(a: DepartamentoFuzzy, b: DepartamentoFuzzy): number {
+  const ativoA = a.status === 'Ativo' ? 1 : 0
+  const ativoB = b.status === 'Ativo' ? 1 : 0
+  if (ativoA !== ativoB) return ativoB - ativoA
+  const curtoA = a.nome_curto?.trim() ? 1 : 0
+  const curtoB = b.nome_curto?.trim() ? 1 : 0
+  if (curtoA !== curtoB) return curtoB - curtoA
+  if (a.nome.length !== b.nome.length) return b.nome.length - a.nome.length
+  return a.id.localeCompare(b.id)
+}
+
+/**
+ * Encontra um departamento por ID, nome exato, tokens, substring ou similaridade.
+ * Prioriza match por ID > nome exato > nome_curto exato > tokens > substring > similaridade (threshold 0.8).
+ * Empates dentro de cada passo são resolvidos por compararPreferenciaDepartamento.
+ */
+export function encontrarDepartamentoFuzzy(
+  departamentos: DepartamentoFuzzy[],
+  departamentoId?: string | null,
+  nomeTextual?: string | null,
+  empresaId?: string | null
+): DepartamentoFuzzy | null {
+  // 1. Match exato por ID (prioridade máxima, não filtra por empresa)
+  if (departamentoId) {
+    const porId = departamentos.find((d) => d.id === departamentoId)
+    if (porId) return porId
+  }
+
+  const nome = (nomeTextual || '').trim()
+  if (!nome) return null
+
+  const nomeNorm = normalizarTexto(nome)
+
+  // Filtra pela empresa quando informada, para evitar match errado entre empresas
+  const candidatos = empresaId
+    ? departamentos.filter((d) => !d.empresa_id || d.empresa_id === empresaId)
+    : departamentos
+
+  // 2. Match exato por nome
+  const porNomeExato = candidatos
+    .filter((d) => normalizarTexto(d.nome) === nomeNorm)
+    .sort(compararPreferenciaDepartamento)[0]
+  if (porNomeExato) return porNomeExato
+
+  // 3. Match exato por nome_curto
+  const porNomeCurtoExato = candidatos
+    .filter((d) => d.nome_curto && normalizarTexto(d.nome_curto) === nomeNorm)
+    .sort(compararPreferenciaDepartamento)[0]
+  if (porNomeCurtoExato) return porNomeCurtoExato
+
+  // 4. Match por tokens (ordem não importa)
+  const tokensNome = tokens(nomeNorm)
+  const porTokens = candidatos
+    .filter((d) => {
+      const tokensDepNome = tokens(normalizarTexto(d.nome))
+      const tokensDepCurto = d.nome_curto ? tokens(normalizarTexto(d.nome_curto)) : []
+      return tokensBatem(tokensNome, tokensDepNome) || tokensBatem(tokensNome, tokensDepCurto)
+    })
+    .sort(compararPreferenciaDepartamento)[0]
+  if (porTokens) return porTokens
+
+  // 5. Match por substring
+  const porSubstring = candidatos
+    .filter((d) => {
+      const nomeDep = normalizarTexto(d.nome)
+      const nomeCurtoDep = d.nome_curto ? normalizarTexto(d.nome_curto) : ''
+      return (
+        (nomeDep && (nomeDep.includes(nomeNorm) || nomeNorm.includes(nomeDep))) ||
+        (nomeCurtoDep && (nomeCurtoDep.includes(nomeNorm) || nomeNorm.includes(nomeCurtoDep)))
+      )
+    })
+    .sort(compararPreferenciaDepartamento)[0]
+  if (porSubstring) return porSubstring
+
+  // 6. Match por similaridade (Levenshtein) — o maior score manda; o
+  // comparador só desempata scores iguais.
+  let melhorScore = 0
+  let melhor: DepartamentoFuzzy | null = null
+  for (const d of candidatos) {
+    const scoreNome = scoreSimilaridade(nomeNorm, normalizarTexto(d.nome))
+    const scoreCurto = d.nome_curto ? scoreSimilaridade(nomeNorm, normalizarTexto(d.nome_curto)) : 0
+    const score = Math.max(scoreNome, scoreCurto)
+    if (
+      score > melhorScore ||
+      (score === melhorScore && melhor !== null && compararPreferenciaDepartamento(d, melhor) < 0)
+    ) {
+      melhorScore = score
+      melhor = d
+    }
+  }
+  if (melhorScore >= 0.8) return melhor
+
+  return null
+}
+
+/**
+ * Grupo de "linhas irmãs" de um departamento: o id alvo + todas as linhas
+ * com o mesmo nome ou nome_curto normalizado, de QUALQUER status — o cadastro
+ * tem duplicadas do mesmo posto (grafias/status/nome_curto diferentes) e o
+ * colaborador pode apontar para qualquer uma. Mesma regra de expansão de
+ * `idsColaboradoresDoDepartamento`. Conjunto vazio quando o id não existe.
+ */
+export function idsGrupoDepartamento(
+  departamentos: DepartamentoFuzzy[],
+  departamentoId: string
+): Set<string> {
+  const alvo = departamentos.find((d) => d.id === departamentoId)
+  if (!alvo) return new Set()
+  const chaves = new Set<string>([normalizarTexto(alvo.nome)])
+  if (alvo.nome_curto) chaves.add(normalizarTexto(alvo.nome_curto))
+  return new Set(
+    departamentos
+      .filter(
+        (d) =>
+          chaves.has(normalizarTexto(d.nome)) ||
+          (d.nome_curto ? chaves.has(normalizarTexto(d.nome_curto)) : false)
+      )
+      .map((d) => d.id)
+  )
+}
+
+/**
+ * Lista para seletores de departamento (autocompletes de filtro/cadastro):
+ * apenas linhas Ativas com nome_curto, deduplicadas pelo nome_curto
+ * normalizado (o cadastro tem irmãs do mesmo posto — ex.: BLUE TERMINAL 2×)
+ * e ordenadas por nome_curto (pt-BR). Entre duplicadas, vale a primeira na
+ * ordenação estável — qualquer id do par funciona porque os filtros expandem
+ * o grupo de irmãs (idsGrupoDepartamento).
+ */
+export function departamentosSelecionaveis<T extends DepartamentoFuzzy>(departamentos: T[]): T[] {
+  const vistos = new Set<string>()
+  return departamentos
+    .filter((d) => d.status === 'Ativo' && !!d.nome_curto?.trim())
+    .filter((d) => {
+      const chave = normalizarTexto(d.nome_curto || '')
+      if (vistos.has(chave)) return false
+      vistos.add(chave)
+      return true
+    })
+    .sort((a, b) => (a.nome_curto || '').localeCompare(b.nome_curto || '', 'pt-BR'))
+}
+
+/**
+ * Retorna o nome curto do departamento encontrado, ou fallback para nome textual.
+ * Se a linha resolvida não tem nome_curto (duplicada legada), procura uma linha
+ * "irmã" com o mesmo nome normalizado que tenha nome_curto (prefere Ativa) —
+ * ex.: colaborador aponta para "ALIANCA S A INDUSTRIA..." sem nome_curto, mas
+ * exibimos "CBO" da linha irmã.
+ */
+export function nomeCurtoDepartamentoFuzzy(
+  departamentos: DepartamentoFuzzy[],
+  departamentoId?: string | null,
+  nomeTextual?: string | null,
+  empresaId?: string | null
+): string {
+  const dep = encontrarDepartamentoFuzzy(departamentos, departamentoId, nomeTextual, empresaId)
+  if (dep?.nome_curto?.trim()) return dep.nome_curto.trim()
+  if (dep) {
+    const chaveNome = normalizarTexto(dep.nome)
+    const irmaos = departamentos.filter(
+      (d) => d.id !== dep.id && d.nome_curto?.trim() && normalizarTexto(d.nome) === chaveNome
+    )
+    const irma = irmaos.find((d) => d.status === 'Ativo') || irmaos[0]
+    if (irma) return irma.nome_curto!.trim()
+    return dep.nome.trim()
+  }
+  return nomeTextual?.trim() || '—'
+}
+
+export interface ColaboradorDepartamento {
+  id: string
+  departamento_id?: string | null
+  departamento?: string | null
+  empresa_id?: string | null
+}
+
+/**
+ * IDs dos colaboradores de um departamento buscado por nome_curto/nome
+ * (filtros de relatórios e listagens). O texto legado de
+ * `colaboradores.departamento` não bate com o cadastro por acento/pontuação
+ * ("ALIANCA S A INDUSTRIA..." vs "Aliança S.A. Indústria..."), então ILIKE
+ * no banco não encontrava — aqui cada colaborador tem o departamento
+ * resolvido por encontrarDepartamentoFuzzy (id > nome exato > nome_curto >
+ * tokens > substring > similaridade).
+ */
+export function idsColaboradoresDoDepartamento(
+  departamentos: DepartamentoFuzzy[],
+  colaboradores: ColaboradorDepartamento[],
+  termo: string
+): Set<string> {
+  const ids = new Set<string>()
+  const t = normalizarTexto(termo.trim())
+  if (!t) return ids
+
+  const alvos = departamentos.filter(
+    (d) => normalizarTexto(d.nome) === t || (d.nome_curto ? normalizarTexto(d.nome_curto) === t : false)
+  )
+  if (alvos.length === 0) {
+    const fuzzy = encontrarDepartamentoFuzzy(departamentos, null, termo)
+    if (fuzzy) alvos.push(fuzzy)
+  }
+
+  // O cadastro pode ter LINHAS DUPLICADAS para o mesmo departamento (ex.:
+  // "Aliança S/A - Indústria..." com nome_curto CBO e "ALIANCA S A INDUSTRIA..."
+  // sem nome_curto) — o colaborador pode apontar para qualquer uma delas.
+  // Expande o alvo para todas as linhas com o mesmo nome ou nome_curto
+  // normalizado.
+  const chaves = new Set<string>()
+  alvos.forEach((d) => {
+    chaves.add(normalizarTexto(d.nome))
+    if (d.nome_curto) chaves.add(normalizarTexto(d.nome_curto))
+  })
+  const alvosExpandidos = departamentos.filter(
+    (d) => chaves.has(normalizarTexto(d.nome)) || (d.nome_curto ? chaves.has(normalizarTexto(d.nome_curto)) : false)
+  )
+
+  if (alvosExpandidos.length === 0) {
+    // Sem departamento correspondente: fallback pelo texto livre do cadastro.
+    for (const c of colaboradores) {
+      if (c.departamento && normalizarTexto(c.departamento).includes(t)) ids.add(c.id)
+    }
+    return ids
+  }
+
+  const alvoIds = new Set(alvosExpandidos.map((d) => d.id))
+  for (const c of colaboradores) {
+    const dep = encontrarDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento, c.empresa_id)
+    if (dep && alvoIds.has(dep.id)) ids.add(c.id)
+  }
+  return ids
+}
+// <<< FIM: src/lib/departamentos.ts
 
 // ============================================================
 // Infra
 // ============================================================
 
 const LIMITE_CHAMADAS_MINUTO = 30
+const LIMITE_BUSCAS_MINUTO = 60
 const LIMITE_ENVIOS_HORA = 5
 const PERFIS_LINKS = ['admin', 'adm', 'gestor']
 const STATUS_PRODUTOS_ENTREGUE = ['aprovado', 'em_compra', 'entregue', 'entregue_parcial']
@@ -680,8 +1753,8 @@ function ipDaRequisicao(req: Request): string | null {
   return null
 }
 
-async function sha256Hex(texto: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto))
+async function sha256Hex(valor: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(valor))
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
@@ -724,21 +1797,56 @@ async function decifrarToken(valor: string): Promise<string | null> {
   return new TextDecoder().decode(claro)
 }
 
+/**
+ * Chave HMAC dos identificadores da equipe, derivada da ENCRYPTION_KEY
+ * (SHA-256 de "pedido-materiais:equipe:" + chave). null sem a secret: o link
+ * funciona, mas sem a lista da equipe (só "outra pessoa").
+ */
+async function chaveHmacEquipe(): Promise<CryptoKey | null> {
+  const hex = Deno.env.get('ENCRYPTION_KEY')
+  if (!hex || hex.length !== 64) return null
+  const material = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`pedido-materiais:equipe:${hex}`))
+  return crypto.subtle.importKey('raw', material, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+}
+
+/** Identificador opaco do colaborador NESTE contrato: 12 caracteres base64url do HMAC (72 bits). */
+async function refColaborador(chave: CryptoKey, contratoId: string, colaboradorId: string): Promise<string> {
+  const assinatura = new Uint8Array(
+    await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(`${contratoId}:${colaboradorId}`))
+  )
+  return base64Url(assinatura).slice(0, 12)
+}
+
 async function registrarLog(sb: SupabaseClient, contratoId: string | null, evento: string, ip: string | null, ua: string | null) {
   await sb.from('mat_acesso_log').insert({ contrato_id: contratoId, evento, ip, user_agent: ua ? ua.slice(0, 300) : null })
 }
 
-/** > 30 chamadas/min por IP; envios: > 5/h por IP. */
-async function conferirLimite(sb: SupabaseClient, ip: string | null, envio: boolean, ua: string | null) {
+/**
+ * > 30 chamadas/min por IP (sem contar buscas); envios: > 5/h por IP;
+ * buscas ("Preciso de outro item"): > 60/min por IP.
+ */
+async function conferirLimite(sb: SupabaseClient, ip: string | null, tipo: 'leitura' | 'envio' | 'busca', ua: string | null) {
   if (!ip) return
   const umMinuto = new Date(Date.now() - 60_000).toISOString()
-  const { count } = await sb
-    .from('mat_acesso_log')
-    .select('id', { count: 'exact', head: true })
-    .eq('ip', ip)
-    .gte('created_at', umMinuto)
-  let estourou = (count ?? 0) >= LIMITE_CHAMADAS_MINUTO
-  if (!estourou && envio) {
+  let estourou: boolean
+  if (tipo === 'busca') {
+    const { count } = await sb
+      .from('mat_acesso_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .eq('evento', 'buscar')
+      .gte('created_at', umMinuto)
+    estourou = (count ?? 0) >= LIMITE_BUSCAS_MINUTO
+  } else {
+    const { count } = await sb
+      .from('mat_acesso_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .neq('evento', 'buscar')
+      .gte('created_at', umMinuto)
+    estourou = (count ?? 0) >= LIMITE_CHAMADAS_MINUTO
+  }
+  if (!estourou && tipo === 'envio') {
     const umaHora = new Date(Date.now() - 3_600_000).toISOString()
     const { count: envios } = await sb
       .from('mat_acesso_log')
@@ -758,6 +1866,9 @@ interface ContratoDoToken {
   id: string
   nome: string
   recebe_limpeza: boolean
+  departamento_id: string
+  /** Departamentos cuja equipe também entra no link (migration 129; caso Telex × DuoConnect). */
+  departamentos_equipe_extra: string[]
 }
 
 async function contratoPorToken(sb: SupabaseClient, token: unknown): Promise<ContratoDoToken | null> {
@@ -770,13 +1881,17 @@ async function contratoPorToken(sb: SupabaseClient, token: unknown): Promise<Con
     .eq('ativo', true)
     .maybeSingle()
   if (!acesso) return null
-  const { data: contrato } = await sb
-    .from('mat_contratos')
-    .select('id, nome, recebe_limpeza, ativo')
-    .eq('id', acesso.contrato_id)
-    .maybeSingle()
+  // '*' de propósito: funciona antes e depois da migration 129
+  // (departamentos_equipe_extra); mat_contratos não tem segredo.
+  const { data: contrato } = await sb.from('mat_contratos').select('*').eq('id', acesso.contrato_id).maybeSingle()
   if (!contrato || !contrato.ativo) return null
-  return { id: contrato.id, nome: contrato.nome, recebe_limpeza: contrato.recebe_limpeza }
+  return {
+    id: contrato.id,
+    nome: contrato.nome,
+    recebe_limpeza: contrato.recebe_limpeza,
+    departamento_id: contrato.departamento_id,
+    departamentos_equipe_extra: Array.isArray(contrato.departamentos_equipe_extra) ? contrato.departamentos_equipe_extra : [],
+  }
 }
 
 async function lerConfig(sb: SupabaseClient): Promise<{ diaLimite: number }> {
@@ -804,26 +1919,21 @@ async function janelaDoContrato(sb: SupabaseClient, contratoId: string, hoje: st
   return janelaPublica(hoje, diaLimite, reab?.[0]?.ate ?? null)
 }
 
-/** Catálogo ativo + kit + peças do CEU + últimas entregas — o contexto da validação. */
-async function contextoDoContrato(sb: SupabaseClient, contrato: ContratoDoToken, hoje: string, comPrecos: boolean): Promise<ContextoPedido> {
-  const [rItens, rVar, rKit, rCeu, rHist, rPed] = await Promise.all([
+/** Catálogo ATIVO completo (só no servidor — nunca vai inteiro para o link). */
+async function catalogoAtivo(sb: SupabaseClient): Promise<ItemPublico[]> {
+  const [rItens, rVar] = await Promise.all([
     sb.from('mat_itens').select('id, nome, categoria, unidade_pedido, validade_meses, ordem').eq('ativo', true).order('ordem', { nullsFirst: false }).order('nome'),
     sb.from('mat_item_variacoes').select('id, item_id, rotulo, ordem').eq('ativo', true).order('ordem', { nullsFirst: false }).order('rotulo'),
-    sb.from('mat_kit_itens').select('item_id, variacao_id, quantidade, periodicidade_meses').eq('contrato_id', contrato.id),
-    sb.from('itens').select('id, nome, tipo, situacao').in('tipo', ['Uniforme', 'EPI']).order('nome'),
-    sb.from('mat_historico_consumo').select('item_id, competencia, quantidade').eq('contrato_id', contrato.id).gt('quantidade', 0),
-    sb.from('mat_pedidos').select('id, competencia').eq('contrato_id', contrato.id).in('status_produtos', STATUS_PRODUTOS_ENTREGUE),
   ])
-  const erro = rItens.error ?? rVar.error ?? rKit.error ?? rCeu.error ?? rHist.error ?? rPed.error
+  const erro = rItens.error ?? rVar.error
   if (erro) throw new Error(erro.message)
-
   const variacoes = new Map<string, { id: string; rotulo: string }[]>()
   for (const v of rVar.data ?? []) {
     const lista = variacoes.get(v.item_id) ?? []
     lista.push({ id: v.id, rotulo: v.rotulo })
     variacoes.set(v.item_id, lista)
   }
-  const catalogo: ItemPublico[] = (rItens.data ?? []).map((i) => ({
+  return (rItens.data ?? []).map((i) => ({
     id: i.id,
     nome: i.nome,
     categoria: i.categoria,
@@ -831,10 +1941,136 @@ async function contextoDoContrato(sb: SupabaseClient, contrato: ContratoDoToken,
     validade_meses: i.validade_meses,
     variacoes: variacoes.get(i.id) ?? [],
   }))
+}
 
-  // Última entrega do item AO CONTRATO (base da exceção de validade e da
-  // periodicidade). Fase 1 ainda não registra entrega de produtos: vale a
-  // competência do último pedido aprovado e, antes dele, o histórico das planilhas.
+/**
+ * Peças de uniforme/EPI do contrato (mat_contrato_ceu_itens, migration 129)
+ * agrupadas por nome base. Sem a tabela (migration ainda não aplicada) ou sem
+ * configuração: todas as peças ativas do CEU (fallback).
+ */
+async function pecasDoContratoBanco(sb: SupabaseClient, contratoId: string) {
+  const [rItens, rCfg] = await Promise.all([
+    sb.from('itens').select('id, nome, tipo, situacao').in('tipo', ['Uniforme', 'EPI']).order('nome'),
+    sb.from('mat_contrato_ceu_itens').select('item_id, rotulo, funcoes, ordem, ativo').eq('contrato_id', contratoId),
+  ])
+  if (rItens.error) throw new Error(rItens.error.message)
+  // 42P01 = tabela inexistente (129 não aplicada): segue com o fallback.
+  if (rCfg.error && rCfg.error.code !== '42P01') throw new Error(rCfg.error.message)
+  const itens: ItemCeuCadastro[] = (rItens.data ?? []).map((i) => ({
+    id: i.id,
+    nome: i.nome,
+    tipo: i.tipo === 'EPI' ? 'epi' : 'uniforme',
+    ativo: !i.situacao || String(i.situacao).toUpperCase() === 'A',
+  }))
+  const resultado = pecasDoContrato((rCfg.data ?? []) as ConfigPecaContrato[], itens)
+  const nomePorId = new Map(itens.map((i) => [i.id, i.nome]))
+  const itensCeu: ItemCeuPublico[] = []
+  const vistos = new Set<string>()
+  for (const p of resultado.pecas) {
+    for (const o of p.opcoes) {
+      if (vistos.has(o.item_id)) continue
+      vistos.add(o.item_id)
+      itensCeu.push({ id: o.item_id, nome: nomePorId.get(o.item_id) ?? p.rotulo, tipo: p.tipo })
+    }
+  }
+  return { ...resultado, itensCeu, itensCadastro: itens }
+}
+
+/**
+ * Snapshots da linha já identificada (pessoa da lista da equipe), gravados
+ * no envio — sem esperar a identificação manual: última entrega da PEÇA
+ * (qualquer tamanho) e o item dela, medida do cadastro (ceu_tamanhos) e o
+ * alerta de divergência. Nada disso volta para o link (só vai para a RPC).
+ */
+async function snapshotsIdentificados(
+  sb: SupabaseClient,
+  linhas: { tipo: string; colaborador_id: string | null; item_id: string | null; tamanho: string | null }[],
+  itensCadastro: ItemCeuCadastro[]
+) {
+  const ids = [...new Set(linhas.filter((l) => l.colaborador_id && l.item_id).map((l) => l.colaborador_id!))]
+  const vazio = new Map<number, { ultima_entrega_em: string | null; ultima_entrega_item_id: string | null; tamanho_cadastro: string | null; alerta_tamanho: boolean }>()
+  if (ids.length === 0) return vazio
+  const [rEnt, rTam] = await Promise.all([
+    sb.from('entregas').select('colaborador_id, item_id, data_entrega').in('colaborador_id', ids).limit(5000),
+    sb.from('ceu_tamanhos').select('colaborador_id, tamanho_camisa, tamanho_calca, tamanho_calcado, tamanho_luva').in('colaborador_id', ids),
+  ])
+  // Snapshot é apoio à conferência: erro de leitura não derruba o envio.
+  const entregasPor = new Map<string, { item_id: string; data_entrega: string }[]>()
+  for (const e of rEnt.data ?? []) {
+    const lista = entregasPor.get(e.colaborador_id) ?? []
+    lista.push({ item_id: e.item_id, data_entrega: e.data_entrega })
+    entregasPor.set(e.colaborador_id, lista)
+  }
+  const tamanhosPor = new Map((rTam.data ?? []).map((t) => [t.colaborador_id as string, t as TamanhosCadastro]))
+  const nomePorId = new Map(itensCadastro.map((i) => [i.id, i.nome]))
+  linhas.forEach((l, i) => {
+    if (!l.colaborador_id || !l.item_id || l.tipo === 'cracha') return
+    const ultima = ultimaEntregaDaPeca(entregasPor.get(l.colaborador_id) ?? [], itensDaMesmaPeca(itensCadastro, l.item_id))
+    const nome = nomePorId.get(l.item_id) ?? ''
+    const tamanhoCadastro = tamanhoCadastroParaItem(nome, tamanhosPor.get(l.colaborador_id))
+    const tamanhoPedido = l.tamanho || separarTamanhoDoNome(nome).tamanho
+    vazio.set(i, {
+      ultima_entrega_em: ultima?.data ?? null,
+      ultima_entrega_item_id: ultima?.item_id ?? null,
+      tamanho_cadastro: tamanhoCadastro,
+      alerta_tamanho: tamanhosDivergemPeca(tamanhoPedido, tamanhoCadastro),
+    })
+  })
+  return vazio
+}
+
+interface EquipeServidor {
+  publica: MembroEquipePublico[]
+  /** ref → colaborador_id (só no servidor). */
+  idPorRef: Map<string, string>
+}
+
+/**
+ * Equipe do contrato = colaboradores ATIVOS do departamento principal + dos
+ * departamentos de departamentos_equipe_extra (cada um pela regra de
+ * idsColaboradoresDoDepartamento — fuzzy + linhas irmãs; nunca ILIKE).
+ * Telex: os 4 contratos de pedido recebem a mesma equipe (CENTRO AUDITIVO
+ * TELEX + DUOCONNECT) — decisões da gestão de 14/10/2026.
+ */
+async function equipeDoContrato(sb: SupabaseClient, contrato: ContratoDoToken): Promise<EquipeServidor> {
+  const vazia: EquipeServidor = { publica: [], idPorRef: new Map() }
+  const chave = await chaveHmacEquipe()
+  if (!chave) return vazia
+  const [rDeps, rColabs] = await Promise.all([
+    sb.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
+    sb.from('colaboradores').select('id, nome_completo, cargo, departamento_id, departamento, empresa_id').eq('status', 'Ativo'),
+  ])
+  const erro = rDeps.error ?? rColabs.error
+  if (erro) throw new Error(erro.message)
+  const deps = (rDeps.data ?? []) as DepartamentoFuzzy[]
+  const colabs = rColabs.data ?? []
+  const ids = idsEquipeDoContrato(deps, colabs, [contrato.departamento_id, ...contrato.departamentos_equipe_extra])
+  if (ids.size === 0) return vazia
+  const membros: { ref: string; nome_completo: string; cargo: string | null }[] = []
+  const idPorRef = new Map<string, string>()
+  for (const c of colabs) {
+    if (!ids.has(c.id) || !c.nome_completo) continue
+    const ref = await refColaborador(chave, contrato.id, c.id)
+    if (idPorRef.has(ref)) continue // colisão (72 bits — praticamente impossível): fica de fora da lista
+    idPorRef.set(ref, c.id)
+    membros.push({ ref, nome_completo: c.nome_completo, cargo: c.cargo })
+  }
+  return { publica: montarEquipePublica(membros), idPorRef }
+}
+
+/** Kit + últimas entregas do contrato (base das exceções e da periodicidade). */
+async function kitDoContrato(sb: SupabaseClient, contratoId: string) {
+  const [rKit, rHist, rPed] = await Promise.all([
+    sb.from('mat_kit_itens').select('item_id, variacao_id, quantidade, periodicidade_meses').eq('contrato_id', contratoId),
+    sb.from('mat_historico_consumo').select('item_id, competencia, quantidade').eq('contrato_id', contratoId).gt('quantidade', 0),
+    sb.from('mat_pedidos').select('id, competencia').eq('contrato_id', contratoId).in('status_produtos', STATUS_PRODUTOS_ENTREGUE),
+  ])
+  const erro = rKit.error ?? rHist.error ?? rPed.error
+  if (erro) throw new Error(erro.message)
+
+  // Última entrega do item AO CONTRATO. Fase 1 ainda não registra entrega de
+  // produtos: vale a competência do último pedido aprovado e, antes dele, o
+  // histórico das planilhas.
   const ultimas: Record<string, string> = {}
   const marcar = (itemId: string | null, comp: string) => {
     if (itemId && (!ultimas[itemId] || ultimas[itemId] < comp)) ultimas[itemId] = comp
@@ -851,27 +2087,13 @@ async function contextoDoContrato(sb: SupabaseClient, contrato: ContratoDoToken,
       if (Number(l.qtd_aprovada ?? l.qtd_pedida) > 0) marcar(l.item_id, pedidos.get(l.pedido_id)!)
     }
   }
-
-  const ctx: ContextoPedido = {
-    hoje,
-    recebeLimpeza: contrato.recebe_limpeza,
-    catalogo,
-    kit: (rKit.data ?? []).map((k) => ({
-      item_id: k.item_id,
-      variacao_id: k.variacao_id,
-      quantidade: Number(k.quantidade),
-      periodicidade_meses: Number(k.periodicidade_meses ?? 1),
-    })),
-    itensCeu: (rCeu.data ?? [])
-      .filter((i) => !i.situacao || String(i.situacao).toUpperCase() === 'A')
-      .map((i) => ({ id: i.id, nome: i.nome, tipo: i.tipo === 'EPI' ? 'epi' : 'uniforme' })),
-    ultimasEntregas: ultimas,
-  }
-  if (comPrecos) {
-    const { data: precos } = await sb.from('mat_precos').select('item_id, variacao_id, preco, vigente_desde').lte('vigente_desde', hoje)
-    ctx.precos = (precos ?? []).map((p) => ({ ...p, preco: Number(p.preco) }))
-  }
-  return ctx
+  const kit: KitPublico[] = (rKit.data ?? []).map((k) => ({
+    item_id: k.item_id,
+    variacao_id: k.variacao_id,
+    quantidade: Number(k.quantidade),
+    periodicidade_meses: Number(k.periodicidade_meses ?? 1),
+  }))
+  return { kit, ultimas }
 }
 
 /** Resumo do mês (sem nomes de colaboradores) + destino de um novo envio. */
@@ -929,12 +2151,17 @@ async function resumoDoMes(sb: SupabaseClient, contratoId: string, competencia: 
   return { resumo: montarResumoMes(envios, produtos, ceu, nomes), destino }
 }
 
+/** Itens do catálogo que o contrato pode pedir (sem limpeza: só portaria). */
+function catalogoPermitido(catalogo: ItemPublico[], recebeLimpeza: boolean): ItemPublico[] {
+  return recebeLimpeza ? catalogo : catalogo.filter((c) => c.categoria === 'portaria')
+}
+
 // ============================================================
 // Ações públicas
 // ============================================================
 
 async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null, ua: string | null) {
-  await conferirLimite(sb, ip, false, ua)
+  await conferirLimite(sb, ip, 'leitura', ua)
   const contrato = await contratoPorToken(sb, corpo.token)
   if (!contrato) {
     await registrarLog(sb, null, 'carregar', ip, ua)
@@ -942,23 +2169,84 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
   }
   await registrarLog(sb, contrato.id, 'carregar', ip, ua)
   const hoje = hojeBrasilia()
-  const [janela, ctx] = await Promise.all([janelaDoContrato(sb, contrato.id, hoje), contextoDoContrato(sb, contrato, hoje, false)])
+  const [janela, catalogo, kitInfo, pecasInfo, equipe] = await Promise.all([
+    janelaDoContrato(sb, contrato.id, hoje),
+    catalogoAtivo(sb),
+    kitDoContrato(sb, contrato.id),
+    pecasDoContratoBanco(sb, contrato.id),
+    equipeDoContrato(sb, contrato),
+  ])
   const { resumo, destino } = await resumoDoMes(sb, contrato.id, janela.competencia)
+
+  // Minimização: SÓ os itens do Kit Mensal (o resto do catálogo só por buscar_item).
+  const noKit = new Set(kitInfo.kit.map((k) => k.item_id))
+  const itensDoKit = catalogoPermitido(catalogo, contrato.recebe_limpeza).filter((c) => noKit.has(c.id))
+  const idsDoKit = new Set(itensDoKit.map((c) => c.id))
+  const ultimas: Record<string, string> = {}
+  for (const [id, comp] of Object.entries(kitInfo.ultimas)) if (idsDoKit.has(id)) ultimas[id] = comp
+
   return {
     contrato: { nome: contrato.nome, recebe_limpeza: contrato.recebe_limpeza },
     hoje,
     janela,
-    catalogo: ctx.recebeLimpeza ? ctx.catalogo : ctx.catalogo.filter((c) => c.categoria === 'portaria'),
-    kit: ctx.kit,
-    itens_ceu: ctx.itensCeu,
-    ultimas_entregas: ctx.ultimasEntregas,
+    catalogo: itensDoKit,
+    kit: kitInfo.kit.filter((k) => idsDoKit.has(k.item_id)),
+    pecas: pecasInfo.pecas,
+    sem_kit_uniforme: pecasInfo.semKitUniforme,
+    equipe: equipe.publica,
+    ultimas_entregas: ultimas,
     resumo,
     destino,
   }
 }
 
+/**
+ * "Preciso de outro item": até 5 itens ATIVOS que casam com o termo (≥ 3
+ * letras). Devolve só nome, categoria, unidade, validade e variações — nunca
+ * a lista completa. Busca fuzzy local (sem chamada externa); ponto de
+ * extensão para um fallback futuro documentado em buscaItens.ts.
+ */
+async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | null, ua: string | null) {
+  await conferirLimite(sb, ip, 'busca', ua)
+  const contrato = await contratoPorToken(sb, corpo.token)
+  if (!contrato) throw new ErroHttp(404, 'token_invalido', 'Link inválido ou substituído por um novo. Peça o link atualizado ao inspetor.')
+  const termo = typeof corpo.termo === 'string' ? corpo.termo.slice(0, 80) : ''
+  if (normalizarBusca(termo).replace(/ /g, '').length < BUSCA_MIN_CARACTERES) return { itens: [] }
+  await registrarLog(sb, contrato.id, 'buscar', ip, ua)
+
+  const secao = corpo.secao === 'portaria' || corpo.secao === 'materiais' ? corpo.secao : null
+  let candidatos = catalogoPermitido(await catalogoAtivo(sb), contrato.recebe_limpeza)
+  if (secao === 'portaria') candidatos = candidatos.filter((c) => c.categoria === 'portaria')
+  if (secao === 'materiais') candidatos = candidatos.filter((c) => c.categoria !== 'portaria')
+
+  const ids = new Set(candidatos.map((c) => c.id))
+  const { data: aliases } = await sb.from('mat_aliases').select('nome_legado, item_id')
+  const aliasesPorItem = new Map<string, string[]>()
+  for (const a of aliases ?? []) {
+    if (!ids.has(a.item_id)) continue
+    const lista = aliasesPorItem.get(a.item_id) ?? []
+    lista.push(a.nome_legado)
+    aliasesPorItem.set(a.item_id, lista)
+  }
+  const achados = buscarItens(
+    termo,
+    candidatos.map((c) => ({ ...c, aliases: aliasesPorItem.get(c.id) ?? [] })),
+    BUSCA_MAX_RESULTADOS
+  )
+  return {
+    itens: achados.map(({ item }) => ({
+      id: item.id,
+      nome: item.nome,
+      categoria: item.categoria,
+      unidade: item.unidade,
+      validade_meses: item.validade_meses,
+      variacoes: item.variacoes,
+    })),
+  }
+}
+
 async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, ua: string | null) {
-  await conferirLimite(sb, ip, true, ua)
+  await conferirLimite(sb, ip, 'envio', ua)
   const contrato = await contratoPorToken(sb, corpo.token)
   if (!contrato) {
     await registrarLog(sb, null, 'envio_recusado', ip, ua)
@@ -970,12 +2258,37 @@ async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, u
     await registrarLog(sb, contrato.id, 'envio_recusado', ip, ua)
     throw new ErroHttp(409, 'fora_janela', 'O prazo do pedido deste mês terminou. Fale com o inspetor.')
   }
-  const ctx = await contextoDoContrato(sb, contrato, hoje, true)
+  const [catalogo, kitInfo, pecasInfo, equipe, rPrecos] = await Promise.all([
+    catalogoAtivo(sb),
+    kitDoContrato(sb, contrato.id),
+    pecasDoContratoBanco(sb, contrato.id),
+    equipeDoContrato(sb, contrato),
+    sb.from('mat_precos').select('item_id, variacao_id, preco, vigente_desde').lte('vigente_desde', hoje),
+  ])
+  const ctx: ContextoPedido = {
+    hoje,
+    recebeLimpeza: contrato.recebe_limpeza,
+    catalogo,
+    kit: kitInfo.kit,
+    itensCeu: pecasInfo.itensCeu,
+    pecas: pecasInfo.pecas,
+    equipe: equipe.publica,
+    ultimasEntregas: kitInfo.ultimas,
+    precos: (rPrecos.data ?? []).map((p) => ({ ...p, preco: Number(p.preco) })),
+  }
   const v = validarEnvioPedido(corpo.pedido, ctx)
   if (!v.ok) {
     await registrarLog(sb, contrato.id, 'envio_recusado', ip, ua)
     throw new ErroHttp(422, 'validacao', 'Confira os campos do pedido.', v.erros.slice(0, 20))
   }
+  // Identificador opaco → colaborador_id (já identificado; a RPC grava a
+  // linha como 'pendente' de conferência).
+  const ceuIdentificado = v.ceu.map(({ colaborador_ref, ...l }) => ({
+    ...l,
+    colaborador_id: colaborador_ref ? equipe.idPorRef.get(colaborador_ref) ?? null : null,
+  }))
+  const snapshots = await snapshotsIdentificados(sb, ceuIdentificado, pecasInfo.itensCadastro)
+  const ceu = ceuIdentificado.map((l, i) => ({ ...l, ...(snapshots.get(i) ?? {}) }))
   // mat_registrar_envio grava o log 'envio' e faz a mescla/pedido extra.
   const { data, error } = await sb.rpc('mat_registrar_envio', {
     p_contrato: contrato.id,
@@ -986,7 +2299,7 @@ async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, u
     p_ip: ip,
     p_user_agent: ua ? ua.slice(0, 300) : null,
     p_produtos: v.produtos,
-    p_ceu: v.ceu,
+    p_ceu: ceu,
   })
   if (error) {
     await registrarLog(sb, contrato.id, 'envio_recusado', ip, ua)
@@ -1090,11 +2403,11 @@ Deno.serve(async (req: Request) => {
   const ua = req.headers.get('user-agent')
 
   try {
-    const texto = await req.text()
-    if (texto.length > 200_000) throw new ErroHttp(413, 'requisicao', 'Pedido grande demais')
+    const bruto = await req.text()
+    if (bruto.length > 200_000) throw new ErroHttp(413, 'requisicao', 'Pedido grande demais')
     let corpo: Corpo
     try {
-      corpo = JSON.parse(texto || '{}') as Corpo
+      corpo = JSON.parse(bruto || '{}') as Corpo
     } catch {
       throw new ErroHttp(400, 'requisicao', 'Requisição inválida')
     }
@@ -1103,6 +2416,9 @@ Deno.serve(async (req: Request) => {
     switch (corpo.acao) {
       case 'carregar':
         resultado = await acaoCarregar(sb, corpo, ip, ua)
+        break
+      case 'buscar_item':
+        resultado = await acaoBuscarItem(sb, corpo, ip, ua)
         break
       case 'enviar':
         resultado = await acaoEnviar(sb, corpo, ip, ua)

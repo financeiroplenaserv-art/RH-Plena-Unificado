@@ -455,7 +455,17 @@ function App() {
               <Route
                 path="/materiais/kit"
                 element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais' }}>
+                  // dp2 (Beth) entra só nesta aba para editar as peças de uniforme/EPI do
+                  // contrato; o Kit de produtos fica somente leitura (migration 129)
+                  <ProtectedRoute
+                    user={user}
+                    permissao={{ recurso: 'rota', acao: 'materiais' }}
+                    fallback={
+                      <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais_kit' }}>
+                        <MateriaisKitPage />
+                      </ProtectedRoute>
+                    }
+                  >
                     <MateriaisKitPage />
                   </ProtectedRoute>
                 }

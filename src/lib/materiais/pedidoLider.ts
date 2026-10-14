@@ -1,16 +1,21 @@
 // Pedido do líder pelo link público (/pedido/:token) — lógica pura.
 //
-// ESTE ARQUIVO É COPIADO, SEM ALTERAÇÃO, PARA DENTRO DA EDGE FUNCTION
-// supabase/functions/pedido-materiais/index.ts (o deploy é de arquivo único).
-// Por isso não tem nenhum import. Ao mudar aqui, rode
+// ESTE ARQUIVO É COPIADO PARA DENTRO DA EDGE FUNCTION
+// supabase/functions/pedido-materiais/index.ts (o deploy é de arquivo único),
+// junto com buscaItens.ts e pecasCeu.ts. Por isso só importa TIPOS dos
+// arquivos irmãos (o script remove as linhas de import). Ao mudar aqui, rode
 // `node scripts/sincronizar-pedido-materiais.mjs` — o teste
-// pedidoLider.test.ts falha se as duas cópias divergirem.
+// pedidoLider.test.ts falha se as cópias divergirem.
 //
-// Regras (docs/PLANO_MATERIAIS_FASE1.md §4): o link é público, então nada de
-// dado pessoal sai daqui (sem equipe, tamanhos cadastrados, CPF, preço). O
-// cliente não é confiável: o servidor revalida tudo com validarEnvioPedido e
-// recalcula as exceções (acima do kit, antes da validade, fora do kit), que
+// Regras (docs/PLANO_MATERIAIS_FASE1.md §4): o link é público, então o único
+// dado pessoal que sai daqui é a lista da equipe com PRIMEIRO NOME + INICIAL
+// do sobrenome e um identificador opaco (decisão da gestão, 09/10/2026,
+// reiterada em 14/10/2026) — nada de CPF, matrícula, foto, tamanhos, preço.
+// O cliente não é confiável: o servidor revalida tudo com validarEnvioPedido
+// e recalcula as exceções (acima do kit, antes da validade, fora do kit), que
 // exigem justificativa mas NÃO bloqueiam o pedido — vão para o inspetor.
+
+import type { MembroEquipePublico, PecaPublica } from './pecasCeu'
 
 // 'portaria' é o único valor com regra própria; as demais contam como material (recebe_limpeza).
 export type CategoriaPublica = 'limpeza' | 'portaria' | 'descartaveis' | 'acessorios' | 'piscina'
@@ -68,6 +73,7 @@ export const MOTIVOS_CRACHA = [
   'Não se aplica. Pedido apenas do cordão com prendedor.',
 ]
 
+/** Lista genérica (pedido interno do escritório — PedidoExtraDialog). O link do líder usa os tamanhos de cada peça. */
 export const TAMANHOS_SUGERIDOS = [
   'P', 'M', 'G', 'GG', 'XGG', 'XXGG', 'EG', 'Único', '8', '9',
   '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46',
@@ -107,9 +113,19 @@ export interface PrecoSimples {
 export interface ContextoPedido {
   hoje: string
   recebeLimpeza: boolean
+  /**
+   * Itens que podem ser pedidos. No navegador: os do kit + os escolhidos na
+   * busca "Preciso de outro item". No servidor: o catálogo ativo inteiro
+   * (nunca devolvido ao link).
+   */
   catalogo: ItemPublico[]
   kit: KitPublico[]
+  /** Itens CEU (um por tamanho) das peças do contrato. */
   itensCeu: ItemCeuPublico[]
+  /** Peças do kit de uniforme do contrato (tamanhos válidos por item). */
+  pecas?: PecaPublica[]
+  /** Equipe do contrato (ref opaco + nome curto). */
+  equipe?: MembroEquipePublico[]
   /** item_id → última competência (AAAA-MM-DD) em que o item foi entregue/aprovado ao contrato. */
   ultimasEntregas: Record<string, string>
   precos?: PrecoSimples[]
@@ -133,6 +149,8 @@ export interface LinhaProdutoRpc {
 
 export interface LinhaCeuRpc {
   tipo: TipoLinhaCeu
+  /** Identificador opaco da equipe; o servidor troca por colaborador_id. */
+  colaborador_ref: string | null
   nome_digitado: string
   item_id: string | null
   tamanho: string | null
@@ -142,9 +160,17 @@ export interface LinhaCeuRpc {
   cracha_cordao: boolean | null
 }
 
+/** Erro ligado a uma linha (chave do formulário) e a um campo — a tela mostra ao lado do campo. */
+export interface ErroCampo {
+  chave: string | null
+  campo: string
+  mensagem: string
+}
+
 export interface ResultadoValidacaoPedido {
   ok: boolean
   erros: string[]
+  errosCampo: ErroCampo[]
   seuNome: string
   observacao: string | null
   termos: Record<string, boolean>
@@ -261,6 +287,22 @@ export function motivoExcecao(e: ExcecoesLinha): string {
   return motivos.join(', ')
 }
 
+const fmtQtd = (n: number) => String(arred2(n)).replace('.', ',')
+
+/**
+ * Pergunta amigável da justificativa (a tela mostra em vermelho, com o campo
+ * logo abaixo). Ex.: "Você pediu 8, mas o kit do mês é 5. Pode contar para a
+ * gente o motivo?"
+ */
+export function perguntaJustificativa(e: ExcecoesLinha, quantidade: number): string {
+  if (e.foraKit) return 'Este item não faz parte do kit do posto. Pode contar para a gente por que precisa dele?'
+  if (e.acimaKit && e.validade)
+    return `Você pediu ${fmtQtd(quantidade)}, mas o kit do mês é ${fmtQtd(e.qtdKit ?? 0)} e o último ainda está no prazo de uso. Pode contar para a gente o motivo?`
+  if (e.acimaKit) return `Você pediu ${fmtQtd(quantidade)}, mas o kit do mês é ${fmtQtd(e.qtdKit ?? 0)}. Pode contar para a gente o motivo?`
+  if (e.validade) return 'O último deste item ainda está no prazo de uso. Pode contar para a gente por que precisa trocar?'
+  return ''
+}
+
 /**
  * Linhas iniciais do formulário: o Kit Mensal do contrato (só produtos).
  * Item com periodicidade N (> 1) já entregue nos N-1 meses anteriores começa
@@ -306,18 +348,41 @@ export function precoVigentePedido(
   return base ? Number(base.preco) : null
 }
 
+// ---------- Linhas de uniforme/EPI/crachá ----------
+
+/**
+ * Linha de uniforme/EPI/crachá sem nada escolhido — é IGNORADA (não é erro
+ * nem pendência). Uniforme/EPI: sem peça e sem tamanho (a pessoa sozinha não
+ * é pedido). Crachá: sem pessoa, sem nome, sem motivo.
+ */
+export function linhaCeuVazia(c: Record<string, unknown>): boolean {
+  if (c.tipo === 'cracha') {
+    return !texto(c.colaborador_ref) && !texto(c.nome_digitado) && !texto(c.cracha_nome) && !texto(c.cracha_motivo)
+  }
+  return !texto(c.item_id) && !texto(c.tamanho)
+}
+
+/** Tamanhos válidos para o item (pelas peças do contrato); null = qualquer (sem peças no contexto). */
+export function tamanhosDoItemCeu(pecas: PecaPublica[] | undefined, itemId: string): string[] | null {
+  if (!pecas) return null
+  const tamanhos: string[] = []
+  for (const p of pecas) for (const o of p.opcoes) if (o.item_id === itemId) tamanhos.push(o.tamanho)
+  return tamanhos
+}
+
 // ---------- Validação do envio (cliente e servidor) ----------
 
 export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): ResultadoValidacaoPedido {
-  const erros: string[] = []
+  const errosCampo: ErroCampo[] = []
+  const erro = (chave: string | null, campo: string, mensagem: string) => errosCampo.push({ chave, campo, mensagem })
   const e = (entrada && typeof entrada === 'object' ? entrada : {}) as Record<string, unknown>
 
   const seuNome = texto(e.seu_nome)
-  if (seuNome.length < 2) erros.push('Informe o seu nome.')
-  else if (seuNome.length > LIMITES_PEDIDO.nome) erros.push(`O seu nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
+  if (seuNome.length < 2) erro(null, 'seu_nome', 'Informe o seu nome.')
+  else if (seuNome.length > LIMITES_PEDIDO.nome) erro(null, 'seu_nome', `O seu nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
 
   const obs = texto(e.observacao)
-  if (obs.length > LIMITES_PEDIDO.texto) erros.push(`A observação passa de ${LIMITES_PEDIDO.texto} caracteres.`)
+  if (obs.length > LIMITES_PEDIDO.texto) erro(null, 'observacao', `A observação passa de ${LIMITES_PEDIDO.texto} caracteres.`)
 
   const termosEntrada = (e.termos && typeof e.termos === 'object' ? e.termos : {}) as Record<string, unknown>
   const termos: Record<string, boolean> = {}
@@ -325,34 +390,39 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 
   // ---- Produtos ----
   const produtosEntrada = Array.isArray(e.produtos) ? e.produtos : []
-  if (produtosEntrada.length > LIMITES_PEDIDO.linhasProdutos) erros.push('Pedido com linhas de produto demais.')
+  if (produtosEntrada.length > LIMITES_PEDIDO.linhasProdutos) erro(null, 'geral', 'Pedido com linhas de produto demais.')
   const catalogo = new Map(ctx.catalogo.map((c) => [c.id, c]))
-  const agrupados = new Map<string, { item: ItemPublico; variacao_id: string | null; qtd: number; justificativas: string[] }>()
+  const agrupados = new Map<
+    string,
+    { item: ItemPublico; variacao_id: string | null; qtd: number; justificativas: string[]; chave: string | null }
+  >()
   const livres: LinhaProdutoRpc[] = []
 
   for (const bruto of produtosEntrada.slice(0, LIMITES_PEDIDO.linhasProdutos)) {
     const p = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
+    const chave = texto(p.chave) || null
     const qtd = numero(p.quantidade)
     const itemId = texto(p.item_id) || null
-    const nomeLinha = itemId ? catalogo.get(itemId)?.nome ?? 'Item' : texto(p.descricao_livre) || 'Outros materiais'
+    const nomeLinha = itemId ? catalogo.get(itemId)?.nome ?? 'Item' : texto(p.descricao_livre) || 'Outro item'
     if (qtd == null || qtd < 0) {
-      erros.push(`${nomeLinha}: quantidade inválida.`)
+      erro(chave, 'quantidade', `${nomeLinha}: quantidade inválida.`)
       continue
     }
     if (qtd === 0) continue
     const justificativa = texto(p.justificativa)
-    if (justificativa.length > LIMITES_PEDIDO.texto) erros.push(`${nomeLinha}: justificativa passa de ${LIMITES_PEDIDO.texto} caracteres.`)
+    if (justificativa.length > LIMITES_PEDIDO.texto) erro(chave, 'justificativa', `${nomeLinha}: justificativa passa de ${LIMITES_PEDIDO.texto} caracteres.`)
 
     if (!itemId) {
-      if (!ctx.recebeLimpeza) continue
+      // Texto livre ("Não achei, enviar assim"): sempre exceção fora do kit,
+      // o inspetor decide o item.
       const descricao = texto(p.descricao_livre)
       if (!descricao) {
-        erros.push('Outros materiais: descreva o item.')
+        erro(chave, 'descricao', 'Outro item: escreva o que precisa.')
         continue
       }
-      if (descricao.length > LIMITES_PEDIDO.nome) erros.push(`Outros materiais: descrição passa de ${LIMITES_PEDIDO.nome} caracteres.`)
-      if (qtd > LIMITES_PEDIDO.qtdMaxima) erros.push(`${descricao}: quantidade acima do permitido (${LIMITES_PEDIDO.qtdMaxima}).`)
-      if (!justificativa) erros.push(`${descricao}: justifique (item fora do kit).`)
+      if (descricao.length > LIMITES_PEDIDO.nome) erro(chave, 'descricao', `Outro item: descrição passa de ${LIMITES_PEDIDO.nome} caracteres.`)
+      if (qtd > LIMITES_PEDIDO.qtdMaxima) erro(chave, 'quantidade', `${descricao}: quantidade acima do permitido (${LIMITES_PEDIDO.qtdMaxima}).`)
+      if (!justificativa) erro(chave, 'justificativa', `${descricao}: conte para a gente por que precisa (item fora do kit).`)
       livres.push({
         item_id: null,
         variacao_id: null,
@@ -371,26 +441,26 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 
     const item = catalogo.get(itemId)
     if (!item) {
-      erros.push('Há um item que não está mais no catálogo. Recarregue a página.')
+      erro(chave, 'geral', 'Há um item que não está mais no catálogo. Recarregue a página.')
       continue
     }
     if (!ctx.recebeLimpeza && item.categoria !== 'portaria') continue
     const variacaoId = texto(p.variacao_id) || null
     if (variacaoId && !item.variacoes.some((v) => v.id === variacaoId)) {
-      erros.push(`${item.nome}: variação inválida. Recarregue a página.`)
+      erro(chave, 'variacao', `${item.nome}: opção inválida. Recarregue a página.`)
       continue
     }
     if (!variacaoId && item.variacoes.length > 0 && qtdKitPublico(ctx.kit, item.id, null) == null) {
-      erros.push(`${item.nome}: escolha a variação.`)
+      erro(chave, 'variacao', `${item.nome}: escolha a opção.`)
       continue
     }
-    const chave = `${item.id}|${variacaoId ?? ''}`
-    const atual = agrupados.get(chave)
+    const chaveGrupo = `${item.id}|${variacaoId ?? ''}`
+    const atual = agrupados.get(chaveGrupo)
     if (atual) {
       atual.qtd += qtd
       if (justificativa) atual.justificativas.push(justificativa)
     } else {
-      agrupados.set(chave, { item, variacao_id: variacaoId, qtd, justificativas: justificativa ? [justificativa] : [] })
+      agrupados.set(chaveGrupo, { item, variacao_id: variacaoId, qtd, justificativas: justificativa ? [justificativa] : [], chave })
     }
   }
 
@@ -401,9 +471,9 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     const rotulo = g.variacao_id ? g.item.variacoes.find((v) => v.id === g.variacao_id)?.rotulo : null
     const nome = rotulo ? `${g.item.nome} (${rotulo})` : g.item.nome
     const teto = tetoQuantidade(exc.qtdKit)
-    if (qtd > teto) erros.push(`${nome}: quantidade acima do permitido (${teto}).`)
+    if (qtd > teto) erro(g.chave, 'quantidade', `${nome}: quantidade acima do permitido (${teto}).`)
     const justificativa = g.justificativas.join(' / ').slice(0, LIMITES_PEDIDO.texto)
-    if (exc.exigeJustificativa && !justificativa) erros.push(`${nome}: justifique (${motivoExcecao(exc)}).`)
+    if (exc.exigeJustificativa && !justificativa) erro(g.chave, 'justificativa', `${nome}: conte para a gente o motivo (${motivoExcecao(exc)}).`)
     produtos.push({
       item_id: g.item.id,
       variacao_id: g.variacao_id,
@@ -420,43 +490,61 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
   }
   produtos.push(...livres)
 
-  // ---- Uniforme, EPI e crachá (tudo digitado; nada vem do cadastro) ----
-  const ceuEntrada = Array.isArray(e.ceu) ? e.ceu : []
-  if (ceuEntrada.length > LIMITES_PEDIDO.linhasCeu) erros.push('Pedido com linhas de uniforme/EPI/crachá demais.')
+  // ---- Uniforme, EPI e crachá ----
+  const ceuEntrada = (Array.isArray(e.ceu) ? e.ceu : []).filter(
+    (b) => !linhaCeuVazia((b && typeof b === 'object' ? b : {}) as Record<string, unknown>)
+  )
+  if (ceuEntrada.length > LIMITES_PEDIDO.linhasCeu) erro(null, 'geral', 'Pedido com linhas de uniforme/EPI/crachá demais.')
   const itensCeu = new Map(ctx.itensCeu.map((i) => [i.id, i]))
+  const equipe = ctx.equipe ? new Map(ctx.equipe.map((m) => [m.ref, m])) : null
   const ceu: LinhaCeuRpc[] = []
   ceuEntrada.slice(0, LIMITES_PEDIDO.linhasCeu).forEach((bruto, i) => {
     const c = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
+    const chave = texto(c.chave) || null
     const tipo = c.tipo
     const rotuloLinha = `${tipo === 'cracha' ? 'Crachá' : 'Uniforme/EPI'} ${i + 1}`
     if (tipo !== 'uniforme' && tipo !== 'epi' && tipo !== 'cracha') {
-      erros.push(`${rotuloLinha}: tipo inválido.`)
+      erro(chave, 'geral', `${rotuloLinha}: tipo inválido.`)
       return
     }
-    // Crachá: o formulário pede só o nome que vai no crachá; ele também
-    // serve de nome digitado para a identificação interna.
-    const nome = texto(c.nome_digitado) || (tipo === 'cracha' ? texto(c.cracha_nome) : '')
-    if (!nome) erros.push(`${rotuloLinha}: informe o nome do colaborador.`)
-    else if (nome.length > LIMITES_PEDIDO.nome) erros.push(`${rotuloLinha}: nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
+
+    // Pessoa: da lista da equipe (ref opaco) ou "outra pessoa" (nome digitado).
+    let ref = texto(c.colaborador_ref) || null
+    let nome = texto(c.nome_digitado)
+    if (ref) {
+      const membro = equipe?.get(ref)
+      if (equipe && !membro) {
+        erro(chave, 'pessoa', `${rotuloLinha}: a pessoa escolhida não está mais na lista. Recarregue a página.`)
+        ref = null
+      } else if (membro) {
+        nome = membro.nome
+      }
+    }
+    if (!ref && tipo === 'cracha' && !nome) nome = texto(c.cracha_nome)
+    if (!nome) erro(chave, 'pessoa', `${rotuloLinha}: escolha para quem é.`)
+    else if (nome.length > LIMITES_PEDIDO.nome) erro(chave, 'pessoa', `${rotuloLinha}: nome passa de ${LIMITES_PEDIDO.nome} caracteres.`)
     const qtdBruta = c.quantidade == null || c.quantidade === '' ? 1 : numero(c.quantidade)
     const qtd = qtdBruta == null ? NaN : qtdBruta
     if (!Number.isInteger(qtd) || qtd < 1 || qtd > LIMITES_PEDIDO.qtdCeuMaxima) {
-      erros.push(`${rotuloLinha}: quantidade deve ser de 1 a ${LIMITES_PEDIDO.qtdCeuMaxima}.`)
+      erro(chave, 'quantidade', `${rotuloLinha}: quantidade deve ser de 1 a ${LIMITES_PEDIDO.qtdCeuMaxima}.`)
     }
 
     if (tipo === 'cracha') {
       const crachaNome = texto(c.cracha_nome)
       const motivo = texto(c.cracha_motivo)
-      if (!crachaNome) erros.push(`${rotuloLinha}: informe o nome que vai no crachá.`)
-      else if (crachaNome.length > LIMITES_PEDIDO.crachaNome) erros.push(`${rotuloLinha}: nome do crachá passa de ${LIMITES_PEDIDO.crachaNome} caracteres.`)
-      if (!MOTIVOS_CRACHA.includes(motivo)) erros.push(`${rotuloLinha}: escolha o motivo.`)
+      // Pessoa da equipe: o nome do crachá pode ficar em branco (o escritório
+      // usa o do cadastro). "Outra pessoa": o nome digitado vai no crachá.
+      if (!ref && !crachaNome && !nome) erro(chave, 'cracha_nome', `${rotuloLinha}: informe o nome que vai no crachá.`)
+      if (crachaNome.length > LIMITES_PEDIDO.crachaNome) erro(chave, 'cracha_nome', `${rotuloLinha}: nome do crachá passa de ${LIMITES_PEDIDO.crachaNome} caracteres.`)
+      if (!MOTIVOS_CRACHA.includes(motivo)) erro(chave, 'motivo', `${rotuloLinha}: escolha o motivo.`)
       ceu.push({
         tipo,
+        colaborador_ref: ref,
         nome_digitado: nome.slice(0, LIMITES_PEDIDO.nome),
         item_id: null,
         tamanho: null,
         qtd_pedida: Number.isInteger(qtd) ? qtd : 1,
-        cracha_nome: crachaNome.slice(0, LIMITES_PEDIDO.crachaNome) || null,
+        cracha_nome: crachaNome.slice(0, LIMITES_PEDIDO.crachaNome) || (ref ? null : nome.slice(0, LIMITES_PEDIDO.crachaNome) || null),
         cracha_motivo: motivo.slice(0, LIMITES_PEDIDO.nome) || null,
         cracha_cordao: c.cracha_cordao === true,
       })
@@ -465,11 +553,19 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 
     const itemId = texto(c.item_id)
     const item = itemId ? itensCeu.get(itemId) : undefined
-    if (!item || item.tipo !== tipo) erros.push(`${rotuloLinha}: escolha a peça na lista.`)
+    if (!item || item.tipo !== tipo) erro(chave, 'peca', `${rotuloLinha}: escolha a peça na lista.`)
     const tamanho = texto(c.tamanho)
-    if (tamanho.length > LIMITES_PEDIDO.tamanho) erros.push(`${rotuloLinha}: tamanho passa de ${LIMITES_PEDIDO.tamanho} caracteres.`)
+    if (tamanho.length > LIMITES_PEDIDO.tamanho) erro(chave, 'tamanho', `${rotuloLinha}: tamanho passa de ${LIMITES_PEDIDO.tamanho} caracteres.`)
+    if (item) {
+      const validos = tamanhosDoItemCeu(ctx.pecas, item.id)
+      if (validos && validos.some((t) => t !== '')) {
+        if (!tamanho) erro(chave, 'tamanho', `${rotuloLinha}: escolha o tamanho.`)
+        else if (!validos.includes(tamanho)) erro(chave, 'tamanho', `${rotuloLinha}: tamanho fora da lista desta peça.`)
+      }
+    }
     ceu.push({
       tipo,
+      colaborador_ref: ref,
       nome_digitado: nome.slice(0, LIMITES_PEDIDO.nome),
       item_id: item ? item.id : null,
       tamanho: tamanho.slice(0, LIMITES_PEDIDO.tamanho) || null,
@@ -480,15 +576,16 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     })
   })
 
-  if (produtos.length === 0 && ceu.length === 0) erros.push('O pedido está vazio: informe ao menos um item.')
+  if (produtos.length === 0 && ceu.length === 0) erro(null, 'vazio', 'O pedido está vazio: informe ao menos um item.')
 
-  const secoes = secoesUsadas(produtos, ceu, ctx.catalogo)
+  const secoes = secoesUsadas(produtos, ceu, ctx.catalogo, ctx.recebeLimpeza)
   const semTermo = TERMOS_PEDIDO.filter((t) => secoes.includes(t.id) && !termos[t.id])
-  if (semTermo.length > 0) erros.push('Marque a declaração de cada parte do pedido antes de enviar.')
+  if (semTermo.length > 0) erro(null, 'termos', 'Marque a declaração de cada parte do pedido antes de enviar.')
 
   return {
-    ok: erros.length === 0,
-    erros,
+    ok: errosCampo.length === 0,
+    erros: errosCampo.map((x) => x.mensagem),
+    errosCampo,
     seuNome,
     observacao: obs ? obs.slice(0, LIMITES_PEDIDO.texto) : null,
     termos,
@@ -497,15 +594,19 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
   }
 }
 
-/** Seções com linhas no envio — cada uma exige a sua declaração. */
+/**
+ * Seções com linhas no envio — cada uma exige a sua declaração. Texto livre
+ * conta como "materiais" (ou "portaria", no contrato que não recebe limpeza).
+ */
 export function secoesUsadas(
   produtos: { item_id: string | null }[],
   ceu: { tipo: TipoLinhaCeu }[],
-  catalogo: ItemPublico[]
+  catalogo: ItemPublico[],
+  recebeLimpeza = true
 ): SecaoPedido[] {
   const usadas = new Set<SecaoPedido>()
   for (const p of produtos) {
-    const cat = p.item_id ? catalogo.find((c) => c.id === p.item_id)?.categoria : null
+    const cat = p.item_id ? catalogo.find((c) => c.id === p.item_id)?.categoria : recebeLimpeza ? null : 'portaria'
     usadas.add(cat === 'portaria' ? 'portaria' : 'materiais')
   }
   for (const c of ceu) usadas.add(c.tipo)

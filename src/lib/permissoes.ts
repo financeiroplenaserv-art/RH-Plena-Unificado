@@ -113,6 +113,9 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     // financeiro entram só na aba Fornecedores (rota/menu.materiais_fornecedores).
     gerenciar_fornecedores: ['gestor', 'mesa', 'dp2', 'financeiro'],
     editar_kit: ['gestor'], // edição direta do Kit Mensal
+    // Kit de uniforme/EPI do contrato (peças que o líder vê no link). Banco:
+    // pode_editar_kit_uniforme() (migration 129) = admin, adm, gestor, dp2.
+    editar_kit_uniforme: ['gestor', 'dp2'],
     editar_rota: ['gestor', 'mesa'], // rota padrão do contrato
     alterar_rota_pedido: ['gestor', 'mesa'], // rota do dia de um pedido (override)
     solicitar_alteracao_kit: ['mesa', 'inspetoria'],
@@ -325,6 +328,9 @@ export const podeGerenciarFornecedoresMateriais = (p: NivelAcesso) => temPermiss
 
 /** Edição direta do Kit Mensal */
 export const podeEditarKitMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_kit')
+
+/** Kit de uniforme/EPI do contrato (peças do link do líder) */
+export const podeEditarKitUniforme = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_kit_uniforme')
 
 /** Rota padrão do contrato */
 export const podeEditarRotaMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'editar_rota')

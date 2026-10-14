@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
+import type { MembroEquipePublico, PecaPublica } from '@/lib/materiais/pecasCeu'
 import type {
   DestinoFilaPublico,
-  ItemCeuPublico,
   ItemPublico,
   JanelaPublica,
   KitPublico,
@@ -44,9 +44,15 @@ export interface DadosPedidoPublico {
   contrato: { nome: string; recebe_limpeza: boolean }
   hoje: string
   janela: JanelaPublica
+  /** SÓ os itens do Kit Mensal do contrato (o resto do catálogo vem por buscarItemPublico). */
   catalogo: ItemPublico[]
   kit: KitPublico[]
-  itens_ceu: ItemCeuPublico[]
+  /** Peças de uniforme/EPI do contrato, com os tamanhos de cada uma. */
+  pecas: PecaPublica[]
+  /** true = contrato sem kit de uniforme cadastrado (vieram todas as peças do CEU). */
+  sem_kit_uniforme: boolean
+  /** Equipe: identificador opaco + primeiro nome e inicial ("Michelle A."). */
+  equipe: MembroEquipePublico[]
   ultimas_entregas: Record<string, string>
   resumo: ResumoMes
   destino: { produtos: DestinoFilaPublico; ceu: DestinoFilaPublico }
@@ -105,6 +111,11 @@ async function chamar<T>(corpo: Record<string, unknown>, jwt?: string): Promise<
 
 export function carregarPedidoPublico(token: string): Promise<DadosPedidoPublico> {
   return chamar({ acao: 'carregar', token })
+}
+
+/** "Preciso de outro item": até 5 itens ativos que casam com o termo (≥ 3 letras). */
+export function buscarItemPublico(token: string, termo: string, secao?: 'materiais' | 'portaria'): Promise<{ itens: ItemPublico[] }> {
+  return chamar({ acao: 'buscar_item', token, termo, secao })
 }
 
 export function enviarPedidoPublico(token: string, pedido: Record<string, unknown>): Promise<ResultadoEnvioPedido> {

@@ -7,7 +7,7 @@ import type {
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
 import type {
   MatItem, MatItemVariacao, MatPreco, MatAlias, MatContrato, MatContratoAcesso, MatAcessoLog,
-  MatKitItem, MatKitAlteracao, MatHistoricoConsumo, MatPedido, MatPedidoEnvio, MatPedidoItem,
+  MatKitItem, MatContratoCeuItem, MatKitAlteracao, MatHistoricoConsumo, MatPedido, MatPedidoEnvio, MatPedidoItem,
   CeuPedidoItem, MatComentario, MatReabertura, MatStatusLink, ResultadoSubstituicaoItem,
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
@@ -706,6 +706,12 @@ export type Database = {
         Row: MatKitItem & Record<string, unknown>
         Insert: Partial<MatKitItem> & Record<string, unknown>
         Update: Partial<MatKitItem> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_contrato_ceu_itens: {
+        Row: MatContratoCeuItem & Record<string, unknown>
+        Insert: Partial<MatContratoCeuItem> & Record<string, unknown>
+        Update: Partial<MatContratoCeuItem> & Record<string, unknown>
         Relationships: []
       }
       mat_kit_alteracoes: {
