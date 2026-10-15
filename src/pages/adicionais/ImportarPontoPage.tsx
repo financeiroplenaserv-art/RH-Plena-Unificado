@@ -54,6 +54,7 @@ import {
 } from '@/lib/adicionais/importarEspelho'
 import { podeCriarOcorrencia } from '@/lib/permissoes'
 import { mascararCPF } from '@/lib/utils'
+import { deveAvisarVinculosFaltando } from '@/lib/adicionais/avisoVinculos'
 import {
   listarArquivos,
   salvarArquivo,
@@ -629,6 +630,20 @@ export function ImportarPontoPage() {
 
   const temRevisao = dados.some(c => c.ponto.dias.some(d => d.revisao))
 
+  // Aviso de vínculos faltando (caso de 14/10/2026: o "Copiar período anterior"
+  // foi rodado DEPOIS da importação e o calendário ficou vazio — a importação
+  // só grava dias de quem tem vínculo cobrindo a data). Conta só colaboradores
+  // encontrados no cadastro e com dias no espelho.
+  const avisoVinculos = useMemo(() => {
+    const comPonto = dados.filter((c) => c.colaborador && c.ponto.dias.length > 0)
+    const semVinculo = comPonto.filter((c) => !temVinculoNoEspelho(c)).length
+    return deveAvisarVinculosFaltando(comPonto.length, semVinculo)
+      ? { total: comPonto.length, semVinculo }
+      : null
+    // temVinculoNoEspelho depende de `vinculos` (carregados no mount)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dados, vinculos])
+
   const resumoOcorrencias = useMemo(() => ({
     faltas: planejadas.filter((p) => p.tipo === 'Falta Injustificada' && !p.duplicada && p.match === 'OK').length,
     atestados: planejadas.filter((p) => p.tipo === 'Falta Justificada (atestado)' && !p.duplicada && p.match === 'OK').length,
@@ -815,6 +830,20 @@ export function ImportarPontoPage() {
               <div className="mb-4 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
                 <AlertTriangle className="w-4 h-4" />
                 Existem dias marcados para revisão. Verifique antes de confirmar.
+              </div>
+            )}
+
+            {avisoVinculos && (
+              <div className="mb-4 flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <strong>
+                    {avisoVinculos.semVinculo} de {avisoVinculos.total} colaboradores do espelho não têm vínculo de adicional cobrindo o período
+                  </strong>{' '}
+                  — os dias deles NÃO serão importados para o calendário. Se o período virou (dia 20), crie os vínculos
+                  ANTES de importar: aba <strong>Vínculos → "Copiar período anterior"</strong>, depois volte aqui e
+                  importe o ponto.
+                </div>
               </div>
             )}
 
