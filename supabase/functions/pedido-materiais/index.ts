@@ -1452,6 +1452,14 @@ export function textoDestino(destino: { produtos: DestinoFilaPublico; ceu: Desti
 
 // >>> LÓGICA PURA: src/lib/departamentos.ts (cópia — não editar aqui)
 
+// >>> SYNC-ECONTADOR: INÍCIO — esta região é copiada verbatim para
+// supabase/functions/sync-econtador/index.ts por
+// scripts/sincronizar-sync-econtador.mjs (deploy da function é arquivo único).
+// Edite AQUI e rode o script; src/lib/econtador.test.ts falha se divergir.
+// A região só pode usar removerAcentos/distanciaLevenshtein (a function os
+// define no próprio bloco de infra, como no pedido-materiais) — nada de
+// imports novos aqui dentro.
+
 export interface DepartamentoFuzzy {
   id: string
   nome: string
@@ -1547,22 +1555,17 @@ export function redirecionarDepartamentoInativo(
 }
 
 /**
- * Encontra um departamento por ID, nome exato, tokens, substring ou similaridade.
- * Prioriza match por ID > nome exato > nome_curto exato > tokens > substring > similaridade (threshold 0.8).
- * Empates dentro de cada passo são resolvidos por compararPreferenciaDepartamento.
+ * Encontra um departamento pelo NOME: nome exato > nome_curto exato > tokens >
+ * substring > similaridade (threshold 0.8). Filtra pela empresa quando
+ * informada. Empates dentro de cada passo são resolvidos por
+ * compararPreferenciaDepartamento. (Versão sem match por ID — usada na
+ * importação e-Contador, que só recebe o nome textual da Alterdata.)
  */
-export function encontrarDepartamentoFuzzy(
+export function encontrarDepartamentoFuzzyPorNome(
   departamentos: DepartamentoFuzzy[],
-  departamentoId?: string | null,
   nomeTextual?: string | null,
   empresaId?: string | null
 ): DepartamentoFuzzy | null {
-  // 1. Match exato por ID (prioridade máxima, não filtra por empresa)
-  if (departamentoId) {
-    const porId = departamentos.find((d) => d.id === departamentoId)
-    if (porId) return porId
-  }
-
   const nome = (nomeTextual || '').trim()
   if (!nome) return null
 
@@ -1628,6 +1631,28 @@ export function encontrarDepartamentoFuzzy(
   if (melhorScore >= 0.8) return melhor
 
   return null
+}
+
+// <<< SYNC-ECONTADOR: FIM
+
+/**
+ * Encontra um departamento por ID, nome exato, tokens, substring ou similaridade.
+ * Prioriza match por ID > nome exato > nome_curto exato > tokens > substring > similaridade (threshold 0.8).
+ * Empates dentro de cada passo são resolvidos por compararPreferenciaDepartamento.
+ */
+export function encontrarDepartamentoFuzzy(
+  departamentos: DepartamentoFuzzy[],
+  departamentoId?: string | null,
+  nomeTextual?: string | null,
+  empresaId?: string | null
+): DepartamentoFuzzy | null {
+  // 1. Match exato por ID (prioridade máxima, não filtra por empresa)
+  if (departamentoId) {
+    const porId = departamentos.find((d) => d.id === departamentoId)
+    if (porId) return porId
+  }
+
+  return encontrarDepartamentoFuzzyPorNome(departamentos, nomeTextual, empresaId)
 }
 
 /**

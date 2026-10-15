@@ -77,17 +77,6 @@ export interface ResultadoMapeamentoDepartamentos {
 }
 
 /**
- * Chave canônica do mapa de departamentos da importação: trim + lower-case.
- * DEVE ser usada na gravação E na consulta — a Alterdata manda o nome com
- * espaço no fim ("CONDOMINIO ... RESIDENCIAL ") e a consulta sem trim não
- * achava a chave (gravada aparada), zerando o departamento_id no upsert
- * (bug encontrado em 15/10/2026: 244 colaboradores sem vínculo).
- */
-export function chaveDepartamento(nome: string): string {
-  return nome.trim().toLowerCase()
-}
-
-/**
  * Decisão da gestão (09/10/2026): a importação NUNCA cria departamento.
  * O sync automático criava linha nova (Ativa, sem nome_curto) para qualquer
  * texto sem match — inclusive de contratos encerrados que a Alterdata manda
@@ -126,6 +115,22 @@ export function mensagemDepartamentoNaoResolvido(nome: string): string {
 // ------------------------------------------------------------
 // Deduplicação da lista da Alterdata
 // ------------------------------------------------------------
+
+// >>> SYNC-ECONTADOR: INÍCIO — esta região é copiada verbatim para
+// supabase/functions/sync-econtador/index.ts por
+// scripts/sincronizar-sync-econtador.mjs (deploy da function é arquivo único).
+// Edite AQUI e rode o script; src/lib/econtador.test.ts falha se divergir.
+
+/**
+ * Chave canônica do mapa de departamentos da importação: trim + lower-case.
+ * DEVE ser usada na gravação E na consulta — a Alterdata manda o nome com
+ * espaço no fim ("CONDOMINIO ... RESIDENCIAL ") e a consulta sem trim não
+ * achava a chave (gravada aparada), zerando o departamento_id no upsert
+ * (bug encontrado em 15/10/2026: 244 colaboradores sem vínculo).
+ */
+export function chaveDepartamento(nome: string): string {
+  return nome.trim().toLowerCase()
+}
 
 export interface FuncionarioDedup {
   cpf?: string | null
@@ -188,3 +193,5 @@ export function deduplicarFuncionariosImportacao<T extends FuncionarioDedup>(
   }
   return { unicos, duplicados }
 }
+
+// <<< SYNC-ECONTADOR: FIM

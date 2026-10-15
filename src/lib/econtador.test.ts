@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { chaveDepartamento, deduplicarFuncionariosImportacao, deveIgnorarErroImportacao, extrairMensagemErro, mapearDepartamentosImportacao, mensagemDepartamentoNaoResolvido } from './econtador'
 import { REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO } from './departamentos'
 import type { DepartamentoFuzzy } from './departamentos'
@@ -257,4 +259,25 @@ describe('deduplicarFuncionariosImportacao (15/10/2026 — mesma pessoa 2x na Al
     const { unicos } = deduplicarFuncionariosImportacao([a, b])
     expect(unicos).toEqual([b])
   })
+})
+
+describe('cópia na Edge Function sync-econtador', () => {
+  const raiz = resolve(__dirname, '../..')
+  const fn = readFileSync(resolve(raiz, 'supabase/functions/sync-econtador/index.ts'), 'utf8').replace(/\r\n/g, '\n')
+  // Mesma extração de scripts/sincronizar-sync-econtador.mjs (fatia entre os
+  // marcadores SYNC-ECONTADOR do src).
+  const fatia = (arq: string) => {
+    const linhas = readFileSync(resolve(raiz, arq), 'utf8').replace(/\r\n/g, '\n').split('\n')
+    const i = linhas.findIndex((l) => l.startsWith('// >>> SYNC-ECONTADOR: INÍCIO'))
+    const j = linhas.findIndex((l) => l.startsWith('// <<< SYNC-ECONTADOR: FIM'))
+    return linhas.slice(i + 1, j).join('\n').trimEnd()
+  }
+  it.each(['src/lib/departamentos.ts', 'src/lib/econtador.ts'])(
+    'a function contém a fatia SYNC-ECONTADOR de %s idêntica (rode node scripts/sincronizar-sync-econtador.mjs)',
+    (arq) => {
+      expect(
+        fn.includes(`// >>> LÓGICA PURA: ${arq} (cópia — não editar aqui)\n` + fatia(arq) + `\n// <<< FIM: ${arq}`)
+      ).toBe(true)
+    }
+  )
 })
