@@ -328,6 +328,15 @@ export function opcoesDoGrupo(g: GrupoPeca): OpcaoPeca[] {
   return genericos.length > 0 ? genericos.map((t) => ({ tamanho: t, item_id: unico.id })) : [{ tamanho: '', item_id: unico.id }]
 }
 
+/**
+ * Itens do CEU que NUNCA aparecem no link público do líder (nem no fallback
+ * de contrato sem kit, nem se alguém os recolocar num kit). Continuam ativos
+ * no CEU — a Beth os entrega como exceção.
+ * - 0e528c08-…: "CAMISA MALHA POLO AZUL CLARA - ASG" (a "331"), modelo
+ *   antigo/descontinuado. Decisão da gestora em 15/10/2026 (limpeza pesada).
+ */
+export const ITENS_CEU_OCULTOS_LINK: ReadonlySet<string> = new Set(['0e528c08-54ff-45f4-a1af-12fc54d4b106'])
+
 export interface ConfigPecaContrato {
   item_id: string
   rotulo: string | null
@@ -344,8 +353,11 @@ export interface ConfigPecaContrato {
  */
 export function pecasDoContrato(
   config: ConfigPecaContrato[],
-  itens: ItemCeuCadastro[]
+  todosItens: ItemCeuCadastro[]
 ): { pecas: PecaPublica[]; semKitUniforme: boolean } {
+  // Itens ocultos saem antes de agrupar: a peça deles (nome próprio) some, e
+  // uma linha de kit que aponte para eles é ignorada (sem chave de peça).
+  const itens = todosItens.filter((i) => !ITENS_CEU_OCULTOS_LINK.has(i.id))
   const grupos = agruparItensEmPecas(itens)
   const chavePorItem = new Map<string, string>()
   for (const g of grupos.values()) for (const i of g.itens) chavePorItem.set(i.id, g.chave)

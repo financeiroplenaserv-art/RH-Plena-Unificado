@@ -16,6 +16,7 @@ import {
   opcoesDoGrupo,
   pecasDoContrato,
   pecasParaFuncao,
+  ITENS_CEU_OCULTOS_LINK,
   separarTamanhoDoNome,
   type ItemCeuCadastro,
 } from './pecasCeu'
@@ -232,5 +233,47 @@ describe('equipe do contrato com departamentos extras (Telex × DuoConnect)', ()
     expect([...idsEquipeDoContrato(deps, colabs, ['telex'])]).toEqual(['a'])
     expect([...idsEquipeDoContrato(deps, colabs, ['telex', 'duo', 'duo'])].sort()).toEqual(['a', 'b', 'c'])
     expect(idsEquipeDoContrato(deps, colabs, ['inexistente']).size).toBe(0)
+  })
+})
+
+describe('itens ocultos do link do líder (camisa 331, 15/10/2026)', () => {
+  const ID_331 = '0e528c08-54ff-45f4-a1af-12fc54d4b106'
+  const itens = [
+    item(ID_331, 'CAMISA MALHA POLO AZUL CLARA - ASG', 'uniforme'),
+    item('c312', 'CAMISA MALHA POLO - AZUL - ASG', 'uniforme'),
+    item('mas', 'MÁSCARA DESCARTÁVEL'),
+  ]
+
+  it('a 331 está na lista de ocultos', () => {
+    expect(ITENS_CEU_OCULTOS_LINK.has(ID_331)).toBe(true)
+  })
+
+  it('fallback sem kit: a 331 some e a 312 continua', () => {
+    const { pecas, semKitUniforme } = pecasDoContrato([], itens)
+    expect(semKitUniforme).toBe(true)
+    const ids = pecas.flatMap((p) => p.opcoes.map((o) => o.item_id))
+    expect(ids).not.toContain(ID_331)
+    expect(ids).toContain('c312')
+    expect(ids).toContain('mas')
+  })
+
+  it('kit configurado com a 331: ela é ignorada e a 312 continua', () => {
+    const { pecas, semKitUniforme } = pecasDoContrato(
+      [
+        { item_id: ID_331, rotulo: null, funcoes: ['asg'], ordem: 1, ativo: true },
+        { item_id: 'c312', rotulo: null, funcoes: ['asg'], ordem: 2, ativo: true },
+      ],
+      itens
+    )
+    expect(semKitUniforme).toBe(false)
+    const ids = pecas.flatMap((p) => p.opcoes.map((o) => o.item_id))
+    expect(ids).not.toContain(ID_331)
+    expect(ids).toContain('c312')
+  })
+
+  it('kit só com a 331: nenhuma peça (sem cair no fallback)', () => {
+    const { pecas, semKitUniforme } = pecasDoContrato([{ item_id: ID_331, rotulo: null, funcoes: [], ordem: 1, ativo: true }], itens)
+    expect(semKitUniforme).toBe(false)
+    expect(pecas).toHaveLength(0)
   })
 })
