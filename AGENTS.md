@@ -358,6 +358,7 @@ npx vitest
 - Job de máquina que porta a importação manual do e-Contador para o backend:
   busca Plena EA/Plena Tech, resolve departamentos por fuzzy match, grava
   colaboradores em lotes e registra o resultado no histórico compartilhado.
+- **A lógica pura é CÓPIA VERBATIM de fatias demarcadas de `src/lib/departamentos.ts` e `src/lib/econtador.ts`** (15/10/2026, mesmo padrão do `pedido-materiais`): as regiões entre `// >>> SYNC-ECONTADOR: INÍCIO` e `// <<< SYNC-ECONTADOR: FIM` no src viram os blocos `// >>> LÓGICA PURA: <arquivo>` na function, copiados por `node scripts/sincronizar-sync-econtador.mjs` — edite o SRC e rode o script; o teste `src/lib/econtador.test.ts` ("cópia na Edge Function sync-econtador") falha se divergirem. As fatias só usam `removerAcentos`/`distanciaLevenshtein`, que a function define no bloco de infra (o Deno não resolve `@/`). Cobre: match fuzzy de departamento (`encontrarDepartamentoFuzzyPorNome` + `compararPreferenciaDepartamento`), redirect de linha inativa (`REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO`/`redirecionarDepartamentoInativo`), `chaveDepartamento` (bug do espaço no fim, 15/10/2026) e `deduplicarFuncionariosImportacao`.
 - Acesso somente com `Authorization: Bearer <ECONTADOR_CRON_KEY>`; não usar
   token de usuário nem expor a chave no frontend. O gateway fica com
   `verify_jwt: false`, como no `sync-performancelab`.
