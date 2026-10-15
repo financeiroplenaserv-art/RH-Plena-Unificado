@@ -2,12 +2,12 @@ import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import * as econtadorApi from '@/services/econtadorApi'
-import { deveIgnorarErroImportacao, extrairMensagemErro, mapearDepartamentosImportacao, mensagemDepartamentoNaoResolvido } from '@/lib/econtador'
+import { deveIgnorarErroImportacao, extrairMensagemErro, mapearDepartamentosImportacao, mensagemDepartamentoNaoResolvido, chaveDepartamento, deduplicarFuncionariosImportacao } from '@/lib/econtador'
 import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { agoraBrasil } from '@/lib/utils'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
-import type { Colaborador, StatusColaborador } from '@/types/database'
-import { useColaboradores } from './useColaboradores'
+import type { StatusColaborador } from '@/types/database'
+import { useColaboradores, type DadosUpsertPorMatricula } from './useColaboradores'
 import { useEmpresas } from './useEmpresas'
 
 const COLUNAS_HISTORICO_IMPORTACAO = 'id, usuario_id, empresa_id, empresa_nome, quantidade, importados, atualizados, erros, detalhes_erros, created_at'
@@ -119,12 +119,14 @@ export function useEContador() {
 
     if (nomesUnicos.length === 0) return { mapa: new Map<string, string>(), naoResolvidos: [] }
 
-    // Busca todos os departamentos ativos da empresa (ou sem empresa)
+    // Busca TODOS os departamentos da empresa (ou sem empresa), qualquer
+    // status: a linha INATIVA precisa estar na lista para o texto do contrato
+    // encerrado casar com ela e seguir o redirect explícito/irmã ativa
+    // (redirecionarDepartamentoInativo — ex.: DALIAS → ITAGUAÍ, 15/10/2026).
     let query = supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status')
     if (empresaId) {
       query = query.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
     }
-    query = query.eq('status', 'Ativo')
 
     const { data: existentes, error: erroBusca } = await query
     if (erroBusca) throw erroBusca
@@ -132,9 +134,9 @@ export function useEContador() {
     const departamentos = (existentes || []) as DepartamentoFuzzy[]
     // Decisão da gestão (09/10/2026): NUNCA criar departamento na importação —
     // o insert automático recriava linhas sem nome_curto todo dia (contratos
-    // encerrados que a Alterdata manda com os demitidos). Sem match entre os
-    // ativos, o nome volta em `naoResolvidos` e o histórico avisa para
-    // cadastrar manualmente. Lógica pura testada em src/lib/econtador.ts.
+    // encerrados que a Alterdata manda com os demitidos). Sem match, o nome
+    // volta em `naoResolvidos` e o histórico avisa para cadastrar manualmente.
+    // Lógica pura testada em src/lib/econtador.ts.
     return mapearDepartamentosImportacao(nomesUnicos, departamentos, empresaId)
   }, [])
 
@@ -206,6 +208,21 @@ export function useEContador() {
     let erros = 0
     const detalhesErros: { nome: string; erro: string }[] = []
 
+    // A Alterdata devolve a mesma pessoa 2x quando há contrato antigo de
+    // demitido além do atual — os dois registros casam com o MESMO colaborador
+    // e cada um gerava um update (o antigo derrubava o status para Inativo
+    // por alguns segundos a cada sync). Vale só o contrato vigente
+    // (deduplicarFuncionariosImportacao, 15/10/2026). Registro informativo no
+    // histórico — não conta como erro.
+    const dedup = deduplicarFuncionariosImportacao(lista)
+    for (const { descartado } of dedup.duplicados) {
+      detalhesErros.push({
+        nome: `Duplicado no e-Contador: ${descartado.nome || '(sem nome)'}`,
+        erro: 'A Alterdata enviou esta pessoa duas vezes (contrato antigo de demitido + contrato vigente); só o registro do contrato vigente foi importado',
+      })
+    }
+    const listaUnica = dedup.unicos
+
     const hoje = agoraBrasil()
     hoje.setHours(0, 0, 0, 0)
 
@@ -272,7 +289,7 @@ export function useEContador() {
     let departamentosMap = new Map<string, string>()
     let departamentosNaoResolvidos: string[] = []
     try {
-      const resultado = await sincronizarDepartamentos(lista, empresaId)
+      const resultado = await sincronizarDepartamentos(listaUnica, empresaId)
       departamentosMap = resultado.mapa
       departamentosNaoResolvidos = resultado.naoResolvidos
     } catch (err: unknown) {
@@ -283,7 +300,7 @@ export function useEContador() {
       erros++
     }
 
-    for (const f of lista) {
+    for (const f of listaUnica) {
       try {
         let status: StatusColaborador = 'Ativo'
         let afastamentoMotivo = f.afastamentodescricao || null
@@ -327,7 +344,7 @@ export function useEContador() {
           }
         }
 
-        const dados: Omit<Colaborador, 'id' | 'created_at' | 'updated_at'> = {
+        const dados: DadosUpsertPorMatricula = {
           matricula: f.codigo || f.id,
           nome_completo: f.nome,
           cpf: f.cpf || null,
@@ -339,9 +356,13 @@ export function useEContador() {
           data_nascimento: f.nascimento ? f.nascimento.split('T')[0] : null,
           cargo,
           departamento: f.departamento,
+          // chaveDepartamento: a Alterdata manda o nome com espaço no fim e a
+          // consulta sem trim não achava a chave (gravada aparada) — bug que
+          // zerou o departamento_id de 244 colaboradores (15/10/2026).
+          // Sem match: undefined = NÃO gravar null, preserva o vínculo atual.
           departamento_id: f.departamento
-            ? departamentosMap.get(f.departamento.toLowerCase()) || null
-            : null,
+            ? departamentosMap.get(chaveDepartamento(f.departamento))
+            : undefined,
           email: f.email || null,
           telefone: f.telefone || null,
           celular: f.telefonecelular || null,

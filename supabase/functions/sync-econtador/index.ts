@@ -291,10 +291,78 @@ interface DepartamentoFuzzy {
 }
 
 /**
+ * Desempate determinístico entre matches de um mesmo passo do fuzzy (port de
+ * src/lib/departamentos.ts, 09/10/2026 — portado para a function em 15/10/2026:
+ * a cópia Deno usava `find`, que devolve o PRIMEIRO do array e dependia da
+ * ordenação da tabela). Preferência: (a) status Ativo, (b) tem nome_curto,
+ * (c) nome mais longo (mais específico), (d) id — independência total da ordem.
+ */
+function compararPreferenciaDepartamento(a: DepartamentoFuzzy, b: DepartamentoFuzzy): number {
+  const ativoA = a.status === 'Ativo' ? 1 : 0
+  const ativoB = b.status === 'Ativo' ? 1 : 0
+  if (ativoA !== ativoB) return ativoB - ativoA
+  const curtoA = a.nome_curto?.trim() ? 1 : 0
+  const curtoB = b.nome_curto?.trim() ? 1 : 0
+  if (curtoA !== curtoB) return curtoB - curtoA
+  if (a.nome.length !== b.nome.length) return b.nome.length - a.nome.length
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
+
+/**
+ * Redirecionamentos explícitos de linha INATIVA → linha ATIVA (port de
+ * src/lib/departamentos.ts, decisão da gestão 15/10/2026). Fusão Dalias →
+ * ITAGUAÍ de 09/10/2026: as DUAS linhas inativas DALIAS apontam para a linha
+ * Rosas/ITAGUAÍ — sem isto, o texto do contrato antigo dependeria de
+ * semelhança de grafia.
+ */
+const REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO: Record<string, string> = {
+  '52e9ab9f-2d2a-47d7-8eee-2214c671343d': '8eb83a32-e1f7-454f-9e53-3134bf887a26', // DALIAS → ITAGUAÍ
+  '97806df1-396b-4a05-97f5-9ddb8c49582f': '8eb83a32-e1f7-454f-9e53-3134bf887a26', // DALIAS → ITAGUAÍ
+}
+
+/**
+ * Port de redirecionarDepartamentoInativo (src/lib/departamentos.ts): linha
+ * Ativa volta como está; Inativa segue o redirect explícito ou a irmã ATIVA
+ * com o mesmo nome_curto normalizado; sem destino, null (vai para
+ * naoResolvidos, como antes).
+ */
+function redirecionarDepartamentoInativo(
+  departamentos: DepartamentoFuzzy[],
+  dep: DepartamentoFuzzy
+): DepartamentoFuzzy | null {
+  if (dep.status !== 'Inativo') return dep
+  const explicito = REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO[dep.id]
+  if (explicito) {
+    const alvo = departamentos.find((d) => d.id === explicito)
+    if (alvo) return alvo
+  }
+  const curto = dep.nome_curto ? normalizarDepartamento(dep.nome_curto) : ''
+  if (curto) {
+    const irma = departamentos
+      .filter((d) => d.status === 'Ativo' && d.nome_curto && normalizarDepartamento(d.nome_curto) === curto)
+      .sort(compararPreferenciaDepartamento)[0]
+    if (irma) return irma
+  }
+  return null
+}
+
+/**
+ * Chave canônica do mapa de departamentos (port de src/lib/econtador.ts):
+ * trim + lower-case, usada na gravação E na consulta — a Alterdata manda o
+ * nome com espaço no fim e a consulta sem trim não achava a chave gravada
+ * aparada, zerando o departamento_id no upsert (bug de 244 colaboradores,
+ * encontrado em 15/10/2026).
+ */
+function chaveDepartamento(nome: string): string {
+  return nome.trim().toLowerCase()
+}
+
+/**
  * Encontra departamento por nome exato > nome_curto exato > tokens >
  * substring > similaridade (Levenshtein >= 0.8). O match por ID não se aplica
  * aqui (o e-Contador só manda o nome textual). Filtra pela empresa quando
- * informada para não casar departamento entre empresas.
+ * informada para não casar departamento entre empresas. Empates dentro de
+ * cada passo são resolvidos por compararPreferenciaDepartamento.
  */
 function encontrarDepartamentoFuzzy(
   departamentos: DepartamentoFuzzy[],
@@ -309,30 +377,36 @@ function encontrarDepartamentoFuzzy(
     ? departamentos.filter((d) => !d.empresa_id || d.empresa_id === empresaId)
     : departamentos
 
-  const porNomeExato = candidatos.find((d) => normalizarDepartamento(d.nome) === nomeNorm)
+  const porNomeExato = candidatos
+    .filter((d) => normalizarDepartamento(d.nome) === nomeNorm)
+    .sort(compararPreferenciaDepartamento)[0]
   if (porNomeExato) return porNomeExato
 
-  const porNomeCurtoExato = candidatos.find(
-    (d) => d.nome_curto && normalizarDepartamento(d.nome_curto) === nomeNorm
-  )
+  const porNomeCurtoExato = candidatos
+    .filter((d) => d.nome_curto && normalizarDepartamento(d.nome_curto) === nomeNorm)
+    .sort(compararPreferenciaDepartamento)[0]
   if (porNomeCurtoExato) return porNomeCurtoExato
 
   const tokensNome = tokens(nomeNorm)
-  const porTokens = candidatos.find((d) => {
-    const tokensDepNome = tokens(normalizarDepartamento(d.nome))
-    const tokensDepCurto = d.nome_curto ? tokens(normalizarDepartamento(d.nome_curto)) : []
-    return tokensBatem(tokensNome, tokensDepNome) || tokensBatem(tokensNome, tokensDepCurto)
-  })
+  const porTokens = candidatos
+    .filter((d) => {
+      const tokensDepNome = tokens(normalizarDepartamento(d.nome))
+      const tokensDepCurto = d.nome_curto ? tokens(normalizarDepartamento(d.nome_curto)) : []
+      return tokensBatem(tokensNome, tokensDepNome) || tokensBatem(tokensNome, tokensDepCurto)
+    })
+    .sort(compararPreferenciaDepartamento)[0]
   if (porTokens) return porTokens
 
-  const porSubstring = candidatos.find((d) => {
-    const nomeDep = normalizarDepartamento(d.nome)
-    const nomeCurtoDep = d.nome_curto ? normalizarDepartamento(d.nome_curto) : ''
-    return (
-      (nomeDep && (nomeDep.includes(nomeNorm) || nomeNorm.includes(nomeDep))) ||
-      (nomeCurtoDep && (nomeCurtoDep.includes(nomeNorm) || nomeNorm.includes(nomeCurtoDep)))
-    )
-  })
+  const porSubstring = candidatos
+    .filter((d) => {
+      const nomeDep = normalizarDepartamento(d.nome)
+      const nomeCurtoDep = d.nome_curto ? normalizarDepartamento(d.nome_curto) : ''
+      return (
+        (nomeDep && (nomeDep.includes(nomeNorm) || nomeNorm.includes(nomeDep))) ||
+        (nomeCurtoDep && (nomeCurtoDep.includes(nomeNorm) || nomeNorm.includes(nomeCurtoDep)))
+      )
+    })
+    .sort(compararPreferenciaDepartamento)[0]
   if (porSubstring) return porSubstring
 
   let melhorScore = 0
@@ -341,7 +415,10 @@ function encontrarDepartamentoFuzzy(
     const scoreNome = scoreSimilaridade(nomeNorm, normalizarDepartamento(d.nome))
     const scoreCurto = d.nome_curto ? scoreSimilaridade(nomeNorm, normalizarDepartamento(d.nome_curto)) : 0
     const score = Math.max(scoreNome, scoreCurto)
-    if (score > melhorScore) {
+    if (
+      score > melhorScore ||
+      (score === melhorScore && melhor !== null && compararPreferenciaDepartamento(d, melhor) < 0)
+    ) {
       melhorScore = score
       melhor = d
     }
@@ -355,9 +432,11 @@ function encontrarDepartamentoFuzzy(
  * Port de useEContador.sincronizarDepartamentos — com a decisão da gestão de
  * 09/10/2026: NUNCA criar departamento na importação. O insert automático
  * recriava linhas sem nome_curto todo dia (contratos encerrados que a
- * Alterdata manda junto com os demitidos). Sem match entre os ATIVOS, o nome
- * vai para `naoResolvidos`: o colaborador fica só com o texto legado
- * (departamento_id null) e o histórico avisa para cadastrar manualmente.
+ * Alterdata manda junto com os demitidos). Sem match, o nome vai para
+ * `naoResolvidos` (o colaborador fica só com o texto legado e o upsert NÃO
+ * toca o departamento_id) e o histórico avisa para cadastrar manualmente.
+ * Desde 15/10/2026 a busca inclui linhas INATIVAS para o redirect explícito/
+ * irmã ativa (redirecionarDepartamentoInativo — ex.: DALIAS → ITAGUAÍ).
  * Lógica pura espelhada e testada em src/lib/econtador.ts
  * (mapearDepartamentosImportacao).
  */
@@ -376,7 +455,9 @@ async function sincronizarDepartamentos(
   if (empresaId) {
     query = query.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
   }
-  query = query.eq('status', 'Ativo')
+  // SEM filtro de status: a linha INATIVA precisa estar na lista para o texto
+  // do contrato encerrado casar com ela e seguir o redirect explícito/irmã
+  // ativa (redirecionarDepartamentoInativo — ex.: DALIAS → ITAGUAÍ, 15/10/2026)
 
   const { data: existentes, error: erroBusca } = await query
   if (erroBusca) throw erroBusca
@@ -387,8 +468,9 @@ async function sincronizarDepartamentos(
 
   for (const nomeEContador of nomesUnicos) {
     const existente = encontrarDepartamentoFuzzy(departamentos, nomeEContador, empresaId)
-    if (existente) {
-      mapa.set(nomeEContador.toLowerCase(), existente.id)
+    const destino = existente ? redirecionarDepartamentoInativo(departamentos, existente) : null
+    if (destino && destino.status !== 'Inativo') {
+      mapa.set(chaveDepartamento(nomeEContador), destino.id)
     } else {
       naoResolvidos.push(nomeEContador)
     }
@@ -640,7 +722,14 @@ function montarDadosColaborador(
     dadosCompletos.nomeEmpresa = empresa.nome
   }
 
-  return {
+  // chaveDepartamento: a Alterdata manda o nome com espaço no fim e a consulta
+  // sem trim não achava a chave (gravada aparada) — bug que zerou o
+  // departamento_id de 244 colaboradores (encontrado em 15/10/2026).
+  const departamentoId = f.departamento
+    ? departamentosMap.get(chaveDepartamento(f.departamento))
+    : undefined
+
+  const registro: Registro = {
     matricula: f.codigo || f.id,
     nome_completo: f.nome,
     cpf: f.cpf || null,
@@ -652,9 +741,6 @@ function montarDadosColaborador(
     data_nascimento: dataDe(f.nascimento),
     cargo,
     departamento: f.departamento,
-    departamento_id: f.departamento
-      ? departamentosMap.get(f.departamento.toLowerCase()) || null
-      : null,
     email: f.email || null,
     telefone: f.telefone || null,
     celular: f.telefonecelular || null,
@@ -670,6 +756,55 @@ function montarDadosColaborador(
     afastamento_data_fim: afastamentoDataFim,
     dados_completos: dadosCompletos,
   }
+  // Sem match de departamento: a coluna NÃO entra no registro — no upsert em
+  // lote ela fica fora do SET e o vínculo atual do colaborador é preservado
+  // (decisão de 15/10/2026; em INSERT de colaborador novo, cai no default
+  // null). gravarDecisoes separa os lotes pela presença da chave (o PostgREST
+  // exige as mesmas colunas em todas as linhas do lote).
+  if (departamentoId) registro.departamento_id = departamentoId
+  return registro
+}
+
+/**
+ * Port de deduplicarFuncionariosImportacao (src/lib/econtador.ts, 15/10/2026):
+ * a Alterdata devolve a MESMA PESSOA duas vezes quando há contrato antigo de
+ * demitido além do atual — os dois registros casam com o mesmo colaborador do
+ * CORH e cada um gerava um UPDATE por execução (o do contrato antigo derrubava
+ * o status para Inativo por segundos e, vindo por último, o deixaria Inativo
+ * em definitivo). Vale um registro por pessoa (CPF, senão código, senão id):
+ * o sem demissão; em empate, a admissão mais recente; persistindo, o primeiro
+ * da lista (ordem da API).
+ */
+function deduplicarFuncionariosImportacao(
+  lista: FuncionarioMapeado[]
+): { unicos: FuncionarioMapeado[]; duplicados: { descartado: FuncionarioMapeado; mantido: FuncionarioMapeado }[] } {
+  const porChave = new Map<string, number>()
+  const unicos: FuncionarioMapeado[] = []
+  const duplicados: { descartado: FuncionarioMapeado; mantido: FuncionarioMapeado }[] = []
+  for (const f of lista) {
+    const chave = f.cpf?.trim() || f.codigo?.trim() || f.id?.trim() || ''
+    if (!chave) {
+      unicos.push(f)
+      continue
+    }
+    const indice = porChave.get(chave)
+    if (indice === undefined) {
+      porChave.set(chave, unicos.length)
+      unicos.push(f)
+      continue
+    }
+    const atual = unicos[indice]
+    const candidatoVigente = !f.demissao
+    const atualVigente = !atual.demissao
+    const candidatoVence =
+      candidatoVigente !== atualVigente
+        ? candidatoVigente
+        : (f.admissao || '') > (atual.admissao || '')
+    const mantido = candidatoVence ? f : atual
+    unicos[indice] = mantido
+    duplicados.push({ descartado: mantido === f ? atual : f, mantido })
+  }
+  return { unicos, duplicados }
 }
 
 /**
@@ -723,6 +858,11 @@ function decidirUpserts(
         // update de registro que já tem empresa) e conta como "atualizado".
         const pendente = decisoes[existente.pendente]
         const mesclado = { ...dados, empresa_id: pendente.dados.empresa_id ?? dados.empresa_id }
+        // Sem match de departamento neste registro, a chave não existe em
+        // `dados` — preserva a resolvida no insert pendente (15/10/2026).
+        if (!('departamento_id' in mesclado) && 'departamento_id' in pendente.dados) {
+          mesclado.departamento_id = pendente.dados.departamento_id
+        }
         if (porCpf === existente && matricula && existente.matricula !== matricula &&
             existeOutro(mapas.porMatricula.get(matricula), existente, empresaId)) {
           delete mesclado.matricula
@@ -823,6 +963,18 @@ async function gravarDecisoes(
   }
 
   const gravarChunk = async (lote: Decisao[], tipo: 'insert' | 'update') => {
+    // O PostgREST exige as MESMAS colunas em todas as linhas do lote. Como um
+    // registro sem match de departamento NÃO carrega a chave departamento_id
+    // (para o upsert não zerar o vínculo atual — 15/10/2026), o lote é
+    // separado pela presença da chave antes de gravar.
+    const comDepartamento = lote.filter((d) => 'departamento_id' in d.dados)
+    const semDepartamento = lote.filter((d) => !('departamento_id' in d.dados))
+    if (comDepartamento.length > 0 && semDepartamento.length > 0) {
+      await gravarChunk(comDepartamento, tipo)
+      await gravarChunk(semDepartamento, tipo)
+      return
+    }
+
     const linhas = lote.map((d) => (tipo === 'update' ? { id: d.id, ...d.dados } : d.dados))
     const builder = supabase.from('colaboradores')
     const { error } = tipo === 'update'
@@ -923,8 +1075,23 @@ async function processarEmpresa(
   const cont: Contadores = { importados: 0, atualizados: 0, erros: 0, detalhesErros: [] }
 
   // 1) Funcionários da empresa na Alterdata, modo "todos" (sem filtro de status)
-  const lista = await listarFuncionariosAlterdata(token, empresaAlt.id)
-  console.log(`${empresaAlt.nome}: ${lista.length} funcionários na API`)
+  const listaBruta = await listarFuncionariosAlterdata(token, empresaAlt.id)
+  console.log(`${empresaAlt.nome}: ${listaBruta.length} funcionários na API`)
+
+  // 1b) A Alterdata devolve a mesma pessoa 2x quando há contrato antigo de
+  // demitido além do atual — os dois casam com o MESMO colaborador e cada um
+  // gerava um update por execução (o antigo derrubava o status para Inativo
+  // por segundos a cada sync). Vale só o contrato vigente. Registro
+  // informativo no histórico — não conta como erro.
+  const dedup = deduplicarFuncionariosImportacao(listaBruta)
+  const lista = dedup.unicos
+  for (const { descartado } of dedup.duplicados) {
+    console.warn(`Duplicado na Alterdata (ignorado o contrato antigo): ${descartado.nome}`)
+    cont.detalhesErros.push({
+      nome: `Duplicado no e-Contador: ${descartado.nome || '(sem nome)'}`,
+      erro: 'A Alterdata enviou esta pessoa duas vezes (contrato antigo de demitido + contrato vigente); só o registro do contrato vigente foi importado',
+    })
+  }
 
   // 2) Resolve a empresa interna por codigo_alterdata ou nome; cria se não
   // existir (mesma regra do hook — useEContador.ts:280-304)
@@ -948,8 +1115,9 @@ async function processarEmpresa(
   }
   const empresa = empresasDB.find((e) => e.id === empresaId) || null
 
-  // 3) Departamentos: match fuzzy contra os ativos — NUNCA cria (09/10/2026);
-  // os sem match são registrados no histórico para cadastro manual
+  // 3) Departamentos: match fuzzy (todas as linhas — o redirect de inativa
+  // decide o destino) — NUNCA cria (09/10/2026); os sem match são registrados
+  // no histórico para cadastro manual
   let departamentosMap = new Map<string, string>()
   try {
     const resultado = await sincronizarDepartamentos(supabase, lista, empresaId)
@@ -986,7 +1154,7 @@ async function processarEmpresa(
   await salvarHistorico(supabase, {
     empresa_id: empresaAlt.id || null,
     empresa_nome: empresaAlt.nome || null,
-    quantidade: lista.length,
+    quantidade: listaBruta.length,
     importados: cont.importados,
     atualizados: cont.atualizados,
     erros: cont.erros,
@@ -998,7 +1166,7 @@ async function processarEmpresa(
   )
   return {
     empresa: empresaAlt.nome,
-    quantidade: lista.length,
+    quantidade: listaBruta.length,
     importados: cont.importados,
     atualizados: cont.atualizados,
     erros: cont.erros,
