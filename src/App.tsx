@@ -10,6 +10,7 @@ import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import { PageLoading } from '@/components/PageLoading'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
+import { MODULO_FERIAS_LIBERADO } from '@/lib/modulos'
 import type { Perfil } from '@/types/database'
 import { LoginPage } from '@/pages/LoginPage'
 import { RedefinirSenhaPage } from '@/pages/RedefinirSenhaPage'
@@ -674,30 +675,37 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/ferias"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
-                    <FeriasPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ferias/importar"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
-                    <FeriasImportarPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ferias/notificacoes"
-                element={
-                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
-                    <FeriasNotificacoesPage />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Férias oculto até liberação da gestora (ver src/lib/modulos.ts): rotas /ferias* voltam ao Dashboard */}
+              {MODULO_FERIAS_LIBERADO ? (
+                <>
+                <Route
+                  path="/ferias"
+                  element={
+                    <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                      <FeriasPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ferias/importar"
+                  element={
+                    <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                      <FeriasImportarPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ferias/notificacoes"
+                  element={
+                    <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'ferias' }}>
+                      <FeriasNotificacoesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                </>
+              ) : (
+                <Route path="/ferias/*" element={<Navigate to="/" replace />} />
+              )}
               <Route
                 path="/bi"
                 element={
