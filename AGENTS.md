@@ -456,6 +456,16 @@ npx vitest
 
 ## 10. Deploy
 
+> **⚠️ REGRA EM DESTAQUE — Deploy de produção SÓ a partir da `main` limpa — nunca da cópia de trabalho de branch de módulo.**
+>
+> - **Registro do erro:** em 14/10/2026, às 21:13 UTC, um `netlify deploy --prod` feito a partir da cópia de trabalho da branch `materiais-fase1` publicou o módulo Materiais (em construção) no site oficial sem autorização. Em 15/10/2026 a gestora mandou tirar **Materiais e Férias** do ar (build da branch `producao-sem-materiais-ferias`: main + correção do CEU 7aeea77, sem Materiais e com Férias oculto por `MODULO_FERIAS_LIBERADO = false` em `src/lib/modulos.ts`).
+> - **Materiais e Férias só vão ao ar com liberação expressa da gestora.**
+> - **Checklist pré-deploy (todos obrigatórios):**
+>   1. branch = `main` (`git branch --show-current`) — nunca branch de módulo;
+>   2. working tree limpo (`git status --short` vazio — nada fora de commit);
+>   3. bundle sem `/materiais`: `grep -o 'materiais[a-z/]*' dist/assets/*.js | sort | uniq -c` não mostra rotas de materiais;
+>   4. `MODULO_FERIAS_LIBERADO` conferido em `src/lib/modulos.ts` (`false` até a gestora liberar).
+
 - Veja o roteiro completo em `docs/DEPLOY.md`.
 - **PWA — ciclo de atualização do service worker (02/09/2026)**: `src/sw.ts` usa `skipWaiting()` + `clientsClaim()` (workbox-core) e `src/main.tsx` ouve `controllerchange` para recarregar a aba **uma vez** quando o SW novo assume (guarda `recarregando`); no `load`, chama `reg.update()` e repete a cada 60 min. Sem o trecho do `main.tsx`, o `registerSW.js` do vite-plugin-pwa apenas registra o SW e quem mantém a aba aberta fica preso no build antigo após o deploy. **Não remova nenhum dos dois lados** — trabalham em par.
 - O banco de dados continua no **Supabase**; o VPS serve apenas o frontend estático.
