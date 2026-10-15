@@ -15,6 +15,16 @@ interface FiltrosColaborador {
   busca?: string
 }
 
+/**
+ * Dados do upsert da importação e-Contador. `departamento_id` é opcional:
+ * undefined = "sem match de departamento — NÃO tocar na coluna" (preserva o
+ * vínculo que o colaborador já tem; decisão de 15/10/2026 — antes o upsert
+ * gravava null e zerava o vínculo a cada importação).
+ */
+export type DadosUpsertPorMatricula = Omit<Colaborador, 'id' | 'created_at' | 'updated_at' | 'departamento_id'> & {
+  departamento_id?: string | null
+}
+
 const COLUNAS_LISTAGEM = 'id, matricula, nome_completo, cpf, rg, ctps, pis_pasep, data_admissao, data_demissao, data_nascimento, cargo, departamento, departamento_id, email, telefone, celular, cidade, estado, cep, endereco, status, tipo_contrato, empresa_id, afastamento_motivo, afastamento_data_inicio, afastamento_data_fim, tamanho_camisa, tamanho_calca, tamanho_calcado, foto_path, created_at, updated_at'
 
 // Subconjunto leve para dropdowns/autocompletes (sem documentos, contato,
@@ -226,7 +236,7 @@ export function useColaboradores() {
     return true
   }, [])
 
-  const upsertPorMatricula = useCallback(async (dados: Omit<Colaborador, 'id' | 'created_at' | 'updated_at'>) => {
+  const upsertPorMatricula = useCallback(async (dados: DadosUpsertPorMatricula) => {
     // Busca por CPF e por matrícula separadamente para detectar conflitos
     let porCpf: { id: string; empresa_id: string | null; matricula: string | null } | null = null
     let porMatricula: { id: string; empresa_id: string | null; cpf: string | null } | null = null
@@ -264,6 +274,12 @@ export function useColaboradores() {
       const dadosUpdate = { ...dados }
       if (existente.empresa_id) {
         delete (dadosUpdate as Partial<typeof dados>).empresa_id
+      }
+
+      // Sem match de departamento (undefined): NÃO zera o vínculo atual
+      // (decisão de 15/10/2026 — ver DadosUpsertPorMatricula).
+      if (dadosUpdate.departamento_id === undefined) {
+        delete dadosUpdate.departamento_id
       }
 
       // Se achou por CPF e a matrícula nova já existe em outro registro (da mesma empresa), não sobrescreve
@@ -308,7 +324,13 @@ export function useColaboradores() {
       return { acao: 'atualizado', id: existente.id } as const
     }
 
-    const { data, error } = await supabase.from('colaboradores').insert(dados).select(COLUNAS_LISTAGEM).single()
+    // Insert de colaborador novo sem match de departamento grava null
+    // explicitamente (não havia vínculo anterior a preservar).
+    const { data, error } = await supabase
+      .from('colaboradores')
+      .insert({ ...dados, departamento_id: dados.departamento_id ?? null })
+      .select(COLUNAS_LISTAGEM)
+      .single()
     if (error) throw error
     return { acao: 'criado', id: data.id } as const
   }, [])

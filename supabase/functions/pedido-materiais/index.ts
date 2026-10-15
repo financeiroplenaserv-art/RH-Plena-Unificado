@@ -1507,6 +1507,46 @@ export function compararPreferenciaDepartamento(a: DepartamentoFuzzy, b: Departa
 }
 
 /**
+ * Redirecionamentos explícitos de linha INATIVA → linha ATIVA (decisão da
+ * gestão, 15/10/2026). Usado pela importação e-Contador: a Alterdata manda o
+ * texto do contrato antigo (ex.: "...RESIDENCIAL DALIAS"), que casa exato com
+ * a linha inativa — sem esta tabela, o match dependeria de semelhança de
+ * grafia. Fusão Dalias → ITAGUAÍ de 09/10/2026 (as DUAS linhas inativas
+ * DALIAS apontam para a linha Rosas/ITAGUAÍ).
+ */
+export const REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO: Record<string, string> = {
+  '52e9ab9f-2d2a-47d7-8eee-2214c671343d': '8eb83a32-e1f7-454f-9e53-3134bf887a26', // DALIAS → ITAGUAÍ
+  '97806df1-396b-4a05-97f5-9ddb8c49582f': '8eb83a32-e1f7-454f-9e53-3134bf887a26', // DALIAS → ITAGUAÍ
+}
+
+/**
+ * Resolve o destino efetivo de um departamento encontrado pelo fuzzy na
+ * importação: linha Ativa volta como está; linha Inativa segue o redirect
+ * explícito (REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO) ou, sem ele, a irmã
+ * ATIVA com o mesmo nome_curto normalizado. Inativa sem destino devolve null
+ * (contrato encerrado de verdade — o nome vai para naoResolvidos).
+ */
+export function redirecionarDepartamentoInativo(
+  departamentos: DepartamentoFuzzy[],
+  dep: DepartamentoFuzzy
+): DepartamentoFuzzy | null {
+  if (dep.status !== 'Inativo') return dep
+  const explicito = REDIRECIONAMENTOS_DEPARTAMENTO_INATIVO[dep.id]
+  if (explicito) {
+    const alvo = departamentos.find((d) => d.id === explicito)
+    if (alvo) return alvo
+  }
+  const curto = dep.nome_curto ? normalizarTexto(dep.nome_curto) : ''
+  if (curto) {
+    const irma = departamentos
+      .filter((d) => d.status === 'Ativo' && d.nome_curto && normalizarTexto(d.nome_curto) === curto)
+      .sort(compararPreferenciaDepartamento)[0]
+    if (irma) return irma
+  }
+  return null
+}
+
+/**
  * Encontra um departamento por ID, nome exato, tokens, substring ou similaridade.
  * Prioriza match por ID > nome exato > nome_curto exato > tokens > substring > similaridade (threshold 0.8).
  * Empates dentro de cada passo são resolvidos por compararPreferenciaDepartamento.
