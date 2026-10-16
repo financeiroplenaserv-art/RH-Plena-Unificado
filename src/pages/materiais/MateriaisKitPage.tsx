@@ -22,7 +22,7 @@ import { useMateriaisKit } from '@/hooks/useMateriaisKit'
 import { KitUniformeContrato } from '@/components/materiais/KitUniformeContrato'
 import { podeEditarKitMateriais, podeEditarKitUniforme, podeSolicitarAlteracaoKit } from '@/lib/permissoes'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
-import { jaNoKit, lerNumero, montarLinhasKit, type LinhaKit } from '@/lib/materiais/cadastro'
+import { avisoItemExclusivo, jaNoKit, lerNumero, montarLinhasKit, type LinhaKit } from '@/lib/materiais/cadastro'
 import { mediasReferencia } from '@/lib/materiais/media'
 import { limiteContrato } from '@/lib/materiais/precos'
 import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
@@ -361,6 +361,18 @@ export function MateriaisKitPage() {
                   </select>
                 </div>
               )}
+              {(() => {
+                const aviso = avisoItemExclusivo(
+                  catalogo.itens.find((i) => i.id === form.item_id),
+                  contratoId,
+                  contratosHook.contratos
+                )
+                return aviso ? (
+                  <p role="status" className="text-xs text-amber-700 dark:text-amber-300 sm:col-span-2">
+                    {aviso}
+                  </p>
+                ) : null
+              })()}
               {duplicado && (
                 <p className="text-xs text-red-600 sm:col-span-2">Este item (com essa variação) já está no kit — edite a linha existente.</p>
               )}

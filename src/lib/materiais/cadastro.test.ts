@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { estruturaAusente } from './erros'
-import { historicoPrecos, jaNoKit, lerNumero, montarLinhasKit, nomeDuplicado, validarNovoPreco } from './cadastro'
+import { avisoItemExclusivo, historicoPrecos, jaNoKit, lerNumero, montarLinhasKit, nomeDuplicado, selosVisaoLider, validarNovoPreco } from './cadastro'
 
 describe('estruturaAusente', () => {
   it('reconhece tabela inexistente (Postgres e PostgREST)', () => {
@@ -126,5 +126,25 @@ describe('selecionarTudo', () => {
     expect(chamadas).toEqual([[0, 1], [2, 3], [4, 5]])
     const comErro = await selecionarTudo<number>(async () => ({ data: null, error: { code: 'PGRST205' } }))
     expect(comErro.error?.code).toBe('PGRST205')
+  })
+})
+
+describe('visão do líder no catálogo (migration 136)', () => {
+  const contratos = [
+    { id: 'cnooc', nome: 'CNOOC' },
+    { id: 'abaete', nome: 'ABAETÉ' },
+  ]
+  it('selos: "Exclusivo: CNOOC" e "Marca oculta para o líder"', () => {
+    expect(selosVisaoLider({ id: 'veja', contratos_exclusivos: ['cnooc'] }, [], contratos)).toEqual(['Exclusivo: CNOOC'])
+    expect(selosVisaoLider({ id: 'mop', contratos_exclusivos: null }, [{ item_id: 'mop', oculta_lider: true }], contratos)).toEqual([
+      'Marca oculta para o líder',
+    ])
+    expect(selosVisaoLider({ id: 'cloro', contratos_exclusivos: [] }, [{ item_id: 'mop', oculta_lider: true }], contratos)).toEqual([])
+  })
+  it('aviso (sem bloquear) só para item exclusivo de OUTRO contrato', () => {
+    expect(avisoItemExclusivo({ contratos_exclusivos: ['cnooc'] }, 'abaete', contratos)).toMatch(/exclusivo de CNOOC/)
+    expect(avisoItemExclusivo({ contratos_exclusivos: ['cnooc'] }, 'cnooc', contratos)).toBeNull()
+    expect(avisoItemExclusivo({ contratos_exclusivos: null }, 'abaete', contratos)).toBeNull()
+    expect(avisoItemExclusivo(undefined, 'abaete', contratos)).toBeNull()
   })
 })

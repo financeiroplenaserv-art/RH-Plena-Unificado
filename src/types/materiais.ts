@@ -18,6 +18,10 @@ export interface MatItem {
   substituido_por_id?: string | null
   substituido_por_variacao_id?: string | null
   substituido_em?: string | null
+  /** Migration 136: nome no link do líder (NULL = nome do cadastro sem a unidade). */
+  nome_lider?: string | null
+  /** Migration 136: contratos de pedido (mat_contratos) que podem pedir pelo link. NULL/vazio = todos. */
+  contratos_exclusivos?: string[] | null
 }
 
 export interface MatItemVariacao {
@@ -31,6 +35,8 @@ export interface MatItemVariacao {
   substituido_por_id?: string | null
   substituido_por_variacao_id?: string | null
   substituido_em?: string | null
+  /** Migration 136: variação escondida no link do líder (é marca; a compra decide). */
+  oculta_lider?: boolean
 }
 
 /** Retorno da RPC mat_substituir_item_kits (migration 128). */

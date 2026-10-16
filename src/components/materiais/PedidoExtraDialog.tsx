@@ -19,6 +19,7 @@ import { precoVigente } from '@/lib/materiais/precos'
 import { carregarApoioCeu } from '@/hooks/useCeuPedidos'
 import { criarPedidoExtra, type LinhaCeuExtra, type LinhaProdutoExtra } from '@/hooks/useMateriaisPedidos'
 import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
+import { avisoItemExclusivo } from '@/lib/materiais/cadastro'
 import type { MatKitItem } from '@/types/materiais'
 
 // Pedido extra interno (inspetoria/mesa — docs/PLANO_MATERIAIS_FASE1.md §5.1):
@@ -273,6 +274,14 @@ export function PedidoExtraDialog({ open, onOpenChange, userId, onCriado }: Pedi
                   <Button variant="ghost" size="icon" aria-label={`Remover produto ${i + 1}`} onClick={() => setProdutos((ls) => ls.filter((x) => x.chave !== l.chave))}>
                     <Trash2 className="size-4" />
                   </Button>
+                  {(() => {
+                    const aviso = avisoItemExclusivo(item, contratoId, contratos)
+                    return aviso ? (
+                      <p role="status" className="text-xs text-amber-700 dark:text-amber-300 sm:col-span-4">
+                        {aviso}
+                      </p>
+                    ) : null
+                  })()}
                 </div>
               )
             })}

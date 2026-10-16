@@ -1,4 +1,5 @@
 import type { MatItem, MatItemVariacao, MatKitItem, MatPreco } from '@/types/materiais'
+import { exclusivoDeOutroContrato } from './buscaItens'
 import { chaveItem, mediaConsumo, type ConsumoMes } from './media'
 import { normalizarTexto } from './normalizar'
 import { arredondar, precoVigente, type PrecoHistorico } from './precos'
@@ -99,4 +100,41 @@ export function jaNoKit(
 ): boolean {
   const chave = chaveItem(itemId, variacaoId)
   return kit.some((k) => k.id !== ignorarId && chaveItem(k.item_id, k.variacao_id) === chave)
+}
+
+// ---------- Visão do líder (migration 136) ----------
+
+/** Nomes dos contratos de que o item é exclusivo ("CNOOC"); vazio = item de todos. */
+export function nomesExclusivos(
+  item: Pick<MatItem, 'contratos_exclusivos'>,
+  contratos: { id: string; nome: string }[]
+): string[] {
+  const nomes = new Map((contratos ?? []).map((c) => [c.id, c.nome]))
+  return (item.contratos_exclusivos ?? []).map((id) => nomes.get(id) ?? 'contrato removido')
+}
+
+/**
+ * Aviso (sem bloquear) ao incluir, numa tela interna, item exclusivo de OUTRO
+ * contrato — kit de outro contrato ou pedido extra do escritório.
+ */
+export function avisoItemExclusivo(
+  item: Pick<MatItem, 'contratos_exclusivos'> | null | undefined,
+  contratoId: string | null | undefined,
+  contratos: { id: string; nome: string }[]
+): string | null {
+  if (!item || !contratoId || !exclusivoDeOutroContrato(item, contratoId)) return null
+  return `Item exclusivo de ${nomesExclusivos(item, contratos).join(', ')}. Pode incluir mesmo assim — confira se é isso mesmo.`
+}
+
+/** Selos da lista do catálogo: "Exclusivo: CNOOC" e "Marca oculta para o líder". */
+export function selosVisaoLider(
+  item: Pick<MatItem, 'id' | 'contratos_exclusivos'>,
+  variacoes: Pick<MatItemVariacao, 'item_id' | 'oculta_lider'>[],
+  contratos: { id: string; nome: string }[]
+): string[] {
+  const selos: string[] = []
+  const nomes = nomesExclusivos(item, contratos)
+  if (nomes.length > 0) selos.push(`Exclusivo: ${nomes.join(', ')}`)
+  if (variacoes.some((v) => v.item_id === item.id && v.oculta_lider)) selos.push('Marca oculta para o líder')
+  return selos
 }

@@ -12,7 +12,8 @@ import { historicoPrecos, lerNumero, nomeDuplicado, validarNovoPreco } from '@/l
 import { precoVigente } from '@/lib/materiais/precos'
 import { formatarData, formatarDataDeTimestamp, hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import type { Fornecedor } from '@/types/database'
-import type { MatItem } from '@/types/materiais'
+import type { MatItem, MatItemVariacao } from '@/types/materiais'
+import { nomeExibicaoItem } from '@/lib/materiais/buscaItens'
 
 interface Props {
   item: MatItem | null
@@ -170,6 +171,8 @@ export function ItemMaterialDetalhe({ item, onFechar, podeEditar, catalogo, forn
           )}
         </section>
 
+        <VisaoLiderSecao item={item} podeEditar={podeEditar} catalogo={catalogo} variacoes={doItem} />
+
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">Preços</h3>
           {grupos.map((g) => {
@@ -279,5 +282,105 @@ export function ItemMaterialDetalhe({ item, onFechar, podeEditar, catalogo, forn
         </section>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * O que o líder vê no link do pedido (migration 136): nome para o líder,
+ * contratos exclusivos e "Esconder do líder (é marca)" em cada variação.
+ * As telas internas continuam mostrando o nome do cadastro e a marca.
+ */
+function VisaoLiderSecao({
+  item,
+  podeEditar,
+  catalogo,
+  variacoes,
+}: {
+  item: MatItem
+  podeEditar: boolean
+  catalogo: ReturnType<typeof useMateriaisCatalogo>
+  variacoes: MatItemVariacao[]
+}) {
+  const { contratos, carregar, salvarVisaoLider, alternarOcultaLider } = catalogo
+  const [nomeLider, setNomeLider] = useState(item.nome_lider ?? '')
+  const [exclusivos, setExclusivos] = useState<string[]>(item.contratos_exclusivos ?? [])
+  const [salvando, setSalvando] = useState(false)
+  const nomeContrato = new Map(contratos.map((c) => [c.id, c.nome]))
+  const opcoes = contratos.filter((c) => c.ativo || exclusivos.includes(c.id))
+  const original = { nome: item.nome_lider ?? '', exclusivos: [...(item.contratos_exclusivos ?? [])].sort().join(',') }
+  const mudou = nomeLider.trim() !== original.nome.trim() || [...exclusivos].sort().join(',') !== original.exclusivos
+
+  const salvar = async () => {
+    setSalvando(true)
+    const ok = await salvarVisaoLider(item.id, { nome_lider: nomeLider, contratos_exclusivos: exclusivos })
+    setSalvando(false)
+    if (ok) carregar()
+  }
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold">Link do líder</h3>
+      {podeEditar ? (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="item-nome-lider">Nome para o líder (opcional)</Label>
+            <Input
+              id="item-nome-lider"
+              value={nomeLider}
+              onChange={(e) => setNomeLider(e.target.value)}
+              placeholder={nomeExibicaoItem(item.nome)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Se vazio, usa o nome do cadastro sem a unidade. Itens com o mesmo nome para o líder aparecem como um só na busca do link.
+            </p>
+          </div>
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium">Exclusivo dos contratos</legend>
+            <p className="text-xs text-muted-foreground">Nenhum marcado = todos os contratos podem pedir.</p>
+            <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-border p-2 sm:grid-cols-2">
+              {opcoes.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={exclusivos.includes(c.id)}
+                    onChange={(e) =>
+                      setExclusivos((xs) => (e.target.checked ? [...xs, c.id] : xs.filter((x) => x !== c.id)))
+                    }
+                  />
+                  {c.nome}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <Button variant="outline" size="sm" onClick={salvar} loading={salvando} disabled={!mudou}>
+            Salvar link do líder
+          </Button>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Nome para o líder: {item.nome_lider || nomeExibicaoItem(item.nome)}.{' '}
+          {(item.contratos_exclusivos ?? []).length > 0
+            ? `Exclusivo de ${(item.contratos_exclusivos ?? []).map((id) => nomeContrato.get(id) ?? 'contrato removido').join(', ')}.`
+            : 'Todos os contratos podem pedir.'}
+        </p>
+      )}
+      {variacoes.length > 0 && (
+        <ul className="space-y-1">
+          {variacoes.map((v) => (
+            <li key={v.id} className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!v.oculta_lider}
+                  disabled={!podeEditar}
+                  onChange={async (e) => (await alternarOcultaLider(v.id, e.target.checked)) && carregar()}
+                />
+                {v.rotulo}: esconder do líder (é marca)
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

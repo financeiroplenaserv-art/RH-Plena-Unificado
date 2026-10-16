@@ -22,7 +22,8 @@ import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
 import { podeEditarCatalogoMateriais, podeEditarKitMateriais } from '@/lib/permissoes'
-import { lerNumero, nomeDuplicado } from '@/lib/materiais/cadastro'
+import { lerNumero, nomeDuplicado, selosVisaoLider } from '@/lib/materiais/cadastro'
+import { Selo } from '@/components/materiais/filas'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
 import { precoVigente } from '@/lib/materiais/precos'
 import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
@@ -274,6 +275,13 @@ export function MateriaisCatalogoPage() {
                               {nVar} {nVar === 1 ? 'variação' : 'variações'}
                             </span>
                           )}
+                          {selosVisaoLider(i, variacoes, catalogo.contratos ?? []).map((s) => (
+                            <span key={s} className="ml-2">
+                              <Selo tom="cinza" title="O que o líder vê no link do pedido">
+                                {s}
+                              </Selo>
+                            </span>
+                          ))}
                         </TableCell>
                         <TableCell>{ROTULO_CATEGORIA[i.categoria] ?? i.categoria}</TableCell>
                         <TableCell>{i.unidade_pedido}</TableCell>
