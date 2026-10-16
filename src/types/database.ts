@@ -393,6 +393,19 @@ export interface ResultadoVR {
   updated_at?: string
 }
 
+/** Histórico imutável de preços de uniforme/EPI (migration 134); valor em centavos. */
+export interface CeuItemPreco {
+  id: string
+  item_id: string
+  valor: number
+  vigente_desde: string
+  fornecedor_id: string | null
+  origem: string | null
+  observacao: string | null
+  usuario_id?: string | null
+  created_at?: string
+}
+
 export interface Fornecedor {
   id: string
   nome: string
@@ -772,6 +785,12 @@ export type Database = {
         Row: ItemCEU & Record<string, unknown>
         Insert: Partial<ItemCEU> & Record<string, unknown>
         Update: Partial<ItemCEU> & Record<string, unknown>
+        Relationships: []
+      }
+      ceu_itens_precos: {
+        Row: CeuItemPreco & Record<string, unknown>
+        Insert: Partial<CeuItemPreco> & Record<string, unknown>
+        Update: Partial<CeuItemPreco> & Record<string, unknown>
         Relationships: []
       }
       entregas: {
