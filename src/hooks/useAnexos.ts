@@ -40,7 +40,8 @@ export function useAnexos() {
       }
 
       const ext = file.name.split('.').pop() || ''
-      const path = `${ocorrenciaId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${ext}`
+      const nomeGerado = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${ext}`
+      const path = `${ocorrenciaId}/${nomeGerado}`
 
       const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -50,6 +51,25 @@ export function useAnexos() {
         toast.error('Erro ao enviar arquivo: ' + uploadError.message)
         return null
       }
+
+      // Confere se o objeto foi gravado íntegro (tamanho igual ao enviado).
+      // Sem isso, um upload truncado/vazio virava anexo listado mas ilegível.
+      const { data: objetos, error: erroListagem } = await supabase.storage
+        .from(BUCKET_NAME)
+        .list(ocorrenciaId, { search: nomeGerado })
+      const objeto = objetos?.find((o) => o.name === nomeGerado)
+      const tamanhoGravado = (objeto?.metadata as { size?: number } | null | undefined)?.size
+      if (erroListagem || !objeto || (typeof tamanhoGravado === 'number' && tamanhoGravado !== file.size)) {
+        await supabase.storage.from(BUCKET_NAME).remove([path])
+        toast.error(
+          'O arquivo não foi gravado corretamente. Tente enviar novamente — se estiver na nuvem (iCloud/OneDrive), baixe-o primeiro.'
+        )
+        return null
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
       const { data, error } = await supabase
         .from('ocorrencia_anexos')
@@ -62,11 +82,15 @@ export function useAnexos() {
           tipo_documento: tipoDocumento || 'comprovante',
           caminho_storage: path,
           url_publica: null,
+          usuario_id: session?.user?.id ?? null,
         })
         .select(COLUNAS_ANEXO)
         .single()
 
       if (error) {
+        // Desfaz o upload: sem isso o arquivo ficava órfão no bucket (sem
+        // linha na tabela) — o anexo "sumia" sem ninguém notar.
+        await supabase.storage.from(BUCKET_NAME).remove([path])
         toast.error('Erro ao salvar anexo: ' + error.message)
         return null
       }
