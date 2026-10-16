@@ -18,7 +18,7 @@
 //                              gerar_link, ver_link, revogar_link
 //
 // `carregar` devolve SÓ os itens do Kit Mensal do contrato (nunca o catálogo
-// inteiro); "Preciso de outro item" usa `buscar_item` (termo ≥ 3 letras, até 5
+// inteiro); "Preciso de outro item" usa `buscar_item` (termo ≥ 3 letras, até 8
 // itens ativos, busca fuzzy local — src/lib/materiais/buscaItens.ts).
 //
 // Kit confirmável + pedido extra (decisão da gestão, 16/10/2026 — migration
@@ -574,7 +574,7 @@ export function idsEquipeDoContrato(
 // Busca tolerante a erro de digitação no catálogo de materiais — lógica pura.
 // Usada pelo campo único "O que mais você precisa?" do link do líder (ação
 // `buscar_item` da Edge Function pedido-materiais): o líder digita "cab",
-// "cabo vasora", "detergete", "piaçava", "disco 350" e recebe até 5
+// "cabo vasora", "detergete", "piaçava", "disco 350" e recebe até 8
 // sugestões ATIVAS.
 //
 // Variações (decisão da gestão, 16/10/2026): item com variações vira UM
@@ -645,7 +645,9 @@ export function nomeExibicaoItem(nome: string, rotuloVariacao?: string | null): 
 export type FallbackBusca = (termo: string, nomes: { id: string; nome: string }[]) => Promise<string[]>
 
 export const BUSCA_MIN_CARACTERES = 3
-export const BUSCA_MAX_RESULTADOS = 5
+// 8 resultados (decisão da gestora, 16/10/2026): "vassoura" cabe inteira
+// (Piaçava ficava de fora com 5); busca maior ("disco") pede para detalhar.
+export const BUSCA_MAX_RESULTADOS = 8
 const NOTA_MINIMA = 0.6
 
 export function normalizarBusca(texto: string | null | undefined): string {
@@ -2512,7 +2514,7 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
 }
 
 /**
- * "O que mais você precisa?": até 5 resultados ATIVOS (item ou variação) que
+ * "O que mais você precisa?": até 8 resultados ATIVOS (item ou variação) que
  * casam com o termo (≥ 3 letras). Devolve só nome, categoria, unidade,
  * validade e variações — nunca a lista completa. Busca fuzzy local (sem chamada externa); ponto de
  * extensão para um fallback futuro documentado em buscaItens.ts.

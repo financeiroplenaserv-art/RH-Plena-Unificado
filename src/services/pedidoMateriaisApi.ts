@@ -132,7 +132,7 @@ export interface ItemBuscaPublico extends ItemPublico {
   variacao_id?: string | null
 }
 
-/** "O que mais você precisa?": até 5 resultados ativos que casam com o termo (≥ 3 letras). */
+/** "O que mais você precisa?": até 8 resultados ativos que casam com o termo (≥ 3 letras). */
 export function buscarItemPublico(token: string, termo: string, secao?: 'materiais' | 'portaria'): Promise<{ itens: ItemBuscaPublico[] }> {
   return chamar({ acao: 'buscar_item', token, termo, secao })
 }

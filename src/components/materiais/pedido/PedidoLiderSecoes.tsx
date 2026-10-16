@@ -12,7 +12,7 @@ import {
   type ItemPublico,
   type SecaoPedido,
 } from '@/lib/materiais/pedidoLider'
-import { BUSCA_MIN_CARACTERES, normalizarBusca } from '@/lib/materiais/buscaItens'
+import { BUSCA_MAX_RESULTADOS, BUSCA_MIN_CARACTERES, normalizarBusca } from '@/lib/materiais/buscaItens'
 import { pecasParaFuncao, type MembroEquipePublico, type PecaPublica } from '@/lib/materiais/pecasCeu'
 import { buscarItemPublico, type ItemBuscaPublico } from '@/services/pedidoMateriaisApi'
 import { cn } from '@/lib/utils'
@@ -471,7 +471,7 @@ export function SecaoProdutos({
  * Campo único "O que mais você precisa?" (16/10/2026 — substitui os botões
  * "Quero mais de um item do kit" e "Preciso de outro item", que confundiam).
  * Sempre aberto; o líder digita (pode errar: "cab", "piacava", "disco 350")
- * e o servidor devolve até 5 resultados ativos do kit e do catálogo, um por
+ * e o servidor devolve até 8 resultados ativos do kit e do catálogo, um por
  * variação. Nada casou → "Não achei, enviar assim" (texto livre).
  */
 export function BuscaOutroItem({
@@ -585,6 +585,9 @@ export function BuscaOutroItem({
           })}
           {falhou && <p className="text-base text-red-700 dark:text-red-400">Não deu para procurar agora. Tente de novo ou envie assim.</p>}
           {lista && lista.length === 0 && !falhou && <p className="text-base text-muted-foreground">Não encontramos nada parecido.</p>}
+          {lista && lista.length >= BUSCA_MAX_RESULTADOS && (
+            <p className="text-base text-muted-foreground">Não achou? Escreva mais, por exemplo: disco preto 350</p>
+          )}
           {lista && (
             <button
               type="button"

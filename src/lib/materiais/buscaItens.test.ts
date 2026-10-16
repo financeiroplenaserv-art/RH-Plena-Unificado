@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buscarItens, distanciaEdicao, nomeExibicaoItem, normalizarBusca, similaridadeTrigramas } from './buscaItens'
+import { BUSCA_MAX_RESULTADOS, buscarItens, distanciaEdicao, nomeExibicaoItem, normalizarBusca, similaridadeTrigramas } from './buscaItens'
 
 // Recorte do catálogo real (mat_itens + mat_aliases, 14/10/2026) e itens
 // hipotéticos do exemplo da gestão ("Cabo de vassoura", "Cabo de alumínio").
@@ -35,11 +35,11 @@ describe('buscarItens (Preciso de outro item)', () => {
     expect(buscarItens('vassoura gari', ITENS)[0]).toMatchObject({ item: { id: 've' }, casouCom: 'vassoura gari' })
   })
 
-  it('termo curto não busca (nunca "lista tudo") e o resultado tem no máximo 5', () => {
+  it('termo curto não busca (nunca "lista tudo") e o resultado tem no máximo BUSCA_MAX_RESULTADOS (8)', () => {
     expect(ids('ca')).toEqual([])
     expect(ids('  ')).toEqual([])
     expect(buscarItens('a', ITENS, 50)).toEqual([])
-    expect(buscarItens('vassoura cabo detergente', ITENS, 50).length).toBeLessThanOrEqual(5)
+    expect(buscarItens('vassoura cabo detergente', ITENS, 50).length).toBeLessThanOrEqual(BUSCA_MAX_RESULTADOS)
   })
 
   it('palavra sem relação não casa por acaso', () => {
@@ -96,9 +96,10 @@ describe('buscarItens com variações (16/10/2026)', () => {
     expect(nomes('novica')[0]).toBe('Vassoura Noviça')
   })
 
-  it('"vassoura": vassouras diferentes antes da 2ª medida do mesmo item (máx. 5)', () => {
+  it('"vassoura": vassouras diferentes antes da 2ª medida do mesmo item; Piaçava aparece (máx. 8)', () => {
     const r = nomes('vassoura')
-    expect(r).toHaveLength(5)
+    expect(r.length).toBeLessThanOrEqual(8)
+    expect(r).toContain('Vassoura Piaçava Chapa 3')
     expect(r.slice(0, 3)).toEqual(expect.arrayContaining(['Vassoura Gari', 'Vassoura Cerlon 1 m', 'Vassoura Pêlo Natural 40cm']))
   })
 

@@ -1,7 +1,7 @@
 // Busca tolerante a erro de digitação no catálogo de materiais — lógica pura.
 // Usada pelo campo único "O que mais você precisa?" do link do líder (ação
 // `buscar_item` da Edge Function pedido-materiais): o líder digita "cab",
-// "cabo vasora", "detergete", "piaçava", "disco 350" e recebe até 5
+// "cabo vasora", "detergete", "piaçava", "disco 350" e recebe até 8
 // sugestões ATIVAS.
 //
 // Variações (decisão da gestão, 16/10/2026): item com variações vira UM
@@ -72,7 +72,9 @@ export function nomeExibicaoItem(nome: string, rotuloVariacao?: string | null): 
 export type FallbackBusca = (termo: string, nomes: { id: string; nome: string }[]) => Promise<string[]>
 
 export const BUSCA_MIN_CARACTERES = 3
-export const BUSCA_MAX_RESULTADOS = 5
+// 8 resultados (decisão da gestora, 16/10/2026): "vassoura" cabe inteira
+// (Piaçava ficava de fora com 5); busca maior ("disco") pede para detalhar.
+export const BUSCA_MAX_RESULTADOS = 8
 const NOTA_MINIMA = 0.6
 
 export function normalizarBusca(texto: string | null | undefined): string {
