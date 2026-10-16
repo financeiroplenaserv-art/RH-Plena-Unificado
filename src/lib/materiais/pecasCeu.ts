@@ -358,63 +358,48 @@ function tokensNome(nome: string): string[] {
 }
 
 /**
- * Nomes curtos sem ambiguidade: "Michelle A."; homônimos ganham mais letras
- * do 1º sobrenome ("Michelle Al." / "Michelle An."), depois a inicial do
- * sobrenome seguinte e, por fim, um número. Nunca o sobrenome completo de
- * propósito (até no pior caso só se expõem as letras necessárias).
+ * Nomes curtos SEMPRE só "Primeiro N." (primeiro nome + inicial do 1º
+ * sobrenome) — decisão da gestora: nunca revelar mais que a inicial (a
+ * desambiguação progressiva podia expor o sobrenome inteiro quando um era
+ * prefixo do outro, ex.: "Ana Silva Costa" × "Ana Silveira Prata").
+ * Colisões dentro da mesma lista desambiguam SEM revelar o sobrenome:
+ * primeiro a inicial do 2º sobrenome ("Ana S. C."); persistindo a colisão
+ * (ou sem 2º sobrenome), um contador determinístico pela ordem da lista
+ * ("Ana S. 2", "Ana S. 3" — o primeiro fica sem número).
  */
 export function nomesCurtos(nomes: string[]): string[] {
   const partes = nomes.map(tokensNome)
   const primeiro = (i: number) => capitalizar(partes[i][0] ?? 'Colaborador')
   const sobrenomes = (i: number) => partes[i].slice(1)
 
-  const rotulo = (i: number, letras: number, extra: number): string => {
+  const rotuloBase = (i: number): string => {
     const s = sobrenomes(i)
     if (s.length === 0) return primeiro(i)
-    const pedaco = capitalizar(s[0].slice(0, letras))
-    const extras = s
-      .slice(1, 1 + extra)
-      .map((x) => capitalizar(x.charAt(0)) + '.')
-      .join(' ')
-    return `${primeiro(i)} ${pedaco}.${extras ? ' ' + extras : ''}`
+    return `${primeiro(i)} ${capitalizar(s[0].charAt(0))}.`
+  }
+  const rotuloComSegundo = (i: number): string | null => {
+    const s = sobrenomes(i)
+    if (s.length < 2) return null
+    return `${rotuloBase(i)} ${capitalizar(s[1].charAt(0))}.`
   }
 
-  const resultado = nomes.map((_, i) => rotulo(i, 1, 0))
+  const resultado = nomes.map((_, i) => rotuloBase(i))
   const conflitos = () => {
     const contagem = new Map<string, number[]>()
     resultado.forEach((r, i) => contagem.set(r.toLocaleLowerCase('pt-BR'), [...(contagem.get(r.toLocaleLowerCase('pt-BR')) ?? []), i]))
     return [...contagem.values()].filter((l) => l.length > 1)
   }
 
-  let grupos = conflitos()
-  for (const grupo of grupos) {
-    const maxLetras = Math.max(...grupo.map((i) => sobrenomes(i)[0]?.length ?? 0))
-    let resolvido = false
-    for (let letras = 2; letras <= Math.max(2, maxLetras); letras++) {
-      const tent = grupo.map((i) => rotulo(i, letras, 0))
-      if (new Set(tent.map((t) => t.toLocaleLowerCase('pt-BR'))).size === tent.length) {
-        grupo.forEach((i, k) => (resultado[i] = tent[k]))
-        resolvido = true
-        break
-      }
-    }
-    // Mais letras não resolveu (mesmo 1º sobrenome): volta para a inicial —
-    // nunca expõe o sobrenome inteiro.
-    if (!resolvido) grupo.forEach((i) => (resultado[i] = rotulo(i, 1, 0)))
-  }
-  grupos = conflitos()
-  for (const grupo of grupos) {
-    const maxExtra = Math.max(...grupo.map((i) => Math.max(0, sobrenomes(i).length - 1)))
-    for (let extra = 1; extra <= maxExtra; extra++) {
-      const letras = 1
-      const tent = grupo.map((i) => rotulo(i, letras, extra))
-      if (new Set(tent.map((t) => t.toLocaleLowerCase('pt-BR'))).size === tent.length) {
-        grupo.forEach((i, k) => (resultado[i] = tent[k]))
-        break
-      }
+  // 1º passo: quem tem 2º sobrenome ganha a inicial dele ("Ana S. C.") —
+  // o formato "... X. Y." nunca colide com o formato base "... X.".
+  for (const grupo of conflitos()) {
+    for (const i of grupo) {
+      const comSegundo = rotuloComSegundo(i)
+      if (comSegundo) resultado[i] = comSegundo
     }
   }
-  for (const grupo of conflitos()) grupo.forEach((i, k) => (resultado[i] = k === 0 ? resultado[i] : `${resultado[i]} (${k + 1})`))
+  // 2º passo: contador pela ordem da lista (o 1º do grupo fica sem número).
+  for (const grupo of conflitos()) grupo.forEach((i, k) => (resultado[i] = k === 0 ? resultado[i] : `${resultado[i]} ${k + 1}`))
   return resultado
 }
 

@@ -40,16 +40,26 @@ const LOTE_IDS = 150
 
 type Erro = { code?: string; message?: string } | null
 
-/** `.in()` em lotes (a URL do PostgREST tem limite). */
+/**
+ * `.in()` em lotes (a URL do PostgREST tem limite), paginando DENTRO de cada
+ * lote: o PostgREST corta em 1.000 linhas por consulta, e um lote de 150 ids
+ * pode passar disso (ex.: ~65 pedidos × 20-40 linhas em mat_pedido_itens) —
+ * sem o range, a lista do mês e as médias do Painel saíam truncadas sem erro.
+ * A factory recebe (lote, de, ate) e deve terminar em `.order(...).range(de, ate)`.
+ */
 export async function buscarPorIds<T>(
   ids: string[],
-  buscar: (lote: string[]) => PromiseLike<{ data: unknown[] | null; error: Erro }>
+  buscar: (lote: string[], de: number, ate: number) => PromiseLike<{ data: unknown[] | null; error: Erro }>
 ): Promise<{ data: T[]; error: Erro }> {
   const todos: T[] = []
   for (let i = 0; i < ids.length; i += LOTE_IDS) {
-    const { data, error } = await buscar(ids.slice(i, i + LOTE_IDS))
+    const lote = ids.slice(i, i + LOTE_IDS)
+    const { data, error } = await selecionarTudo<T>(async (de, ate) => {
+      const r = await buscar(lote, de, ate)
+      return { data: (r.data ?? []) as T[], error: r.error }
+    })
     if (error) return { data: [], error }
-    todos.push(...((data ?? []) as T[]))
+    todos.push(...(data ?? []))
   }
   return { data: todos, error: null }
 }
@@ -125,9 +135,11 @@ export function useMateriaisPedidos() {
     const lista = (rp.data as MatPedido[]) ?? []
     const ids = lista.map((p) => p.id)
     const [ri, rc] = await Promise.all([
-      buscarPorIds<MatPedidoItem>(ids, (lote) => supabase.from('mat_pedido_itens').select(COLUNAS_ITEM_PEDIDO).in('pedido_id', lote)),
-      buscarPorIds<CeuPedidoItem>(ids, (lote) =>
-        supabase.from('ceu_pedido_itens').select('id, pedido_id, status, possivel_repeticao').in('pedido_id', lote)
+      buscarPorIds<MatPedidoItem>(ids, (lote, de, ate) =>
+        supabase.from('mat_pedido_itens').select(COLUNAS_ITEM_PEDIDO).in('pedido_id', lote).order('id').range(de, ate)
+      ),
+      buscarPorIds<CeuPedidoItem>(ids, (lote, de, ate) =>
+        supabase.from('ceu_pedido_itens').select('id, pedido_id, status, possivel_repeticao').in('pedido_id', lote).order('id').range(de, ate)
       ),
     ])
     if (ri.error || rc.error) toast.error(mensagemErroMateriais(ri.error ?? rc.error, 'carregar as linhas dos pedidos'))
@@ -276,12 +288,16 @@ export function useMateriaisPainel() {
           .order('id')
           .range(de, ate)
       ),
-      supabase
-        .from('mat_pedidos')
-        .select('id, contrato_id, competencia, status_produtos')
-        .eq('status_produtos', 'aprovado')
-        .gte('competencia', desde)
-        .lt('competencia', comp),
+      selecionarTudo<Pick<MatPedido, 'id' | 'contrato_id' | 'competencia' | 'status_produtos'>>((de, ate) =>
+        supabase
+          .from('mat_pedidos')
+          .select('id, contrato_id, competencia, status_produtos')
+          .eq('status_produtos', 'aprovado')
+          .gte('competencia', desde)
+          .lt('competencia', comp)
+          .order('id')
+          .range(de, ate)
+      ),
       carregarVinculosSubstituicao(),
     ])
     const erro = rc.error ?? rp.error ?? rk.error ?? rpr.error ?? rh.error ?? ra.error
@@ -295,12 +311,13 @@ export function useMateriaisPainel() {
     const pedidosDoMes = (rp.data ?? []) as Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'>[]
     const anteriores = (ra.data ?? []) as { id: string; contrato_id: string; competencia: string; status_produtos: string }[]
     const [ri, rant] = await Promise.all([
-      buscarPorIds<MatPedidoItem>(pedidosDoMes.map((p) => p.id), (lote) =>
-        supabase.from('mat_pedido_itens').select(COLUNAS_ITEM_PEDIDO).in('pedido_id', lote)
+      buscarPorIds<MatPedidoItem>(pedidosDoMes.map((p) => p.id), (lote, de, ate) =>
+        supabase.from('mat_pedido_itens').select(COLUNAS_ITEM_PEDIDO).in('pedido_id', lote).order('id').range(de, ate)
       ),
       buscarPorIds<{ pedido_id: string; item_id: string | null; variacao_id: string | null; qtd_aprovada: number | null }>(
         anteriores.map((p) => p.id),
-        (lote) => supabase.from('mat_pedido_itens').select('pedido_id, item_id, variacao_id, qtd_aprovada').in('pedido_id', lote)
+        (lote, de, ate) =>
+          supabase.from('mat_pedido_itens').select('pedido_id, item_id, variacao_id, qtd_aprovada').in('pedido_id', lote).order('id').range(de, ate)
       ),
     ])
     if (ri.error || rant.error) toast.error(mensagemErroMateriais(ri.error ?? rant.error, 'carregar as linhas dos pedidos'))

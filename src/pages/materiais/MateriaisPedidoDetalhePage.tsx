@@ -235,13 +235,13 @@ export function MateriaisPedidoDetalhePage() {
 
         {modo === 'validar' && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            Este pedido tem exceção. Confira as linhas destacadas: valide como está, corte a quantidade (com motivo) ou devolva ao
-            líder com um comentário. Avisos de repetição não travam — some, descarte ou ignore.
+            Este pedido tem exceção. Confira as linhas destacadas: valide como está, altere a quantidade (com motivo, para mais ou
+            para menos) ou devolva ao líder com um comentário. Avisos de repetição não travam — some, descarte ou ignore.
           </p>
         )}
         {modo === 'aprovar' && (
           <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
-            Pedido validado. Aprove tudo ou ajuste item a item (motivo obrigatório quando aprovar menos que o pedido).
+            Pedido validado. Aprove tudo ou ajuste item a item (motivo obrigatório ao alterar a quantidade, para mais ou para menos).
           </p>
         )}
 

@@ -221,6 +221,7 @@ export function SecaoProdutos({
         return (
           <div
             key={l.chave}
+            data-erro={errosDe(erros, l.chave).length > 0 ? 'true' : undefined}
             className={cn(
               'space-y-3 rounded-2xl border bg-card p-4',
               exc.exigeJustificativa ? 'border-red-300 dark:border-red-800' : 'border-border'
@@ -565,7 +566,11 @@ export function SecaoUniformes({
                   )
                 }
                 return (
-                  <li key={peca.id} className="space-y-3 rounded-xl border border-primary/50 bg-primary/5 p-3">
+                  <li
+                    key={peca.id}
+                    data-erro={errosDe(erros, linha.chave).length > 0 ? 'true' : undefined}
+                    className="space-y-3 rounded-xl border border-primary/50 bg-primary/5 p-3"
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold">{peca.rotulo}</p>
                       <button
@@ -654,7 +659,12 @@ export function SecaoCrachas({
   return (
     <div className="space-y-4">
       {linhas.map((l) => (
-        <section key={l.chave} className="space-y-3 rounded-2xl border border-border bg-card p-4" aria-label={`Crachá de ${l.nome}`}>
+        <section
+          key={l.chave}
+          data-erro={errosDe(erros, l.chave).length > 0 ? 'true' : undefined}
+          className="space-y-3 rounded-2xl border border-border bg-card p-4"
+          aria-label={`Crachá de ${l.nome}`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-lg font-semibold">{l.nome}</p>
             <button

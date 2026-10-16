@@ -218,6 +218,23 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(screen.queryByLabelText('Quantidade de Cloro')).not.toBeInTheDocument()
   })
 
+  it('a revisão lista os itens pedidos pelo nome (não só a contagem)', async () => {
+    api.carregar.mockResolvedValue(dados())
+    renderizar()
+    await screen.findByText('TELEX BAR, TIJ E IPA')
+    fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
+    irParaEtapa(/Uniformes e EPIs/)
+    fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
+    fireEvent.click(screen.getByRole('button', { name: /Bota PVC cano curto/ }))
+    fireEvent.click(screen.getByRole('radio', { name: '40' }))
+    fireEvent.click(screen.getByRole('checkbox')) // declaração do EPI
+    irParaEtapa(/Revisar e enviar/)
+    // Produto pelo nome + unidade; peça com tamanho e pessoa.
+    expect(screen.getByText('Cloro')).toBeInTheDocument()
+    expect(screen.getByText(/Bota PVC cano curto — Tam\. 40 · Michelle A\./)).toBeInTheDocument()
+    expect(screen.getByText(/3 bombona 5L/)).toBeInTheDocument()
+  })
+
   it('não envia sem seu nome; o aviso some ao digitar', async () => {
     api.carregar.mockResolvedValue(dados())
     renderizar()

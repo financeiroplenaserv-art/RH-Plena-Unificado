@@ -143,21 +143,26 @@ describe('validarEnvioPedido', () => {
     expect(validarEnvioPedido({ ...base, produtos: [{ item_id: 'rodo', variacao_id: 'zzz', quantidade: 1 }] }, ctx).ok).toBe(false)
   })
 
-  it('contrato sem limpeza ignora produtos que não são de portaria (texto livre vale como portaria)', () => {
-    const r = validarEnvioPedido(
-      {
-        ...base,
-        produtos: [
-          { item_id: 'cloro', quantidade: 3 },
-          { descricao_livre: 'Algo', quantidade: 1 },
-          { item_id: 'livro', quantidade: 1 },
-        ],
-      },
-      { ...ctx, recebeLimpeza: false }
-    )
-    expect(r.ok).toBe(false) // texto livre sem justificativa
+  it('contrato sem limpeza: produto de limpeza vira ERRO na linha e não é enviado (texto livre vale como portaria)', () => {
+    const entrada = {
+      ...base,
+      produtos: [
+        { chave: 'l1', item_id: 'cloro', quantidade: 3 },
+        { chave: 'l2', descricao_livre: 'Algo', quantidade: 1, justificativa: 'Faltou' },
+        { chave: 'l3', item_id: 'livro', quantidade: 1 },
+      ],
+    }
+    const r = validarEnvioPedido(entrada, { ...ctx, recebeLimpeza: false })
+    // O cloro NÃO some em silêncio: erro de campo na linha e a linha não vai no envio.
+    expect(r.ok).toBe(false)
     expect(r.produtos.map((p) => p.item_id)).toEqual(['livro', null])
-    expect(r.erros.join(' ')).toMatch(/Algo: conte para a gente/)
+    expect(r.errosCampo).toEqual([
+      { chave: 'l1', campo: 'geral', mensagem: 'Cloro: este posto recebe apenas material de portaria.' },
+    ])
+    // Em contrato que recebe limpeza, a mesma linha passa.
+    const comLimpeza = validarEnvioPedido(entrada, ctx)
+    expect(comLimpeza.ok).toBe(true)
+    expect(comLimpeza.produtos.map((p) => p.item_id)).toEqual(['cloro', 'livro', null])
   })
 
   it('exige seu nome, a declaração de cada seção usada e pedido não vazio', () => {

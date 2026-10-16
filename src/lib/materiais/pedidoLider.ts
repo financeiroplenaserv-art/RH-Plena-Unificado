@@ -444,7 +444,10 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       erro(chave, 'geral', 'Há um item que não está mais no catálogo. Recarregue a página.')
       continue
     }
-    if (!ctx.recebeLimpeza && item.categoria !== 'portaria') continue
+    if (!ctx.recebeLimpeza && item.categoria !== 'portaria') {
+      erro(chave, 'geral', `${item.nome}: este posto recebe apenas material de portaria.`)
+      continue
+    }
     const variacaoId = texto(p.variacao_id) || null
     if (variacaoId && !item.variacoes.some((v) => v.id === variacaoId)) {
       erro(chave, 'variacao', `${item.nome}: opção inválida. Recarregue a página.`)

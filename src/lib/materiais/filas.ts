@@ -5,6 +5,7 @@ import { idsColaboradoresDoDepartamento, type ColaboradorDepartamento, type Depa
 import { diasEntre } from './datas'
 import { normalizarTexto } from './normalizar'
 import { tamanhosDivergem } from './pedidos'
+import { tetoQuantidade } from './pedidoLider'
 
 // Lógica pura das filas internas da Fase 1 (docs/PLANO_MATERIAIS_FASE1.md
 // §4.3, §5.1 e §6): validação do inspetor, aprovação do gestor, conferência
@@ -69,11 +70,13 @@ export interface PayloadValidacao {
 
 /**
  * Payload de validar_pedido_materiais. Só vão as linhas editadas; as demais
- * são validadas pela quantidade pedida no banco. Corte (qtd < pedida) exige
- * motivo, exceto "descartar" a repetição (motivo padrão "repetição").
+ * são validadas pela quantidade pedida no banco. Qualquer alteração da
+ * quantidade (para cima ou para baixo) exige motivo, exceto "descartar" a
+ * repetição (motivo padrão "repetição"), e nunca pode passar do teto de
+ * sanidade do envio do líder (tetoQuantidade — pedidoLider.ts).
  */
 export function montarValidacao(
-  linhas: Pick<MatPedidoItem, 'id' | 'qtd_pedida'>[],
+  linhas: Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'qtd_kit'>[],
   edicoes: Record<string, EdicaoLinha | undefined>
 ): { itens: PayloadValidacao[]; erros: string[] } {
   const itens: PayloadValidacao[] = []
@@ -92,8 +95,13 @@ export function montarValidacao(
       erros.push(`Linha ${i + 1}: quantidade inválida`)
       return
     }
-    if (qtd != null && qtd < Number(l.qtd_pedida) && !motivo) {
-      erros.push(`Linha ${i + 1}: informe o motivo do corte`)
+    const teto = tetoQuantidade(l.qtd_kit == null ? null : Number(l.qtd_kit))
+    if (qtd != null && qtd > teto) {
+      erros.push(`Linha ${i + 1}: quantidade acima do teto (${teto})`)
+      return
+    }
+    if (qtd != null && qtd !== Number(l.qtd_pedida) && !motivo) {
+      erros.push(`Linha ${i + 1}: informe o motivo da alteração`)
       return
     }
     if (qtd == null && !decisao && !motivo) return
@@ -110,11 +118,13 @@ export interface PayloadAprovacao {
 
 /**
  * Payload de aprovar_pedido_materiais (ajuste item a item). Linha sem edição
- * fica "aprovar como está" (validada, ou pedida). Ajuste abaixo do pedido
- * exige motivo (vale o motivo de corte já registrado pelo inspetor).
+ * fica "aprovar como está" (validada, ou pedida). Qualquer alteração da
+ * quantidade pedida (para cima ou para baixo) exige motivo (vale o motivo de
+ * ajuste já registrado pelo inspetor) e nunca pode passar do teto de sanidade
+ * do envio do líder (tetoQuantidade — pedidoLider.ts).
  */
 export function montarAprovacao(
-  linhas: Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'motivo_ajuste'>[],
+  linhas: Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'qtd_kit' | 'motivo_ajuste'>[],
   edicoes: Record<string, EdicaoLinha | undefined>
 ): { itens: PayloadAprovacao[]; erros: string[] } {
   const itens: PayloadAprovacao[] = []
@@ -126,8 +136,13 @@ export function montarAprovacao(
       erros.push(`Linha ${i + 1}: quantidade inválida`)
       return
     }
+    const teto = tetoQuantidade(l.qtd_kit == null ? null : Number(l.qtd_kit))
+    if (e.qtd > teto) {
+      erros.push(`Linha ${i + 1}: quantidade acima do teto (${teto})`)
+      return
+    }
     const motivo = e.motivo.trim() || null
-    if (e.qtd < Number(l.qtd_pedida) && !motivo && !(l.motivo_ajuste ?? '').trim()) {
+    if (e.qtd !== Number(l.qtd_pedida) && !motivo && !(l.motivo_ajuste ?? '').trim()) {
       erros.push(`Linha ${i + 1}: informe o motivo do ajuste`)
       return
     }

@@ -155,13 +155,54 @@ describe('funções', () => {
   })
 })
 
-describe('equipe (primeiro nome + inicial)', () => {
-  it('"Michelle A."; homônimos ganham mais letras', () => {
+describe('equipe (primeiro nome + inicial — nunca mais que a inicial)', () => {
+  it('caso simples: "Michelle A."', () => {
     expect(nomesCurtos(['MICHELLE ALVES DA SILVA', 'João de Souza'])).toEqual(['Michelle A.', 'João S.'])
-    expect(nomesCurtos(['Michelle Alves', 'Michelle Antunes'])).toEqual(['Michelle Al.', 'Michelle An.'])
-    expect(nomesCurtos(['Ana Silva Costa', 'Ana Silva Pereira'])).toEqual(['Ana S. C.', 'Ana S. P.'])
-    expect(nomesCurtos(['Ana Silva', 'Ana Silva'])).toEqual(['Ana S.', 'Ana S. (2)'])
     expect(nomesCurtos(['Pedro'])).toEqual(['Pedro'])
+    expect(nomesCurtos(['Michelle Alves', 'Michelle Antunes'])).toEqual(['Michelle A.', 'Michelle A. 2'])
+  })
+
+  it('sobrenome prefixo de outro NÃO ganha letras: as duas saem "Ana S."; na mesma lista, inicial do 2º sobrenome', () => {
+    // Sozinhas, nenhuma revela mais que a inicial.
+    expect(nomesCurtos(['Ana Silva Costa'])).toEqual(['Ana S.'])
+    expect(nomesCurtos(['Ana Silveira Prata'])).toEqual(['Ana S.'])
+    // Colidindo na mesma lista: "Ana S. C." / "Ana S. P." (sem revelar Silva/Silveira).
+    expect(nomesCurtos(['Ana Silva Costa', 'Ana Silveira Prata'])).toEqual(['Ana S. C.', 'Ana S. P.'])
+    expect(nomesCurtos(['Ana Silva Costa', 'Ana Silva Pereira'])).toEqual(['Ana S. C.', 'Ana S. P.'])
+  })
+
+  it('colisão total (mesmo nome e iniciais, sem 2º sobrenome): contador pela ordem da lista', () => {
+    expect(nomesCurtos(['Ana Silva', 'Ana Silva'])).toEqual(['Ana S.', 'Ana S. 2'])
+    expect(nomesCurtos(['Ana Silva', 'Ana Silva Costa', 'Ana Silva'])).toEqual(['Ana S.', 'Ana S. C.', 'Ana S. 2'])
+    expect(nomesCurtos(['Ana Silva', 'Ana Silva', 'Ana Silva'])).toEqual(['Ana S.', 'Ana S. 2', 'Ana S. 3'])
+  })
+
+  it('NUNCA sai sobrenome completo, em nenhum caso', () => {
+    const nomes = [
+      'Ana Silva Costa',
+      'Ana Silveira Prata',
+      'Ana Silva',
+      'Ana Silva',
+      'Michelle Alves da Silva',
+      'Michelle Antunes',
+      'João de Souza',
+      'Maria José dos Santos',
+      'Maria Joaquina dos Santos',
+      'Pedro',
+    ]
+    const sobrenomes = new Set(
+      nomes.flatMap((n) =>
+        n
+          .split(/\s+/)
+          .slice(1)
+          .filter((s) => !['de', 'da', 'do', 'dos', 'das', 'e'].includes(s.toLocaleLowerCase('pt-BR')))
+          .map((s) => s.toLocaleLowerCase('pt-BR'))
+      )
+    )
+    for (const curto of nomesCurtos(nomes)) {
+      const baixo = curto.toLocaleLowerCase('pt-BR')
+      for (const s of sobrenomes) expect(baixo.includes(s), `"${curto}" não pode conter "${s}"`).toBe(false)
+    }
   })
 
   it('a lista pública só tem ref, nome curto e função — nunca o nome completo', () => {

@@ -17,6 +17,7 @@ import {
   lerRascunho,
   montarPayloadPedido,
   novaChave,
+  reconciliarRascunhoComKit,
   salvarRascunho,
   type LinhaCrachaForm,
   type LinhaPecaForm,
@@ -206,8 +207,16 @@ export function PedidoLiderPage() {
         const pessoasOk = rascunho.pessoas.filter((p) => !p.ref || refs.has(p.ref))
         const chavesOk = new Set(pessoasOk.map((p) => p.chave))
         const pecasOk = new Set(d.pecas.map((p) => p.id))
-        setProdutos(rascunho.produtos)
-        setItensBusca(rascunho.itensBusca ?? [])
+        // O kit pode ter mudado no meio do mês: reconcilia o rascunho com o kit atual.
+        const rec = reconciliarRascunhoComKit(rascunho, {
+          hoje: d.hoje,
+          recebeLimpeza: d.contrato.recebe_limpeza,
+          catalogo: d.catalogo,
+          kit: d.kit,
+          ultimasEntregas: d.ultimas_entregas,
+        })
+        setProdutos(rec.produtos)
+        setItensBusca(rec.itensBusca)
         setPessoas(pessoasOk)
         setPecasForm(rascunho.pecas.filter((l) => chavesOk.has(l.pessoa) && pecasOk.has(l.peca_id)))
         setCrachas(rascunho.crachas.filter((l) => !l.ref || refs.has(l.ref)))
@@ -321,10 +330,18 @@ export function PedidoLiderPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  /** Depois de marcar "tentou": rola até o primeiro cartão com erro (no render seguinte). */
+  const rolarParaPrimeiroErro = () => {
+    setTimeout(() => {
+      document.querySelector('[data-erro="true"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    }, 0)
+  }
+
   const avancar = () => {
     const atual = etapas[etapa]
     if (pendenciasDaEtapa(atual) > 0) {
       setTentou((t) => new Set(t).add(atual))
+      rolarParaPrimeiroErro()
       return
     }
     irPara(etapa + 1)
@@ -335,6 +352,7 @@ export function PedidoLiderPage() {
     if (!validacao.ok) {
       setTentou(new Set(etapas))
       setErrosServidor([])
+      rolarParaPrimeiroErro()
       return
     }
     setEnviando(true)
@@ -498,6 +516,7 @@ export function PedidoLiderPage() {
 
   // Pendências por etapa (mostradas na revisão depois de "Enviar").
   const pendentes = etapas.filter((e) => e !== 'revisar' && pendenciasDaEtapa(e) > 0)
+  const itensCeuPorId = new Map(ctx.itensCeu.map((i) => [i.id, i.nome]))
 
   return (
     <div className="min-h-dvh bg-background pb-28 text-foreground">
@@ -562,15 +581,41 @@ export function PedidoLiderPage() {
               {etapas
                 .filter((e) => e !== 'revisar')
                 .map((e) => {
-                  const qtd =
+                  const produtosDaSecao =
                     e === 'materiais' || e === 'portaria'
                       ? validacao.produtos.filter((p) => {
                           const linha = produtos.find((l) => (p.item_id ? l.item_id === p.item_id : l.descricao_livre.trim() === p.descricao_livre))
                           return (linha?.secao ?? 'materiais') === e
-                        }).length
+                        })
+                      : []
+                  const qtd =
+                    e === 'materiais' || e === 'portaria'
+                      ? produtosDaSecao.length
                       : e === 'pecas'
                         ? validacao.ceu.filter((c) => c.tipo !== 'cracha').length
                         : validacao.ceu.filter((c) => c.tipo === 'cracha').length
+                  // Lista compacta: produto (nome + quantidade), uniforme/EPI
+                  // (peça + tamanho + pessoa) e crachá (pessoa + motivo).
+                  const itens: { rotulo: string; qtd: string }[] =
+                    e === 'materiais' || e === 'portaria'
+                      ? produtosDaSecao.map((p) => {
+                          const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
+                          const rotuloVar = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
+                          return {
+                            rotulo: item ? item.nome + (rotuloVar ? ` (${rotuloVar})` : '') : (p.descricao_livre ?? 'Outro item'),
+                            qtd: `${p.qtd_pedida}${item?.unidade ? ` ${item.unidade}` : ''}`,
+                          }
+                        })
+                      : validacao.ceu
+                          .filter((c) => (e === 'pecas' ? c.tipo !== 'cracha' : c.tipo === 'cracha'))
+                          .map((c) =>
+                            c.tipo === 'cracha'
+                              ? { rotulo: `${c.nome_digitado}${c.cracha_motivo ? ` — ${c.cracha_motivo}` : ''}`, qtd: '1' }
+                              : {
+                                  rotulo: `${(c.item_id && itensCeuPorId.get(c.item_id)) || 'Peça'}${c.tamanho ? ` — Tam. ${c.tamanho}` : ''} · ${c.nome_digitado}`,
+                                  qtd: String(c.qtd_pedida),
+                                }
+                          )
                   const pend = tentou.has('revisar') && pendenciasDaEtapa(e) > 0
                   return (
                     <li key={e}>
@@ -580,6 +625,16 @@ export function PedidoLiderPage() {
                           {pend ? 'falta corrigir' : qtd === 0 ? 'nada pedido' : `${qtd} ${qtd === 1 ? 'item' : 'itens'}`}
                         </span>
                       </button>
+                      {itens.length > 0 && (
+                        <ul className="space-y-0.5 border-t border-border px-4 py-2 text-xs text-muted-foreground">
+                          {itens.map((it, i) => (
+                            <li key={i} className="flex items-baseline justify-between gap-3">
+                              <span className="min-w-0">{it.rotulo}</span>
+                              <span className="shrink-0 tabular-nums">{it.qtd}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   )
                 })}
@@ -592,7 +647,7 @@ export function PedidoLiderPage() {
               .map((s) => (
                 <Declaracao key={s} secao={s} marcado={false} erro={tentou.has('revisar')} onChange={(v) => setTermos((t) => ({ ...t, [s]: v }))} />
               ))}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-erro={tentou.has('revisar') && errosDe(erros, null, 'seu_nome').length > 0 ? 'true' : undefined}>
               <label htmlFor="seu-nome" className="text-base font-medium">
                 Seu nome *
               </label>

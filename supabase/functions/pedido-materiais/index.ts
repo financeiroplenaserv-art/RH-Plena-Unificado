@@ -426,63 +426,48 @@ function tokensNome(nome: string): string[] {
 }
 
 /**
- * Nomes curtos sem ambiguidade: "Michelle A."; homônimos ganham mais letras
- * do 1º sobrenome ("Michelle Al." / "Michelle An."), depois a inicial do
- * sobrenome seguinte e, por fim, um número. Nunca o sobrenome completo de
- * propósito (até no pior caso só se expõem as letras necessárias).
+ * Nomes curtos SEMPRE só "Primeiro N." (primeiro nome + inicial do 1º
+ * sobrenome) — decisão da gestora: nunca revelar mais que a inicial (a
+ * desambiguação progressiva podia expor o sobrenome inteiro quando um era
+ * prefixo do outro, ex.: "Ana Silva Costa" × "Ana Silveira Prata").
+ * Colisões dentro da mesma lista desambiguam SEM revelar o sobrenome:
+ * primeiro a inicial do 2º sobrenome ("Ana S. C."); persistindo a colisão
+ * (ou sem 2º sobrenome), um contador determinístico pela ordem da lista
+ * ("Ana S. 2", "Ana S. 3" — o primeiro fica sem número).
  */
 export function nomesCurtos(nomes: string[]): string[] {
   const partes = nomes.map(tokensNome)
   const primeiro = (i: number) => capitalizar(partes[i][0] ?? 'Colaborador')
   const sobrenomes = (i: number) => partes[i].slice(1)
 
-  const rotulo = (i: number, letras: number, extra: number): string => {
+  const rotuloBase = (i: number): string => {
     const s = sobrenomes(i)
     if (s.length === 0) return primeiro(i)
-    const pedaco = capitalizar(s[0].slice(0, letras))
-    const extras = s
-      .slice(1, 1 + extra)
-      .map((x) => capitalizar(x.charAt(0)) + '.')
-      .join(' ')
-    return `${primeiro(i)} ${pedaco}.${extras ? ' ' + extras : ''}`
+    return `${primeiro(i)} ${capitalizar(s[0].charAt(0))}.`
+  }
+  const rotuloComSegundo = (i: number): string | null => {
+    const s = sobrenomes(i)
+    if (s.length < 2) return null
+    return `${rotuloBase(i)} ${capitalizar(s[1].charAt(0))}.`
   }
 
-  const resultado = nomes.map((_, i) => rotulo(i, 1, 0))
+  const resultado = nomes.map((_, i) => rotuloBase(i))
   const conflitos = () => {
     const contagem = new Map<string, number[]>()
     resultado.forEach((r, i) => contagem.set(r.toLocaleLowerCase('pt-BR'), [...(contagem.get(r.toLocaleLowerCase('pt-BR')) ?? []), i]))
     return [...contagem.values()].filter((l) => l.length > 1)
   }
 
-  let grupos = conflitos()
-  for (const grupo of grupos) {
-    const maxLetras = Math.max(...grupo.map((i) => sobrenomes(i)[0]?.length ?? 0))
-    let resolvido = false
-    for (let letras = 2; letras <= Math.max(2, maxLetras); letras++) {
-      const tent = grupo.map((i) => rotulo(i, letras, 0))
-      if (new Set(tent.map((t) => t.toLocaleLowerCase('pt-BR'))).size === tent.length) {
-        grupo.forEach((i, k) => (resultado[i] = tent[k]))
-        resolvido = true
-        break
-      }
-    }
-    // Mais letras não resolveu (mesmo 1º sobrenome): volta para a inicial —
-    // nunca expõe o sobrenome inteiro.
-    if (!resolvido) grupo.forEach((i) => (resultado[i] = rotulo(i, 1, 0)))
-  }
-  grupos = conflitos()
-  for (const grupo of grupos) {
-    const maxExtra = Math.max(...grupo.map((i) => Math.max(0, sobrenomes(i).length - 1)))
-    for (let extra = 1; extra <= maxExtra; extra++) {
-      const letras = 1
-      const tent = grupo.map((i) => rotulo(i, letras, extra))
-      if (new Set(tent.map((t) => t.toLocaleLowerCase('pt-BR'))).size === tent.length) {
-        grupo.forEach((i, k) => (resultado[i] = tent[k]))
-        break
-      }
+  // 1º passo: quem tem 2º sobrenome ganha a inicial dele ("Ana S. C.") —
+  // o formato "... X. Y." nunca colide com o formato base "... X.".
+  for (const grupo of conflitos()) {
+    for (const i of grupo) {
+      const comSegundo = rotuloComSegundo(i)
+      if (comSegundo) resultado[i] = comSegundo
     }
   }
-  for (const grupo of conflitos()) grupo.forEach((i, k) => (resultado[i] = k === 0 ? resultado[i] : `${resultado[i]} (${k + 1})`))
+  // 2º passo: contador pela ordem da lista (o 1º do grupo fica sem número).
+  for (const grupo of conflitos()) grupo.forEach((i, k) => (resultado[i] = k === 0 ? resultado[i] : `${resultado[i]} ${k + 1}`))
   return resultado
 }
 
@@ -1196,7 +1181,10 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       erro(chave, 'geral', 'Há um item que não está mais no catálogo. Recarregue a página.')
       continue
     }
-    if (!ctx.recebeLimpeza && item.categoria !== 'portaria') continue
+    if (!ctx.recebeLimpeza && item.categoria !== 'portaria') {
+      erro(chave, 'geral', `${item.nome}: este posto recebe apenas material de portaria.`)
+      continue
+    }
     const variacaoId = texto(p.variacao_id) || null
     if (variacaoId && !item.variacoes.some((v) => v.id === variacaoId)) {
       erro(chave, 'variacao', `${item.nome}: opção inválida. Recarregue a página.`)
@@ -1822,11 +1810,22 @@ function hojeBrasilia(): string {
   }).format(new Date())
 }
 
+/** IPv4 com cada octeto ≤ 255 (a coluna do log é inet — octeto inválido derruba o insert). */
+function ipv4Valido(ip: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip)
+  return !!m && m.slice(1).every((octeto) => Number(octeto) <= 255)
+}
+
 function ipDaRequisicao(req: Request): string | null {
-  const bruto = req.headers.get('cf-connecting-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0]
-  const ip = (bruto || '').trim()
+  // O gateway do Supabase ACRESCENTA o IP real no FIM do x-forwarded-for —
+  // o primeiro valor é o mais fácil de forjar. cf-connecting-ip tem prioridade.
+  const encadeados = (req.headers.get('x-forwarded-for') || '')
+    .split(',')
+    .map((parte) => parte.trim())
+    .filter(Boolean)
+  const ip = (req.headers.get('cf-connecting-ip') || encadeados[encadeados.length - 1] || '').trim()
   // Só aceita o que o Postgres converte para inet sem erro.
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) || /^[0-9a-fA-F:]{2,45}$/.test(ip)) return ip
+  if (ipv4Valido(ip) || /^[0-9a-fA-F:]{2,45}$/.test(ip)) return ip
   return null
 }
 
@@ -1895,7 +1894,14 @@ async function refColaborador(chave: CryptoKey, contratoId: string, colaboradorI
 }
 
 async function registrarLog(sb: SupabaseClient, contratoId: string | null, evento: string, ip: string | null, ua: string | null) {
-  await sb.from('mat_acesso_log').insert({ contrato_id: contratoId, evento, ip, user_agent: ua ? ua.slice(0, 300) : null })
+  // Falha de log NUNCA derruba a ação (ex.: inet inválido no passado zerava
+  // TODAS as ações com 500). Erros do supabase-js vêm no retorno, não em exceção.
+  try {
+    const { error } = await sb.from('mat_acesso_log').insert({ contrato_id: contratoId, evento, ip, user_agent: ua ? ua.slice(0, 300) : null })
+    if (error) console.error('registrarLog falhou (ignorado):', error.message)
+  } catch (e) {
+    console.error('registrarLog falhou (ignorado):', e)
+  }
 }
 
 /**
@@ -2286,7 +2292,11 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
 async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | null, ua: string | null) {
   await conferirLimite(sb, ip, 'busca', ua)
   const contrato = await contratoPorToken(sb, corpo.token)
-  if (!contrato) throw new ErroHttp(404, 'token_invalido', 'Link inválido ou substituído por um novo. Peça o link atualizado ao inspetor.')
+  if (!contrato) {
+    // Registra ANTES de lançar: a sondagem de token conta no rate limit de busca.
+    await registrarLog(sb, null, 'buscar', ip, ua)
+    throw new ErroHttp(404, 'token_invalido', 'Link inválido ou substituído por um novo. Peça o link atualizado ao inspetor.')
+  }
   const termo = typeof corpo.termo === 'string' ? corpo.termo.slice(0, 80) : ''
   if (normalizarBusca(termo).replace(/ /g, '').length < BUSCA_MIN_CARACTERES) return { itens: [] }
   await registrarLog(sb, contrato.id, 'buscar', ip, ua)

@@ -46,7 +46,9 @@ export async function carregarApoioCeu() {
         .range(de, ate)
     ),
     supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
-    supabase.from('itens').select('id, nome, tipo, estoque, prazo_uso_dias').order('nome'),
+    selecionarTudo<ItemCeuApoio>((de, ate) =>
+      supabase.from('itens').select('id, nome, tipo, estoque, prazo_uso_dias').order('nome').order('id').range(de, ate)
+    ),
     selecionarTudo<CeuTamanhos>((de, ate) =>
       supabase
         .from('ceu_tamanhos')
@@ -91,8 +93,26 @@ export function useCeuPedidos() {
 
   const carregar = useCallback(async (filtro: FiltroLinhasCeu) => {
     setLoading(true)
-    let q = supabase.from('ceu_pedido_itens').select(COLUNAS_CEU_PEDIDO).order('created_at').limit(2000)
-    q = filtro === 'abertas' ? q.not('status', 'in', '(atendido,cancelado)') : q.in('status', ['atendido', 'cancelado'])
+    // Abertas: pagina tudo (a fila é pequena, mas não pode truncar nunca).
+    // Concluídas: as 1.000 MAIS RECENTES (desc) — são histórico de conferência;
+    // com asc + corte do PostgREST em 1.000, as recentes sumiam da tela da Beth.
+    const q =
+      filtro === 'abertas'
+        ? selecionarTudo<CeuPedidoItem>((de, ate) =>
+            supabase
+              .from('ceu_pedido_itens')
+              .select(COLUNAS_CEU_PEDIDO)
+              .not('status', 'in', '(atendido,cancelado)')
+              .order('created_at')
+              .order('id')
+              .range(de, ate)
+          )
+        : supabase
+            .from('ceu_pedido_itens')
+            .select(COLUNAS_CEU_PEDIDO)
+            .in('status', ['atendido', 'cancelado'])
+            .order('created_at', { ascending: false })
+            .limit(1000)
     const [rl, apoio] = await Promise.all([q, carregarApoioCeu()])
     if (rl.error) {
       if (estruturaAusente(rl.error)) setEstruturaPendente(true)
@@ -123,20 +143,30 @@ export function useCeuPedidos() {
     const faltantes = [...new Set(lista.map((l) => l.colaborador_id).filter((x): x is string => !!x && !ativos.has(x)))]
 
     const [rp, re, ren, rcol] = await Promise.all([
-      buscarPorIds<MatPedido>(pedidoIds, (lote) =>
-        supabase.from('mat_pedidos').select('id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, status_ceu, responsavel_nome, enviado_em').in('id', lote)
+      buscarPorIds<MatPedido>(pedidoIds, (lote, de, ate) =>
+        supabase
+          .from('mat_pedidos')
+          .select('id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, status_ceu, responsavel_nome, enviado_em')
+          .in('id', lote)
+          .order('id')
+          .range(de, ate)
       ),
-      buscarPorIds<MatPedidoEnvio>(pedidoIds, (lote) => supabase.from('mat_pedido_envios').select(COLUNAS_ENVIO).in('pedido_id', lote)),
+      buscarPorIds<MatPedidoEnvio>(pedidoIds, (lote, de, ate) =>
+        supabase.from('mat_pedido_envios').select(COLUNAS_ENVIO).in('pedido_id', lote).order('id').range(de, ate)
+      ),
       filtro === 'abertas'
-        ? buscarPorIds<{ colaborador_id: string; item_id: string; data_entrega: string }>(itemIds, (lote) =>
-            // PostgREST corta em 1.000 linhas: pagina dentro de cada lote de itens
-            selecionarTudo<{ colaborador_id: string; item_id: string; data_entrega: string }>((de, ate) =>
-              supabase.from('entregas').select('colaborador_id, item_id, data_entrega').in('item_id', lote).order('id').range(de, ate)
-            )
+        ? buscarPorIds<{ colaborador_id: string; item_id: string; data_entrega: string }>(itemIds, (lote, de, ate) =>
+            // Um item pode ter mais de 1.000 entregas (ex.: luvas): buscarPorIds pagina dentro do lote
+            supabase.from('entregas').select('colaborador_id, item_id, data_entrega').in('item_id', lote).order('id').range(de, ate)
           )
         : Promise.resolve({ data: [], error: null }),
-      buscarPorIds<ColaboradorApoio>(faltantes, (lote) =>
-        supabase.from('colaboradores').select('id, nome_completo, departamento_id, departamento, empresa_id, status').in('id', lote)
+      buscarPorIds<ColaboradorApoio>(faltantes, (lote, de, ate) =>
+        supabase
+          .from('colaboradores')
+          .select('id, nome_completo, departamento_id, departamento, empresa_id, status')
+          .in('id', lote)
+          .order('id')
+          .range(de, ate)
       ),
     ])
     const erro = rp.error ?? re.error ?? ren.error ?? rcol.error

@@ -1,5 +1,5 @@
 // Estado do formulário da tela pública do líder (/pedido/:token).
-import type { ErroCampo, ItemPublico } from '@/lib/materiais/pedidoLider'
+import { linhasIniciaisDoKit, type ContextoPedido, type ErroCampo, type ItemPublico } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
 
 export type SecaoProduto = 'materiais' | 'portaria'
@@ -157,4 +157,46 @@ export function apagarRascunho(token: string, competencia: string) {
   } catch {
     // idem
   }
+}
+
+/**
+ * Rascunho do aparelho × kit carregado agora (o kit pode ter mudado no meio
+ * do mês): remove linhas do kit cujo item saiu do kit/catálogo, acrescenta as
+ * linhas de itens novos do kit (com a quantidade padrão) e preserva as linhas
+ * de busca/livre como estão (linha de busca cujo item sumiu do rascunho de
+ * itens da busca também sai — sem o ItemPublico ela não valida nem envia).
+ * Quantidades digitadas nas linhas mantidas não são tocadas.
+ */
+export function reconciliarRascunhoComKit(
+  rascunho: Pick<RascunhoPedido, 'produtos' | 'itensBusca'>,
+  ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza'>
+): Pick<RascunhoPedido, 'produtos' | 'itensBusca'> {
+  const kitAtual = linhasIniciaisDoKit(ctx)
+  const noKit = new Set(kitAtual.map((k) => k.item_id))
+  const buscaPorId = new Map((rascunho.itensBusca ?? []).map((i) => [i.id, i]))
+  const vistoKit = new Set<string>()
+  const produtos = (rascunho.produtos ?? []).filter((l) => {
+    if (l.origem === 'kit') {
+      // Sem duplicar linha do mesmo item do kit (vale a primeira, com a quantidade digitada).
+      if (!l.item_id || !noKit.has(l.item_id) || vistoKit.has(l.item_id)) return false
+      vistoKit.add(l.item_id)
+      return true
+    }
+    if (l.origem === 'busca') return !!l.item_id && buscaPorId.has(l.item_id)
+    return true
+  })
+  const categoria = new Map(ctx.catalogo.map((c) => [c.id, c.categoria]))
+  const novas: LinhaProdutoForm[] = kitAtual
+    .filter((k) => !vistoKit.has(k.item_id))
+    .map((k) => ({
+      chave: novaChave(),
+      item_id: k.item_id,
+      variacao_id: k.variacao_id,
+      descricao_livre: '',
+      quantidade: String(k.quantidade),
+      justificativa: '',
+      secao: (categoria.get(k.item_id) === 'portaria' ? 'portaria' : 'materiais') as SecaoProduto,
+      origem: 'kit' as const,
+    }))
+  return { produtos: [...produtos, ...novas], itensBusca: rascunho.itensBusca ?? [] }
 }

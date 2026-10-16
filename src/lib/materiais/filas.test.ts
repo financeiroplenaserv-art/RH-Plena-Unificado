@@ -53,19 +53,23 @@ describe('produtos — exceções e quantidades', () => {
 
 describe('validação do inspetor', () => {
   const linhas = [
-    { id: 'a', qtd_pedida: 4 },
-    { id: 'b', qtd_pedida: 2 },
-    { id: 'c', qtd_pedida: 1 },
+    { id: 'a', qtd_pedida: 4, qtd_kit: 2 },
+    { id: 'b', qtd_pedida: 2, qtd_kit: 2 },
+    { id: 'c', qtd_pedida: 1, qtd_kit: null },
   ]
 
-  it('corte exige motivo; descartar repetição zera com motivo padrão; ignorar não envia', () => {
+  it('alteração sem motivo dá erro (corte ou aumento); descartar repetição zera com motivo padrão; ignorar não envia', () => {
     const r = montarValidacao(linhas, {
       a: { qtd: 2, motivo: '' },
       b: { qtd: null, motivo: '', decisao: 'descartar' },
       c: { qtd: null, motivo: '', decisao: null },
     })
-    expect(r.erros).toEqual(['Linha 1: informe o motivo do corte'])
+    expect(r.erros).toEqual(['Linha 1: informe o motivo da alteração'])
     expect(r.itens).toEqual([{ id: 'b', qtd_validada: 0, motivo: 'repetição', decisao_repeticao: 'descartar' }])
+
+    const aumento = montarValidacao(linhas, { a: { qtd: 6, motivo: '' } })
+    expect(aumento.erros).toEqual(['Linha 1: informe o motivo da alteração'])
+    expect(aumento.itens).toEqual([])
   })
 
   it('corte com motivo e "somar" vão no payload', () => {
@@ -79,20 +83,52 @@ describe('validação do inspetor', () => {
       { id: 'b', qtd_validada: null, motivo: null, decisao_repeticao: 'somar' },
     ])
   })
+
+  it('aumento com motivo dentro do teto passa; acima do teto é erro mesmo com motivo', () => {
+    // teto do kit 2 = 20 (10× o kit, mínimo 10)
+    const dentro = montarValidacao(linhas, { a: { qtd: 8, motivo: 'obra extra no contrato' } })
+    expect(dentro.erros).toEqual([])
+    expect(dentro.itens).toEqual([{ id: 'a', qtd_validada: 8, motivo: 'obra extra no contrato', decisao_repeticao: null }])
+
+    const acima = montarValidacao(linhas, { a: { qtd: 21, motivo: 'obra extra no contrato' } })
+    expect(acima.erros).toEqual(['Linha 1: quantidade acima do teto (20)'])
+    expect(acima.itens).toEqual([])
+
+    // sem kit, o teto é o máximo absoluto (999)
+    const semKit = montarValidacao(linhas, { c: { qtd: 1000, motivo: 'emergência' } })
+    expect(semKit.erros).toEqual(['Linha 3: quantidade acima do teto (999)'])
+  })
 })
 
 describe('aprovação do gestor', () => {
-  it('ajuste abaixo do pedido exige motivo, salvo motivo de corte já registrado', () => {
+  it('ajuste sem motivo dá erro (para cima ou para baixo), salvo motivo já registrado pelo inspetor', () => {
     const r = montarAprovacao(
       [
-        { id: 'a', qtd_pedida: 4, motivo_ajuste: null },
-        { id: 'b', qtd_pedida: 4, motivo_ajuste: 'corte do inspetor' },
-        { id: 'c', qtd_pedida: 4, motivo_ajuste: null },
+        { id: 'a', qtd_pedida: 4, qtd_kit: 2, motivo_ajuste: null },
+        { id: 'b', qtd_pedida: 4, qtd_kit: 2, motivo_ajuste: 'corte do inspetor' },
+        { id: 'c', qtd_pedida: 4, qtd_kit: 2, motivo_ajuste: null },
+        { id: 'd', qtd_pedida: 4, qtd_kit: 2, motivo_ajuste: null },
       ],
-      { a: { qtd: 1, motivo: '' }, b: { qtd: 2, motivo: '' }, c: { qtd: 3, motivo: 'acima da média' } }
+      {
+        a: { qtd: 1, motivo: '' },
+        b: { qtd: 2, motivo: '' },
+        c: { qtd: 3, motivo: 'acima da média' },
+        d: { qtd: 6, motivo: '' },
+      }
     )
-    expect(r.erros).toEqual(['Linha 1: informe o motivo do ajuste'])
+    expect(r.erros).toEqual(['Linha 1: informe o motivo do ajuste', 'Linha 4: informe o motivo do ajuste'])
     expect(r.itens.map((i) => i.id)).toEqual(['b', 'c'])
+  })
+
+  it('aumento com motivo dentro do teto passa; acima do teto é erro mesmo com motivo', () => {
+    const linhas = [{ id: 'a', qtd_pedida: 4, qtd_kit: 2, motivo_ajuste: null }]
+    const dentro = montarAprovacao(linhas, { a: { qtd: 12, motivo: 'gestor autorizou' } })
+    expect(dentro.erros).toEqual([])
+    expect(dentro.itens).toEqual([{ id: 'a', qtd_aprovada: 12, motivo_ajuste: 'gestor autorizou' }])
+
+    const acima = montarAprovacao(linhas, { a: { qtd: 21, motivo: 'gestor autorizou' } })
+    expect(acima.erros).toEqual(['Linha 1: quantidade acima do teto (20)'])
+    expect(acima.itens).toEqual([])
   })
 })
 
