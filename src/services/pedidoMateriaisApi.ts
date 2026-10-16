@@ -122,8 +122,18 @@ export function carregarPedidoPublico(token: string): Promise<DadosPedidoPublico
   return chamar({ acao: 'carregar', token })
 }
 
-/** "Preciso de outro item": até 5 itens ativos que casam com o termo (≥ 3 letras). */
-export function buscarItemPublico(token: string, termo: string, secao?: 'materiais' | 'portaria'): Promise<{ itens: ItemPublico[] }> {
+/**
+ * Resultado da busca "O que mais você precisa?": um por item ou por VARIAÇÃO
+ * (16/10/2026). `nome_exibicao` = nome completo amigável ("Vassoura Noviça");
+ * `variacao_id` já define a variação do quadro. Ausentes = function anterior.
+ */
+export interface ItemBuscaPublico extends ItemPublico {
+  nome_exibicao?: string
+  variacao_id?: string | null
+}
+
+/** "O que mais você precisa?": até 5 resultados ativos que casam com o termo (≥ 3 letras). */
+export function buscarItemPublico(token: string, termo: string, secao?: 'materiais' | 'portaria'): Promise<{ itens: ItemBuscaPublico[] }> {
   return chamar({ acao: 'buscar_item', token, termo, secao })
 }
 

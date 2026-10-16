@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Minus, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
+import { BadgeCheck, Loader2, Minus, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
+import { TONS, type Tom } from './tons'
 import {
   MOTIVOS_CRACHA,
   TERMOS_PEDIDO,
   excecoesLinhaPedido,
   linhasIniciaisDoKit,
-  perguntaMotivo,
+  qtdKitPublico,
   type ContextoPedido,
   type ErroCampo,
   type ItemPublico,
@@ -13,13 +14,15 @@ import {
 } from '@/lib/materiais/pedidoLider'
 import { BUSCA_MIN_CARACTERES, normalizarBusca } from '@/lib/materiais/buscaItens'
 import { pecasParaFuncao, type MembroEquipePublico, type PecaPublica } from '@/lib/materiais/pecasCeu'
-import { buscarItemPublico } from '@/services/pedidoMateriaisApi'
+import { buscarItemPublico, type ItemBuscaPublico } from '@/services/pedidoMateriaisApi'
 import { cn } from '@/lib/utils'
 import {
   CAMPO,
   errosDe,
   maximoDaLinhaKit,
+  nomeDaLinhaProduto,
   novaChave,
+  perguntaSimples,
   qtdNumero,
   type LinhaCrachaForm,
   type LinhaPecaForm,
@@ -29,19 +32,59 @@ import {
 } from './formPedido'
 
 // Peças da tela pública do líder (/pedido/:token). Público: ASGs com
-// dificuldade de preenchimento — então tudo é por TOQUE (botões grandes,
-// +/−, tamanhos em botões), uma coluna, e o único texto livre obrigatório é
-// a justificativa (e "Seu nome", na revisão). Os avisos de erro vêm da
+// dificuldade de leitura e de uso do celular — então tudo é por TOQUE (botões
+// grandes, +/−, tamanhos em botões), uma coluna, frases curtas, e o único
+// texto obrigatório é "Seu nome", na revisão. Os avisos de erro vêm da
 // validação recalculada a cada alteração: somem assim que o campo é corrigido.
+//
+// Visual (decisão da gestão, 16/10/2026): cada parte tem uma cor própria e
+// constante — o que vem no mês em VERDE, o que a pessoa pede a mais em AZUL,
+// uniforme/EPI em LARANJA e crachá em ROXO (tokens --pedido-* em
+// src/index.css, com versão para o tema escuro). Sem degradês aqui: o único
+// é o do botão primário.
+
+/** Uma parte do pedido: fundo suave, borda forte à esquerda e título com ícone grande. */
+export function Parte({
+  tom,
+  titulo,
+  subtitulo,
+  id,
+  children,
+}: {
+  tom: Tom
+  titulo: string
+  subtitulo?: React.ReactNode
+  id?: string
+  children?: React.ReactNode
+}) {
+  const t = TONS[tom]
+  const Icone = t.icone
+  return (
+    <section data-tom={tom} aria-labelledby={id} className={cn('space-y-3 rounded-2xl border-l-[6px] p-4', t.fundo, t.borda)}>
+      <div className="flex items-center gap-3">
+        <span className={cn('flex size-12 shrink-0 items-center justify-center rounded-full border-2', t.cheio)} aria-hidden>
+          <Icone className="size-7" />
+        </span>
+        <div className="min-w-0">
+          <h3 id={id} className={cn('text-xl font-bold leading-tight', t.texto)}>
+            {titulo}
+          </h3>
+          {subtitulo && <p className="text-base leading-snug text-foreground">{subtitulo}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
 
 export function Ajuda({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
+  return <p className="text-base leading-relaxed text-muted-foreground">{children}</p>
 }
 
 export function MensagemErro({ mensagens }: { mensagens: string[] }) {
   if (mensagens.length === 0) return null
   return (
-    <div role="alert" className="space-y-0.5 text-sm font-medium text-red-700 dark:text-red-400">
+    <div role="alert" className="space-y-0.5 text-base font-semibold text-red-700 dark:text-red-400">
       {mensagens.map((m, i) => (
         <p key={i}>{m}</p>
       ))}
@@ -49,9 +92,9 @@ export function MensagemErro({ mensagens }: { mensagens: string[] }) {
   )
 }
 
-const BOTAO_GRANDE = 'flex min-h-12 items-center justify-center rounded-xl border px-3 text-base font-medium active:scale-[0.98]'
+const BOTAO_GRANDE = 'flex min-h-12 items-center justify-center rounded-xl border-2 px-3 text-base font-semibold active:scale-[0.98]'
 
-/** Quantidade com −/+ grandes (o campo aceita digitação, mas não é preciso). */
+/** Quantidade com −/+ grandes (56px) e o número em destaque (aceita digitação, mas não é preciso). */
 export function CampoQuantidade({
   valor,
   onChange,
@@ -59,6 +102,7 @@ export function CampoQuantidade({
   rotulo,
   minimo = 0,
   maximo,
+  tom = 'extra',
 }: {
   valor: string
   onChange: (v: string) => void
@@ -67,20 +111,20 @@ export function CampoQuantidade({
   minimo?: number
   /** Teto do botão + (linha do kit: o kit do mês — nunca aumenta). */
   maximo?: number
+  tom?: Tom
 }) {
   const atual = qtdNumero(valor)
   const limitar = (n: number) => (maximo != null ? Math.min(maximo, n) : n)
   const passo = (d: number) => onChange(String(limitar(Math.max(minimo, Math.round((atual + d) * 100) / 100))))
   const noMaximo = maximo != null && atual >= maximo
+  const botao = cn(
+    'flex size-14 shrink-0 items-center justify-center rounded-2xl border-2 bg-background active:scale-95 disabled:opacity-35',
+    TONS[tom].contorno
+  )
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => passo(-1)}
-        className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-input bg-background active:bg-accent"
-        aria-label={`Diminuir ${rotulo}`}
-      >
-        <Minus className="size-5" />
+      <button type="button" onClick={() => passo(-1)} className={botao} aria-label={`Diminuir ${rotulo}`}>
+        <Minus className="size-7" strokeWidth={3} />
       </button>
       <input
         type="text"
@@ -88,19 +132,13 @@ export function CampoQuantidade({
         pattern="[0-9]*"
         value={valor}
         onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, ''))}
-        className={cn(CAMPO, 'w-20 text-center text-lg font-semibold tabular-nums')}
+        className={cn(CAMPO, 'h-14 w-20 border-2 px-1 text-center text-2xl font-bold tabular-nums')}
         aria-label={`Quantidade de ${rotulo}`}
       />
-      <button
-        type="button"
-        onClick={() => passo(1)}
-        disabled={noMaximo}
-        className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-input bg-background active:bg-accent disabled:opacity-40"
-        aria-label={`Aumentar ${rotulo}`}
-      >
-        <Plus className="size-5" />
+      <button type="button" onClick={() => passo(1)} disabled={noMaximo} className={botao} aria-label={`Aumentar ${rotulo}`}>
+        <Plus className="size-7" strokeWidth={3} />
       </button>
-      {unidade && <span className="text-sm text-muted-foreground">{unidade}</span>}
+      {unidade && <span className="min-w-0 text-base text-muted-foreground">{unidade}</span>}
     </div>
   )
 }
@@ -121,17 +159,19 @@ export function Declaracao({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/40 p-4',
-        erro && !marcado ? 'border-red-400' : 'border-border'
+        'flex cursor-pointer items-start gap-3 rounded-xl border-2 bg-card p-4',
+        erro && !marcado ? 'border-red-500' : marcado ? 'border-pedido-kit' : 'border-border'
       )}
     >
-      <input type="checkbox" checked={marcado} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-6 shrink-0 accent-primary" />
-      <span className="text-sm leading-relaxed">
+      <input type="checkbox" checked={marcado} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-7 shrink-0 accent-primary" />
+      <span className="text-base leading-relaxed">
         {termo.texto} <strong>Sim, concordo.</strong>
       </span>
     </label>
   )
 }
+
+const fmt = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',')
 
 /** Convite (OPCIONAL) para contar o motivo do extra, com o campo logo abaixo. */
 function MotivoOpcional({
@@ -147,15 +187,15 @@ function MotivoOpcional({
 }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-sm text-foreground">
-        {pergunta} <span className="text-muted-foreground">(opcional)</span>
+      <p className="text-base text-foreground">
+        {pergunta} <span className="text-muted-foreground">(se quiser contar)</span>
       </p>
       <textarea
         className={cn(CAMPO, 'min-h-20')}
         value={valor}
         maxLength={500}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Ex.: o posto ganhou mais um andar; quebrou; acabou antes do mês."
+        placeholder="Ex.: quebrou; acabou antes; o prédio aumentou."
         aria-label={`Motivo de ${rotulo}`}
       />
     </div>
@@ -164,15 +204,14 @@ function MotivoOpcional({
 
 // ---------------- Produtos (materiais e kit portaria) ----------------
 
-const fmt = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',')
-
 /**
  * Duas partes (decisão da gestão, 16/10/2026):
- * 1. "Seu kit do mês": o que o posto VAI RECEBER. O líder só confirma; pode
- *    tirar ("Não preciso este mês") ou diminuir, nunca aumentar. Sem motivo.
- * 2. "Precisa de mais alguma coisa?": pedido extra — a mais de um item do
- *    kit (linha separada), outro item pela busca ou texto livre. Motivo
- *    opcional; o inspetor confere.
+ * 1. "Vem este mês" (verde): o Kit Mensal, o que o posto VAI RECEBER. O líder
+ *    só confirma; pode tirar ("Não preciso") ou diminuir, nunca aumentar.
+ * 2. "Precisa de mais alguma coisa?" (azul): pedido extra por UM campo de
+ *    busca só (o que for do kit vira "a mais"; fora dele, "não vem todo mês";
+ *    nada achado, "Não achei, enviar assim"). Cada quadro tem um item e uma
+ *    variação definidos pela busca; motivo opcional.
  */
 export function SecaoProdutos({
   linhas,
@@ -197,40 +236,50 @@ export function SecaoProdutos({
     setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...patch } : l)))
   const remover = (chave: string) => setLinhas((ls) => ls.filter((l) => l.chave !== chave))
   const [avisoBusca, setAvisoBusca] = useState<string | null>(null)
-  const [escolhendoMais, setEscolhendoMais] = useState(false)
 
   const kit = linhas.filter((l) => l.origem === 'kit')
   const extras = linhas.filter((l) => l.origem !== 'kit')
-  // Itens do kit cadastrado desta etapa (inclusive os que não vêm este mês):
-  // base do botão "Quero mais de um item do kit".
   const itensKitDaSecao = linhasIniciaisDoKit(ctx).filter((k) => {
     const cat = porId.get(k.item_id)?.categoria
     return (cat === 'portaria' ? 'portaria' : 'materiais') === secao
   })
   const naoVemEsteMes = ctx.kitConfirmado
     ? []
-    : itensKitDaSecao.filter((k) => k.quantidade === 0).map((k) => porId.get(k.item_id)?.nome ?? 'Item')
+    : itensKitDaSecao
+        .filter((k) => k.quantidade === 0)
+        .map((k) => nomeDaLinhaProduto({ item_id: k.item_id, variacao_id: k.variacao_id, descricao_livre: '' }, porId.get(k.item_id)))
   const semKit = itensKitDaSecao.length === 0
 
-  /** Acrescenta (ou soma 1 em) uma linha extra do item. */
-  const somarExtra = (item: ItemPublico, origem: 'mais' | 'busca') => {
-    const variacao = itensKitDaSecao.find((k) => k.item_id === item.id)?.variacao_id ?? null
-    const existente = extras.find((l) => l.item_id === item.id && (origem === 'busca' || l.variacao_id === variacao))
+  /**
+   * Resultado da busca escolhido: item + variação já definidos. Do kit (o
+   * item/variação está no Kit Mensal) = linha "a mais"; fora = "não vem todo
+   * mês". A mesma variação já na lista soma 1 no quadro existente.
+   */
+  const adicionarDaBusca = (r: ItemBuscaPublico) => {
+    onItemBusca(r)
+    const variacao = r.variacao_id ?? null
+    const nome = r.nome_exibicao || nomeDaLinhaProduto({ item_id: r.id, variacao_id: variacao, descricao_livre: '' }, r)
+    const existente = extras.find((l) => l.item_id === r.id && (l.variacao_id ?? null) === variacao)
     if (existente) {
       alterar(existente.chave, { quantidade: String(qtdNumero(existente.quantidade) + 1) })
-      setAvisoBusca(`${item.nome} já estava no pedido extra: somamos mais 1.`)
+      setAvisoBusca(`${nome} já estava na lista. Somamos mais 1.`)
       return
     }
     setAvisoBusca(null)
+    const doKit = qtdKitPublico(ctx.kit, r.id, variacao) != null
     setLinhas((ls) => [
       ...ls,
-      { chave: novaChave(), item_id: item.id, variacao_id: variacao, descricao_livre: '', quantidade: '1', justificativa: '', secao, origem },
+      {
+        chave: novaChave(),
+        item_id: r.id,
+        variacao_id: variacao,
+        descricao_livre: '',
+        quantidade: '1',
+        justificativa: '',
+        secao,
+        origem: doKit ? 'mais' : 'busca',
+      },
     ])
-  }
-  const adicionarDaBusca = (item: ItemPublico) => {
-    onItemBusca(item)
-    // Item do kit escolhido na busca = "a mais do kit".
-    somarExtra(item, ctx.kit.some((k) => k.item_id === item.id) ? 'mais' : 'busca')
   }
   const adicionarLivre = (descricao: string) => {
     setAvisoBusca(null)
@@ -240,8 +289,13 @@ export function SecaoProdutos({
     ])
   }
 
-  const radioVariacao = (l: LinhaProdutoForm, item: ItemPublico) => (
-    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Opção de ${item.nome}`}>
+  /**
+   * Escolha da variação SÓ quando a linha não tem uma e o item tem: linha do
+   * kit cadastrada sem variação ("qualquer cor" — opcional) e linha extra de
+   * rascunho antigo (de antes de a busca trazer a variação).
+   */
+  const radioVariacao = (l: LinhaProdutoForm, item: ItemPublico, tom: Tom) => (
+    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Qual ${item.nome}`}>
       {item.variacoes.map((v) => (
         <button
           key={v.id}
@@ -249,7 +303,7 @@ export function SecaoProdutos({
           role="radio"
           aria-checked={l.variacao_id === v.id}
           onClick={() => alterar(l.chave, { variacao_id: v.id })}
-          className={cn(BOTAO_GRANDE, l.variacao_id === v.id ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background')}
+          className={cn(BOTAO_GRANDE, l.variacao_id === v.id ? TONS[tom].cheio : 'border-input bg-background')}
         >
           {v.rotulo}
         </button>
@@ -259,26 +313,22 @@ export function SecaoProdutos({
 
   return (
     <div className="space-y-6">
-      {/* ---------- 1. Kit do mês ---------- */}
+      {/* ---------- 1. Vem este mês (Kit Mensal) ---------- */}
       {ctx.kitConfirmado ? (
-        <p className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
-          O kit deste mês já foi confirmado e já vem. Aqui você pede só o que precisar a mais.
-        </p>
+        <Parte
+          tom="kit"
+          titulo="Já está confirmado"
+          subtitulo="O que vem todo mês já foi confirmado e já vai chegar. Aqui você pede só o que precisar a mais."
+        />
       ) : semKit ? (
-        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          Este posto ainda não tem kit cadastrado. Peça o que precisa em &quot;Precisa de mais alguma coisa?&quot;, logo abaixo.
+        <p className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-base text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          Este posto ainda não tem kit cadastrado. Peça o que precisa no campo azul, logo abaixo.
         </p>
       ) : (
-        <section className="space-y-3" aria-labelledby={`kit-${secao}`}>
-          <div>
-            <h3 id={`kit-${secao}`} className="text-lg font-semibold">
-              Seu kit do mês
-            </h3>
-            <p className="text-sm text-muted-foreground">Você vai receber estes itens. Se não precisar de algum, é só avisar.</p>
-          </div>
+        <Parte tom="kit" id={`kit-${secao}`} titulo="Vem este mês" subtitulo="Confira. Se não precisar de algum, toque em “Não preciso”.">
           {kit.map((l) => {
             const item = l.item_id ? porId.get(l.item_id) : undefined
-            const nome = item?.nome ?? 'Item'
+            const nome = nomeDaLinhaProduto(l, item)
             const maximo = maximoDaLinhaKit(ctx, l)
             const qtd = qtdNumero(l.quantidade)
             const tirou = qtd === 0
@@ -288,24 +338,34 @@ export function SecaoProdutos({
               <div
                 key={l.chave}
                 data-erro={errosLinha.length > 0 ? 'true' : undefined}
-                className={cn('space-y-3 rounded-2xl border p-4', tirou ? 'border-dashed border-border bg-muted/40' : 'border-border bg-card')}
+                className={cn('space-y-3 rounded-2xl border-2 p-4', tirou ? 'border-dashed border-border bg-muted/60' : 'border-pedido-kit/50 bg-card')}
               >
-                <div>
-                  <p className={cn('text-base font-semibold leading-snug', tirou && 'text-muted-foreground line-through')}>{nome}</p>
-                  <p className="text-sm text-muted-foreground tabular-nums">
-                    {tirou
-                      ? 'Você avisou que não precisa este mês.'
-                      : qtd < maximo
-                        ? `Você vai receber ${fmt(qtd)} (o kit é ${fmt(maximo)}) ${item?.unidade ?? ''}`
-                        : `Você vai receber ${fmt(maximo)} ${item?.unidade ?? ''}`}
-                  </p>
+                <div className="flex items-start gap-2">
+                  {!tirou && <BadgeCheck className="mt-0.5 size-6 shrink-0 text-pedido-kit" aria-hidden />}
+                  <div className="min-w-0">
+                    <p className={cn('text-lg font-bold leading-snug', tirou && 'text-muted-foreground line-through')}>{nome}</p>
+                    <p className="text-base text-muted-foreground tabular-nums">
+                      {tirou
+                        ? 'Você avisou que não precisa este mês.'
+                        : qtd < maximo
+                          ? `Vai receber ${fmt(qtd)} de ${fmt(maximo)} ${item?.unidade ?? ''}`
+                          : `Vai receber ${fmt(maximo)} ${item?.unidade ?? ''}`}
+                    </p>
+                  </div>
                 </div>
-                {!tirou && item && variacaoLivre && radioVariacao(l, item)}
+                {!tirou && item && variacaoLivre && (
+                  <div className="space-y-1.5">
+                    <p className="text-base">
+                      Qual você prefere? <span className="text-muted-foreground">(se quiser escolher)</span>
+                    </p>
+                    {radioVariacao(l, item, 'kit')}
+                  </div>
+                )}
                 {tirou ? (
                   <button
                     type="button"
                     onClick={() => alterar(l.chave, { quantidade: String(maximo) })}
-                    className={cn(BOTAO_GRANDE, 'w-full border-primary/40 bg-background text-primary')}
+                    className={cn(BOTAO_GRANDE, 'w-full bg-background', TONS.kit.contorno)}
                   >
                     Quero receber
                   </button>
@@ -316,13 +376,14 @@ export function SecaoProdutos({
                       onChange={(v) => alterar(l.chave, { quantidade: v === '' ? '' : String(Math.min(maximo, qtdNumero(v))) })}
                       rotulo={nome}
                       maximo={maximo}
+                      tom="kit"
                     />
                     <button
                       type="button"
                       onClick={() => alterar(l.chave, { quantidade: '0' })}
                       className={cn(BOTAO_GRANDE, 'border-input bg-background text-muted-foreground')}
                     >
-                      Não preciso este mês
+                      Não preciso
                     </button>
                   </div>
                 )}
@@ -331,54 +392,61 @@ export function SecaoProdutos({
             )
           })}
           {naoVemEsteMes.length > 0 && (
-            <Ajuda>Não vem este mês (é entregue a cada alguns meses): {naoVemEsteMes.join(', ')}. Se precisar, peça logo abaixo.</Ajuda>
+            <Ajuda>Não vem este mês (chega a cada alguns meses): {naoVemEsteMes.join(', ')}. Se precisar, peça no campo azul.</Ajuda>
           )}
-        </section>
+        </Parte>
       )}
 
       {/* ---------- 2. Pedido extra ---------- */}
-      <section className="space-y-3" aria-labelledby={`extra-${secao}`}>
-        <div>
-          <h3 id={`extra-${secao}`} className="text-lg font-semibold">
-            Precisa de mais alguma coisa?
-          </h3>
-          <p className="text-sm text-muted-foreground">Peça aqui o que passar do kit. O inspetor confere antes de enviar.</p>
-        </div>
+      <Parte tom="extra" id={`extra-${secao}`} titulo="Precisa de mais alguma coisa?" subtitulo="Escreva o que precisa. O inspetor confere.">
         {extras.map((l) => {
           const item = l.item_id ? porId.get(l.item_id) : undefined
           const qtd = qtdNumero(l.quantidade)
           const exc = item
             ? excecoesLinhaPedido(ctx, item.id, l.variacao_id, qtd, 'extra')
-            : { qtdKit: null, acimaKit: false, validade: false, foraKit: qtd > 0, pedeMotivo: qtd > 0 }
-          const nome = item?.nome ?? l.descricao_livre ?? 'Outro item'
+            : { acimaKit: false, foraKit: qtd > 0, pedeMotivo: qtd > 0 }
+          const nome = nomeDaLinhaProduto(l, item)
           const errosLinha = errosDe(erros, l.chave)
-          const etiqueta =
-            l.origem === 'livre' ? 'Escrito por você (o inspetor confere)' : l.origem === 'mais' ? 'A mais do que o kit' : 'Fora do kit'
+          const etiqueta = l.origem === 'livre' ? 'Escrito por você' : l.origem === 'mais' ? 'A mais do que vem no mês' : 'Não vem todo mês'
+          // Só rascunho antigo chega aqui sem a variação que o item exige.
+          const precisaVariacao = !!item && item.variacoes.length > 0 && !l.variacao_id && qtdKitPublico(ctx.kit, item.id, null) == null
           return (
             <div
               key={l.chave}
               data-erro={errosLinha.length > 0 ? 'true' : undefined}
-              className="space-y-3 rounded-2xl border border-primary/30 bg-card p-4"
+              className="space-y-3 rounded-2xl border-2 border-pedido-extra/50 bg-card p-4"
             >
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-base font-semibold leading-snug">{nome}</p>
-                  <p className="text-sm text-muted-foreground">{etiqueta}</p>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold leading-snug">{nome}</p>
+                  <p className={cn('text-base font-medium', TONS.extra.texto)}>{etiqueta}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => remover(l.chave)}
-                  className="flex size-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
+                  className="flex size-12 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
                   aria-label={`Remover ${nome}`}
                 >
-                  <Trash2 className="size-5" />
+                  <Trash2 className="size-6" />
                 </button>
               </div>
-              {item && item.variacoes.length > 0 && l.origem === 'busca' && radioVariacao(l, item)}
-              <CampoQuantidade valor={l.quantidade} onChange={(v) => alterar(l.chave, { quantidade: v })} unidade={item?.unidade} rotulo={nome} minimo={1} />
+              {item && precisaVariacao && (
+                <div className="space-y-1.5">
+                  <p className="text-base font-medium">Qual?</p>
+                  {radioVariacao(l, item, 'extra')}
+                </div>
+              )}
+              <CampoQuantidade
+                valor={l.quantidade}
+                onChange={(v) => alterar(l.chave, { quantidade: v })}
+                unidade={item?.unidade}
+                rotulo={nome}
+                minimo={1}
+                tom="extra"
+              />
               {exc.pedeMotivo && (
                 <MotivoOpcional
-                  pergunta={item ? perguntaMotivo(exc, qtd) : 'Este item não está no kit do posto. Se puder, conte para a gente por que precisa.'}
+                  pergunta={perguntaSimples(exc, qtd)}
                   valor={l.justificativa}
                   onChange={(v) => alterar(l.chave, { justificativa: v })}
                   rotulo={nome}
@@ -388,82 +456,46 @@ export function SecaoProdutos({
             </div>
           )
         })}
-
-        {itensKitDaSecao.length > 0 &&
-          (escolhendoMais ? (
-            <div className="space-y-2 rounded-2xl border border-primary/40 bg-primary/5 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-base font-semibold">Qual item do kit você precisa a mais?</p>
-                <button
-                  type="button"
-                  onClick={() => setEscolhendoMais(false)}
-                  className="flex size-10 items-center justify-center rounded-xl text-muted-foreground"
-                  aria-label="Fechar lista do kit"
-                >
-                  <X className="size-5" />
-                </button>
-              </div>
-              {itensKitDaSecao.map((k) => {
-                const item = porId.get(k.item_id)
-                if (!item) return null
-                return (
-                  <button
-                    key={`${k.item_id}|${k.variacao_id ?? ''}`}
-                    type="button"
-                    onClick={() => {
-                      somarExtra(item, 'mais')
-                      setEscolhendoMais(false)
-                    }}
-                    className={cn(BOTAO_GRANDE, 'w-full justify-between border-input bg-background text-left')}
-                  >
-                    <span>{item.nome}</span>
-                    <span className="shrink-0 pl-2 text-sm text-muted-foreground">{item.unidade}</span>
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setEscolhendoMais(true)}
-              className="w-full rounded-xl border border-dashed border-input py-3 text-sm font-medium text-primary active:bg-accent"
-            >
-              + Quero mais de um item do kit
-            </button>
-          ))}
-        <BuscaOutroItem token={token} secao={secao} onEscolher={adicionarDaBusca} onLivre={adicionarLivre} />
-        {avisoBusca && <p className="text-sm text-muted-foreground">{avisoBusca}</p>}
-      </section>
+        <BuscaOutroItem token={token} secao={secao} kit={ctx.kit} onEscolher={adicionarDaBusca} onLivre={adicionarLivre} />
+        {avisoBusca && (
+          <p role="status" className={cn('rounded-xl border-2 bg-card p-3 text-base font-medium', TONS.extra.contorno)}>
+            {avisoBusca}
+          </p>
+        )}
+      </Parte>
     </div>
   )
 }
 
 /**
- * "Preciso de outro item": botão discreto; ao abrir, o líder digita (pode
- * errar: "cab", "cabo vasora") e o servidor sugere até 5 itens ativos. Nada
- * casou → "Não achei, enviar assim" (texto livre para o inspetor).
+ * Campo único "O que mais você precisa?" (16/10/2026 — substitui os botões
+ * "Quero mais de um item do kit" e "Preciso de outro item", que confundiam).
+ * Sempre aberto; o líder digita (pode errar: "cab", "piacava", "disco 350")
+ * e o servidor devolve até 5 resultados ativos do kit e do catálogo, um por
+ * variação. Nada casou → "Não achei, enviar assim" (texto livre).
  */
 export function BuscaOutroItem({
   token,
   secao,
+  kit,
   onEscolher,
   onLivre,
 }: {
   token: string
   secao: SecaoProduto
-  onEscolher: (item: ItemPublico) => void
+  kit: ContextoPedido['kit']
+  onEscolher: (item: ItemBuscaPublico) => void
   onLivre: (descricao: string) => void
 }) {
-  const [aberto, setAberto] = useState(false)
   const [termo, setTermo] = useState('')
-  const [resultados, setResultados] = useState<ItemPublico[] | null>(null)
+  const [resultados, setResultados] = useState<ItemBuscaPublico[] | null>(null)
   const [buscando, setBuscando] = useState(false)
   const [falhou, setFalhou] = useState(false)
   const sequencia = useRef(0)
 
   const curto = normalizarBusca(termo).replace(/ /g, '').length < BUSCA_MIN_CARACTERES
   useEffect(() => {
-    if (!aberto || curto) return
+    if (curto) return
     const minha = ++sequencia.current
     const t = setTimeout(async () => {
       setBuscando(true)
@@ -481,85 +513,90 @@ export function BuscaOutroItem({
       }
     }, 350)
     return () => clearTimeout(t)
-  }, [aberto, curto, termo, token, secao])
+  }, [curto, termo, token, secao])
 
-  const fechar = () => {
-    setAberto(false)
+  const limpar = () => {
+    sequencia.current++
     setTermo('')
     setResultados(null)
-  }
-
-  if (!aberto) {
-    return (
-      <button
-        type="button"
-        onClick={() => setAberto(true)}
-        className="w-full rounded-xl border border-dashed border-input py-3 text-sm font-medium text-primary active:bg-accent"
-      >
-        + Preciso de outro item
-      </button>
-    )
+    setBuscando(false)
   }
 
   const lista = curto ? null : resultados
+  const campoId = `busca-item-${secao}`
   return (
-    <div className="space-y-3 rounded-2xl border border-primary/40 bg-primary/5 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <label htmlFor="busca-item" className="text-base font-semibold">
-          O que você precisa?
-        </label>
-        <button type="button" onClick={fechar} className="flex size-10 items-center justify-center rounded-xl text-muted-foreground" aria-label="Fechar busca">
-          <X className="size-5" />
-        </button>
-      </div>
+    <div className="space-y-3">
+      <label htmlFor={campoId} className={cn('block text-lg font-bold', TONS.extra.texto)}>
+        O que mais você precisa?
+      </label>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-6 -translate-y-1/2 text-pedido-extra" aria-hidden />
         <input
-          id="busca-item"
-          className={cn(CAMPO, 'pl-10')}
+          id={campoId}
+          type="text"
+          className={cn(CAMPO, 'h-14 border-2 border-pedido-extra pl-12 pr-12 text-lg')}
           value={termo}
           maxLength={80}
-          autoFocus
           autoComplete="off"
+          enterKeyHint="search"
           onChange={(e) => setTermo(e.target.value)}
-          placeholder="Ex.: cabo, vassoura, detergente"
+          placeholder="Ex.: vassoura, detergente, flanela"
         />
+        {termo && (
+          <button
+            type="button"
+            onClick={limpar}
+            className="absolute right-1 top-1/2 flex size-12 -translate-y-1/2 items-center justify-center rounded-xl text-muted-foreground"
+            aria-label="Apagar o que escreveu"
+          >
+            <X className="size-6" />
+          </button>
+        )}
       </div>
-      {curto ? (
-        <Ajuda>Escreva pelo menos {BUSCA_MIN_CARACTERES} letras. Pode escrever do seu jeito, a gente procura.</Ajuda>
+      {termo.trim() === '' ? null : curto ? (
+        <Ajuda>Escreva pelo menos {BUSCA_MIN_CARACTERES} letras. Pode escrever do seu jeito.</Ajuda>
       ) : buscando && !lista ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Procurando...
+        <p className="flex items-center gap-2 text-base text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" /> Procurando...
         </p>
       ) : (
         <div className="space-y-2">
-          {lista && lista.length > 0 && <p className="text-sm text-muted-foreground">Toque no item certo:</p>}
-          {lista?.map((item) => (
+          {lista && lista.length > 0 && <p className="text-base font-medium">Toque no item certo:</p>}
+          {lista?.map((item) => {
+            const nome = item.nome_exibicao || item.nome
+            const doKit = qtdKitPublico(kit, item.id, item.variacao_id ?? null) != null
+            return (
+              <button
+                key={`${item.id}|${item.variacao_id ?? ''}`}
+                type="button"
+                onClick={() => {
+                  onEscolher(item)
+                  limpar()
+                }}
+                className={cn(BOTAO_GRANDE, 'min-h-14 w-full justify-between gap-2 bg-card text-left', TONS.extra.contorno)}
+              >
+                <span className="min-w-0">
+                  <span className="block text-foreground">{nome}</span>
+                  {doKit && <span className="block text-sm font-medium text-pedido-kit-texto">Já vem no mês · pedir a mais</span>}
+                </span>
+                <Plus className="size-6 shrink-0" strokeWidth={3} aria-hidden />
+              </button>
+            )
+          })}
+          {falhou && <p className="text-base text-red-700 dark:text-red-400">Não deu para procurar agora. Tente de novo ou envie assim.</p>}
+          {lista && lista.length === 0 && !falhou && <p className="text-base text-muted-foreground">Não encontramos nada parecido.</p>}
+          {lista && (
             <button
-              key={item.id}
               type="button"
               onClick={() => {
-                onEscolher(item)
-                fechar()
+                onLivre(termo.trim())
+                limpar()
               }}
-              className={cn(BOTAO_GRANDE, 'w-full justify-between border-input bg-background text-left')}
+              className={cn(BOTAO_GRANDE, 'w-full border-dashed bg-background', TONS.extra.contorno)}
             >
-              <span>{item.nome}</span>
-              <span className="shrink-0 pl-2 text-sm text-muted-foreground">{item.unidade}</span>
+              Não achei, enviar assim: &quot;{termo.trim()}&quot;
             </button>
-          ))}
-          {falhou && <p className="text-sm text-red-700 dark:text-red-400">Não foi possível procurar agora. Tente de novo ou envie assim.</p>}
-          {lista && lista.length === 0 && !falhou && <p className="text-sm text-muted-foreground">Não encontramos nada parecido.</p>}
-          <button
-            type="button"
-            onClick={() => {
-              onLivre(termo.trim())
-              fechar()
-            }}
-            className="w-full rounded-xl py-3 text-sm font-medium text-primary underline-offset-2 hover:underline"
-          >
-            Não achei, enviar assim: &quot;{termo.trim()}&quot;
-          </button>
+          )}
         </div>
       )}
     </div>
@@ -573,18 +610,20 @@ function EscolherPessoa({
   jaEscolhidos,
   onEscolher,
   titulo,
+  tom,
 }: {
   equipe: MembroEquipePublico[]
   jaEscolhidos: Set<string>
   onEscolher: (p: { ref: string | null; nome: string }) => void
   titulo: string
+  tom: Tom
 }) {
   const [outra, setOutra] = useState(false)
   const [nome, setNome] = useState('')
   const disponiveis = equipe.filter((m) => !jaEscolhidos.has(m.ref))
   return (
-    <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
-      <p className="text-base font-semibold">{titulo}</p>
+    <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+      <p className={cn('text-lg font-bold', TONS[tom].texto)}>{titulo}</p>
       {disponiveis.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {disponiveis.map((m) => (
@@ -592,7 +631,7 @@ function EscolherPessoa({
               key={m.ref}
               type="button"
               onClick={() => onEscolher({ ref: m.ref, nome: m.nome })}
-              className={cn(BOTAO_GRANDE, 'border-input bg-background')}
+              className={cn(BOTAO_GRANDE, 'min-h-14 bg-background', TONS[tom].contorno)}
             >
               {m.nome}
             </button>
@@ -622,7 +661,7 @@ function EscolherPessoa({
                 setNome('')
                 setOutra(false)
               }}
-              className={cn(BOTAO_GRANDE, 'border-primary bg-primary text-primary-foreground disabled:opacity-50')}
+              className={cn(BOTAO_GRANDE, TONS[tom].cheio, 'disabled:opacity-50')}
             >
               Adicionar
             </button>
@@ -632,9 +671,9 @@ function EscolherPessoa({
         <button
           type="button"
           onClick={() => setOutra(true)}
-          className={cn(BOTAO_GRANDE, 'w-full gap-2 border-dashed border-input text-sm text-primary')}
+          className={cn(BOTAO_GRANDE, 'w-full gap-2 border-dashed bg-background', TONS[tom].contorno)}
         >
-          <UserPlus className="size-5" /> Outra pessoa (ferista/cobertura)
+          <UserPlus className="size-6" /> Outra pessoa (ferista/cobertura)
         </button>
       )}
     </div>
@@ -678,19 +717,19 @@ export function SecaoUniformes({
         const mostrar = todasPara.has(p.chave) ? pecas : daFuncao
         const dela = linhas.filter((l) => l.pessoa === p.chave)
         return (
-          <section key={p.chave} className="space-y-3 rounded-2xl border border-border bg-card p-4" aria-label={`Pedido de ${p.nome}`}>
+          <section key={p.chave} className="space-y-3 rounded-2xl border-2 border-pedido-epi/50 bg-card p-4" aria-label={`Pedido de ${p.nome}`}>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-lg font-semibold">{p.nome}</p>
+              <p className={cn('text-xl font-bold', TONS.epi.texto)}>{p.nome}</p>
               <button
                 type="button"
                 onClick={() => {
                   setPessoas((ps) => ps.filter((x) => x.chave !== p.chave))
                   setLinhas((ls) => ls.filter((l) => l.pessoa !== p.chave))
                 }}
-                className="flex size-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
+                className="flex size-12 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
                 aria-label={`Tirar ${p.nome} do pedido`}
               >
-                <Trash2 className="size-5" />
+                <Trash2 className="size-6" />
               </button>
             </div>
             {dela.length === 0 && <Ajuda>Toque nas peças que {p.nome} precisa.</Ajuda>}
@@ -709,10 +748,10 @@ export function SecaoUniformes({
                             { chave: novaChave(), pessoa: p.chave, peca_id: peca.id, tamanho: '', quantidade: '1' },
                           ])
                         }
-                        className={cn(BOTAO_GRANDE, 'w-full justify-between gap-2 border-input bg-background text-left')}
+                        className={cn(BOTAO_GRANDE, 'min-h-14 w-full justify-between gap-2 border-input bg-background text-left')}
                       >
                         <span>{peca.rotulo}</span>
-                        <Plus className="size-5 shrink-0 text-primary" aria-hidden />
+                        <Plus className="size-6 shrink-0 text-pedido-epi" strokeWidth={3} aria-hidden />
                       </button>
                     </li>
                   )
@@ -721,22 +760,22 @@ export function SecaoUniformes({
                   <li
                     key={peca.id}
                     data-erro={errosDe(erros, linha.chave).length > 0 ? 'true' : undefined}
-                    className="space-y-3 rounded-xl border border-primary/50 bg-primary/5 p-3"
+                    className="space-y-3 rounded-xl border-2 border-pedido-epi bg-pedido-epi-bg p-3"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold">{peca.rotulo}</p>
+                      <p className="text-lg font-bold">{peca.rotulo}</p>
                       <button
                         type="button"
                         onClick={() => setLinhas((ls) => ls.filter((l) => l.chave !== linha.chave))}
-                        className="flex size-10 items-center justify-center rounded-xl text-muted-foreground"
+                        className="flex size-12 items-center justify-center rounded-xl text-muted-foreground"
                         aria-label={`Tirar ${peca.rotulo}`}
                       >
-                        <X className="size-5" />
+                        <X className="size-6" />
                       </button>
                     </div>
                     {tamanhos.length > 0 && (
                       <div>
-                        <p className="mb-1.5 text-sm font-medium">Tamanho</p>
+                        <p className="mb-1.5 text-base font-semibold">Tamanho</p>
                         <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={`Tamanho de ${peca.rotulo}`}>
                           {tamanhos.map((t) => (
                             <button
@@ -748,7 +787,7 @@ export function SecaoUniformes({
                               className={cn(
                                 BOTAO_GRANDE,
                                 'px-1 text-lg',
-                                linha.tamanho === t ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'
+                                linha.tamanho === t ? TONS.epi.cheio : 'border-input bg-background'
                               )}
                             >
                               {t}
@@ -757,7 +796,7 @@ export function SecaoUniformes({
                         </div>
                       </div>
                     )}
-                    <CampoQuantidade valor={linha.quantidade} onChange={(v) => alterar(linha.chave, { quantidade: v })} unidade="peça(s)" rotulo={peca.rotulo} minimo={1} />
+                    <CampoQuantidade valor={linha.quantidade} onChange={(v) => alterar(linha.chave, { quantidade: v })} unidade="peça(s)" rotulo={peca.rotulo} minimo={1} tom="epi" />
                     <MensagemErro mensagens={errosDe(erros, linha.chave)} />
                   </li>
                 )
@@ -774,7 +813,7 @@ export function SecaoUniformes({
                     return n
                   })
                 }
-                className="w-full py-2 text-sm font-medium text-primary"
+                className={cn('w-full py-3 text-base font-semibold underline underline-offset-4', TONS.epi.texto)}
               >
                 {todasPara.has(p.chave) ? 'Mostrar só as peças da função' : 'Ver todas as peças do posto'}
               </button>
@@ -787,6 +826,7 @@ export function SecaoUniformes({
         equipe={equipe}
         jaEscolhidos={new Set(pessoas.map((p) => p.ref).filter((r): r is string => !!r))}
         titulo={pessoas.length === 0 ? 'Para quem é o pedido?' : 'Mais alguém precisa?'}
+        tom="epi"
         onEscolher={(p) => setPessoas((ps) => [...ps, { chave: novaChave(), ref: p.ref, nome: p.nome }])}
       />
     </div>
@@ -814,22 +854,22 @@ export function SecaoCrachas({
         <section
           key={l.chave}
           data-erro={errosDe(erros, l.chave).length > 0 ? 'true' : undefined}
-          className="space-y-3 rounded-2xl border border-border bg-card p-4"
+          className="space-y-3 rounded-2xl border-2 border-pedido-cracha/50 bg-card p-4"
           aria-label={`Crachá de ${l.nome}`}
         >
           <div className="flex items-center justify-between">
-            <p className="text-lg font-semibold">{l.nome}</p>
+            <p className={cn('text-xl font-bold', TONS.cracha.texto)}>{l.nome}</p>
             <button
               type="button"
               onClick={() => setLinhas((ls) => ls.filter((x) => x.chave !== l.chave))}
-              className="flex size-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
+              className="flex size-12 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
               aria-label={`Tirar o crachá de ${l.nome}`}
             >
-              <Trash2 className="size-5" />
+              <Trash2 className="size-6" />
             </button>
           </div>
           <div>
-            <p className="mb-1.5 text-sm font-medium">Qual o motivo?</p>
+            <p className="mb-1.5 text-base font-semibold">Por que precisa?</p>
             <div className="grid grid-cols-1 gap-2" role="radiogroup" aria-label="Motivo do pedido">
               {MOTIVOS_CRACHA.map((m) => (
                 <button
@@ -840,8 +880,8 @@ export function SecaoCrachas({
                   onClick={() => alterar(l.chave, { cracha_motivo: m })}
                   className={cn(
                     BOTAO_GRANDE,
-                    'justify-start text-left text-sm',
-                    l.cracha_motivo === m ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background'
+                    'justify-start text-left',
+                    l.cracha_motivo === m ? TONS.cracha.cheio : 'border-input bg-background'
                   )}
                 >
                   {m}
@@ -850,7 +890,7 @@ export function SecaoCrachas({
             </div>
           </div>
           <div>
-            <p className="mb-1.5 text-sm font-medium">Precisa de novo cordão com prendedor?</p>
+            <p className="mb-1.5 text-base font-semibold">Precisa de cordão novo com prendedor?</p>
             <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Precisa de novo cordão com prendedor?">
               {[false, true].map((v) => (
                 <button
@@ -859,7 +899,7 @@ export function SecaoCrachas({
                   role="radio"
                   aria-checked={l.cracha_cordao === v}
                   onClick={() => alterar(l.chave, { cracha_cordao: v })}
-                  className={cn(BOTAO_GRANDE, l.cracha_cordao === v ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background')}
+                  className={cn(BOTAO_GRANDE, l.cracha_cordao === v ? TONS.cracha.cheio : 'border-input bg-background')}
                 >
                   {v ? 'Sim' : 'Não'}
                 </button>
@@ -868,7 +908,7 @@ export function SecaoCrachas({
           </div>
           {l.ref ? (
             <div className="space-y-1.5">
-              <label htmlFor={`cracha-${l.chave}`} className="text-sm font-medium">
+              <label htmlFor={`cracha-${l.chave}`} className="text-base font-semibold">
                 Nome no crachá (opcional)
               </label>
               <input
@@ -890,6 +930,7 @@ export function SecaoCrachas({
         equipe={equipe}
         jaEscolhidos={new Set(linhas.map((l) => l.ref).filter((r): r is string => !!r))}
         titulo={linhas.length === 0 ? 'Quem precisa de crachá?' : 'Mais alguém precisa de crachá?'}
+        tom="cracha"
         onEscolher={(p) =>
           setLinhas((ls) => [...ls, { chave: novaChave(), ref: p.ref, nome: p.nome, cracha_nome: '', cracha_motivo: '', cracha_cordao: false }])
         }

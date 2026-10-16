@@ -72,7 +72,21 @@ function renderizar() {
   )
 }
 
-const irParaEtapa = (nome: RegExp) => fireEvent.click(screen.getByRole('button', { name: nome }))
+const irParaEtapa = (nome: RegExp) => fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Passo \\d+: .*${nome.source}`) }))
+const BUSCA = 'O que mais você precisa?'
+const flanela = (variacao: string) => ({
+  id: 'flanela',
+  nome: 'Flanela Microfibra UN',
+  nome_exibicao: `Flanela Microfibra ${variacao === 'fam' ? 'amarela' : 'azul'}`,
+  variacao_id: variacao,
+  categoria: 'acessorios',
+  unidade: 'unidade',
+  validade_meses: null,
+  variacoes: [
+    { id: 'fam', rotulo: 'amarela' },
+    { id: 'faz', rotulo: 'azul' },
+  ],
+})
 
 describe('PedidoLiderPage (tela pública do líder)', () => {
   beforeEach(() => {
@@ -102,29 +116,40 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(screen.queryByLabelText('Adicionar item')).not.toBeInTheDocument()
   })
 
-  it('contrato sem kit avisa e oferece "Preciso de outro item"', async () => {
+  it('contrato sem kit avisa e já mostra o campo único de busca', async () => {
     api.carregar.mockResolvedValue(dados({ catalogo: [], kit: [] }))
     renderizar()
     expect(await screen.findByText(/Este posto ainda não tem kit cadastrado/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Preciso de outro item/ })).toBeInTheDocument()
+    expect(screen.getByLabelText(BUSCA)).toBeInTheDocument()
+    // Os dois botões antigos (confundiam) não existem mais.
+    expect(screen.queryByRole('button', { name: /Preciso de outro item/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Quero mais de um item do kit/ })).not.toBeInTheDocument()
+  })
+
+  it('mostra "Passo X de N" no topo', async () => {
+    api.carregar.mockResolvedValue(dados())
+    renderizar()
+    expect(await screen.findByText('Passo 1 de 4')).toBeInTheDocument()
+    irParaEtapa(/Uniformes e EPIs/)
+    expect(screen.getByText('Passo 2 de 4')).toBeInTheDocument()
   })
 
   it('kit do mês: o + não passa do kit e "Não preciso este mês" zera sem pedir motivo', async () => {
     api.carregar.mockResolvedValue(dados())
     renderizar()
-    await screen.findByText('Seu kit do mês')
+    await screen.findByText('Vem este mês')
     expect(screen.getByRole('button', { name: 'Aumentar Cloro' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Diminuir Cloro' }))
     expect(screen.getByLabelText('Quantidade de Cloro')).toHaveValue('2')
-    expect(screen.getByText(/Você vai receber 2 \(o kit é 3\)/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Não preciso este mês' }))
+    expect(screen.getByText(/Vai receber 2 de 3/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Não preciso' }))
     expect(screen.getByText('Você avisou que não precisa este mês.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Motivo de Cloro')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Quero receber' }))
     expect(screen.getByLabelText('Quantidade de Cloro')).toHaveValue('3')
   })
 
-  it('"Quero mais de um item do kit" cria linha EXTRA separada, com motivo opcional, e envia sem motivo', async () => {
+  it('item do kit achado na busca cria linha EXTRA separada ("a mais"), com motivo opcional, e envia sem motivo', async () => {
     api.carregar.mockResolvedValue(dados())
     api.enviar.mockResolvedValue({
       ok: true,
@@ -136,19 +161,23 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
       kit_aprovado: true,
       tem_extras: true,
     })
+    api.buscar.mockResolvedValue({
+      itens: [{ id: 'cloro', nome: 'Cloro', nome_exibicao: 'Cloro', variacao_id: null, categoria: 'limpeza', unidade: 'bombona 5L', validade_meses: null, variacoes: [] }],
+    })
     renderizar()
-    await screen.findByText('Seu kit do mês')
-    fireEvent.click(screen.getByRole('button', { name: /Quero mais de um item do kit/ }))
+    await screen.findByText('Vem este mês')
+    fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: 'cloro' } })
+    expect(await screen.findByText('Já vem no mês · pedir a mais', undefined, { timeout: 2000 })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /^Cloro/ }))
-    expect(screen.getByText('A mais do que o kit')).toBeInTheDocument()
-    expect(screen.getByText(/Você está pedindo 1 a mais do que o kit/)).toBeInTheDocument()
-    expect(screen.getByText('(opcional)')).toBeInTheDocument()
+    expect(screen.getByText('A mais do que vem no mês')).toBeInTheDocument()
+    expect(screen.getByText(/Você está pedindo 1 a mais/)).toBeInTheDocument()
+    expect(screen.getByText('(se quiser contar)')).toBeInTheDocument()
     // A linha do kit continua 3; a extra é separada.
     expect(screen.getAllByLabelText('Quantidade de Cloro').map((i) => (i as HTMLInputElement).value)).toEqual(['3', '1'])
     fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
     irParaEtapa(/Revisar e enviar/)
-    expect(screen.getByText('Kit do mês')).toBeInTheDocument()
-    expect(screen.getByText('Pedido extra')).toBeInTheDocument()
+    expect(screen.getByText('Vem no mês')).toBeInTheDocument()
+    expect(screen.getByText('Pedido a mais')).toBeInTheDocument()
     expect(screen.getByText('Cloro (a mais)')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText(/Seu nome/), { target: { value: 'Ana Souza' } })
     await act(async () => {
@@ -165,8 +194,8 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
   it('kit já confirmado no mês: só a parte do pedido extra', async () => {
     api.carregar.mockResolvedValue(dados({ kit_confirmado: true }))
     renderizar()
-    expect(await screen.findByText(/O kit deste mês já foi confirmado/)).toBeInTheDocument()
-    expect(screen.queryByText('Seu kit do mês')).not.toBeInTheDocument()
+    expect(await screen.findByText(/já foi confirmado e já vai chegar/)).toBeInTheDocument()
+    expect(screen.queryByText('Vem este mês')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Quantidade de Cloro')).not.toBeInTheDocument()
   })
 
@@ -229,19 +258,49 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(await screen.findByText('Pedido enviado!')).toBeInTheDocument()
   })
 
-  it('"Preciso de outro item" sugere itens e a linha vira fora do kit com pergunta', async () => {
+  it('busca única: item fora do kit vira "não vem todo mês" com pergunta; "Não achei" vira texto livre', async () => {
     api.carregar.mockResolvedValue(dados())
     api.buscar.mockResolvedValue({
       itens: [{ id: 'cabo', nome: 'Cabo de vassoura', categoria: 'limpeza', unidade: 'unidade', validade_meses: null, variacoes: [] }],
     })
     renderizar()
     await screen.findByText('Cloro')
-    fireEvent.click(screen.getByRole('button', { name: /Preciso de outro item/ }))
-    fireEvent.change(screen.getByLabelText('O que você precisa?'), { target: { value: 'cabo vasora' } })
+    fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: 'cabo vasora' } })
     fireEvent.click(await screen.findByRole('button', { name: /Cabo de vassoura/ }, { timeout: 2000 }))
     expect(api.buscar).toHaveBeenCalledWith('token-de-teste-com-mais-de-20', 'cabo vasora', 'materiais')
-    expect(screen.getByText('Fora do kit')).toBeInTheDocument()
-    expect(screen.getByText(/não está no kit do posto/)).toBeInTheDocument()
+    expect(screen.getByText('Não vem todo mês')).toBeInTheDocument()
+    expect(screen.getByText(/Este item não vem todo mês/)).toBeInTheDocument()
+    // O campo fica limpo para a próxima busca.
+    expect(screen.getByLabelText(BUSCA)).toHaveValue('')
+    api.buscar.mockResolvedValue({ itens: [] })
+    fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: 'pá de neve' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Não achei, enviar assim/ }, { timeout: 2000 }))
+    expect(screen.getByText('pá de neve')).toBeInTheDocument()
+    expect(screen.getByText('Escrito por você')).toBeInTheDocument()
+  })
+
+  it('variação: um quadro por variação, sem escolha dentro do quadro; a mesma de novo soma', async () => {
+    api.carregar.mockResolvedValue(dados())
+    renderizar()
+    await screen.findByText('Cloro')
+    const escolher = async (variacao: string, nome: RegExp) => {
+      api.buscar.mockResolvedValue({ itens: [flanela(variacao)] })
+      fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: `flanela ${variacao}` } })
+      fireEvent.click(await screen.findByRole('button', { name: nome }, { timeout: 2000 }))
+    }
+    await escolher('fam', /^Flanela Microfibra amarela/)
+    expect(screen.getByText('Flanela Microfibra amarela')).toBeInTheDocument()
+    // Nada de "tocar em várias cores" dentro do quadro.
+    expect(screen.queryByRole('radio', { name: 'azul' })).not.toBeInTheDocument()
+    await escolher('fam', /^Flanela Microfibra amarela/)
+    expect(screen.getByLabelText('Quantidade de Flanela Microfibra amarela')).toHaveValue('2')
+    expect(screen.getByRole('status')).toHaveTextContent('Flanela Microfibra amarela já estava na lista. Somamos mais 1.')
+    await escolher('faz', /^Flanela Microfibra azul/)
+    expect(screen.getByLabelText('Quantidade de Flanela Microfibra azul')).toHaveValue('1')
+    fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
+    irParaEtapa(/Revisar e enviar/)
+    expect(screen.getByText('Flanela Microfibra amarela')).toBeInTheDocument()
+    expect(screen.getByText('Flanela Microfibra azul')).toBeInTheDocument()
   })
 
   it('mês com envio mostra quem enviou, os produtos e só a contagem do CEU', async () => {

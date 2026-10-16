@@ -1,6 +1,7 @@
 // Estado do formulário da tela pública do líder (/pedido/:token).
-import { linhasIniciaisDoKit, type ContextoPedido, type ErroCampo, type ItemPublico, type PartePedido } from '@/lib/materiais/pedidoLider'
+import { linhasIniciaisDoKit, type ContextoPedido, type ErroCampo, type ExcecoesLinha, type ItemPublico, type PartePedido } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
+import { nomeExibicaoItem } from '@/lib/materiais/buscaItens'
 
 export type SecaoProduto = 'materiais' | 'portaria'
 
@@ -19,6 +20,21 @@ export interface LinhaProdutoForm {
    * busca = "Preciso de outro item"; livre = "Não achei, enviar assim".
    */
   origem: 'kit' | 'mais' | 'busca' | 'livre'
+}
+
+/**
+ * Nome da linha na tela do líder: nome amigável com a variação ("Vassoura
+ * Noviça", "Flanela Microfibra amarela"); texto livre = o que a pessoa
+ * escreveu.
+ */
+export function nomeDaLinhaProduto(
+  l: Pick<LinhaProdutoForm, 'item_id' | 'variacao_id' | 'descricao_livre'>,
+  item?: Pick<ItemPublico, 'nome' | 'variacoes'> | null
+): string {
+  if (!l.item_id) return l.descricao_livre?.trim() || 'Outro item'
+  if (!item) return 'Item'
+  const rotulo = l.variacao_id ? item.variacoes.find((v) => v.id === l.variacao_id)?.rotulo : null
+  return nomeExibicaoItem(item.nome, rotulo)
 }
 
 /** Parte do pedido da linha: só a linha do kit é 'kit'; o resto é pedido extra. */
@@ -204,7 +220,8 @@ export function itensKitForaDoMes(ctx: CtxKit): string[] {
 
 /** Quantidade máxima da linha do kit (o kit do mês; nunca aumenta). */
 export function maximoDaLinhaKit(ctx: CtxKit, l: Pick<LinhaProdutoForm, 'item_id' | 'variacao_id'>): number {
-  const k = linhasIniciaisDoKit(ctx).find((x) => x.item_id === l.item_id && (x.variacao_id === l.variacao_id || x.variacao_id == null))
+  const linhas = linhasIniciaisDoKit(ctx).filter((x) => x.item_id === l.item_id)
+  const k = linhas.find((x) => x.variacao_id === (l.variacao_id ?? null)) ?? linhas.find((x) => x.variacao_id == null)
   return k?.quantidade ?? 0
 }
 
@@ -225,9 +242,11 @@ export function reconciliarRascunhoComKit(
   rascunho: Pick<RascunhoPedido, 'produtos' | 'itensBusca'>,
   ctx: CtxKit
 ): Pick<RascunhoPedido, 'produtos' | 'itensBusca'> {
-  const kitMes = new Map(
-    (ctx.kitConfirmado ? [] : linhasIniciaisDoKit(ctx)).filter((k) => k.quantidade > 0).map((k) => [k.item_id, k.quantidade])
-  )
+  // Linhas do kit do mês, por item E variação (o kit pode ter duas cores do
+  // mesmo item). Linha do rascunho casa com a da mesma variação ou, se o kit
+  // foi cadastrado sem variação ("qualquer cor"), com essa.
+  const kitMes = (ctx.kitConfirmado ? [] : linhasIniciaisDoKit(ctx)).filter((k) => k.quantidade > 0)
+  const chaveKit = (k: { item_id: string; variacao_id: string | null }) => `${k.item_id}|${k.variacao_id ?? ''}`
   const noCatalogo = new Set(ctx.catalogo.map((c) => c.id))
   const buscaPorId = new Map((rascunho.itensBusca ?? []).map((i) => [i.id, i]))
   const vistoKit = new Set<string>()
@@ -236,9 +255,13 @@ export function reconciliarRascunhoComKit(
   for (const l of rascunho.produtos ?? []) {
     const origem = (l.origem ?? 'kit') as LinhaProdutoForm['origem']
     if (origem === 'kit') {
-      if (!l.item_id || !kitMes.has(l.item_id) || vistoKit.has(l.item_id)) continue
-      vistoKit.add(l.item_id)
-      const maximo = kitMes.get(l.item_id) ?? 0
+      const daLinha = (k: (typeof kitMes)[number]) => k.item_id === l.item_id && !vistoKit.has(chaveKit(k))
+      const k =
+        kitMes.find((x) => daLinha(x) && x.variacao_id === (l.variacao_id ?? null)) ??
+        kitMes.find((x) => daLinha(x) && x.variacao_id == null)
+      if (!l.item_id || !k) continue
+      vistoKit.add(chaveKit(k))
+      const maximo = k.quantidade
       const qtd = qtdNumero(l.quantidade)
       if (qtd > maximo) {
         excedentes.push({
@@ -263,9 +286,16 @@ export function reconciliarRascunhoComKit(
     }
     produtos.push(l)
   }
-  const novas = linhasKitDoForm(ctx).filter((k) => k.item_id && !vistoKit.has(k.item_id))
+  const novas = linhasKitDoForm(ctx).filter((k) => k.item_id && !vistoKit.has(chaveKit({ item_id: k.item_id, variacao_id: k.variacao_id })))
   // Ordem da tela: kit primeiro, depois os extras.
   const kit = [...produtos.filter((l) => l.origem === 'kit'), ...novas]
   const extras = [...produtos.filter((l) => l.origem !== 'kit'), ...excedentes]
   return { produtos: [...kit, ...extras], itensBusca: rascunho.itensBusca ?? [] }
+}
+
+/** Pergunta curta (sem jargão) do motivo do extra. */
+export function perguntaSimples(e: Pick<ExcecoesLinha, 'foraKit' | 'acimaKit'>, quantidade: number): string {
+  if (e.foraKit) return 'Este item não vem todo mês. Por que você precisa?'
+  if (e.acimaKit) return `Você está pedindo ${String(Math.round(quantidade * 100) / 100).replace('.', ',')} a mais. Por que precisa?`
+  return ''
 }

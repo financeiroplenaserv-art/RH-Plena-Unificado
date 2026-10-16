@@ -6,10 +6,12 @@ import {
   Ajuda,
   Declaracao,
   MensagemErro,
+  Parte,
   SecaoCrachas,
   SecaoProdutos,
   SecaoUniformes,
 } from '@/components/materiais/pedido/PedidoLiderSecoes'
+import { TONS, type Tom } from '@/components/materiais/pedido/tons'
 import {
   CAMPO,
   apagarRascunho,
@@ -17,6 +19,7 @@ import {
   lerRascunho,
   linhasKitDoForm,
   montarPayloadPedido,
+  nomeDaLinhaProduto,
   reconciliarRascunhoComKit,
   salvarRascunho,
   type LinhaCrachaForm,
@@ -62,19 +65,17 @@ type Etapa = 'materiais' | 'portaria' | 'pecas' | 'cracha' | 'revisar'
 
 const TITULOS: Record<Etapa, string> = {
   materiais: 'Materiais de limpeza',
-  portaria: 'Kit Portaria',
+  portaria: 'Portaria',
   pecas: 'Uniformes e EPIs',
   cracha: 'Crachás',
   revisar: 'Revisar e enviar',
 }
 
+// Frases curtas e diretas (público: ASGs com dificuldade de leitura).
 const AJUDAS: Partial<Record<Etapa, string>> = {
-  materiais: 'Confira o kit do mês. Se precisar de mais alguma coisa, peça logo abaixo do kit.',
-  portaria:
-    'Os materiais de Portaria são para organização, controle de acesso e registro dos plantões. Confira o kit e, se precisar, peça mais abaixo.',
-  pecas:
-    'Toque no nome de quem precisa, depois na peça e no tamanho. Para botas e botinas, peça 2 números acima do calçado normal. Peças danificadas por mau uso poderão gerar desconto.',
-  cracha: 'O uso do crachá é obrigatório. Dependendo do motivo do pedido de novo crachá, poderá haver desconto.',
+  materiais: 'Confira o que vem este mês. Precisa de mais? Peça no campo azul.',
+  portaria: 'Livros e planilhas da portaria. Confira o que vem este mês. Precisa de mais? Peça no campo azul.',
+  revisar: 'Confira tudo. Depois escreva seu nome e toque em Enviar.',
 }
 
 /** Declarações que cada etapa pode exigir. */
@@ -173,11 +174,19 @@ function itensCeuDasPecas(d: DadosPedidoPublico): ItemCeuPublico[] {
 }
 
 /** Sublista da revisão final (kit do mês, pedido extra ou uniforme/EPI/crachá). */
-function ListaRevisao({ titulo, itens }: { titulo?: string; itens: { rotulo: string; qtd: string; destaque?: boolean }[] }) {
+function ListaRevisao({
+  titulo,
+  itens,
+  tom,
+}: {
+  titulo?: string
+  itens: { rotulo: string; qtd: string; destaque?: boolean }[]
+  tom: Tom
+}) {
   return (
-    <div className="border-t border-border px-4 py-2">
-      {titulo && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</p>}
-      <ul className="space-y-0.5 text-xs text-muted-foreground">
+    <div className={cn('border-t border-border border-l-4 px-4 py-2', TONS[tom].borda)}>
+      {titulo && <p className={cn('mb-0.5 text-sm font-bold', TONS[tom].texto)}>{titulo}</p>}
+      <ul className="space-y-1 text-sm text-muted-foreground">
         {itens.map((it, i) => (
           <li key={i} className="flex items-baseline justify-between gap-3">
             <span className="min-w-0">{it.rotulo}</span>
@@ -378,13 +387,12 @@ export function PedidoLiderPage() {
             .filter((p) => p.qtd_pedida > 0)
             .reduce((m, p) => {
               const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
-              const rotulo = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
               const chave = p.item_id ? `${p.item_id}|${p.variacao_id ?? ''}` : `livre|${p.descricao_livre}`
               const atual = m.get(chave)
               if (atual) atual.quantidade += p.qtd_pedida
               else
                 m.set(chave, {
-                  descricao: item ? item.nome + (rotulo ? ` (${rotulo})` : '') : p.descricao_livre ?? 'Outro item',
+                  descricao: nomeDaLinhaProduto({ item_id: p.item_id, variacao_id: p.variacao_id, descricao_livre: p.descricao_livre ?? '' }, item),
                   unidade: item?.unidade ?? null,
                   quantidade: p.qtd_pedida,
                 })
@@ -541,54 +549,75 @@ export function PedidoLiderPage() {
 
   // Pendências por etapa (mostradas na revisão depois de "Enviar").
   const pendentes = etapas.filter((e) => e !== 'revisar' && pendenciasDaEtapa(e) > 0)
+  const pendentesVisiveis = etapas.filter((e) => tentou.has(e) && pendenciasDaEtapa(e) > 0)
   const itensCeuPorId = new Map(ctx.itensCeu.map((i) => [i.id, i.nome]))
   const secaoDoProduto = (p: LinhaProdutoRpc): SecaoProduto => {
     if (p.item_id) return ctx.catalogo.find((c) => c.id === p.item_id)?.categoria === 'portaria' ? 'portaria' : 'materiais'
     return produtos.find((l) => !l.item_id && l.descricao_livre.trim() === p.descricao_livre)?.secao ?? 'materiais'
   }
-  const rotuloProduto = (p: LinhaProdutoRpc) => {
-    const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
-    const rotuloVar = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
-    return item ? item.nome + (rotuloVar ? ` (${rotuloVar})` : '') : (p.descricao_livre ?? 'Outro item')
-  }
+  const rotuloProduto = (p: LinhaProdutoRpc) =>
+    nomeDaLinhaProduto(
+      { item_id: p.item_id, variacao_id: p.variacao_id, descricao_livre: p.descricao_livre ?? '' },
+      p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
+    )
   const unidadeProduto = (p: LinhaProdutoRpc) => {
     const u = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id)?.unidade : null
     return u ? ` ${u}` : ''
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-28 text-foreground">
+    <div className="min-h-dvh bg-background pb-32 text-[17px] text-foreground">
       {cabecalho}
       <main className="mx-auto max-w-xl space-y-4 px-4 py-5">
         {indice === 0 && <ResumoDoMes resumo={dados.resumo} competencia={competencia} destino={destino} />}
 
-        <nav aria-label="Etapas do pedido" className="-mx-4 overflow-x-auto px-4">
-          <ol className="flex gap-2">
-            {etapas.map((e, i) => (
-              <li key={e}>
-                <button
-                  type="button"
-                  onClick={() => irPara(i)}
-                  aria-current={i === indice ? 'step' : undefined}
-                  className={cn(
-                    'whitespace-nowrap rounded-full border px-3 py-2 text-sm',
-                    i === indice ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground',
-                    tentou.has(e) && pendenciasDaEtapa(e) > 0 && i !== indice && 'border-red-400 text-red-700 dark:text-red-400'
-                  )}
-                >
-                  {i + 1}. {TITULOS[e]}
-                </button>
-              </li>
-            ))}
-          </ol>
-        </nav>
+        <div className="space-y-2" aria-label="Andamento do pedido">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-base font-bold">
+              Passo {indice + 1} de {etapas.length}
+            </p>
+            {pendentesVisiveis.length > 0 && (
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400">Falta corrigir {pendentesVisiveis.length === 1 ? '1 passo' : `${pendentesVisiveis.length} passos`}</p>
+            )}
+          </div>
+          {/* Barra em partes: cada parte leva ao passo (ajuda a voltar e corrigir). */}
+          <nav aria-label="Passos do pedido">
+            <ol className="flex gap-1.5">
+              {etapas.map((e, i) => (
+                <li key={e} className="flex-1">
+                  <button
+                    type="button"
+                    onClick={() => irPara(i)}
+                    aria-current={i === indice ? 'step' : undefined}
+                    aria-label={`Passo ${i + 1}: ${TITULOS[e]}`}
+                    className="flex h-8 w-full items-center"
+                  >
+                    <span
+                      className={cn(
+                        'h-3 w-full rounded-full',
+                        tentou.has(e) && pendenciasDaEtapa(e) > 0 && i !== indice ? 'bg-red-500' : i <= indice ? 'bg-primary' : 'bg-muted-foreground/25'
+                      )}
+                    />
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
 
-        <h2 className="text-xl font-semibold">{TITULOS[atual]}</h2>
-        {AJUDAS[atual] && <Ajuda>{AJUDAS[atual]}</Ajuda>}
+        <h2 className="text-2xl font-bold leading-tight">{TITULOS[atual]}</h2>
+        {AJUDAS[atual] && <p className="text-base leading-relaxed text-foreground">{AJUDAS[atual]}</p>}
 
         {atual === 'materiais' && secaoProdutos('materiais')}
         {atual === 'portaria' && secaoProdutos('portaria')}
         {atual === 'pecas' && (
+          <Parte
+            tom="epi"
+            id="parte-pecas"
+            titulo="Uniforme e EPI"
+            subtitulo="Toque no nome da pessoa. Depois na peça e no tamanho."
+          >
+            <Ajuda>Bota e botina: peça 2 números acima do calçado normal. Peça estragada por mau uso pode gerar desconto.</Ajuda>
           <SecaoUniformes
             pessoas={pessoas}
             setPessoas={setPessoas}
@@ -599,8 +628,13 @@ export function PedidoLiderPage() {
             semKitUniforme={dados.sem_kit_uniforme}
             erros={errosVisiveis}
           />
+          </Parte>
         )}
-        {atual === 'cracha' && <SecaoCrachas linhas={crachas} setLinhas={setCrachas} equipe={dados.equipe} erros={errosVisiveis} />}
+        {atual === 'cracha' && (
+          <Parte tom="cracha" id="parte-cracha" titulo="Crachá" subtitulo="Usar o crachá é obrigatório. Conforme o motivo, pode haver desconto.">
+            <SecaoCrachas linhas={crachas} setLinhas={setCrachas} equipe={dados.equipe} erros={errosVisiveis} />
+          </Parte>
+        )}
 
         {atual !== 'revisar' &&
           TERMOS_DA_ETAPA[atual]
@@ -647,14 +681,15 @@ export function PedidoLiderPage() {
                   return (
                     <li key={e}>
                       <button type="button" onClick={() => irPara(etapas.indexOf(e))} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
-                        <span>{TITULOS[e]}</span>
+                        <span className="font-semibold">{TITULOS[e]}</span>
                         <span className={cn('tabular-nums', pend ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground')}>
                           {pend ? 'falta corrigir' : qtd === 0 ? 'nada pedido' : `${qtd} ${qtd === 1 ? 'item' : 'itens'}`}
                         </span>
                       </button>
                       {kitDaSecao.length > 0 && (
                         <ListaRevisao
-                          titulo="Kit do mês"
+                          titulo="Vem no mês"
+                          tom="kit"
                           itens={kitDaSecao.map((p) => ({
                             rotulo: rotuloProduto(p),
                             qtd:
@@ -669,14 +704,15 @@ export function PedidoLiderPage() {
                       )}
                       {extrasDaSecao.length > 0 && (
                         <ListaRevisao
-                          titulo="Pedido extra"
+                          titulo="Pedido a mais"
+                          tom="extra"
                           itens={extrasDaSecao.map((p) => ({
                             rotulo: `${rotuloProduto(p)}${p.parte === 'extra' && p.excecao_acima_kit ? ' (a mais)' : ''}`,
                             qtd: `${p.qtd_pedida}${unidadeProduto(p)}`,
                           }))}
                         />
                       )}
-                      {itensCeu.length > 0 && <ListaRevisao itens={itensCeu} />}
+                      {itensCeu.length > 0 && <ListaRevisao itens={itensCeu} tom={e === 'cracha' ? 'cracha' : 'epi'} />}
                     </li>
                   )
                 })}
@@ -736,15 +772,15 @@ export function PedidoLiderPage() {
 
       <footer className="fixed inset-x-0 bottom-0 border-t border-border bg-card/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-xl gap-2">
-          <Button variant="secondary" size="lg" className="flex-1" onClick={() => irPara(indice - 1)} disabled={indice === 0 || enviando}>
+          <Button variant="secondary" size="lg" className="h-14 flex-1 text-base" onClick={() => irPara(indice - 1)} disabled={indice === 0 || enviando}>
             <ChevronLeft className="size-5" /> Voltar
           </Button>
           {ultima ? (
-            <Button size="lg" className="flex-[2]" onClick={enviar} disabled={enviando}>
+            <Button size="lg" className="h-14 flex-[2] text-lg font-bold" onClick={enviar} disabled={enviando}>
               {enviando ? <Loader2 className="size-5 animate-spin" /> : null} Enviar pedido
             </Button>
           ) : (
-            <Button size="lg" className="flex-[2]" onClick={avancar}>
+            <Button size="lg" className="h-14 flex-[2] text-lg font-bold" onClick={avancar}>
               Próximo <ChevronRight className="size-5" />
             </Button>
           )}

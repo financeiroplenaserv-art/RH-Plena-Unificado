@@ -42,6 +42,21 @@
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  /* Link público do líder (/pedido/:token): uma cor por parte do pedido */
+  --color-pedido-kit: var(--pedido-kit);
+  --color-pedido-kit-bg: var(--pedido-kit-bg);
+  --color-pedido-kit-texto: var(--pedido-kit-texto);
+  --color-pedido-extra: var(--pedido-extra);
+  --color-pedido-extra-bg: var(--pedido-extra-bg);
+  --color-pedido-extra-texto: var(--pedido-extra-texto);
+  --color-pedido-epi: var(--pedido-epi);
+  --color-pedido-epi-bg: var(--pedido-epi-bg);
+  --color-pedido-epi-texto: var(--pedido-epi-texto);
+  --color-pedido-cracha: var(--pedido-cracha);
+  --color-pedido-cracha-bg: var(--pedido-cracha-bg);
+  --color-pedido-cracha-texto: var(--pedido-cracha-texto);
+  --color-pedido-contraste: var(--pedido-contraste);
 }
 
 :root {
@@ -133,6 +148,23 @@
   --report-epi-soft: #FCE8D3;
   --report-uniforme-azul-soft: #D6E7FF;
   --report-uniforme-verde-soft: #D6F0E3;
+
+  /* Link do líder (16/10/2026): kit do mês verde, extras azul, uniforme/EPI
+     laranja, crachá roxo. Forte = borda/ícone/botão cheio (texto branco AA);
+     -texto = títulos sobre o fundo suave (AA). */
+  --pedido-kit: #15803D;
+  --pedido-kit-bg: #ECFDF3;
+  --pedido-kit-texto: #14532D;
+  --pedido-extra: #1D4ED8;
+  --pedido-extra-bg: #EFF6FF;
+  --pedido-extra-texto: #1E3A8A;
+  --pedido-epi: #C2410C;
+  --pedido-epi-bg: #FFF7ED;
+  --pedido-epi-texto: #7C2D12;
+  --pedido-cracha: #7E22CE;
+  --pedido-cracha-bg: #FAF5FF;
+  --pedido-cracha-texto: #581C87;
+  --pedido-contraste: #FFFFFF;
 }
 
 .dark {
@@ -155,6 +187,20 @@
   --border: 213 35% 22%;
   --input: 213 35% 22%;
   --ring: 214 100% 58%;
+
+  --pedido-kit: #4ADE80;
+  --pedido-kit-bg: #0E2A1B;
+  --pedido-kit-texto: #BBF7D0;
+  --pedido-extra: #60A5FA;
+  --pedido-extra-bg: #0F1F3D;
+  --pedido-extra-texto: #BFDBFE;
+  --pedido-epi: #FB923C;
+  --pedido-epi-bg: #2E1A0C;
+  --pedido-epi-texto: #FED7AA;
+  --pedido-cracha: #C084FC;
+  --pedido-cracha-bg: #241336;
+  --pedido-cracha-texto: #E9D5FF;
+  --pedido-contraste: #0B1220;
 }
 
 @layer base {
