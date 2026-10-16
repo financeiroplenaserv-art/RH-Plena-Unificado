@@ -339,3 +339,33 @@ export function perguntaSimples(e: Pick<ExcecoesLinha, 'foraKit' | 'acimaKit'>, 
   if (e.acimaKit) return `Você está pedindo ${String(Math.round(quantidade * 100) / 100).replace('.', ',')} a mais. Por que precisa?`
   return ''
 }
+
+// ---------------- Quadros recolhíveis (16/10/2026) ----------------
+
+/** Equipe em ordem alfabética (pt-BR, sem peso de acento/caixa); não altera a lista original. */
+export function ordenarEquipe<T extends { nome: string }>(equipe: T[]): T[] {
+  return [...equipe].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+}
+
+const fmtQtd = (texto: string): string => {
+  const n = qtdNumero(texto)
+  return String(Math.round(n * 100) / 100).replace('.', ',')
+}
+
+/** Linha resumida do extra: "Flanela Microfibra amarela — 2". */
+export const resumoLinhaProduto = (nome: string, quantidade: string): string => `${nome} — ${fmtQtd(quantidade)}`
+
+/** Linha resumida de uniforme/EPI: "Walace D. · Bota PVC 41 — 1". */
+export const resumoLinhaPeca = (pessoa: string, peca: string, tamanho: string, quantidade: string): string =>
+  `${pessoa} · ${peca}${tamanho ? ` ${tamanho}` : ''} — ${fmtQtd(quantidade)}`
+
+const MOTIVO_CURTO: Record<string, string> = {
+  'Desgaste natural': 'desgaste',
+  'Quebra no encaixe do prendedor': 'quebra no prendedor',
+  Perda: 'perda',
+  'Quebra por descuido': 'quebra por descuido',
+}
+
+/** Linha resumida do crachá: "Crachá · Dagno S. — perda". */
+export const resumoLinhaCracha = (nome: string, motivo: string): string =>
+  `Crachá · ${nome} — ${MOTIVO_CURTO[motivo] ?? (motivo.startsWith('Não se aplica') ? 'só o cordão' : 'sem motivo')}`

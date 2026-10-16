@@ -258,6 +258,111 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(await screen.findByText('Pedido enviado!')).toBeInTheDocument()
   })
 
+  describe('quadros que recolhem depois do "Pronto" (16/10/2026)', () => {
+    const buscarFlanela = async (variacao: string) => {
+      api.buscar.mockResolvedValue({ itens: [flanela(variacao)] })
+      fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: `flanela ${variacao}` } })
+      fireEvent.click(await screen.findByRole('button', { name: /^Flanela Microfibra/ }, { timeout: 2000 }))
+    }
+
+    it('extra: "Pronto" recolhe numa linha resumida, tocar reabre e o foco volta para a busca', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      await buscarFlanela('fam')
+      fireEvent.change(screen.getByLabelText('Quantidade de Flanela Microfibra amarela'), { target: { value: '2' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.queryByLabelText('Quantidade de Flanela Microfibra amarela')).not.toBeInTheDocument()
+      const resumo = screen.getByRole('button', { name: 'Editar: Flanela Microfibra amarela — 2' })
+      expect(screen.getByText('1 item pedido')).toBeInTheDocument()
+      await vi.waitFor(() => expect(screen.getByLabelText(BUSCA)).toHaveFocus())
+      fireEvent.click(resumo)
+      expect(screen.getByLabelText('Quantidade de Flanela Microfibra amarela')).toHaveValue('2')
+    })
+
+    it('extra: abrir um item novo recolhe o anterior válido', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      await buscarFlanela('fam')
+      await buscarFlanela('faz')
+      expect(screen.queryByLabelText('Quantidade de Flanela Microfibra amarela')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Editar: Flanela Microfibra amarela — 1/ })).toBeInTheDocument()
+      expect(screen.getByLabelText('Quantidade de Flanela Microfibra azul')).toBeInTheDocument()
+      expect(screen.getByText('2 itens pedidos')).toBeInTheDocument()
+    })
+
+    it('extra: quantidade vazia não recolhe e mostra o erro', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      await buscarFlanela('fam')
+      fireEvent.change(screen.getByLabelText('Quantidade de Flanela Microfibra amarela'), { target: { value: '' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.getByLabelText('Quantidade de Flanela Microfibra amarela')).toBeInTheDocument()
+      expect(screen.getByText('Diga quantos você precisa.')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Editar:/ })).not.toBeInTheDocument()
+    })
+
+    it('uniforme: sem tamanho o "Pronto" não recolhe; com tamanho vira "Pessoa · Peça tamanho — qtd"', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      irParaEtapa(/Uniformes e EPIs/)
+      fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
+      fireEvent.click(screen.getByRole('button', { name: /Camisa polo azul clara — ASG/ }))
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.getByText(/escolha o tamanho/)).toBeInTheDocument()
+      expect(screen.getByRole('radiogroup', { name: /Tamanho de/ })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.queryByRole('radiogroup', { name: /Tamanho de/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Editar: Michelle A. · Camisa polo azul clara — ASG M — 1' })).toBeInTheDocument()
+    })
+
+    it('crachá: sem motivo não recolhe; com motivo vira "Crachá · Nome — motivo"', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      irParaEtapa(/Crachás/)
+      fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.getByRole('radiogroup', { name: 'Motivo do pedido' })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('radio', { name: 'Perda' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.getByRole('button', { name: 'Editar: Crachá · Michelle A. — perda' })).toBeInTheDocument()
+    })
+
+    it('remover pede confirmação antes de apagar', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      await buscarFlanela('fam')
+      fireEvent.click(screen.getByRole('button', { name: 'Remover Flanela Microfibra amarela' }))
+      expect(screen.getByLabelText('Quantidade de Flanela Microfibra amarela')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Apagar' }))
+      expect(screen.queryByLabelText('Quantidade de Flanela Microfibra amarela')).not.toBeInTheDocument()
+    })
+
+    it('equipe aparece em ordem alfabética (sem peso de acento) e "Outra pessoa" fica no fim', async () => {
+      api.carregar.mockResolvedValue(
+        dados({
+          equipe: [
+            { ref: 'r1aaaaaaaaaa', nome: 'Zélia P.', funcao: 'asg' },
+            { ref: 'r2aaaaaaaaaa', nome: 'Évelin R.', funcao: 'asg' },
+            { ref: 'r3aaaaaaaaaa', nome: 'Ana C.', funcao: 'asg' },
+            { ref: 'r4aaaaaaaaaa', nome: 'Dagno S.', funcao: 'asg' },
+          ],
+        })
+      )
+      renderizar()
+      await screen.findByText('Cloro')
+      irParaEtapa(/Uniformes e EPIs/)
+      const nomes = screen.getAllByRole('button').map((b) => (b.textContent ?? '').trim()).filter((t) => /^(Zélia|Évelin|Ana|Dagno)|Outra pessoa/.test(t))
+      expect(nomes).toEqual(['Ana C.', 'Dagno S.', 'Évelin R.', 'Zélia P.', 'Outra pessoa (ferista/cobertura)'])
+    })
+  })
+
   it('busca única: item fora do kit vira "não vem todo mês" com pergunta; "Não achei" vira texto livre', async () => {
     api.carregar.mockResolvedValue(dados())
     api.buscar.mockResolvedValue({

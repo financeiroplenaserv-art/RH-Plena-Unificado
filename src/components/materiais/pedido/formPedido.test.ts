@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { ContextoPedido, ItemPublico } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
 import {
+  ordenarEquipe,
+  resumoLinhaCracha,
+  resumoLinhaPeca,
+  resumoLinhaProduto,
   errosDe,
   itemDaLinhaPeca,
   lerRascunho,
@@ -330,5 +334,21 @@ describe('limparRascunhosAntigos (faxina do aparelho ao abrir o link)', () => {
     } finally {
       Storage.prototype.key = original
     }
+  })
+})
+
+describe('quadros recolhíveis: ordem da equipe e resumos', () => {
+  it('ordena a equipe em pt-BR sem peso de acento e não altera a original', () => {
+    const original = [{ nome: 'Zélia P.' }, { nome: 'Évelin R.' }, { nome: 'ana c.' }, { nome: 'Dagno S.' }]
+    expect(ordenarEquipe(original).map((m) => m.nome)).toEqual(['ana c.', 'Dagno S.', 'Évelin R.', 'Zélia P.'])
+    expect(original[0].nome).toBe('Zélia P.')
+  })
+  it('resumos curtos', () => {
+    expect(resumoLinhaProduto('Flanela Microfibra amarela', '2')).toBe('Flanela Microfibra amarela — 2')
+    expect(resumoLinhaProduto('Cloro', '1,5')).toBe('Cloro — 1,5')
+    expect(resumoLinhaPeca('Walace D.', 'Bota PVC', '41', '1')).toBe('Walace D. · Bota PVC 41 — 1')
+    expect(resumoLinhaPeca('Walace D.', 'Boné', '', '2')).toBe('Walace D. · Boné — 2')
+    expect(resumoLinhaCracha('Dagno S.', 'Perda')).toBe('Crachá · Dagno S. — perda')
+    expect(resumoLinhaCracha('Dagno S.', 'Não se aplica. Pedido apenas do cordão com prendedor.')).toBe('Crachá · Dagno S. — só o cordão')
   })
 })

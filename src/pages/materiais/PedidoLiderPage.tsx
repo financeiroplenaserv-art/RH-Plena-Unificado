@@ -543,6 +543,7 @@ export function PedidoLiderPage() {
       setLinhas={(f) => setProdutos((ls) => [...ls.filter((l) => l.secao !== secao), ...f(ls.filter((l) => l.secao === secao))])}
       ctx={ctx}
       erros={errosVisiveis}
+      errosTodos={erros}
       token={token}
       catalogoBusca={dados?.catalogo_busca}
       secao={secao}
@@ -630,12 +631,13 @@ export function PedidoLiderPage() {
             equipe={dados.equipe}
             semKitUniforme={dados.sem_kit_uniforme}
             erros={errosVisiveis}
+            errosTodos={erros}
           />
           </Parte>
         )}
         {atual === 'cracha' && (
           <Parte tom="cracha" id="parte-cracha" titulo="Crachá" subtitulo="Usar o crachá é obrigatório. Conforme o motivo, pode haver desconto.">
-            <SecaoCrachas linhas={crachas} setLinhas={setCrachas} equipe={dados.equipe} erros={errosVisiveis} />
+            <SecaoCrachas linhas={crachas} setLinhas={setCrachas} equipe={dados.equipe} erros={errosVisiveis} errosTodos={erros} />
           </Parte>
         )}
 

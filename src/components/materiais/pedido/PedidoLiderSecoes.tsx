@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BadgeCheck, Loader2, Minus, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
+import { AlertTriangle, BadgeCheck, Check, Loader2, Minus, Pencil, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
 import { TONS, type Tom } from './tons'
 import {
   MOTIVOS_CRACHA,
@@ -29,8 +29,13 @@ import {
   type LinhaPecaForm,
   type LinhaProdutoForm,
   type PessoaForm,
+  ordenarEquipe,
+  resumoLinhaCracha,
+  resumoLinhaPeca,
+  resumoLinhaProduto,
   type SecaoProduto,
 } from './formPedido'
+import { focarDepois, useQuadros } from './useQuadros'
 
 // Peças da tela pública do líder (/pedido/:token). Público: ASGs com
 // dificuldade de leitura e de uso do celular — então tudo é por TOQUE (botões
@@ -94,6 +99,60 @@ export function MensagemErro({ mensagens }: { mensagens: string[] }) {
 }
 
 const BOTAO_GRANDE = 'flex min-h-12 items-center justify-center rounded-xl border-2 px-3 text-base font-semibold active:scale-[0.98]'
+
+/** Linha resumida de um quadro pronto: toda tocável (lápis) para reabrir; ícone de alerta opcional. */
+export function LinhaResumo({ tom, texto, onAbrir, alerta }: { tom: Tom; texto: string; onAbrir: () => void; alerta?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onAbrir}
+      data-resumo="true"
+      aria-label={`Editar: ${texto}`}
+      className={cn('flex min-h-14 w-full items-center gap-3 rounded-xl border-2 bg-card px-3 py-2 text-left active:scale-[0.99]', TONS[tom].borda)}
+    >
+      <Check className={cn('size-5 shrink-0', TONS[tom].texto)} aria-hidden />
+      <span className="min-w-0 flex-1 text-base font-semibold leading-snug">{texto}</span>
+      {alerta && <AlertTriangle className="size-5 shrink-0 text-amber-600" aria-label="Atenção" />}
+      <Pencil className={cn('size-5 shrink-0', TONS[tom].texto)} aria-hidden />
+    </button>
+  )
+}
+
+/** Botão grande "Pronto" no fim do quadro aberto. */
+export function BotaoPronto({ tom, onClick }: { tom: Tom; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={cn(BOTAO_GRANDE, 'min-h-14 w-full gap-2 text-lg', TONS[tom].cheio)}>
+      <Check className="size-6" strokeWidth={3} aria-hidden /> Pronto
+    </button>
+  )
+}
+
+/** Lixeira com confirmação simples (2 toques): não apaga sem querer. */
+export function BotaoApagar({ rotulo, onConfirmar }: { rotulo: string; onConfirmar: () => void }) {
+  const [confirmando, setConfirmando] = useState(false)
+  if (!confirmando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmando(true)}
+        className="flex size-12 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
+        aria-label={rotulo}
+      >
+        <Trash2 className="size-6" />
+      </button>
+    )
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-1.5" role="group" aria-label="Confirmar">
+      <button type="button" onClick={onConfirmar} className="min-h-12 rounded-xl bg-red-600 px-3 text-base font-bold text-white">
+        Apagar
+      </button>
+      <button type="button" onClick={() => setConfirmando(false)} className="min-h-12 rounded-xl border-2 border-input bg-background px-3 text-base font-semibold">
+        Voltar
+      </button>
+    </div>
+  )
+}
 
 /** Quantidade com −/+ grandes (56px) e o número em destaque (aceita digitação, mas não é preciso). */
 export function CampoQuantidade({
@@ -219,6 +278,7 @@ export function SecaoProdutos({
   setLinhas,
   ctx,
   erros,
+  errosTodos,
   token,
   catalogoBusca,
   secao,
@@ -227,7 +287,10 @@ export function SecaoProdutos({
   linhas: LinhaProdutoForm[]
   setLinhas: (f: (l: LinhaProdutoForm[]) => LinhaProdutoForm[]) => void
   ctx: ContextoPedido
+  /** Erros visíveis (a etapa já tentou avançar). */
   erros: ErroCampo[]
+  /** Todos os erros da validação (o "Pronto" usa estes). */
+  errosTodos?: ErroCampo[]
   token: string
   /** Catálogo buscável (só nomes) enviado pelo `carregar`; ausente = function antiga (busca pela rede). */
   catalogoBusca?: ItemBuscavelPublico[]
@@ -240,6 +303,8 @@ export function SecaoProdutos({
     setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...patch } : l)))
   const remover = (chave: string) => setLinhas((ls) => ls.filter((l) => l.chave !== chave))
   const [avisoBusca, setAvisoBusca] = useState<string | null>(null)
+  const quadros = useQuadros(errosTodos ?? erros, erros)
+  const campoBuscaId = `busca-item-${secao}`
 
   const kit = linhas.filter((l) => l.origem === 'kit')
   const extras = linhas.filter((l) => l.origem !== 'kit')
@@ -266,15 +331,18 @@ export function SecaoProdutos({
     const existente = extras.find((l) => l.item_id === r.id && (l.variacao_id ?? null) === variacao)
     if (existente) {
       alterar(existente.chave, { quantidade: String(qtdNumero(existente.quantidade) + 1) })
+      quadros.abrirSo(existente.chave)
       setAvisoBusca(`${nome} já estava na lista. Somamos mais 1.`)
       return
     }
     setAvisoBusca(null)
     const doKit = qtdKitPublico(ctx.kit, r.id, variacao) != null
+    const chaveNova = novaChave()
+    quadros.abrirSo(chaveNova)
     setLinhas((ls) => [
       ...ls,
       {
-        chave: novaChave(),
+        chave: chaveNova,
         item_id: r.id,
         variacao_id: variacao,
         descricao_livre: '',
@@ -287,9 +355,11 @@ export function SecaoProdutos({
   }
   const adicionarLivre = (descricao: string) => {
     setAvisoBusca(null)
+    const chaveNova = novaChave()
+    quadros.abrirSo(chaveNova)
     setLinhas((ls) => [
       ...ls,
-      { chave: novaChave(), item_id: null, variacao_id: null, descricao_livre: descricao, quantidade: '1', justificativa: '', secao, origem: 'livre' },
+      { chave: chaveNova, item_id: null, variacao_id: null, descricao_livre: descricao, quantidade: '1', justificativa: '', secao, origem: 'livre' },
     ])
   }
 
@@ -403,21 +473,31 @@ export function SecaoProdutos({
 
       {/* ---------- 2. Pedido extra ---------- */}
       <Parte tom="extra" id={`extra-${secao}`} titulo="Precisa de mais alguma coisa?" subtitulo="Escreva o que precisa. O inspetor confere.">
+        {extras.length > 0 && (
+          <p className="text-sm font-semibold text-muted-foreground" aria-live="polite">
+            {extras.length === 1 ? '1 item pedido' : `${extras.length} itens pedidos`}
+          </p>
+        )}
         {extras.map((l) => {
           const item = l.item_id ? porId.get(l.item_id) : undefined
           const qtd = qtdNumero(l.quantidade)
+          const nome = nomeDaLinhaProduto(l, item)
+          const semQtd = qtd <= 0
+          if (!quadros.estaAberta(l.chave, false) && !semQtd) {
+            return <LinhaResumo key={l.chave} tom="extra" texto={resumoLinhaProduto(nome, l.quantidade)} onAbrir={() => quadros.abrirSo(l.chave)} />
+          }
           const exc = item
             ? excecoesLinhaPedido(ctx, item.id, l.variacao_id, qtd, 'extra')
             : { acimaKit: false, foraKit: qtd > 0, pedeMotivo: qtd > 0 }
-          const nome = nomeDaLinhaProduto(l, item)
-          const errosLinha = errosDe(erros, l.chave)
+          const errosLinha = quadros.errosDaLinha(l.chave)
+          const mensagens = quadros.mostrarErro(l.chave) && semQtd ? ['Diga quantos você precisa.', ...errosLinha] : errosLinha
           const etiqueta = l.origem === 'livre' ? 'Escrito por você' : l.origem === 'mais' ? 'A mais do que vem no mês' : 'Não vem todo mês'
           // Só rascunho antigo chega aqui sem a variação que o item exige.
           const precisaVariacao = !!item && item.variacoes.length > 0 && !l.variacao_id && qtdKitPublico(ctx.kit, item.id, null) == null
           return (
             <div
               key={l.chave}
-              data-erro={errosLinha.length > 0 ? 'true' : undefined}
+              data-erro={mensagens.length > 0 ? 'true' : undefined}
               className="space-y-3 rounded-2xl border-2 border-pedido-extra/50 bg-card p-4"
             >
               <div className="flex items-start justify-between gap-2">
@@ -425,14 +505,7 @@ export function SecaoProdutos({
                   <p className="text-lg font-bold leading-snug">{nome}</p>
                   <p className={cn('text-base font-medium', TONS.extra.texto)}>{etiqueta}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => remover(l.chave)}
-                  className="flex size-12 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
-                  aria-label={`Remover ${nome}`}
-                >
-                  <Trash2 className="size-6" />
-                </button>
+                <BotaoApagar rotulo={`Remover ${nome}`} onConfirmar={() => remover(l.chave)} />
               </div>
               {item && precisaVariacao && (
                 <div className="space-y-1.5">
@@ -456,7 +529,14 @@ export function SecaoProdutos({
                   rotulo={nome}
                 />
               )}
-              <MensagemErro mensagens={errosLinha} />
+              <MensagemErro mensagens={mensagens} />
+              <BotaoPronto
+                tom="extra"
+                onClick={() => {
+                  const valida = !quadros.invalida(l.chave, semQtd)
+                  if (quadros.pronto(l.chave, valida)) focarDepois(campoBuscaId)
+                }}
+              />
             </div>
           )
         })}
@@ -649,19 +729,24 @@ function EscolherPessoa({
   onEscolher,
   titulo,
   tom,
+  idFoco,
 }: {
   equipe: MembroEquipePublico[]
   jaEscolhidos: Set<string>
   onEscolher: (p: { ref: string | null; nome: string }) => void
   titulo: string
   tom: Tom
+  /** Id do título, para o foco ir para cá depois do "Pronto". */
+  idFoco?: string
 }) {
   const [outra, setOutra] = useState(false)
   const [nome, setNome] = useState('')
-  const disponiveis = equipe.filter((m) => !jaEscolhidos.has(m.ref))
+  const disponiveis = ordenarEquipe(equipe.filter((m) => !jaEscolhidos.has(m.ref)))
   return (
     <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
-      <p className={cn('text-lg font-bold', TONS[tom].texto)}>{titulo}</p>
+      <p id={idFoco} tabIndex={idFoco ? -1 : undefined} className={cn('text-lg font-bold outline-none', TONS[tom].texto)}>
+        {titulo}
+      </p>
       {disponiveis.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {disponiveis.map((m) => (
@@ -729,6 +814,7 @@ export function SecaoUniformes({
   equipe,
   semKitUniforme,
   erros,
+  errosTodos,
 }: {
   pessoas: PessoaForm[]
   setPessoas: (f: (l: PessoaForm[]) => PessoaForm[]) => void
@@ -738,7 +824,10 @@ export function SecaoUniformes({
   equipe: MembroEquipePublico[]
   semKitUniforme: boolean
   erros: ErroCampo[]
+  errosTodos?: ErroCampo[]
 }) {
+  const quadros = useQuadros(errosTodos ?? erros, erros)
+  const pecaPorId = new Map(pecas.map((x) => [x.id, x]))
   const funcaoPorRef = new Map(equipe.map((m) => [m.ref, m.funcao]))
   const [todasPara, setTodasPara] = useState<Set<string>>(new Set())
   const alterar = (chave: string, patch: Partial<LinhaPecaForm>) =>
@@ -758,87 +847,100 @@ export function SecaoUniformes({
           <section key={p.chave} className="space-y-3 rounded-2xl border-2 border-pedido-epi/50 bg-card p-4" aria-label={`Pedido de ${p.nome}`}>
             <div className="flex items-center justify-between gap-2">
               <p className={cn('text-xl font-bold', TONS.epi.texto)}>{p.nome}</p>
-              <button
-                type="button"
-                onClick={() => {
+              <BotaoApagar
+                rotulo={`Tirar ${p.nome} do pedido`}
+                onConfirmar={() => {
                   setPessoas((ps) => ps.filter((x) => x.chave !== p.chave))
                   setLinhas((ls) => ls.filter((l) => l.pessoa !== p.chave))
                 }}
-                className="flex size-12 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
-                aria-label={`Tirar ${p.nome} do pedido`}
-              >
-                <Trash2 className="size-6" />
-              </button>
+              />
             </div>
             {dela.length === 0 && <Ajuda>Toque nas peças que {p.nome} precisa.</Ajuda>}
-            <ul className="space-y-2">
-              {mostrar.map((peca) => {
-                const linha = dela.find((l) => l.peca_id === peca.id)
-                const tamanhos = peca.opcoes.map((o) => o.tamanho).filter(Boolean)
-                if (!linha) {
-                  return (
-                    <li key={peca.id}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setLinhas((ls) => [
-                            ...ls,
-                            { chave: novaChave(), pessoa: p.chave, peca_id: peca.id, tamanho: '', quantidade: '1' },
-                          ])
-                        }
-                        className={cn(BOTAO_GRANDE, 'min-h-14 w-full justify-between gap-2 border-input bg-background text-left')}
-                      >
-                        <span>{peca.rotulo}</span>
-                        <Plus className="size-6 shrink-0 text-pedido-epi" strokeWidth={3} aria-hidden />
-                      </button>
-                    </li>
-                  )
-                }
+            {dela.length > 0 && (
+              <p className="text-sm font-semibold text-muted-foreground" aria-live="polite">
+                {dela.length === 1 ? '1 peça pedida' : `${dela.length} peças pedidas`}
+              </p>
+            )}
+            {dela.map((linha) => {
+              const peca = pecaPorId.get(linha.peca_id)
+              if (!peca) return null
+              const tamanhos = peca.opcoes.map((o) => o.tamanho).filter(Boolean)
+              if (!quadros.estaAberta(linha.chave)) {
                 return (
-                  <li
-                    key={peca.id}
-                    data-erro={errosDe(erros, linha.chave).length > 0 ? 'true' : undefined}
-                    className="space-y-3 rounded-xl border-2 border-pedido-epi bg-pedido-epi-bg p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-lg font-bold">{peca.rotulo}</p>
-                      <button
-                        type="button"
-                        onClick={() => setLinhas((ls) => ls.filter((l) => l.chave !== linha.chave))}
-                        className="flex size-12 items-center justify-center rounded-xl text-muted-foreground"
-                        aria-label={`Tirar ${peca.rotulo}`}
-                      >
-                        <X className="size-6" />
-                      </button>
-                    </div>
-                    {tamanhos.length > 0 && (
-                      <div>
-                        <p className="mb-1.5 text-base font-semibold">Tamanho</p>
-                        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={`Tamanho de ${peca.rotulo}`}>
-                          {tamanhos.map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              role="radio"
-                              aria-checked={linha.tamanho === t}
-                              onClick={() => alterar(linha.chave, { tamanho: t })}
-                              className={cn(
-                                BOTAO_GRANDE,
-                                'px-1 text-lg',
-                                linha.tamanho === t ? TONS.epi.cheio : 'border-input bg-background'
-                              )}
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <CampoQuantidade valor={linha.quantidade} onChange={(v) => alterar(linha.chave, { quantidade: v })} unidade="peça(s)" rotulo={peca.rotulo} minimo={1} tom="epi" />
-                    <MensagemErro mensagens={errosDe(erros, linha.chave)} />
-                  </li>
+                  <LinhaResumo
+                    key={linha.chave}
+                    tom="epi"
+                    texto={resumoLinhaPeca(p.nome, peca.rotulo, linha.tamanho, linha.quantidade)}
+                    onAbrir={() => quadros.abrirSo(linha.chave)}
+                  />
                 )
-              })}
+              }
+              const errosLinha = quadros.errosDaLinha(linha.chave)
+              return (
+                <div
+                  key={linha.chave}
+                  data-erro={errosLinha.length > 0 ? 'true' : undefined}
+                  className="space-y-3 rounded-xl border-2 border-pedido-epi bg-pedido-epi-bg p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-lg font-bold">{peca.rotulo}</p>
+                    <BotaoApagar rotulo={`Tirar ${peca.rotulo}`} onConfirmar={() => setLinhas((ls) => ls.filter((l) => l.chave !== linha.chave))} />
+                  </div>
+                  {tamanhos.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-base font-semibold">Tamanho</p>
+                      <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={`Tamanho de ${peca.rotulo}`}>
+                        {tamanhos.map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            role="radio"
+                            aria-checked={linha.tamanho === t}
+                            onClick={() => alterar(linha.chave, { tamanho: t })}
+                            className={cn(BOTAO_GRANDE, 'px-1 text-lg', linha.tamanho === t ? TONS.epi.cheio : 'border-input bg-background')}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <CampoQuantidade valor={linha.quantidade} onChange={(v) => alterar(linha.chave, { quantidade: v })} unidade="peça(s)" rotulo={peca.rotulo} minimo={1} tom="epi" />
+                  <MensagemErro mensagens={errosLinha} />
+                  <BotaoPronto
+                    tom="epi"
+                    onClick={() => {
+                      const valida = !quadros.invalida(linha.chave) && qtdNumero(linha.quantidade) > 0
+                      if (quadros.pronto(linha.chave, valida)) focarDepois(`proxima-peca-${p.chave}`)
+                    }}
+                  />
+                </div>
+              )
+            })}
+            {mostrar.some((peca) => !dela.some((l) => l.peca_id === peca.id)) && (
+              <p id={`proxima-peca-${p.chave}`} tabIndex={-1} className={cn('pt-1 text-base font-bold outline-none', TONS.epi.texto)}>
+                {dela.length > 0 ? `Outra peça para ${p.nome}?` : `Qual peça ${p.nome} precisa?`}
+              </p>
+            )}
+            <ul className="space-y-2">
+              {mostrar
+                .filter((peca) => !dela.some((l) => l.peca_id === peca.id))
+                .map((peca) => (
+                  <li key={peca.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const chaveNova = novaChave()
+                        quadros.abrirSo(chaveNova)
+                        setLinhas((ls) => [...ls, { chave: chaveNova, pessoa: p.chave, peca_id: peca.id, tamanho: '', quantidade: '1' }])
+                      }}
+                      className={cn(BOTAO_GRANDE, 'min-h-14 w-full justify-between gap-2 border-input bg-background text-left')}
+                    >
+                      <span>{peca.rotulo}</span>
+                      <Plus className="size-6 shrink-0 text-pedido-epi" strokeWidth={3} aria-hidden />
+                    </button>
+                  </li>
+                ))}
             </ul>
             {daFuncao.length < pecas.length && (
               <button
@@ -865,7 +967,10 @@ export function SecaoUniformes({
         jaEscolhidos={new Set(pessoas.map((p) => p.ref).filter((r): r is string => !!r))}
         titulo={pessoas.length === 0 ? 'Para quem é o pedido?' : 'Mais alguém precisa?'}
         tom="epi"
-        onEscolher={(p) => setPessoas((ps) => [...ps, { chave: novaChave(), ref: p.ref, nome: p.nome }])}
+        onEscolher={(p) => {
+          quadros.recolherValidas()
+          setPessoas((ps) => [...ps, { chave: novaChave(), ref: p.ref, nome: p.nome }])
+        }}
       />
     </div>
   )
@@ -878,33 +983,39 @@ export function SecaoCrachas({
   setLinhas,
   equipe,
   erros,
+  errosTodos,
 }: {
   linhas: LinhaCrachaForm[]
   setLinhas: (f: (l: LinhaCrachaForm[]) => LinhaCrachaForm[]) => void
   equipe: MembroEquipePublico[]
   erros: ErroCampo[]
+  errosTodos?: ErroCampo[]
 }) {
+  const quadros = useQuadros(errosTodos ?? erros, erros)
   const alterar = (chave: string, patch: Partial<LinhaCrachaForm>) =>
     setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...patch } : l)))
   return (
     <div className="space-y-4">
-      {linhas.map((l) => (
+      {linhas.length > 0 && (
+        <p className="text-sm font-semibold text-muted-foreground" aria-live="polite">
+          {linhas.length === 1 ? '1 crachá pedido' : `${linhas.length} crachás pedidos`}
+        </p>
+      )}
+      {linhas.map((l) => {
+        if (!quadros.estaAberta(l.chave)) {
+          return <LinhaResumo key={l.chave} tom="cracha" texto={resumoLinhaCracha(l.nome, l.cracha_motivo)} onAbrir={() => quadros.abrirSo(l.chave)} />
+        }
+        const errosLinha = quadros.errosDaLinha(l.chave)
+        return (
         <section
           key={l.chave}
-          data-erro={errosDe(erros, l.chave).length > 0 ? 'true' : undefined}
+          data-erro={errosLinha.length > 0 ? 'true' : undefined}
           className="space-y-3 rounded-2xl border-2 border-pedido-cracha/50 bg-card p-4"
           aria-label={`Crachá de ${l.nome}`}
         >
           <div className="flex items-center justify-between">
             <p className={cn('text-xl font-bold', TONS.cracha.texto)}>{l.nome}</p>
-            <button
-              type="button"
-              onClick={() => setLinhas((ls) => ls.filter((x) => x.chave !== l.chave))}
-              className="flex size-12 items-center justify-center rounded-xl text-muted-foreground hover:bg-accent"
-              aria-label={`Tirar o crachá de ${l.nome}`}
-            >
-              <Trash2 className="size-6" />
-            </button>
+            <BotaoApagar rotulo={`Tirar o crachá de ${l.nome}`} onConfirmar={() => setLinhas((ls) => ls.filter((x) => x.chave !== l.chave))} />
           </div>
           <div>
             <p className="mb-1.5 text-base font-semibold">Por que precisa?</p>
@@ -961,17 +1072,27 @@ export function SecaoCrachas({
           ) : (
             <Ajuda>No crachá vai o nome &quot;{l.nome}&quot;. Escreva só nome e sobrenome (ex.: Maria dos Santos).</Ajuda>
           )}
-          <MensagemErro mensagens={errosDe(erros, l.chave)} />
+          <MensagemErro mensagens={errosLinha} />
+          <BotaoPronto
+            tom="cracha"
+            onClick={() => {
+              if (quadros.pronto(l.chave, !quadros.invalida(l.chave))) focarDepois('proximo-cracha')
+            }}
+          />
         </section>
-      ))}
+        )
+      })}
       <EscolherPessoa
+        idFoco="proximo-cracha"
         equipe={equipe}
         jaEscolhidos={new Set(linhas.map((l) => l.ref).filter((r): r is string => !!r))}
         titulo={linhas.length === 0 ? 'Quem precisa de crachá?' : 'Mais alguém precisa de crachá?'}
         tom="cracha"
-        onEscolher={(p) =>
-          setLinhas((ls) => [...ls, { chave: novaChave(), ref: p.ref, nome: p.nome, cracha_nome: '', cracha_motivo: '', cracha_cordao: false }])
-        }
+        onEscolher={(p) => {
+          const chaveNova = novaChave()
+          quadros.abrirSo(chaveNova)
+          setLinhas((ls) => [...ls, { chave: chaveNova, ref: p.ref, nome: p.nome, cracha_nome: '', cracha_motivo: '', cracha_cordao: false }])
+        }}
       />
     </div>
   )
