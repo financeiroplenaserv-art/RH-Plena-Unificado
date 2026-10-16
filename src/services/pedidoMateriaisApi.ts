@@ -56,6 +56,11 @@ export interface DadosPedidoPublico {
   ultimas_entregas: Record<string, string>
   resumo: ResumoMes
   destino: { produtos: DestinoFilaPublico; ceu: DestinoFilaPublico }
+  /**
+   * O kit deste mês já foi confirmado (outro envio). Ausente = function
+   * anterior à migration 135 (tratado como false).
+   */
+  kit_confirmado?: boolean
 }
 
 export interface ResultadoEnvioPedido {
@@ -65,6 +70,10 @@ export interface ResultadoEnvioPedido {
   mesclado_ceu: boolean
   virou_extra_produtos: boolean
   virou_extra_ceu: boolean
+  /** Migration 135: as linhas do kit já saíram aprovadas (configuração ligada). */
+  kit_aprovado?: boolean
+  /** Migration 135: o envio tem pedido extra (vai para o inspetor). */
+  tem_extras?: boolean
 }
 
 export interface LinkPedido {

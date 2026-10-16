@@ -4,7 +4,8 @@ import {
   MOTIVOS_CRACHA,
   TERMOS_PEDIDO,
   excecoesLinhaPedido,
-  perguntaJustificativa,
+  linhasIniciaisDoKit,
+  perguntaMotivo,
   type ContextoPedido,
   type ErroCampo,
   type ItemPublico,
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils'
 import {
   CAMPO,
   errosDe,
+  maximoDaLinhaKit,
   novaChave,
   qtdNumero,
   type LinhaCrachaForm,
@@ -56,15 +58,20 @@ export function CampoQuantidade({
   unidade,
   rotulo,
   minimo = 0,
+  maximo,
 }: {
   valor: string
   onChange: (v: string) => void
   unidade?: string | null
   rotulo: string
   minimo?: number
+  /** Teto do botão + (linha do kit: o kit do mês — nunca aumenta). */
+  maximo?: number
 }) {
   const atual = qtdNumero(valor)
-  const passo = (d: number) => onChange(String(Math.max(minimo, Math.round((atual + d) * 100) / 100)))
+  const limitar = (n: number) => (maximo != null ? Math.min(maximo, n) : n)
+  const passo = (d: number) => onChange(String(limitar(Math.max(minimo, Math.round((atual + d) * 100) / 100))))
+  const noMaximo = maximo != null && atual >= maximo
   return (
     <div className="flex items-center gap-2">
       <button
@@ -87,7 +94,8 @@ export function CampoQuantidade({
       <button
         type="button"
         onClick={() => passo(1)}
-        className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-input bg-background active:bg-accent"
+        disabled={noMaximo}
+        className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-input bg-background active:bg-accent disabled:opacity-40"
         aria-label={`Aumentar ${rotulo}`}
       >
         <Plus className="size-5" />
@@ -125,25 +133,25 @@ export function Declaracao({
   )
 }
 
-/** Pergunta da justificativa em vermelho, com o campo logo abaixo. */
-function Justificativa({
+/** Convite (OPCIONAL) para contar o motivo do extra, com o campo logo abaixo. */
+function MotivoOpcional({
   pergunta,
   valor,
   onChange,
   rotulo,
-  erros,
 }: {
   pergunta: string
   valor: string
   onChange: (v: string) => void
   rotulo: string
-  erros: string[]
 }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-semibold text-red-700 dark:text-red-400">{pergunta}</p>
+      <p className="text-sm text-foreground">
+        {pergunta} <span className="text-muted-foreground">(opcional)</span>
+      </p>
       <textarea
-        className={cn(CAMPO, 'min-h-20', erros.length > 0 && !valor.trim() ? 'border-red-500' : '')}
+        className={cn(CAMPO, 'min-h-20')}
         value={valor}
         maxLength={500}
         onChange={(e) => onChange(e.target.value)}
@@ -156,6 +164,16 @@ function Justificativa({
 
 // ---------------- Produtos (materiais e kit portaria) ----------------
 
+const fmt = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',')
+
+/**
+ * Duas partes (decisão da gestão, 16/10/2026):
+ * 1. "Seu kit do mês": o que o posto VAI RECEBER. O líder só confirma; pode
+ *    tirar ("Não preciso este mês") ou diminuir, nunca aumentar. Sem motivo.
+ * 2. "Precisa de mais alguma coisa?": pedido extra — a mais de um item do
+ *    kit (linha separada), outro item pela busca ou texto livre. Motivo
+ *    opcional; o inspetor confere.
+ */
 export function SecaoProdutos({
   linhas,
   setLinhas,
@@ -163,7 +181,6 @@ export function SecaoProdutos({
   erros,
   token,
   secao,
-  semKit,
   onItemBusca,
 }: {
   linhas: LinhaProdutoForm[]
@@ -172,8 +189,6 @@ export function SecaoProdutos({
   erros: ErroCampo[]
   token: string
   secao: SecaoProduto
-  /** Nenhum item do kit nesta etapa. */
-  semKit: boolean
   /** Guarda o item escolhido na busca (o contexto do navegador só tem o kit). */
   onItemBusca: (item: ItemPublico) => void
 }) {
@@ -182,18 +197,40 @@ export function SecaoProdutos({
     setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...patch } : l)))
   const remover = (chave: string) => setLinhas((ls) => ls.filter((l) => l.chave !== chave))
   const [avisoBusca, setAvisoBusca] = useState<string | null>(null)
+  const [escolhendoMais, setEscolhendoMais] = useState(false)
 
-  const adicionarDaBusca = (item: ItemPublico) => {
-    if (linhas.some((l) => l.item_id === item.id && l.origem === 'kit')) {
-      setAvisoBusca(`${item.nome} já está na lista do kit, acima. Ajuste a quantidade lá.`)
+  const kit = linhas.filter((l) => l.origem === 'kit')
+  const extras = linhas.filter((l) => l.origem !== 'kit')
+  // Itens do kit cadastrado desta etapa (inclusive os que não vêm este mês):
+  // base do botão "Quero mais de um item do kit".
+  const itensKitDaSecao = linhasIniciaisDoKit(ctx).filter((k) => {
+    const cat = porId.get(k.item_id)?.categoria
+    return (cat === 'portaria' ? 'portaria' : 'materiais') === secao
+  })
+  const naoVemEsteMes = ctx.kitConfirmado
+    ? []
+    : itensKitDaSecao.filter((k) => k.quantidade === 0).map((k) => porId.get(k.item_id)?.nome ?? 'Item')
+  const semKit = itensKitDaSecao.length === 0
+
+  /** Acrescenta (ou soma 1 em) uma linha extra do item. */
+  const somarExtra = (item: ItemPublico, origem: 'mais' | 'busca') => {
+    const variacao = itensKitDaSecao.find((k) => k.item_id === item.id)?.variacao_id ?? null
+    const existente = extras.find((l) => l.item_id === item.id && (origem === 'busca' || l.variacao_id === variacao))
+    if (existente) {
+      alterar(existente.chave, { quantidade: String(qtdNumero(existente.quantidade) + 1) })
+      setAvisoBusca(`${item.nome} já estava no pedido extra: somamos mais 1.`)
       return
     }
     setAvisoBusca(null)
-    onItemBusca(item)
     setLinhas((ls) => [
       ...ls,
-      { chave: novaChave(), item_id: item.id, variacao_id: null, descricao_livre: '', quantidade: '1', justificativa: '', secao, origem: 'busca' },
+      { chave: novaChave(), item_id: item.id, variacao_id: variacao, descricao_livre: '', quantidade: '1', justificativa: '', secao, origem },
     ])
+  }
+  const adicionarDaBusca = (item: ItemPublico) => {
+    onItemBusca(item)
+    // Item do kit escolhido na busca = "a mais do kit".
+    somarExtra(item, ctx.kit.some((k) => k.item_id === item.id) ? 'mais' : 'busca')
   }
   const adicionarLivre = (descricao: string) => {
     setAvisoBusca(null)
@@ -203,42 +240,131 @@ export function SecaoProdutos({
     ])
   }
 
+  const radioVariacao = (l: LinhaProdutoForm, item: ItemPublico) => (
+    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Opção de ${item.nome}`}>
+      {item.variacoes.map((v) => (
+        <button
+          key={v.id}
+          type="button"
+          role="radio"
+          aria-checked={l.variacao_id === v.id}
+          onClick={() => alterar(l.chave, { variacao_id: v.id })}
+          className={cn(BOTAO_GRANDE, l.variacao_id === v.id ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background')}
+        >
+          {v.rotulo}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="space-y-3">
-      {semKit && (
-        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          Este contrato ainda não tem kit cadastrado; use &quot;Preciso de outro item&quot;.
+    <div className="space-y-6">
+      {/* ---------- 1. Kit do mês ---------- */}
+      {ctx.kitConfirmado ? (
+        <p className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          O kit deste mês já foi confirmado e já vem. Aqui você pede só o que precisar a mais.
         </p>
-      )}
-      {linhas.map((l) => {
-        const item = l.item_id ? porId.get(l.item_id) : undefined
-        const qtd = qtdNumero(l.quantidade)
-        const exc = item
-          ? excecoesLinhaPedido(ctx, item.id, l.variacao_id, qtd)
-          : { qtdKit: null, acimaKit: false, validade: false, foraKit: qtd > 0, exigeJustificativa: qtd > 0 }
-        const nome = item?.nome ?? l.descricao_livre ?? 'Outro item'
-        const errosLinha = errosDe(erros, l.chave).filter((m) => !/conte para a gente/.test(m) || !exc.exigeJustificativa)
-        return (
-          <div
-            key={l.chave}
-            data-erro={errosDe(erros, l.chave).length > 0 ? 'true' : undefined}
-            className={cn(
-              'space-y-3 rounded-2xl border bg-card p-4',
-              exc.exigeJustificativa ? 'border-red-300 dark:border-red-800' : 'border-border'
-            )}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-base font-semibold leading-snug">{nome}</p>
-                {exc.qtdKit != null ? (
+      ) : semKit ? (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          Este posto ainda não tem kit cadastrado. Peça o que precisa em &quot;Precisa de mais alguma coisa?&quot;, logo abaixo.
+        </p>
+      ) : (
+        <section className="space-y-3" aria-labelledby={`kit-${secao}`}>
+          <div>
+            <h3 id={`kit-${secao}`} className="text-lg font-semibold">
+              Seu kit do mês
+            </h3>
+            <p className="text-sm text-muted-foreground">Você vai receber estes itens. Se não precisar de algum, é só avisar.</p>
+          </div>
+          {kit.map((l) => {
+            const item = l.item_id ? porId.get(l.item_id) : undefined
+            const nome = item?.nome ?? 'Item'
+            const maximo = maximoDaLinhaKit(ctx, l)
+            const qtd = qtdNumero(l.quantidade)
+            const tirou = qtd === 0
+            const variacaoLivre = !!item && item.variacoes.length > 0 && ctx.kit.some((k) => k.item_id === item.id && k.variacao_id == null)
+            const errosLinha = errosDe(erros, l.chave)
+            return (
+              <div
+                key={l.chave}
+                data-erro={errosLinha.length > 0 ? 'true' : undefined}
+                className={cn('space-y-3 rounded-2xl border p-4', tirou ? 'border-dashed border-border bg-muted/40' : 'border-border bg-card')}
+              >
+                <div>
+                  <p className={cn('text-base font-semibold leading-snug', tirou && 'text-muted-foreground line-through')}>{nome}</p>
                   <p className="text-sm text-muted-foreground tabular-nums">
-                    Kit do mês: {exc.qtdKit} {item?.unidade ?? ''}
+                    {tirou
+                      ? 'Você avisou que não precisa este mês.'
+                      : qtd < maximo
+                        ? `Você vai receber ${fmt(qtd)} (o kit é ${fmt(maximo)}) ${item?.unidade ?? ''}`
+                        : `Você vai receber ${fmt(maximo)} ${item?.unidade ?? ''}`}
                   </p>
+                </div>
+                {!tirou && item && variacaoLivre && radioVariacao(l, item)}
+                {tirou ? (
+                  <button
+                    type="button"
+                    onClick={() => alterar(l.chave, { quantidade: String(maximo) })}
+                    className={cn(BOTAO_GRANDE, 'w-full border-primary/40 bg-background text-primary')}
+                  >
+                    Quero receber
+                  </button>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{l.origem === 'livre' ? 'Item escrito por você (o inspetor confere)' : 'Fora do kit'}</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <CampoQuantidade
+                      valor={l.quantidade}
+                      onChange={(v) => alterar(l.chave, { quantidade: v === '' ? '' : String(Math.min(maximo, qtdNumero(v))) })}
+                      rotulo={nome}
+                      maximo={maximo}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => alterar(l.chave, { quantidade: '0' })}
+                      className={cn(BOTAO_GRANDE, 'border-input bg-background text-muted-foreground')}
+                    >
+                      Não preciso este mês
+                    </button>
+                  </div>
                 )}
+                <MensagemErro mensagens={errosLinha} />
               </div>
-              {l.origem !== 'kit' && (
+            )
+          })}
+          {naoVemEsteMes.length > 0 && (
+            <Ajuda>Não vem este mês (é entregue a cada alguns meses): {naoVemEsteMes.join(', ')}. Se precisar, peça logo abaixo.</Ajuda>
+          )}
+        </section>
+      )}
+
+      {/* ---------- 2. Pedido extra ---------- */}
+      <section className="space-y-3" aria-labelledby={`extra-${secao}`}>
+        <div>
+          <h3 id={`extra-${secao}`} className="text-lg font-semibold">
+            Precisa de mais alguma coisa?
+          </h3>
+          <p className="text-sm text-muted-foreground">Peça aqui o que passar do kit. O inspetor confere antes de enviar.</p>
+        </div>
+        {extras.map((l) => {
+          const item = l.item_id ? porId.get(l.item_id) : undefined
+          const qtd = qtdNumero(l.quantidade)
+          const exc = item
+            ? excecoesLinhaPedido(ctx, item.id, l.variacao_id, qtd, 'extra')
+            : { qtdKit: null, acimaKit: false, validade: false, foraKit: qtd > 0, pedeMotivo: qtd > 0 }
+          const nome = item?.nome ?? l.descricao_livre ?? 'Outro item'
+          const errosLinha = errosDe(erros, l.chave)
+          const etiqueta =
+            l.origem === 'livre' ? 'Escrito por você (o inspetor confere)' : l.origem === 'mais' ? 'A mais do que o kit' : 'Fora do kit'
+          return (
+            <div
+              key={l.chave}
+              data-erro={errosLinha.length > 0 ? 'true' : undefined}
+              className="space-y-3 rounded-2xl border border-primary/30 bg-card p-4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-base font-semibold leading-snug">{nome}</p>
+                  <p className="text-sm text-muted-foreground">{etiqueta}</p>
+                </div>
                 <button
                   type="button"
                   onClick={() => remover(l.chave)}
@@ -247,41 +373,67 @@ export function SecaoProdutos({
                 >
                   <Trash2 className="size-5" />
                 </button>
-              )}
-            </div>
-            {item && item.variacoes.length > 0 && (
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`Opção de ${item.nome}`}>
-                {item.variacoes.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={l.variacao_id === v.id}
-                    onClick={() => alterar(l.chave, { variacao_id: v.id })}
-                    className={cn(BOTAO_GRANDE, l.variacao_id === v.id ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background')}
-                  >
-                    {v.rotulo}
-                  </button>
-                ))}
               </div>
-            )}
-            <CampoQuantidade valor={l.quantidade} onChange={(v) => alterar(l.chave, { quantidade: v })} unidade={item?.unidade} rotulo={nome} />
-            {exc.exigeJustificativa && (
-              <Justificativa
-                pergunta={item ? perguntaJustificativa(exc, qtd) : 'Este item não faz parte do kit do posto. Pode contar para a gente por que precisa dele?'}
-                valor={l.justificativa}
-                onChange={(v) => alterar(l.chave, { justificativa: v })}
-                rotulo={nome}
-                erros={errosDe(erros, l.chave, 'justificativa')}
-              />
-            )}
-            <MensagemErro mensagens={errosLinha} />
-          </div>
-        )
-      })}
+              {item && item.variacoes.length > 0 && l.origem === 'busca' && radioVariacao(l, item)}
+              <CampoQuantidade valor={l.quantidade} onChange={(v) => alterar(l.chave, { quantidade: v })} unidade={item?.unidade} rotulo={nome} minimo={1} />
+              {exc.pedeMotivo && (
+                <MotivoOpcional
+                  pergunta={item ? perguntaMotivo(exc, qtd) : 'Este item não está no kit do posto. Se puder, conte para a gente por que precisa.'}
+                  valor={l.justificativa}
+                  onChange={(v) => alterar(l.chave, { justificativa: v })}
+                  rotulo={nome}
+                />
+              )}
+              <MensagemErro mensagens={errosLinha} />
+            </div>
+          )
+        })}
 
-      <BuscaOutroItem token={token} secao={secao} onEscolher={adicionarDaBusca} onLivre={adicionarLivre} />
-      {avisoBusca && <p className="text-sm text-muted-foreground">{avisoBusca}</p>}
+        {itensKitDaSecao.length > 0 &&
+          (escolhendoMais ? (
+            <div className="space-y-2 rounded-2xl border border-primary/40 bg-primary/5 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-base font-semibold">Qual item do kit você precisa a mais?</p>
+                <button
+                  type="button"
+                  onClick={() => setEscolhendoMais(false)}
+                  className="flex size-10 items-center justify-center rounded-xl text-muted-foreground"
+                  aria-label="Fechar lista do kit"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              {itensKitDaSecao.map((k) => {
+                const item = porId.get(k.item_id)
+                if (!item) return null
+                return (
+                  <button
+                    key={`${k.item_id}|${k.variacao_id ?? ''}`}
+                    type="button"
+                    onClick={() => {
+                      somarExtra(item, 'mais')
+                      setEscolhendoMais(false)
+                    }}
+                    className={cn(BOTAO_GRANDE, 'w-full justify-between border-input bg-background text-left')}
+                  >
+                    <span>{item.nome}</span>
+                    <span className="shrink-0 pl-2 text-sm text-muted-foreground">{item.unidade}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEscolhendoMais(true)}
+              className="w-full rounded-xl border border-dashed border-input py-3 text-sm font-medium text-primary active:bg-accent"
+            >
+              + Quero mais de um item do kit
+            </button>
+          ))}
+        <BuscaOutroItem token={token} secao={secao} onEscolher={adicionarDaBusca} onLivre={adicionarLivre} />
+        {avisoBusca && <p className="text-sm text-muted-foreground">{avisoBusca}</p>}
+      </section>
     </div>
   )
 }

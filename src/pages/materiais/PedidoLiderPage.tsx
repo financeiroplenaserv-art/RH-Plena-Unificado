@@ -15,8 +15,8 @@ import {
   apagarRascunho,
   errosDe,
   lerRascunho,
+  linhasKitDoForm,
   montarPayloadPedido,
-  novaChave,
   reconciliarRascunhoComKit,
   salvarRascunho,
   type LinhaCrachaForm,
@@ -26,7 +26,6 @@ import {
   type SecaoProduto,
 } from '@/components/materiais/pedido/formPedido'
 import {
-  linhasIniciaisDoKit,
   secoesUsadas,
   textoDestino,
   tituloResumo,
@@ -36,6 +35,7 @@ import {
   type ErroCampo,
   type ItemCeuPublico,
   type ItemPublico,
+  type LinhaProdutoRpc,
   type ResumoMes,
   type SecaoPedido,
 } from '@/lib/materiais/pedidoLider'
@@ -45,9 +45,11 @@ import { cn } from '@/lib/utils'
 // Tela pública do líder: /pedido/:token (QR code no quadro do contrato).
 // Sem login e sem o layout do sistema. Redesenho de 14/10/2026 para
 // AFUNILAR o pedido (público: ASGs com dificuldade de preenchimento):
-// - produtos: SÓ o Kit Mensal do contrato; fora dele, "Preciso de outro
-//   item" (busca tolerante a erro) ou "Não achei, enviar assim";
-// - acima do kit / fora do kit: pergunta em vermelho com o campo do motivo;
+// - produtos (conceito de 16/10/2026): "Seu kit do mês" é o que o posto VAI
+//   RECEBER — o líder só confirma, tira ou diminui (sem motivo); o que passar
+//   do kit vai em "Precisa de mais alguma coisa?" (a mais de um item do kit,
+//   "Preciso de outro item" com busca tolerante a erro, ou "Não achei,
+//   enviar assim"), com motivo OPCIONAL;
 // - uniforme/EPI: a pessoa é escolhida por toque na lista da equipe
 //   (primeiro nome + inicial — único dado pessoal do link, decisão da gestão
 //   de 09/10 reiterada em 14/10/2026) e só aparecem as peças da função dela,
@@ -67,10 +69,9 @@ const TITULOS: Record<Etapa, string> = {
 }
 
 const AJUDAS: Partial<Record<Etapa, string>> = {
-  materiais:
-    'Este é o Kit Mensal do posto. Ajuste as quantidades com − e +: se não precisar de um item, deixe 0.',
+  materiais: 'Confira o kit do mês. Se precisar de mais alguma coisa, peça logo abaixo do kit.',
   portaria:
-    'Os materiais de Portaria são para organização, controle de acesso e registro dos plantões. A entrega acontece no mês seguinte.',
+    'Os materiais de Portaria são para organização, controle de acesso e registro dos plantões. Confira o kit e, se precisar, peça mais abaixo.',
   pecas:
     'Toque no nome de quem precisa, depois na peça e no tamanho. Para botas e botinas, peça 2 números acima do calçado normal. Peças danificadas por mau uso poderão gerar desconto.',
   cracha: 'O uso do crachá é obrigatório. Dependendo do motivo do pedido de novo crachá, poderá haver desconto.',
@@ -171,6 +172,23 @@ function itensCeuDasPecas(d: DadosPedidoPublico): ItemCeuPublico[] {
   return lista
 }
 
+/** Sublista da revisão final (kit do mês, pedido extra ou uniforme/EPI/crachá). */
+function ListaRevisao({ titulo, itens }: { titulo?: string; itens: { rotulo: string; qtd: string; destaque?: boolean }[] }) {
+  return (
+    <div className="border-t border-border px-4 py-2">
+      {titulo && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</p>}
+      <ul className="space-y-0.5 text-xs text-muted-foreground">
+        {itens.map((it, i) => (
+          <li key={i} className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0">{it.rotulo}</span>
+            <span className={cn('shrink-0 tabular-nums', it.destaque && 'font-medium text-foreground')}>{it.qtd}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function PedidoLiderPage() {
   useMetaPrivada()
   const { token = '' } = useParams<{ token: string }>()
@@ -214,6 +232,7 @@ export function PedidoLiderPage() {
           catalogo: d.catalogo,
           kit: d.kit,
           ultimasEntregas: d.ultimas_entregas,
+          kitConfirmado: !!d.kit_confirmado,
         })
         setProdutos(rec.produtos)
         setItensBusca(rec.itensBusca)
@@ -224,25 +243,15 @@ export function PedidoLiderPage() {
         setSeuNome(rascunho.seuNome ?? '')
         setObservacao(rascunho.observacao ?? '')
       } else {
-        const doKit = linhasIniciaisDoKit({
-          hoje: d.hoje,
-          recebeLimpeza: d.contrato.recebe_limpeza,
-          catalogo: d.catalogo,
-          kit: d.kit,
-          ultimasEntregas: d.ultimas_entregas,
-        })
-        const categoria = new Map(d.catalogo.map((c) => [c.id, c.categoria]))
         setProdutos(
-          doKit.map((l) => ({
-            chave: novaChave(),
-            item_id: l.item_id,
-            variacao_id: l.variacao_id,
-            descricao_livre: '',
-            quantidade: String(l.quantidade),
-            justificativa: '',
-            secao: (categoria.get(l.item_id) === 'portaria' ? 'portaria' : 'materiais') as SecaoProduto,
-            origem: 'kit' as const,
-          }))
+          linhasKitDoForm({
+            hoje: d.hoje,
+            recebeLimpeza: d.contrato.recebe_limpeza,
+            catalogo: d.catalogo,
+            kit: d.kit,
+            ultimasEntregas: d.ultimas_entregas,
+            kitConfirmado: !!d.kit_confirmado,
+          })
         )
         setItensBusca([])
         setPessoas([])
@@ -273,6 +282,7 @@ export function PedidoLiderPage() {
       pecas: dados.pecas,
       equipe: dados.equipe,
       ultimasEntregas: dados.ultimas_entregas,
+      kitConfirmado: !!dados.kit_confirmado,
     }
   }, [dados, itensBusca])
 
@@ -291,7 +301,7 @@ export function PedidoLiderPage() {
   useEffect(() => {
     if (!dados || enviado) return
     salvarRascunho(token, dados.janela.competencia, {
-      versao: 2,
+      versao: 3,
       produtos,
       itensBusca,
       pessoas,
@@ -303,7 +313,7 @@ export function PedidoLiderPage() {
     })
   }, [dados, enviado, token, produtos, itensBusca, pessoas, pecasForm, crachas, termos, seuNome, observacao])
 
-  const rascunhoAtual = { versao: 2 as const, produtos, itensBusca, pessoas, pecas: pecasForm, crachas, termos, seuNome, observacao }
+  const rascunhoAtual = { versao: 3 as const, produtos, itensBusca, pessoas, pecas: pecasForm, crachas, termos, seuNome, observacao }
   const payload = () => montarPayloadPedido(rascunhoAtual, dados?.pecas ?? [])
   // Recalculada a cada render: corrigiu o campo, o aviso some na hora.
   const validacao = ctx ? validarEnvioPedido(payload(), ctx) : null
@@ -362,15 +372,26 @@ export function PedidoLiderPage() {
       apagarRascunho(token, dados.janela.competencia)
       const resumo: ResumoMes = {
         envios: [],
-        produtos: validacao.produtos.map((p) => {
-          const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
-          const rotulo = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
-          return {
-            descricao: item ? item.nome + (rotulo ? ` (${rotulo})` : '') : p.descricao_livre ?? 'Outro item',
-            unidade: item?.unidade ?? null,
-            quantidade: p.qtd_pedida,
-          }
-        }),
+        // Kit + extra do mesmo item somam numa linha; item tirado do kit (0) não aparece.
+        produtos: [
+          ...validacao.produtos
+            .filter((p) => p.qtd_pedida > 0)
+            .reduce((m, p) => {
+              const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
+              const rotulo = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
+              const chave = p.item_id ? `${p.item_id}|${p.variacao_id ?? ''}` : `livre|${p.descricao_livre}`
+              const atual = m.get(chave)
+              if (atual) atual.quantidade += p.qtd_pedida
+              else
+                m.set(chave, {
+                  descricao: item ? item.nome + (rotulo ? ` (${rotulo})` : '') : p.descricao_livre ?? 'Outro item',
+                  unidade: item?.unidade ?? null,
+                  quantidade: p.qtd_pedida,
+                })
+              return m
+            }, new Map<string, ResumoMes['produtos'][number]>())
+            .values(),
+        ],
         contagem: {
           uniforme_epi: validacao.ceu.filter((c) => c.tipo !== 'cracha').length,
           cracha: validacao.ceu.filter((c) => c.tipo === 'cracha').length,
@@ -462,8 +483,13 @@ export function PedidoLiderPage() {
                 ? 'Como o pedido do mês já tinha sido conferido, este envio virou um pedido extra.'
                 : r.mesclado_produtos || r.mesclado_ceu
                   ? 'Este envio foi somado ao pedido do mês.'
-                  : 'O inspetor vai conferir o pedido. Se algo não fechar, ele entra em contato.'}
+                  : r.kit_aprovado && !r.tem_extras
+                    ? 'Seu kit do mês está confirmado.'
+                    : 'O inspetor vai conferir o pedido. Se algo não fechar, ele entra em contato.'}
             </p>
+            {r.kit_aprovado && r.tem_extras && (
+              <p className="text-sm text-muted-foreground">O kit do mês está confirmado. O pedido extra passa pelo inspetor.</p>
+            )}
           </div>
           <ResumoDoMes
             resumo={{ ...enviado.resumo, envios: [{ tipo_pedido: 'mensal', origem: 'original', seu_nome: enviado.seuNome, enviado_em: new Date().toISOString() }] }}
@@ -509,7 +535,6 @@ export function PedidoLiderPage() {
       erros={errosVisiveis}
       token={token}
       secao={secao}
-      semKit={!produtos.some((l) => l.secao === secao && l.origem === 'kit')}
       onItemBusca={(item) => setItensBusca((is) => (is.some((i) => i.id === item.id) ? is : [...is, item]))}
     />
   )
@@ -517,6 +542,19 @@ export function PedidoLiderPage() {
   // Pendências por etapa (mostradas na revisão depois de "Enviar").
   const pendentes = etapas.filter((e) => e !== 'revisar' && pendenciasDaEtapa(e) > 0)
   const itensCeuPorId = new Map(ctx.itensCeu.map((i) => [i.id, i.nome]))
+  const secaoDoProduto = (p: LinhaProdutoRpc): SecaoProduto => {
+    if (p.item_id) return ctx.catalogo.find((c) => c.id === p.item_id)?.categoria === 'portaria' ? 'portaria' : 'materiais'
+    return produtos.find((l) => !l.item_id && l.descricao_livre.trim() === p.descricao_livre)?.secao ?? 'materiais'
+  }
+  const rotuloProduto = (p: LinhaProdutoRpc) => {
+    const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
+    const rotuloVar = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
+    return item ? item.nome + (rotuloVar ? ` (${rotuloVar})` : '') : (p.descricao_livre ?? 'Outro item')
+  }
+  const unidadeProduto = (p: LinhaProdutoRpc) => {
+    const u = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id)?.unidade : null
+    return u ? ` ${u}` : ''
+  }
 
   return (
     <div className="min-h-dvh bg-background pb-28 text-foreground">
@@ -581,41 +619,30 @@ export function PedidoLiderPage() {
               {etapas
                 .filter((e) => e !== 'revisar')
                 .map((e) => {
-                  const produtosDaSecao =
-                    e === 'materiais' || e === 'portaria'
-                      ? validacao.produtos.filter((p) => {
-                          const linha = produtos.find((l) => (p.item_id ? l.item_id === p.item_id : l.descricao_livre.trim() === p.descricao_livre))
-                          return (linha?.secao ?? 'materiais') === e
-                        })
-                      : []
-                  const qtd =
-                    e === 'materiais' || e === 'portaria'
-                      ? produtosDaSecao.length
-                      : e === 'pecas'
-                        ? validacao.ceu.filter((c) => c.tipo !== 'cracha').length
-                        : validacao.ceu.filter((c) => c.tipo === 'cracha').length
-                  // Lista compacta: produto (nome + quantidade), uniforme/EPI
-                  // (peça + tamanho + pessoa) e crachá (pessoa + motivo).
-                  const itens: { rotulo: string; qtd: string }[] =
-                    e === 'materiais' || e === 'portaria'
-                      ? produtosDaSecao.map((p) => {
-                          const item = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
-                          const rotuloVar = p.variacao_id ? item?.variacoes.find((v) => v.id === p.variacao_id)?.rotulo : null
-                          return {
-                            rotulo: item ? item.nome + (rotuloVar ? ` (${rotuloVar})` : '') : (p.descricao_livre ?? 'Outro item'),
-                            qtd: `${p.qtd_pedida}${item?.unidade ? ` ${item.unidade}` : ''}`,
-                          }
-                        })
-                      : validacao.ceu
-                          .filter((c) => (e === 'pecas' ? c.tipo !== 'cracha' : c.tipo === 'cracha'))
-                          .map((c) =>
-                            c.tipo === 'cracha'
-                              ? { rotulo: `${c.nome_digitado}${c.cracha_motivo ? ` — ${c.cracha_motivo}` : ''}`, qtd: '1' }
-                              : {
-                                  rotulo: `${(c.item_id && itensCeuPorId.get(c.item_id)) || 'Peça'}${c.tamanho ? ` — Tam. ${c.tamanho}` : ''} · ${c.nome_digitado}`,
-                                  qtd: String(c.qtd_pedida),
-                                }
-                          )
+                  const ehProduto = e === 'materiais' || e === 'portaria'
+                  const produtosDaSecao = ehProduto ? validacao.produtos.filter((p) => secaoDoProduto(p) === e) : []
+                  const kitDaSecao = produtosDaSecao.filter((p) => p.parte === 'kit')
+                  const extrasDaSecao = produtosDaSecao.filter((p) => p.parte === 'extra')
+                  const qtd = ehProduto
+                    ? produtosDaSecao.filter((p) => p.qtd_pedida > 0).length
+                    : e === 'pecas'
+                      ? validacao.ceu.filter((c) => c.tipo !== 'cracha').length
+                      : validacao.ceu.filter((c) => c.tipo === 'cracha').length
+                  // Lista compacta: uniforme/EPI (peça + tamanho + pessoa) e
+                  // crachá (pessoa + motivo). Produtos têm duas listas: "Kit do
+                  // mês" (com o que o líder tirou ou diminuiu) e "Pedido extra".
+                  const itensCeu: { rotulo: string; qtd: string }[] = ehProduto
+                    ? []
+                    : validacao.ceu
+                        .filter((c) => (e === 'pecas' ? c.tipo !== 'cracha' : c.tipo === 'cracha'))
+                        .map((c) =>
+                          c.tipo === 'cracha'
+                            ? { rotulo: `${c.nome_digitado}${c.cracha_motivo ? ` — ${c.cracha_motivo}` : ''}`, qtd: '1' }
+                            : {
+                                rotulo: `${(c.item_id && itensCeuPorId.get(c.item_id)) || 'Peça'}${c.tamanho ? ` — Tam. ${c.tamanho}` : ''} · ${c.nome_digitado}`,
+                                qtd: String(c.qtd_pedida),
+                              }
+                        )
                   const pend = tentou.has('revisar') && pendenciasDaEtapa(e) > 0
                   return (
                     <li key={e}>
@@ -625,16 +652,31 @@ export function PedidoLiderPage() {
                           {pend ? 'falta corrigir' : qtd === 0 ? 'nada pedido' : `${qtd} ${qtd === 1 ? 'item' : 'itens'}`}
                         </span>
                       </button>
-                      {itens.length > 0 && (
-                        <ul className="space-y-0.5 border-t border-border px-4 py-2 text-xs text-muted-foreground">
-                          {itens.map((it, i) => (
-                            <li key={i} className="flex items-baseline justify-between gap-3">
-                              <span className="min-w-0">{it.rotulo}</span>
-                              <span className="shrink-0 tabular-nums">{it.qtd}</span>
-                            </li>
-                          ))}
-                        </ul>
+                      {kitDaSecao.length > 0 && (
+                        <ListaRevisao
+                          titulo="Kit do mês"
+                          itens={kitDaSecao.map((p) => ({
+                            rotulo: rotuloProduto(p),
+                            qtd:
+                              p.qtd_pedida === 0
+                                ? 'não precisa este mês'
+                                : p.qtd_kit != null && p.qtd_pedida < p.qtd_kit
+                                  ? `${p.qtd_pedida} de ${p.qtd_kit}${unidadeProduto(p)}`
+                                  : `${p.qtd_pedida}${unidadeProduto(p)}`,
+                            destaque: p.qtd_kit != null && p.qtd_pedida < p.qtd_kit,
+                          }))}
+                        />
                       )}
+                      {extrasDaSecao.length > 0 && (
+                        <ListaRevisao
+                          titulo="Pedido extra"
+                          itens={extrasDaSecao.map((p) => ({
+                            rotulo: `${rotuloProduto(p)}${p.parte === 'extra' && p.excecao_acima_kit ? ' (a mais)' : ''}`,
+                            qtd: `${p.qtd_pedida}${unidadeProduto(p)}`,
+                          }))}
+                        />
+                      )}
+                      {itensCeu.length > 0 && <ListaRevisao itens={itensCeu} />}
                     </li>
                   )
                 })}

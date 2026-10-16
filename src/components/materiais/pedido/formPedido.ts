@@ -1,5 +1,5 @@
 // Estado do formulário da tela pública do líder (/pedido/:token).
-import { linhasIniciaisDoKit, type ContextoPedido, type ErroCampo, type ItemPublico } from '@/lib/materiais/pedidoLider'
+import { linhasIniciaisDoKit, type ContextoPedido, type ErroCampo, type ItemPublico, type PartePedido } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
 
 export type SecaoProduto = 'materiais' | 'portaria'
@@ -13,9 +13,16 @@ export interface LinhaProdutoForm {
   justificativa: string
   /** Etapa em que a linha aparece. */
   secao: SecaoProduto
-  /** kit = veio do Kit Mensal; busca = "Preciso de outro item"; livre = "Não achei, enviar assim". */
-  origem: 'kit' | 'busca' | 'livre'
+  /**
+   * kit = linha do Kit Mensal (o que o posto vai receber; só diminui);
+   * mais = quantidade A MAIS de um item do kit (pedido extra);
+   * busca = "Preciso de outro item"; livre = "Não achei, enviar assim".
+   */
+  origem: 'kit' | 'mais' | 'busca' | 'livre'
 }
+
+/** Parte do pedido da linha: só a linha do kit é 'kit'; o resto é pedido extra. */
+export const parteDaLinha = (l: Pick<LinhaProdutoForm, 'origem'>): PartePedido => (l.origem === 'kit' ? 'kit' : 'extra')
 
 /** Pessoa do pedido de uniforme/EPI/crachá: da lista da equipe (ref) ou "outra pessoa" (nome digitado). */
 export interface PessoaForm {
@@ -54,7 +61,8 @@ export const CAMPO =
   'w-full rounded-xl border border-input bg-background px-3 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
 export interface RascunhoPedido {
-  versao: 2
+  /** 3 = kit confirmável + extras (16/10/2026). Rascunho 2 é convertido em reconciliarRascunhoComKit. */
+  versao: 2 | 3
   produtos: LinhaProdutoForm[]
   /** Itens escolhidos na busca (o link só recebe o kit; a busca traz o resto). */
   itensBusca: ItemPublico[]
@@ -88,10 +96,13 @@ export function montarPayloadPedido(r: RascunhoPedido, pecas: PecaPublica[]): Re
     seu_nome: r.seuNome,
     observacao: r.observacao,
     termos: r.termos,
+    // Linha do kit vai mesmo com 0 ("Não preciso este mês" — o inspetor vê
+    // que o líder tirou); extra só com quantidade.
     produtos: r.produtos
-      .filter((l) => qtdNumero(l.quantidade) > 0)
+      .filter((l) => l.origem === 'kit' || qtdNumero(l.quantidade) > 0)
       .map((l) => ({
         chave: l.chave,
+        parte: parteDaLinha(l),
         item_id: l.item_id,
         variacao_id: l.variacao_id,
         descricao_livre: l.item_id ? null : l.descricao_livre,
@@ -137,7 +148,7 @@ export function lerRascunho(token: string, competencia: string): RascunhoPedido 
     const bruto = localStorage.getItem(chaveRascunho(token, competencia))
     if (!bruto) return null
     const r = JSON.parse(bruto) as RascunhoPedido
-    return r && r.versao === 2 && Array.isArray(r.produtos) && Array.isArray(r.pecas) && Array.isArray(r.pessoas) ? r : null
+    return r && (r.versao === 2 || r.versao === 3) && Array.isArray(r.produtos) && Array.isArray(r.pecas) && Array.isArray(r.pessoas) ? r : null
   } catch {
     return null
   }
@@ -159,35 +170,20 @@ export function apagarRascunho(token: string, competencia: string) {
   }
 }
 
+type CtxKit = Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza' | 'kitConfirmado'>
+
+const secaoDoItem = (ctx: Pick<ContextoPedido, 'catalogo'>, itemId: string): SecaoProduto =>
+  ctx.catalogo.find((c) => c.id === itemId)?.categoria === 'portaria' ? 'portaria' : 'materiais'
+
 /**
- * Rascunho do aparelho × kit carregado agora (o kit pode ter mudado no meio
- * do mês): remove linhas do kit cujo item saiu do kit/catálogo, acrescenta as
- * linhas de itens novos do kit (com a quantidade padrão) e preserva as linhas
- * de busca/livre como estão (linha de busca cujo item sumiu do rascunho de
- * itens da busca também sai — sem o ItemPublico ela não valida nem envia).
- * Quantidades digitadas nas linhas mantidas não são tocadas.
+ * Linhas do "Seu kit do mês" (já com a quantidade que o posto vai receber).
+ * Item que não vem este mês (periodicidade) fica de fora; kit já confirmado
+ * no mês = nenhuma linha (o novo envio só traz extras).
  */
-export function reconciliarRascunhoComKit(
-  rascunho: Pick<RascunhoPedido, 'produtos' | 'itensBusca'>,
-  ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza'>
-): Pick<RascunhoPedido, 'produtos' | 'itensBusca'> {
-  const kitAtual = linhasIniciaisDoKit(ctx)
-  const noKit = new Set(kitAtual.map((k) => k.item_id))
-  const buscaPorId = new Map((rascunho.itensBusca ?? []).map((i) => [i.id, i]))
-  const vistoKit = new Set<string>()
-  const produtos = (rascunho.produtos ?? []).filter((l) => {
-    if (l.origem === 'kit') {
-      // Sem duplicar linha do mesmo item do kit (vale a primeira, com a quantidade digitada).
-      if (!l.item_id || !noKit.has(l.item_id) || vistoKit.has(l.item_id)) return false
-      vistoKit.add(l.item_id)
-      return true
-    }
-    if (l.origem === 'busca') return !!l.item_id && buscaPorId.has(l.item_id)
-    return true
-  })
-  const categoria = new Map(ctx.catalogo.map((c) => [c.id, c.categoria]))
-  const novas: LinhaProdutoForm[] = kitAtual
-    .filter((k) => !vistoKit.has(k.item_id))
+export function linhasKitDoForm(ctx: CtxKit): LinhaProdutoForm[] {
+  if (ctx.kitConfirmado) return []
+  return linhasIniciaisDoKit(ctx)
+    .filter((k) => k.quantidade > 0)
     .map((k) => ({
       chave: novaChave(),
       item_id: k.item_id,
@@ -195,8 +191,81 @@ export function reconciliarRascunhoComKit(
       descricao_livre: '',
       quantidade: String(k.quantidade),
       justificativa: '',
-      secao: (categoria.get(k.item_id) === 'portaria' ? 'portaria' : 'materiais') as SecaoProduto,
+      secao: secaoDoItem(ctx, k.item_id),
       origem: 'kit' as const,
     }))
-  return { produtos: [...produtos, ...novas], itensBusca: rascunho.itensBusca ?? [] }
+}
+
+/** Itens do kit que NÃO vêm este mês (periodicidade) — a tela só avisa. */
+export function itensKitForaDoMes(ctx: CtxKit): string[] {
+  if (ctx.kitConfirmado) return []
+  return linhasIniciaisDoKit(ctx).filter((k) => k.quantidade === 0).map((k) => k.item_id)
+}
+
+/** Quantidade máxima da linha do kit (o kit do mês; nunca aumenta). */
+export function maximoDaLinhaKit(ctx: CtxKit, l: Pick<LinhaProdutoForm, 'item_id' | 'variacao_id'>): number {
+  const k = linhasIniciaisDoKit(ctx).find((x) => x.item_id === l.item_id && (x.variacao_id === l.variacao_id || x.variacao_id == null))
+  return k?.quantidade ?? 0
+}
+
+/**
+ * Rascunho do aparelho × kit carregado agora (o kit pode ter mudado no meio
+ * do mês, ou outro aparelho já ter confirmado o kit):
+ * - linhas do kit: só as de itens que ainda estão no kit do mês (sem
+ *   duplicar); a quantidade digitada é mantida até o kit do mês — o que
+ *   passar (rascunho antigo, v2, em que o kit era editável para cima) vira
+ *   uma linha "a mais" (pedido extra) com o motivo que o líder escreveu;
+ * - itens novos do kit entram com a quantidade do kit;
+ * - kit já confirmado no mês: as linhas do kit saem (o kit já vem);
+ * - linhas "a mais"/busca/livre seguem (busca sem o item no rascunho sai —
+ *   sem o ItemPublico ela não valida nem envia; "a mais" de item que saiu do
+ *   catálogo também sai).
+ */
+export function reconciliarRascunhoComKit(
+  rascunho: Pick<RascunhoPedido, 'produtos' | 'itensBusca'>,
+  ctx: CtxKit
+): Pick<RascunhoPedido, 'produtos' | 'itensBusca'> {
+  const kitMes = new Map(
+    (ctx.kitConfirmado ? [] : linhasIniciaisDoKit(ctx)).filter((k) => k.quantidade > 0).map((k) => [k.item_id, k.quantidade])
+  )
+  const noCatalogo = new Set(ctx.catalogo.map((c) => c.id))
+  const buscaPorId = new Map((rascunho.itensBusca ?? []).map((i) => [i.id, i]))
+  const vistoKit = new Set<string>()
+  const excedentes: LinhaProdutoForm[] = []
+  const produtos: LinhaProdutoForm[] = []
+  for (const l of rascunho.produtos ?? []) {
+    const origem = (l.origem ?? 'kit') as LinhaProdutoForm['origem']
+    if (origem === 'kit') {
+      if (!l.item_id || !kitMes.has(l.item_id) || vistoKit.has(l.item_id)) continue
+      vistoKit.add(l.item_id)
+      const maximo = kitMes.get(l.item_id) ?? 0
+      const qtd = qtdNumero(l.quantidade)
+      if (qtd > maximo) {
+        excedentes.push({
+          ...l,
+          chave: novaChave(),
+          quantidade: String(Math.round((qtd - maximo) * 100) / 100),
+          origem: 'mais',
+        })
+        produtos.push({ ...l, origem, quantidade: String(maximo), justificativa: '' })
+      } else {
+        produtos.push({ ...l, origem, justificativa: '' })
+      }
+      continue
+    }
+    if (origem === 'busca') {
+      if (l.item_id && buscaPorId.has(l.item_id)) produtos.push(l)
+      continue
+    }
+    if (origem === 'mais') {
+      if (l.item_id && (noCatalogo.has(l.item_id) || buscaPorId.has(l.item_id))) produtos.push(l)
+      continue
+    }
+    produtos.push(l)
+  }
+  const novas = linhasKitDoForm(ctx).filter((k) => k.item_id && !vistoKit.has(k.item_id))
+  // Ordem da tela: kit primeiro, depois os extras.
+  const kit = [...produtos.filter((l) => l.origem === 'kit'), ...novas]
+  const extras = [...produtos.filter((l) => l.origem !== 'kit'), ...excedentes]
+  return { produtos: [...kit, ...extras], itensBusca: rascunho.itensBusca ?? [] }
 }

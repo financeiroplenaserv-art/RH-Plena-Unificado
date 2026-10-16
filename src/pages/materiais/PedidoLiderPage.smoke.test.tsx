@@ -105,17 +105,69 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
   it('contrato sem kit avisa e oferece "Preciso de outro item"', async () => {
     api.carregar.mockResolvedValue(dados({ catalogo: [], kit: [] }))
     renderizar()
-    expect(await screen.findByText(/Este contrato ainda não tem kit cadastrado/)).toBeInTheDocument()
+    expect(await screen.findByText(/Este posto ainda não tem kit cadastrado/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Preciso de outro item/ })).toBeInTheDocument()
   })
 
-  it('acima do kit pergunta o motivo em vermelho, com o campo logo abaixo', async () => {
+  it('kit do mês: o + não passa do kit e "Não preciso este mês" zera sem pedir motivo', async () => {
     api.carregar.mockResolvedValue(dados())
     renderizar()
-    fireEvent.change(await screen.findByLabelText('Quantidade de Cloro'), { target: { value: '8' } })
-    const pergunta = screen.getByText('Você pediu 8, mas o kit do mês é 3. Pode contar para a gente o motivo?')
-    expect(pergunta.className).toMatch(/text-red/)
-    expect(screen.getByLabelText('Motivo de Cloro')).toBeInTheDocument()
+    await screen.findByText('Seu kit do mês')
+    expect(screen.getByRole('button', { name: 'Aumentar Cloro' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Diminuir Cloro' }))
+    expect(screen.getByLabelText('Quantidade de Cloro')).toHaveValue('2')
+    expect(screen.getByText(/Você vai receber 2 \(o kit é 3\)/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Não preciso este mês' }))
+    expect(screen.getByText('Você avisou que não precisa este mês.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Motivo de Cloro')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Quero receber' }))
+    expect(screen.getByLabelText('Quantidade de Cloro')).toHaveValue('3')
+  })
+
+  it('"Quero mais de um item do kit" cria linha EXTRA separada, com motivo opcional, e envia sem motivo', async () => {
+    api.carregar.mockResolvedValue(dados())
+    api.enviar.mockResolvedValue({
+      ok: true,
+      protocolo: 'ABC12345',
+      mesclado_produtos: false,
+      mesclado_ceu: false,
+      virou_extra_produtos: false,
+      virou_extra_ceu: false,
+      kit_aprovado: true,
+      tem_extras: true,
+    })
+    renderizar()
+    await screen.findByText('Seu kit do mês')
+    fireEvent.click(screen.getByRole('button', { name: /Quero mais de um item do kit/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Cloro/ }))
+    expect(screen.getByText('A mais do que o kit')).toBeInTheDocument()
+    expect(screen.getByText(/Você está pedindo 1 a mais do que o kit/)).toBeInTheDocument()
+    expect(screen.getByText('(opcional)')).toBeInTheDocument()
+    // A linha do kit continua 3; a extra é separada.
+    expect(screen.getAllByLabelText('Quantidade de Cloro').map((i) => (i as HTMLInputElement).value)).toEqual(['3', '1'])
+    fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
+    irParaEtapa(/Revisar e enviar/)
+    expect(screen.getByText('Kit do mês')).toBeInTheDocument()
+    expect(screen.getByText('Pedido extra')).toBeInTheDocument()
+    expect(screen.getByText('Cloro (a mais)')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/Seu nome/), { target: { value: 'Ana Souza' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Enviar pedido/ }))
+    })
+    const corpo = api.enviar.mock.calls[0][1] as { produtos: { parte: string; quantidade: number; justificativa: string }[] }
+    expect(corpo.produtos).toEqual([
+      expect.objectContaining({ parte: 'kit', quantidade: 3 }),
+      expect.objectContaining({ parte: 'extra', quantidade: 1, justificativa: '' }),
+    ])
+    expect(await screen.findByText(/O pedido extra passa pelo inspetor/)).toBeInTheDocument()
+  })
+
+  it('kit já confirmado no mês: só a parte do pedido extra', async () => {
+    api.carregar.mockResolvedValue(dados({ kit_confirmado: true }))
+    renderizar()
+    expect(await screen.findByText(/O kit deste mês já foi confirmado/)).toBeInTheDocument()
+    expect(screen.queryByText('Seu kit do mês')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Quantidade de Cloro')).not.toBeInTheDocument()
   })
 
   it('erro apontado some na hora em que o campo é corrigido (sem clicar em Próximo)', async () => {
@@ -189,7 +241,7 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Cabo de vassoura/ }, { timeout: 2000 }))
     expect(api.buscar).toHaveBeenCalledWith('token-de-teste-com-mais-de-20', 'cabo vasora', 'materiais')
     expect(screen.getByText('Fora do kit')).toBeInTheDocument()
-    expect(screen.getByText(/não faz parte do kit do posto/)).toBeInTheDocument()
+    expect(screen.getByText(/não está no kit do posto/)).toBeInTheDocument()
   })
 
   it('mês com envio mostra quem enviou, os produtos e só a contagem do CEU', async () => {

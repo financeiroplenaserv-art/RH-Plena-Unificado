@@ -5,7 +5,8 @@ import {
   excecoesLinhaPedido,
   janelaPublica,
   linhaCeuVazia,
-  perguntaJustificativa,
+  perguntaMotivo,
+  qtdKitDoMes,
   linhasIniciaisDoKit,
   montarResumoMes,
   secoesUsadas,
@@ -77,53 +78,91 @@ describe('linhasIniciaisDoKit', () => {
 describe('validarEnvioPedido', () => {
   const base = { seu_nome: 'Ana Souza', termos: termosTodos }
 
-  it('aceita o kit sem justificativa e devolve as linhas para a RPC', () => {
-    const r = validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 3 }] }, ctx)
+  it('aceita o kit sem motivo e devolve as linhas para a RPC marcadas como kit', () => {
+    const r = validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 3, parte: 'kit' }] }, ctx)
     expect(r.ok).toBe(true)
-    expect(r.produtos[0]).toMatchObject({ item_id: 'cloro', qtd_kit: 3, qtd_pedida: 3, excecao_acima_kit: false })
+    expect(r.produtos[0]).toMatchObject({ parte: 'kit', item_id: 'cloro', qtd_kit: 3, qtd_pedida: 3, excecao_acima_kit: false })
   })
 
-  it('acima do kit, antes da validade e fora do kit exigem justificativa (o servidor recalcula)', () => {
+  it('kit só diminui: o que passar do kit do mês vira linha EXTRA separada (cliente antigo, sem parte, idem)', () => {
+    for (const parte of ['kit', undefined]) {
+      const r = validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 5, parte }] }, ctx)
+      expect(r.ok).toBe(true)
+      expect(r.produtos).toEqual([
+        expect.objectContaining({ parte: 'kit', item_id: 'cloro', qtd_pedida: 3, qtd_kit: 3, excecao_acima_kit: false }),
+        expect.objectContaining({ parte: 'extra', item_id: 'cloro', qtd_pedida: 2, qtd_kit: 3, excecao_acima_kit: true }),
+      ])
+    }
+  })
+
+  it('pedido extra: motivo OPCIONAL (decisão de 16/10/2026); validade vira só aviso interno', () => {
     const r = validarEnvioPedido(
       {
         ...base,
         produtos: [
-          { item_id: 'cloro', quantidade: 5, excecao_acima_kit: false },
-          { item_id: 'balde', quantidade: 1 },
-          { descricao_livre: 'Pá de lixo', quantidade: 1 },
+          { item_id: 'cloro', quantidade: 3, parte: 'kit' },
+          { item_id: 'cloro', quantidade: 2, parte: 'extra' },
+          { item_id: 'balde', quantidade: 1, parte: 'kit' },
+          { descricao_livre: 'Pá de lixo', quantidade: 1, parte: 'extra' },
         ],
       },
       ctx
     )
-    expect(r.ok).toBe(false)
-    expect(r.erros.join(' ')).toMatch(/Cloro: conte para a gente o motivo \(acima do kit \(3\)\)/)
-    expect(r.erros.join(' ')).toMatch(/Balde 8L: conte para a gente o motivo \(antes da validade/)
-    expect(r.erros.join(' ')).toMatch(/Pá de lixo: conte para a gente/)
-    const ok = validarEnvioPedido(
-      {
-        ...base,
-        produtos: [
-          { item_id: 'cloro', quantidade: 5, justificativa: 'Obra no prédio' },
-          { item_id: 'balde', quantidade: 1, justificativa: 'Quebrou' },
-          { descricao_livre: 'Pá de lixo', quantidade: 1, justificativa: 'Não temos' },
-        ],
-      },
+    expect(r.ok).toBe(true)
+    expect(r.produtos.find((p) => p.item_id === 'cloro' && p.parte === 'extra')).toMatchObject({
+      qtd_pedida: 2,
+      excecao_acima_kit: true,
+      justificativa: null,
+    })
+    // Balde no kit e ainda na validade: segue como KIT, só com o aviso interno.
+    expect(r.produtos.find((p) => p.item_id === 'balde')).toMatchObject({ parte: 'kit', excecao_validade: true, ultima_entrega_em: '2026-07-01' })
+    expect(r.produtos.find((p) => p.descricao_livre === 'Pá de lixo')).toMatchObject({ parte: 'extra', excecao_fora_kit: true, justificativa: null })
+    const comMotivo = validarEnvioPedido(
+      { ...base, produtos: [{ item_id: 'cloro', quantidade: 2, parte: 'extra', justificativa: 'Obra no prédio' }] },
       ctx
     )
-    expect(ok.ok).toBe(true)
-    expect(ok.produtos.find((p) => p.item_id === 'cloro')?.excecao_acima_kit).toBe(true)
-    expect(ok.produtos.find((p) => p.item_id === 'balde')).toMatchObject({ excecao_validade: true, ultima_entrega_em: '2026-07-01' })
-    expect(ok.produtos.find((p) => p.descricao_livre === 'Pá de lixo')?.excecao_fora_kit).toBe(true)
+    expect(comMotivo.produtos[0]).toMatchObject({ parte: 'extra', justificativa: 'Obra no prédio' })
   })
 
-  it('soma linhas repetidas do mesmo item/variação, ignora quantidade 0 e aplica o teto', () => {
+  it('"Não preciso este mês": linha do kit com 0 é registrada; kit inteiro zerado é envio válido e não pede declaração', () => {
+    const r = validarEnvioPedido(
+      {
+        seu_nome: 'Ana',
+        termos: {},
+        produtos: [
+          { item_id: 'cloro', quantidade: 0, parte: 'kit' },
+          { item_id: 'balde', quantidade: 0, parte: 'kit' },
+        ],
+      },
+      ctx
+    )
+    expect(r.ok).toBe(true)
+    expect(r.produtos).toEqual([
+      expect.objectContaining({ parte: 'kit', item_id: 'cloro', qtd_pedida: 0, qtd_kit: 3 }),
+      expect.objectContaining({ parte: 'kit', item_id: 'balde', qtd_pedida: 0, qtd_kit: 1, excecao_validade: false }),
+    ])
+    expect(secoesUsadas(r.produtos, [], ctx.catalogo)).toEqual([])
+    // Extra com 0 é ignorado.
+    expect(validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 0, parte: 'extra' }] }, ctx).erros.join(' ')).toMatch(/vazio/)
+  })
+
+  it('kit já confirmado no mês: tudo vira extra; item que não vem este mês (periodicidade) também', () => {
+    const r = validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 3, parte: 'kit' }] }, { ...ctx, kitConfirmado: true })
+    expect(r.produtos).toEqual([expect.objectContaining({ parte: 'extra', qtd_pedida: 3, qtd_kit: 3, excecao_acima_kit: true })])
+    expect(qtdKitDoMes(ctx, 'livro', null)).toBe(0)
+    const livro = validarEnvioPedido({ ...base, produtos: [{ item_id: 'livro', quantidade: 1, parte: 'kit' }] }, ctx)
+    expect(livro.produtos).toEqual([
+      expect.objectContaining({ parte: 'extra', item_id: 'livro', qtd_pedida: 1, qtd_kit: 0, excecao_acima_kit: true }),
+    ])
+  })
+
+  it('soma linhas repetidas do mesmo item/variação e aplica o teto (kit + extra)', () => {
     const r = validarEnvioPedido(
       {
         ...base,
         produtos: [
-          { item_id: 'cloro', quantidade: 2 },
-          { item_id: 'cloro', quantidade: 1 },
-          { item_id: 'balde', quantidade: 0 },
+          { item_id: 'cloro', quantidade: 2, parte: 'kit' },
+          { item_id: 'cloro', quantidade: 1, parte: 'kit' },
         ],
       },
       ctx
@@ -131,7 +170,16 @@ describe('validarEnvioPedido', () => {
     expect(r.ok).toBe(true)
     expect(r.produtos).toHaveLength(1)
     expect(r.produtos[0].qtd_pedida).toBe(3)
-    const teto = validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 31, justificativa: 'x' }] }, ctx)
+    const teto = validarEnvioPedido(
+      {
+        ...base,
+        produtos: [
+          { item_id: 'cloro', quantidade: 3, parte: 'kit' },
+          { item_id: 'cloro', quantidade: 28, parte: 'extra' },
+        ],
+      },
+      ctx
+    )
     expect(teto.erros.join(' ')).toMatch(/acima do permitido \(30\)/)
   })
 
@@ -148,7 +196,7 @@ describe('validarEnvioPedido', () => {
       ...base,
       produtos: [
         { chave: 'l1', item_id: 'cloro', quantidade: 3 },
-        { chave: 'l2', descricao_livre: 'Algo', quantidade: 1, justificativa: 'Faltou' },
+        { chave: 'l2', descricao_livre: 'Algo', quantidade: 1, parte: 'extra' },
         { chave: 'l3', item_id: 'livro', quantidade: 1 },
       ],
     }
@@ -369,17 +417,19 @@ describe('linhas de uniforme/EPI/crachá vazias e equipe', () => {
   })
 
   it('erros ficam ligados à chave da linha (a tela apaga o aviso assim que o campo é corrigido)', () => {
-    const errado = validarEnvioPedido({ ...base, produtos: [{ chave: 'p1', item_id: 'cloro', quantidade: 5 }] }, ctx)
-    expect(errado.errosCampo).toEqual([expect.objectContaining({ chave: 'p1', campo: 'justificativa' })])
-    const certo = validarEnvioPedido({ ...base, produtos: [{ chave: 'p1', item_id: 'cloro', quantidade: 5, justificativa: 'Obra' }] }, ctx)
+    const errado = validarEnvioPedido({ ...base, produtos: [{ chave: 'p1', descricao_livre: '', quantidade: 2, parte: 'extra' }] }, ctx)
+    expect(errado.errosCampo.filter((x) => x.chave === 'p1')).toEqual([expect.objectContaining({ chave: 'p1', campo: 'descricao' })])
+    const certo = validarEnvioPedido({ ...base, produtos: [{ chave: 'p1', descricao_livre: 'Pá', quantidade: 2, parte: 'extra' }] }, ctx)
     expect(certo.errosCampo).toEqual([])
   })
 
-  it('pergunta amigável da justificativa', () => {
-    expect(perguntaJustificativa(excecoesLinhaPedido(ctx, 'cloro', null, 8), 8)).toBe(
-      'Você pediu 8, mas o kit do mês é 3. Pode contar para a gente o motivo?'
-    )
-    expect(perguntaJustificativa(excecoesLinhaPedido(ctx, 'livro-nao', null, 1), 1)).toMatch(/não faz parte do kit/)
-    expect(perguntaJustificativa(excecoesLinhaPedido(ctx, 'cloro', null, 3), 3)).toBe('')
+  it('convite amigável (opcional) para o motivo do extra', () => {
+    const acima = excecoesLinhaPedido(ctx, 'cloro', null, 3, 'extra')
+    expect(acima).toMatchObject({ acimaKit: true, pedeMotivo: true })
+    expect(perguntaMotivo(acima, 3)).toBe('Você está pedindo 3 a mais do que o kit. Se puder, conte para a gente o motivo.')
+    expect(perguntaMotivo(excecoesLinhaPedido(ctx, 'livro-nao', null, 1, 'extra'), 1)).toMatch(/não está no kit/)
+    const kit = excecoesLinhaPedido(ctx, 'cloro', null, 3, 'kit')
+    expect(kit).toMatchObject({ pedeMotivo: false, acimaKit: false, qtdKit: 3 })
+    expect(perguntaMotivo(kit, 3)).toBe('')
   })
 })

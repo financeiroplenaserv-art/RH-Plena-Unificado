@@ -21,6 +21,13 @@
 // inteiro); "Preciso de outro item" usa `buscar_item` (termo ≥ 3 letras, até 5
 // itens ativos, busca fuzzy local — src/lib/materiais/buscaItens.ts).
 //
+// Kit confirmável + pedido extra (decisão da gestão, 16/10/2026 — migration
+// 135): cada linha de produto vai para a RPC com `parte` ('kit' = o que o
+// posto vai receber, só diminui; 'extra' = além do kit, motivo OPCIONAL).
+// `carregar` informa `kit_confirmado` (o kit do mês já veio em outro envio:
+// o novo envio só traz extras). A RPC aprova o kit na hora quando
+// materiais_config.kit_aprovacao_automatica está ligada.
+//
 // Secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (padrão da plataforma) e
 // ENCRYPTION_KEY (já existe — mesma da function econtador; cifra o token para
 // o escritório reexibir o link/QR e deriva a chave HMAC dos identificadores
@@ -750,8 +757,18 @@ export function buscarItens<T extends ItemBuscavel>(
 // do sobrenome e um identificador opaco (decisão da gestão, 09/10/2026,
 // reiterada em 14/10/2026) — nada de CPF, matrícula, foto, tamanhos, preço.
 // O cliente não é confiável: o servidor revalida tudo com validarEnvioPedido
-// e recalcula as exceções (acima do kit, antes da validade, fora do kit), que
-// exigem justificativa mas NÃO bloqueiam o pedido — vão para o inspetor.
+// e recalcula as exceções.
+//
+// Conceito do Kit Mensal (decisão da gestão, 16/10/2026): o kit é o que o
+// posto VAI RECEBER. O líder só confirma — pode tirar ("Não preciso este
+// mês") ou diminuir, nunca aumentar nessa parte, sem precisar de motivo.
+// Tudo o que passa do kit é PEDIDO EXTRA (parte 'extra'): item fora do kit,
+// texto livre ou a quantidade A MAIS de um item do kit (linha separada). O
+// motivo do extra é OPCIONAL (o inspetor vê o extra destacado, com ou sem
+// motivo). "Antes da validade" virou só aviso interno. As linhas do kit
+// (parte 'kit') saem aprovadas automaticamente quando a configuração
+// materiais_config.kit_aprovacao_automatica está ligada (padrão) — a RPC
+// mat_registrar_envio decide (migration 135).
 
 
 // 'portaria' é o único valor com regra própria; as demais contam como material (recebe_limpeza).
@@ -866,11 +883,21 @@ export interface ContextoPedido {
   /** item_id → última competência (AAAA-MM-DD) em que o item foi entregue/aprovado ao contrato. */
   ultimasEntregas: Record<string, string>
   precos?: PrecoSimples[]
+  /**
+   * O kit deste mês já foi confirmado (há linhas 'kit' no pedido mensal da
+   * competência): um novo envio só traz extras — qualquer linha de kit vira
+   * extra no servidor.
+   */
+  kitConfirmado?: boolean
 }
+
+/** Parte da linha de produto: o kit do mês (vai receber) ou o pedido extra. */
+export type PartePedido = 'kit' | 'extra'
 
 // ---------- Saída para a RPC mat_registrar_envio ----------
 
 export interface LinhaProdutoRpc {
+  parte: PartePedido
   item_id: string | null
   variacao_id: string | null
   descricao_livre: string | null
@@ -991,59 +1018,20 @@ export function tetoQuantidade(qtdKit: number | null): number {
 }
 
 export interface ExcecoesLinha {
+  /** Kit do mês (parte kit) ou kit cadastrado/do mês (parte extra); null = fora do kit. */
   qtdKit: number | null
   acimaKit: boolean
+  /** Aviso INTERNO (não é mostrado ao líder e não exige motivo desde 16/10/2026). */
   validade: boolean
   foraKit: boolean
-  exigeJustificativa: boolean
-}
-
-export function excecoesLinhaPedido(
-  ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje'>,
-  itemId: string | null,
-  variacaoId: string | null,
-  quantidade: number
-): ExcecoesLinha {
-  const qtdKit = qtdKitPublico(ctx.kit, itemId, variacaoId)
-  const foraKit = quantidade > 0 && qtdKit == null
-  const acimaKit = qtdKit != null && quantidade > qtdKit
-  let validade = false
-  const item = itemId ? ctx.catalogo.find((c) => c.id === itemId) : undefined
-  const ultima = itemId ? ctx.ultimasEntregas[itemId] : undefined
-  if (quantidade > 0 && item?.validade_meses && ultima) {
-    validade = somarMeses(ultima, item.validade_meses) > ctx.hoje
-  }
-  return { qtdKit, acimaKit, validade, foraKit, exigeJustificativa: acimaKit || validade || foraKit }
-}
-
-export function motivoExcecao(e: ExcecoesLinha): string {
-  const motivos: string[] = []
-  if (e.foraKit) motivos.push('fora do kit')
-  if (e.acimaKit) motivos.push(`acima do kit (${e.qtdKit})`)
-  if (e.validade) motivos.push('antes da validade do último')
-  return motivos.join(', ')
-}
-
-const fmtQtd = (n: number) => String(arred2(n)).replace('.', ',')
-
-/**
- * Pergunta amigável da justificativa (a tela mostra em vermelho, com o campo
- * logo abaixo). Ex.: "Você pediu 8, mas o kit do mês é 5. Pode contar para a
- * gente o motivo?"
- */
-export function perguntaJustificativa(e: ExcecoesLinha, quantidade: number): string {
-  if (e.foraKit) return 'Este item não faz parte do kit do posto. Pode contar para a gente por que precisa dele?'
-  if (e.acimaKit && e.validade)
-    return `Você pediu ${fmtQtd(quantidade)}, mas o kit do mês é ${fmtQtd(e.qtdKit ?? 0)} e o último ainda está no prazo de uso. Pode contar para a gente o motivo?`
-  if (e.acimaKit) return `Você pediu ${fmtQtd(quantidade)}, mas o kit do mês é ${fmtQtd(e.qtdKit ?? 0)}. Pode contar para a gente o motivo?`
-  if (e.validade) return 'O último deste item ainda está no prazo de uso. Pode contar para a gente por que precisa trocar?'
-  return ''
+  /** Pedido extra: a tela sugere contar o motivo (OPCIONAL — nunca trava o envio). */
+  pedeMotivo: boolean
 }
 
 /**
- * Linhas iniciais do formulário: o Kit Mensal do contrato (só produtos).
- * Item com periodicidade N (> 1) já entregue nos N-1 meses anteriores começa
- * em 0 (o líder pode aumentar, com justificativa se passar do kit).
+ * Linhas do kit do mês: o Kit Mensal do contrato (só produtos). Item com
+ * periodicidade N (> 1) já entregue nos N-1 meses anteriores fica em 0 (não
+ * vem este mês; se precisar, o líder pede como extra).
  */
 export function linhasIniciaisDoKit(
   ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza'>
@@ -1066,6 +1054,76 @@ export function linhasIniciaisDoKit(
       return { item_id: k.item_id, variacao_id: k.variacao_id ?? null, quantidade }
     })
     .sort((a, b) => (ordem.get(a.item_id) ?? 0) - (ordem.get(b.item_id) ?? 0))
+}
+
+/**
+ * Quantidade do KIT DO MÊS para o item/variação (variação exata; senão a linha
+ * do item sem variação), já com a periodicidade aplicada. null = o item não
+ * está no kit (ou o kit do mês já foi confirmado — ctx.kitConfirmado).
+ */
+export function qtdKitDoMes(
+  ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza' | 'kitConfirmado'>,
+  itemId: string | null,
+  variacaoId: string | null
+): number | null {
+  if (!itemId || ctx.kitConfirmado) return null
+  const linhas = linhasIniciaisDoKit(ctx)
+  const exato = linhas.find((k) => k.item_id === itemId && k.variacao_id === (variacaoId ?? null))
+  if (exato) return exato.quantidade
+  const base = linhas.find((k) => k.item_id === itemId && k.variacao_id == null)
+  return base ? base.quantidade : null
+}
+
+function validadeNaoVencida(
+  ctx: Pick<ContextoPedido, 'catalogo' | 'ultimasEntregas' | 'hoje'>,
+  itemId: string | null,
+  quantidade: number
+): boolean {
+  const item = itemId ? ctx.catalogo.find((c) => c.id === itemId) : undefined
+  const ultima = itemId ? ctx.ultimasEntregas[itemId] : undefined
+  if (quantidade > 0 && item?.validade_meses && ultima) return somarMeses(ultima, item.validade_meses) > ctx.hoje
+  return false
+}
+
+/**
+ * Exceções de uma linha. Parte 'kit': nunca é exceção (o servidor separa o
+ * que passar do kit do mês como extra); só o aviso interno de validade.
+ * Parte 'extra': acima do kit (item do kit) ou fora do kit (item fora dele).
+ */
+export function excecoesLinhaPedido(
+  ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza' | 'kitConfirmado'>,
+  itemId: string | null,
+  variacaoId: string | null,
+  quantidade: number,
+  parte: PartePedido = 'extra'
+): ExcecoesLinha {
+  const validade = validadeNaoVencida(ctx, itemId, quantidade)
+  const kitMes = qtdKitDoMes(ctx, itemId, variacaoId)
+  if (parte === 'kit') return { qtdKit: kitMes, acimaKit: false, validade, foraKit: false, pedeMotivo: false }
+  const kitBase = qtdKitPublico(ctx.kit, itemId, variacaoId)
+  const acimaKit = quantidade > 0 && kitBase != null
+  const foraKit = quantidade > 0 && kitBase == null
+  return { qtdKit: kitMes ?? kitBase, acimaKit, validade, foraKit, pedeMotivo: acimaKit || foraKit }
+}
+
+export function motivoExcecao(e: ExcecoesLinha): string {
+  const motivos: string[] = []
+  if (e.foraKit) motivos.push('fora do kit')
+  if (e.acimaKit) motivos.push('a mais do kit')
+  if (e.validade) motivos.push('antes da validade do último')
+  return motivos.join(', ')
+}
+
+const fmtQtd = (n: number) => String(arred2(n)).replace('.', ',')
+
+/**
+ * Convite para contar o motivo do extra (OPCIONAL). Ex.: "Você está pedindo 3
+ * a mais do que o kit. Se puder, conte para a gente o motivo."
+ */
+export function perguntaMotivo(e: ExcecoesLinha, quantidade: number): string {
+  if (e.foraKit) return 'Este item não está no kit do posto. Se puder, conte para a gente por que precisa.'
+  if (e.acimaKit) return `Você está pedindo ${fmtQtd(quantidade)} a mais do que o kit. Se puder, conte para a gente o motivo.`
+  return ''
 }
 
 /** Preço vigente na data: o da variação prevalece sobre o do item. */
@@ -1126,12 +1184,24 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
   for (const t of TERMOS_PEDIDO) termos[t.id] = termosEntrada[t.id] === true
 
   // ---- Produtos ----
+  // Parte 'kit' (ou ausente — cliente antigo): até a quantidade do kit do
+  // mês é kit; o que passar vira linha EXTRA separada (sem erro). Parte
+  // 'extra': sempre extra. Linha de kit com 0 ("Não preciso este mês") é
+  // registrada para o inspetor ver que o líder tirou o item.
   const produtosEntrada = Array.isArray(e.produtos) ? e.produtos : []
   if (produtosEntrada.length > LIMITES_PEDIDO.linhasProdutos) erro(null, 'geral', 'Pedido com linhas de produto demais.')
   const catalogo = new Map(ctx.catalogo.map((c) => [c.id, c]))
   const agrupados = new Map<
     string,
-    { item: ItemPublico; variacao_id: string | null; qtd: number; justificativas: string[]; chave: string | null }
+    {
+      item: ItemPublico
+      variacao_id: string | null
+      kit: number
+      extra: number
+      temKit: boolean
+      justificativas: string[]
+      chave: string | null
+    }
   >()
   const livres: LinhaProdutoRpc[] = []
 
@@ -1139,19 +1209,20 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     const p = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
     const chave = texto(p.chave) || null
     const qtd = numero(p.quantidade)
+    const parte: PartePedido = p.parte === 'extra' ? 'extra' : 'kit'
     const itemId = texto(p.item_id) || null
     const nomeLinha = itemId ? catalogo.get(itemId)?.nome ?? 'Item' : texto(p.descricao_livre) || 'Outro item'
     if (qtd == null || qtd < 0) {
       erro(chave, 'quantidade', `${nomeLinha}: quantidade inválida.`)
       continue
     }
-    if (qtd === 0) continue
+    if (qtd === 0 && (parte === 'extra' || !itemId)) continue
     const justificativa = texto(p.justificativa)
-    if (justificativa.length > LIMITES_PEDIDO.texto) erro(chave, 'justificativa', `${nomeLinha}: justificativa passa de ${LIMITES_PEDIDO.texto} caracteres.`)
+    if (justificativa.length > LIMITES_PEDIDO.texto) erro(chave, 'justificativa', `${nomeLinha}: motivo passa de ${LIMITES_PEDIDO.texto} caracteres.`)
 
     if (!itemId) {
-      // Texto livre ("Não achei, enviar assim"): sempre exceção fora do kit,
-      // o inspetor decide o item.
+      // Texto livre ("Não achei, enviar assim"): sempre extra fora do kit,
+      // o inspetor decide o item. Motivo opcional.
       const descricao = texto(p.descricao_livre)
       if (!descricao) {
         erro(chave, 'descricao', 'Outro item: escreva o que precisa.')
@@ -1159,15 +1230,15 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       }
       if (descricao.length > LIMITES_PEDIDO.nome) erro(chave, 'descricao', `Outro item: descrição passa de ${LIMITES_PEDIDO.nome} caracteres.`)
       if (qtd > LIMITES_PEDIDO.qtdMaxima) erro(chave, 'quantidade', `${descricao}: quantidade acima do permitido (${LIMITES_PEDIDO.qtdMaxima}).`)
-      if (!justificativa) erro(chave, 'justificativa', `${descricao}: conte para a gente por que precisa (item fora do kit).`)
       livres.push({
+        parte: 'extra',
         item_id: null,
         variacao_id: null,
         descricao_livre: descricao.slice(0, LIMITES_PEDIDO.nome),
         qtd_kit: null,
         qtd_pedida: arred2(qtd),
         preco_unitario: null,
-        justificativa: justificativa || null,
+        justificativa: justificativa.slice(0, LIMITES_PEDIDO.texto) || null,
         excecao_acima_kit: false,
         excecao_validade: false,
         excecao_fora_kit: true,
@@ -1182,7 +1253,7 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       continue
     }
     if (!ctx.recebeLimpeza && item.categoria !== 'portaria') {
-      erro(chave, 'geral', `${item.nome}: este posto recebe apenas material de portaria.`)
+      if (qtd > 0) erro(chave, 'geral', `${item.nome}: este posto recebe apenas material de portaria.`)
       continue
     }
     const variacaoId = texto(p.variacao_id) || null
@@ -1195,40 +1266,67 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       continue
     }
     const chaveGrupo = `${item.id}|${variacaoId ?? ''}`
-    const atual = agrupados.get(chaveGrupo)
-    if (atual) {
-      atual.qtd += qtd
-      if (justificativa) atual.justificativas.push(justificativa)
+    const atual =
+      agrupados.get(chaveGrupo) ??
+      { item, variacao_id: variacaoId, kit: 0, extra: 0, temKit: false, justificativas: [] as string[], chave }
+    if (parte === 'kit') {
+      atual.kit += qtd
+      atual.temKit = true
     } else {
-      agrupados.set(chaveGrupo, { item, variacao_id: variacaoId, qtd, justificativas: justificativa ? [justificativa] : [], chave })
+      atual.extra += qtd
     }
+    if (justificativa) atual.justificativas.push(justificativa)
+    agrupados.set(chaveGrupo, atual)
   }
 
-  const produtos: LinhaProdutoRpc[] = []
+  const linhasKit: LinhaProdutoRpc[] = []
+  const linhasExtra: LinhaProdutoRpc[] = []
   for (const g of agrupados.values()) {
-    const qtd = arred2(g.qtd)
-    const exc = excecoesLinhaPedido(ctx, g.item.id, g.variacao_id, qtd)
+    const kitMes = qtdKitDoMes(ctx, g.item.id, g.variacao_id)
+    const kitBase = qtdKitPublico(ctx.kit, g.item.id, g.variacao_id)
+    const qtdKit = kitMes != null && kitMes > 0 ? arred2(Math.min(g.kit, kitMes)) : 0
+    const qtdExtra = arred2(g.extra + g.kit - qtdKit)
     const rotulo = g.variacao_id ? g.item.variacoes.find((v) => v.id === g.variacao_id)?.rotulo : null
     const nome = rotulo ? `${g.item.nome} (${rotulo})` : g.item.nome
-    const teto = tetoQuantidade(exc.qtdKit)
-    if (qtd > teto) erro(g.chave, 'quantidade', `${nome}: quantidade acima do permitido (${teto}).`)
-    const justificativa = g.justificativas.join(' / ').slice(0, LIMITES_PEDIDO.texto)
-    if (exc.exigeJustificativa && !justificativa) erro(g.chave, 'justificativa', `${nome}: conte para a gente o motivo (${motivoExcecao(exc)}).`)
-    produtos.push({
-      item_id: g.item.id,
-      variacao_id: g.variacao_id,
-      descricao_livre: null,
-      qtd_kit: exc.qtdKit,
-      qtd_pedida: qtd,
-      preco_unitario: ctx.precos ? precoVigentePedido(ctx.precos, g.item.id, g.variacao_id, ctx.hoje) : null,
-      justificativa: justificativa || null,
-      excecao_acima_kit: exc.acimaKit,
-      excecao_validade: exc.validade,
-      excecao_fora_kit: exc.foraKit,
-      ultima_entrega_em: ctx.ultimasEntregas[g.item.id] ?? null,
-    })
+    const teto = tetoQuantidade(kitBase)
+    if (qtdKit + qtdExtra > teto) erro(g.chave, 'quantidade', `${nome}: quantidade acima do permitido (${teto}).`)
+    const preco = ctx.precos ? precoVigentePedido(ctx.precos, g.item.id, g.variacao_id, ctx.hoje) : null
+    const ultima = ctx.ultimasEntregas[g.item.id] ?? null
+    if (g.temKit && kitMes != null && kitMes > 0) {
+      linhasKit.push({
+        parte: 'kit',
+        item_id: g.item.id,
+        variacao_id: g.variacao_id,
+        descricao_livre: null,
+        qtd_kit: kitMes,
+        qtd_pedida: qtdKit,
+        preco_unitario: preco,
+        justificativa: null,
+        excecao_acima_kit: false,
+        excecao_validade: validadeNaoVencida(ctx, g.item.id, qtdKit),
+        excecao_fora_kit: false,
+        ultima_entrega_em: ultima,
+      })
+    }
+    if (qtdExtra > 0) {
+      const exc = excecoesLinhaPedido(ctx, g.item.id, g.variacao_id, qtdExtra, 'extra')
+      linhasExtra.push({
+        parte: 'extra',
+        item_id: g.item.id,
+        variacao_id: g.variacao_id,
+        descricao_livre: null,
+        qtd_kit: exc.qtdKit,
+        qtd_pedida: qtdExtra,
+        preco_unitario: preco,
+        justificativa: g.justificativas.join(' / ').slice(0, LIMITES_PEDIDO.texto) || null,
+        excecao_acima_kit: exc.acimaKit,
+        excecao_validade: exc.validade,
+        excecao_fora_kit: exc.foraKit,
+        ultima_entrega_em: ultima,
+      })
+    }
   }
-  produtos.push(...livres)
+  const produtos: LinhaProdutoRpc[] = [...linhasKit, ...linhasExtra, ...livres]
 
   // ---- Uniforme, EPI e crachá ----
   const ceuEntrada = (Array.isArray(e.ceu) ? e.ceu : []).filter(
@@ -1316,6 +1414,7 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     })
   })
 
+  // Kit inteiro com "Não preciso este mês" é um envio válido (o líder avisou).
   if (produtos.length === 0 && ceu.length === 0) erro(null, 'vazio', 'O pedido está vazio: informe ao menos um item.')
 
   const secoes = secoesUsadas(produtos, ceu, ctx.catalogo, ctx.recebeLimpeza)
@@ -1337,15 +1436,17 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
 /**
  * Seções com linhas no envio — cada uma exige a sua declaração. Texto livre
  * conta como "materiais" (ou "portaria", no contrato que não recebe limpeza).
+ * Linha com quantidade 0 (item do kit que o líder tirou) não conta.
  */
 export function secoesUsadas(
-  produtos: { item_id: string | null }[],
+  produtos: { item_id: string | null; qtd_pedida?: number }[],
   ceu: { tipo: TipoLinhaCeu }[],
   catalogo: ItemPublico[],
   recebeLimpeza = true
 ): SecaoPedido[] {
   const usadas = new Set<SecaoPedido>()
   for (const p of produtos) {
+    if (p.qtd_pedida === 0) continue
     const cat = p.item_id ? catalogo.find((c) => c.id === p.item_id)?.categoria : recebeLimpeza ? null : 'portaria'
     usadas.add(cat === 'portaria' ? 'portaria' : 'materiais')
   }
@@ -2234,6 +2335,25 @@ async function resumoDoMes(sb: SupabaseClient, contratoId: string, competencia: 
   return { resumo: montarResumoMes(envios, produtos, ceu, nomes), destino }
 }
 
+/**
+ * O kit do mês já foi confirmado (há linha 'kit' em pedido não cancelado do
+ * contrato na competência — migration 135): um novo envio só traz extras.
+ */
+async function kitConfirmadoNoMes(sb: SupabaseClient, contratoId: string, competencia: string): Promise<boolean> {
+  const { data: pedidos, error } = await sb
+    .from('mat_pedidos')
+    .select('id')
+    .eq('contrato_id', contratoId)
+    .eq('competencia', competencia)
+    .neq('status_produtos', 'cancelado')
+  if (error) throw new Error(error.message)
+  const ids = (pedidos ?? []).map((p) => p.id)
+  if (ids.length === 0) return false
+  const { data, error: e2 } = await sb.from('mat_pedido_itens').select('id').in('pedido_id', ids).eq('parte', 'kit').limit(1)
+  if (e2) throw new Error(e2.message)
+  return (data ?? []).length > 0
+}
+
 /** Itens do catálogo que o contrato pode pedir (sem limpeza: só portaria). */
 function catalogoPermitido(catalogo: ItemPublico[], recebeLimpeza: boolean): ItemPublico[] {
   return recebeLimpeza ? catalogo : catalogo.filter((c) => c.categoria === 'portaria')
@@ -2259,7 +2379,10 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
     pecasDoContratoBanco(sb, contrato.id),
     equipeDoContrato(sb, contrato),
   ])
-  const { resumo, destino } = await resumoDoMes(sb, contrato.id, janela.competencia)
+  const [{ resumo, destino }, kitConfirmado] = await Promise.all([
+    resumoDoMes(sb, contrato.id, janela.competencia),
+    kitConfirmadoNoMes(sb, contrato.id, janela.competencia),
+  ])
 
   // Minimização: SÓ os itens do Kit Mensal (o resto do catálogo só por buscar_item).
   const noKit = new Set(kitInfo.kit.map((k) => k.item_id))
@@ -2280,6 +2403,7 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
     ultimas_entregas: ultimas,
     resumo,
     destino,
+    kit_confirmado: kitConfirmado,
   }
 }
 
@@ -2345,12 +2469,13 @@ async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, u
     await registrarLog(sb, contrato.id, 'envio_recusado', ip, ua)
     throw new ErroHttp(409, 'fora_janela', 'O prazo do pedido deste mês terminou. Fale com o inspetor.')
   }
-  const [catalogo, kitInfo, pecasInfo, equipe, rPrecos] = await Promise.all([
+  const [catalogo, kitInfo, pecasInfo, equipe, rPrecos, kitConfirmado] = await Promise.all([
     catalogoAtivo(sb),
     kitDoContrato(sb, contrato.id),
     pecasDoContratoBanco(sb, contrato.id),
     equipeDoContrato(sb, contrato),
     sb.from('mat_precos').select('item_id, variacao_id, preco, vigente_desde').lte('vigente_desde', hoje),
+    kitConfirmadoNoMes(sb, contrato.id, janela.competencia),
   ])
   const ctx: ContextoPedido = {
     hoje,
@@ -2362,6 +2487,7 @@ async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, u
     equipe: equipe.publica,
     ultimasEntregas: kitInfo.ultimas,
     precos: (rPrecos.data ?? []).map((p) => ({ ...p, preco: Number(p.preco) })),
+    kitConfirmado,
   }
   const v = validarEnvioPedido(corpo.pedido, ctx)
   if (!v.ok) {

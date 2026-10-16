@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { ContextoPedido, ItemPublico } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
-import { errosDe, itemDaLinhaPeca, montarPayloadPedido, qtdNumero, reconciliarRascunhoComKit, type LinhaProdutoForm, type RascunhoPedido } from './formPedido'
+import {
+  errosDe,
+  itemDaLinhaPeca,
+  linhasKitDoForm,
+  maximoDaLinhaKit,
+  montarPayloadPedido,
+  qtdNumero,
+  reconciliarRascunhoComKit,
+  type LinhaProdutoForm,
+  type RascunhoPedido,
+} from './formPedido'
 
 const bota: PecaPublica = {
   id: 'epi:bota',
@@ -27,7 +37,7 @@ const vazio: RascunhoPedido = {
 }
 
 describe('montarPayloadPedido', () => {
-  it('descarta produtos zerados e leva a chave da linha (erros ligados ao campo)', () => {
+  it('leva a linha do kit mesmo zerada ("Não preciso este mês"), descarta extra zerado e marca a parte', () => {
     const p = montarPayloadPedido(
       {
         ...vazio,
@@ -36,13 +46,17 @@ describe('montarPayloadPedido', () => {
           { chave: 'a', item_id: 'cloro', variacao_id: null, descricao_livre: '', quantidade: '3', justificativa: '', secao: 'materiais', origem: 'kit' },
           { chave: 'b', item_id: 'balde', variacao_id: null, descricao_livre: '', quantidade: '0', justificativa: '', secao: 'materiais', origem: 'kit' },
           { chave: 'c', item_id: null, variacao_id: null, descricao_livre: 'cabo vasora', quantidade: '2', justificativa: 'quebrou', secao: 'materiais', origem: 'livre' },
+          { chave: 'd', item_id: 'cloro', variacao_id: null, descricao_livre: '', quantidade: '0', justificativa: '', secao: 'materiais', origem: 'mais' },
+          { chave: 'e', item_id: 'cloro', variacao_id: null, descricao_livre: '', quantidade: '2', justificativa: '', secao: 'materiais', origem: 'mais' },
         ],
       },
       []
     )
     expect(p.produtos).toEqual([
-      { chave: 'a', item_id: 'cloro', variacao_id: null, descricao_livre: null, quantidade: 3, justificativa: '' },
-      { chave: 'c', item_id: null, variacao_id: null, descricao_livre: 'cabo vasora', quantidade: 2, justificativa: 'quebrou' },
+      { chave: 'a', parte: 'kit', item_id: 'cloro', variacao_id: null, descricao_livre: null, quantidade: 3, justificativa: '' },
+      { chave: 'b', parte: 'kit', item_id: 'balde', variacao_id: null, descricao_livre: null, quantidade: 0, justificativa: '' },
+      { chave: 'c', parte: 'extra', item_id: null, variacao_id: null, descricao_livre: 'cabo vasora', quantidade: 2, justificativa: 'quebrou' },
+      { chave: 'e', parte: 'extra', item_id: 'cloro', variacao_id: null, descricao_livre: null, quantidade: 2, justificativa: '' },
     ])
   })
 
@@ -93,7 +107,7 @@ describe('reconciliarRascunhoComKit (rascunho × kit alterado no meio do mês)',
   const cloro: ItemPublico = { id: 'cloro', nome: 'Cloro', categoria: 'limpeza', unidade: 'bombona 5L', validade_meses: null, variacoes: [] }
   const balde: ItemPublico = { id: 'balde', nome: 'Balde 8L', categoria: 'limpeza', unidade: 'unidade', validade_meses: null, variacoes: [] }
   const livro: ItemPublico = { id: 'livro', nome: 'Livro de Ocorrências', categoria: 'portaria', unidade: 'unidade', validade_meses: null, variacoes: [] }
-  const ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza'> = {
+  const ctx: Pick<ContextoPedido, 'kit' | 'catalogo' | 'ultimasEntregas' | 'hoje' | 'recebeLimpeza' | 'kitConfirmado'> = {
     hoje: '2026-10-09',
     recebeLimpeza: true,
     catalogo: [cloro, balde, livro],
@@ -114,33 +128,70 @@ describe('reconciliarRascunhoComKit (rascunho × kit alterado no meio do mês)',
     ...parcial,
   })
 
-  it('acrescenta item novo do kit com a quantidade padrão e mantém a quantidade digitada', () => {
+  it('acrescenta item novo do kit com a quantidade do kit e mantém a quantidade reduzida pelo líder', () => {
     const rec = reconciliarRascunhoComKit(
       {
-        produtos: [linha({ chave: 'a', item_id: 'cloro', quantidade: '5' })],
+        produtos: [linha({ chave: 'a', item_id: 'cloro', quantidade: '2' })],
         itensBusca: [],
       },
       ctx
     )
     expect(rec.produtos).toHaveLength(2)
-    expect(rec.produtos[0]).toMatchObject({ chave: 'a', item_id: 'cloro', quantidade: '5' }) // digitada, intocada
+    expect(rec.produtos[0]).toMatchObject({ chave: 'a', item_id: 'cloro', quantidade: '2' }) // reduzida, intocada
     expect(rec.produtos[1]).toMatchObject({ item_id: 'livro', quantidade: '1', origem: 'kit', secao: 'portaria' })
   })
 
-  it('remove linha do kit cujo item saiu do kit/catálogo; preserva busca e livre', () => {
+  it('rascunho antigo (v2) com kit acima do kit do mês: o excedente vira linha "a mais" (pedido extra) com o motivo', () => {
+    const rec = reconciliarRascunhoComKit(
+      {
+        produtos: [linha({ chave: 'a', item_id: 'cloro', quantidade: '5', justificativa: 'Obra' })],
+        itensBusca: [],
+      },
+      ctx
+    )
+    expect(rec.produtos.find((l) => l.chave === 'a')).toMatchObject({ origem: 'kit', quantidade: '3', justificativa: '' })
+    expect(rec.produtos.find((l) => l.origem === 'mais')).toMatchObject({ item_id: 'cloro', quantidade: '2', justificativa: 'Obra' })
+    // Extras vêm depois do kit.
+    expect(rec.produtos.map((l) => l.origem)).toEqual(['kit', 'kit', 'mais'])
+  })
+
+  it('remove linha do kit cujo item saiu do kit/catálogo; preserva busca, livre e "a mais"', () => {
     const rec = reconciliarRascunhoComKit(
       {
         produtos: [
           linha({ chave: 'a', item_id: 'balde' }), // saiu do kit
           linha({ chave: 'b', item_id: 'cabo', origem: 'busca', quantidade: '2' }),
           linha({ chave: 'c', item_id: null, descricao_livre: 'Pá de lixo', origem: 'livre' }),
+          linha({ chave: 'd', item_id: 'cloro', origem: 'mais', quantidade: '1' }),
         ],
         itensBusca: [{ id: 'cabo', nome: 'Cabo de vassoura', categoria: 'limpeza', unidade: 'unidade', validade_meses: null, variacoes: [] }],
       },
       ctx
     )
-    expect(rec.produtos.map((l) => l.chave)).toEqual(['b', 'c', expect.any(String), expect.any(String)])
     expect(rec.produtos.filter((l) => l.origem === 'kit').map((l) => l.item_id)).toEqual(['cloro', 'livro'])
+    expect(rec.produtos.filter((l) => l.origem !== 'kit').map((l) => l.chave)).toEqual(['b', 'c', 'd'])
+  })
+
+  it('kit já confirmado no mês (outro envio): as linhas do kit saem, os extras ficam', () => {
+    const rec = reconciliarRascunhoComKit(
+      {
+        produtos: [linha({ chave: 'a', item_id: 'cloro', quantidade: '3' }), linha({ chave: 'd', item_id: 'cloro', origem: 'mais', quantidade: '1' })],
+        itensBusca: [],
+      },
+      { ...ctx, kitConfirmado: true }
+    )
+    expect(rec.produtos.map((l) => l.chave)).toEqual(['d'])
+    expect(linhasKitDoForm({ ...ctx, kitConfirmado: true })).toEqual([])
+  })
+
+  it('linhas do kit do form: só o que vem este mês; máximo = kit do mês', () => {
+    const linhas = linhasKitDoForm({ ...ctx, ultimasEntregas: {} })
+    expect(linhas.map((l) => [l.item_id, l.quantidade, l.origem])).toEqual([
+      ['cloro', '3', 'kit'],
+      ['livro', '1', 'kit'],
+    ])
+    expect(maximoDaLinhaKit(ctx, { item_id: 'cloro', variacao_id: null })).toBe(3)
+    expect(maximoDaLinhaKit(ctx, { item_id: 'balde', variacao_id: null })).toBe(0)
   })
 
   it('linha de busca cujo item sumiu do rascunho da busca também sai', () => {
@@ -168,11 +219,11 @@ describe('reconciliarRascunhoComKit (rascunho × kit alterado no meio do mês)',
   it('não duplica linha do kit repetida no rascunho (vale a primeira)', () => {
     const rec = reconciliarRascunhoComKit(
       {
-        produtos: [linha({ chave: 'a', item_id: 'cloro', quantidade: '5' }), linha({ chave: 'b', item_id: 'cloro', quantidade: '9' })],
+        produtos: [linha({ chave: 'a', item_id: 'cloro', quantidade: '2' }), linha({ chave: 'b', item_id: 'cloro', quantidade: '1' })],
         itensBusca: [],
       },
       ctx
     )
-    expect(rec.produtos.filter((l) => l.item_id === 'cloro')).toEqual([expect.objectContaining({ chave: 'a', quantidade: '5' })])
+    expect(rec.produtos.filter((l) => l.item_id === 'cloro')).toEqual([expect.objectContaining({ chave: 'a', quantidade: '2' })])
   })
 })
