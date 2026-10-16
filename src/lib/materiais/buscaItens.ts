@@ -24,6 +24,15 @@
 // TypeSafe) com o termo e a lista de nomes do catálogo, aceitando só
 // respostas de alta confiança. Ver `FallbackBusca` abaixo — hoje a function
 // não passa nenhum fallback e o líder usa "Não achei, enviar assim".
+//
+// Visão do líder (migration 136, decisões da gestora de 16/10/2026):
+// - `nome_lider`: nome de exibição no link ("Removedor desengraxante 5L");
+//   itens com o MESMO nome_lider viram UM resultado (preferência para o do
+//   kit do contrato; sem isso, o primeiro na ordem do catálogo). Os itens
+//   seguem separados no banco (preço, kit e histórico próprios).
+// - Variações ocultas (marca) e itens exclusivos de outro contrato saem
+//   ANTES da busca, no servidor (`visaoDoLider` em pedidoLider.ts e
+//   `exclusivoDeOutroContrato` abaixo).
 
 export interface ItemBuscavel {
   id: string
@@ -38,6 +47,34 @@ export interface ItemBuscavel {
   noKit?: boolean
   /** Ids das variações que estão no kit (o item inteiro no kit = noKit). */
   variacoesNoKit?: string[]
+  /** Nome no link do líder (migration 136). Mesmo nome_lider = um resultado só. */
+  nome_lider?: string | null
+}
+
+/**
+ * Item exclusivo de outros contratos (mat_itens.contratos_exclusivos,
+ * migration 136): lista preenchida que não inclui o contrato. NULL ou vazia
+ * = item de todos os contratos.
+ */
+export function exclusivoDeOutroContrato(
+  item: { contratos_exclusivos?: string[] | null },
+  contratoId: string | null | undefined
+): boolean {
+  const lista = item.contratos_exclusivos ?? []
+  if (lista.length === 0) return false
+  return !contratoId || !lista.includes(contratoId)
+}
+
+/**
+ * Nome do item no link do líder: o `nome_lider` quando preenchido (com a
+ * variação visível, se houver); senão a regra de `nomeExibicaoItem`.
+ */
+export function nomeLiderItem(
+  item: { nome: string; nome_lider?: string | null },
+  rotuloVariacao?: string | null
+): string {
+  const lider = (item.nome_lider ?? '').trim()
+  return lider ? nomeExibicaoItem(lider, rotuloVariacao) : nomeExibicaoItem(item.nome, rotuloVariacao)
 }
 
 // Palavras de cadastro que não ajudam a pessoa a reconhecer o item.
@@ -204,16 +241,21 @@ export function buscarItens<T extends ItemBuscavel>(
 ): ResultadoBusca<T>[] {
   const tn = normalizarBusca(termo)
   if (tn.replace(/ /g, '').length < BUSCA_MIN_CARACTERES) return []
-  type Candidato = ResultadoBusca<T> & { ordemNoItem: number; kit: boolean }
+  type Candidato = ResultadoBusca<T> & { ordemNoItem: number; kit: boolean; ordemItem: number }
   const candidatos: Candidato[] = []
-  for (const item of itens) {
+  itens.forEach((item, ordemItem) => {
     const variacoes = item.variacoes ?? []
+    const lider = (item.nome_lider ?? '').trim()
     const alvos: { variacao: { id: string; rotulo: string } | null; nomes: string[]; aliases: string[]; kit: boolean }[] =
       variacoes.length === 0
-        ? [{ variacao: null, nomes: [item.nome], aliases: item.aliases ?? [], kit: !!item.noKit }]
+        ? [{ variacao: null, nomes: lider ? [lider, item.nome] : [item.nome], aliases: item.aliases ?? [], kit: !!item.noKit }]
         : variacoes.map((v) => ({
             variacao: v,
-            nomes: [nomeExibicaoItem(item.nome, v.rotulo), `${item.nome} ${v.rotulo}`],
+            nomes: [
+              nomeLiderItem(item, v.rotulo),
+              `${item.nome} ${v.rotulo}`,
+              ...(lider ? [nomeExibicaoItem(item.nome, v.rotulo)] : []),
+            ],
             aliases: [...(item.aliasesPorVariacao?.[v.id] ?? []), ...(item.aliases ?? [])],
             kit: !!item.noKit || (item.variacoesNoKit ?? []).includes(v.id),
           }))
@@ -239,14 +281,37 @@ export function buscarItens<T extends ItemBuscavel>(
       candidatos.push({
         item,
         variacao: alvo.variacao,
-        nome: nomeExibicaoItem(item.nome, alvo.variacao?.rotulo),
+        nome: nomeLiderItem(item, alvo.variacao?.rotulo),
         nota: Math.min(1, melhor) + (alvo.kit ? BONUS_KIT : 0),
         casouCom,
         ordemNoItem,
         kit: alvo.kit,
+        ordemItem,
       })
     })
+  })
+  // Mesmo nome_lider (+ variação visível) = um resultado só: fica o do kit do
+  // contrato; sem kit, o primeiro na ordem do catálogo. Vale a melhor nota do grupo.
+  const porNomeLider = new Map<string, Candidato>()
+  const unicos: Candidato[] = []
+  for (const c of candidatos) {
+    if (!(c.item.nome_lider ?? '').trim()) {
+      unicos.push(c)
+      continue
+    }
+    const chave = normalizarBusca(c.nome)
+    const atual = porNomeLider.get(chave)
+    if (!atual) {
+      porNomeLider.set(chave, c)
+      continue
+    }
+    const nota = Math.max(atual.nota - (atual.kit ? BONUS_KIT : 0), c.nota - (c.kit ? BONUS_KIT : 0))
+    const fica = atual.kit !== c.kit ? (c.kit ? c : atual) : atual.ordemItem <= c.ordemItem ? atual : c
+    fica.nota = nota + (fica.kit ? BONUS_KIT : 0)
+    porNomeLider.set(chave, fica)
   }
+  candidatos.length = 0
+  candidatos.push(...unicos, ...porNomeLider.values())
   // Ordem entre as variações do mesmo item que empataram: a 1ª de cada item
   // vem antes da 2ª de qualquer item.
   const faixa = (n: number) => Math.round(n * 100)

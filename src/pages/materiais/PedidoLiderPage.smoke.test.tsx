@@ -346,6 +346,31 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(screen.getByText(/3 bombona 5L/)).toBeInTheDocument()
   })
 
+  it('visão do líder (migration 136): kit com nome do líder e mop sem marca, também na revisão', async () => {
+    api.carregar.mockResolvedValue(
+      dados({
+        catalogo: [
+          { id: 'removic', nome: 'Removedor desengraxante Removic 5L', nome_lider: 'Removedor desengraxante 5L', categoria: 'limpeza', unidade: 'galão 5L', validade_meses: null, variacoes: [] },
+          // marcas ocultas: o servidor já devolve o mop sem variações
+          { id: 'mopp', nome: 'Mop Cabeleira Pequena UN', categoria: 'limpeza', unidade: 'unidade', validade_meses: null, variacoes: [] },
+        ],
+        kit: [
+          { item_id: 'removic', variacao_id: null, quantidade: 1, periodicidade_meses: 1 },
+          { item_id: 'mopp', variacao_id: null, quantidade: 6, periodicidade_meses: 1 },
+        ],
+      })
+    )
+    renderizar()
+    expect(await screen.findByText('Removedor desengraxante 5L')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quantidade de Mop Cabeleira Pequena')).toHaveValue('6')
+    expect(screen.queryByText(/Removic/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
+    irParaEtapa(/Revisar e enviar/)
+    expect(screen.getByText('Removedor desengraxante 5L')).toBeInTheDocument()
+    expect(screen.getByText('Mop Cabeleira Pequena')).toBeInTheDocument()
+  })
+
   it('não envia sem seu nome; o aviso some ao digitar', async () => {
     api.carregar.mockResolvedValue(dados())
     renderizar()

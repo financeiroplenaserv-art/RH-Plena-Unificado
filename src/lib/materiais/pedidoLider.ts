@@ -98,6 +98,17 @@ export interface ItemPublico {
   unidade: string
   validade_meses: number | null
   variacoes: { id: string; rotulo: string }[]
+  /** Nome no link do líder (migration 136); ausente/NULL = nome do cadastro sem a unidade. */
+  nome_lider?: string | null
+}
+
+/**
+ * Item como o SERVIDOR lê do catálogo (nunca vai assim para o link): com a
+ * marcação de variação oculta e a lista de contratos exclusivos (migration 136).
+ */
+export interface ItemCatalogoServidor extends Omit<ItemPublico, 'variacoes'> {
+  variacoes: { id: string; rotulo: string; oculta_lider?: boolean }[]
+  contratos_exclusivos?: string[] | null
 }
 
 export interface KitPublico {
@@ -145,6 +156,71 @@ export interface ContextoPedido {
    * extra no servidor.
    */
   kitConfirmado?: boolean
+  /**
+   * Itens exclusivos de OUTROS contratos (migration 136): linha com eles é
+   * recusada no envio (o link nunca os oferece). Calculado por visaoDoLider.
+   */
+  indisponiveis?: string[]
+}
+
+/**
+ * O que o líder vê do catálogo e do kit (migration 136, decisões da gestora
+ * de 16/10/2026). Lógica pura usada pela Edge Function em `carregar`,
+ * `buscar_item` e `enviar` — o filtro é do SERVIDOR.
+ *
+ * - Variação oculta (é marca: "Mop Cabeleira Pequena" Max Teck/Starclean)
+ *   some da lista. Linha do kit com variação oculta vira linha do ITEM
+ *   (variacao_id null; duas marcas no kit somam numa linha só, vale a menor
+ *   periodicidade). Com TODAS as variações ocultas o item fica sem variação e
+ *   a linha é gravada com variacao_id null.
+ * - Item exclusivo de outros contratos (contratos_exclusivos preenchido sem
+ *   este contrato) sai do catálogo e entra em `indisponiveis` — EXCETO se o
+ *   gestor o pôs no kit deste contrato (a tela interna avisa sem bloquear; a
+ *   escolha do gestor vale).
+ * - `nome_lider` segue no item (o navegador mostra; a busca agrupa).
+ */
+export function visaoDoLider(
+  catalogo: ItemCatalogoServidor[],
+  kit: KitPublico[],
+  contratoId: string | null
+): { catalogo: ItemPublico[]; kit: KitPublico[]; indisponiveis: string[] } {
+  const noKit = new Set(kit.map((k) => k.item_id))
+  const ocultas = new Set<string>()
+  const indisponiveis: string[] = []
+  const visiveis: ItemPublico[] = []
+  for (const item of catalogo) {
+    const lista = item.contratos_exclusivos ?? []
+    if (lista.length > 0 && (!contratoId || !lista.includes(contratoId)) && !noKit.has(item.id)) {
+      indisponiveis.push(item.id)
+      continue
+    }
+    for (const v of item.variacoes) if (v.oculta_lider) ocultas.add(v.id)
+    visiveis.push({
+      id: item.id,
+      nome: item.nome,
+      categoria: item.categoria,
+      unidade: item.unidade,
+      validade_meses: item.validade_meses,
+      variacoes: item.variacoes.filter((v) => !v.oculta_lider).map((v) => ({ id: v.id, rotulo: v.rotulo })),
+      ...(item.nome_lider ? { nome_lider: item.nome_lider } : {}),
+    })
+  }
+  const kitLider: KitPublico[] = []
+  const porChave = new Map<string, KitPublico>()
+  for (const k of kit) {
+    const variacao = k.variacao_id && ocultas.has(k.variacao_id) ? null : k.variacao_id ?? null
+    const chave = `${k.item_id}|${variacao ?? ''}`
+    const atual = porChave.get(chave)
+    if (atual) {
+      atual.quantidade = Math.round((atual.quantidade + k.quantidade) * 100) / 100
+      atual.periodicidade_meses = Math.min(atual.periodicidade_meses, k.periodicidade_meses)
+      continue
+    }
+    const linha = { ...k, variacao_id: variacao }
+    porChave.set(chave, linha)
+    kitLider.push(linha)
+  }
+  return { catalogo: visiveis, kit: kitLider, indisponiveis }
 }
 
 /** Parte da linha de produto: o kit do mês (vai receber) ou o pedido extra. */
@@ -503,6 +579,13 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       continue
     }
 
+    if (ctx.indisponiveis?.includes(itemId)) {
+      // Item exclusivo de outro contrato (migration 136): recusado, nunca
+      // convertido em texto livre — o link não oferece esse item, então só
+      // chega aqui por cliente adulterado ou link aberto há muito tempo.
+      erro(chave, 'geral', 'Há um item que não está disponível para este posto. Recarregue a página.')
+      continue
+    }
     const item = catalogo.get(itemId)
     if (!item) {
       erro(chave, 'geral', 'Há um item que não está mais no catálogo. Recarregue a página.')

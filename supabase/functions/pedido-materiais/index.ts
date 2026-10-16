@@ -597,6 +597,15 @@ export function idsEquipeDoContrato(
 // TypeSafe) com o termo e a lista de nomes do catálogo, aceitando só
 // respostas de alta confiança. Ver `FallbackBusca` abaixo — hoje a function
 // não passa nenhum fallback e o líder usa "Não achei, enviar assim".
+//
+// Visão do líder (migration 136, decisões da gestora de 16/10/2026):
+// - `nome_lider`: nome de exibição no link ("Removedor desengraxante 5L");
+//   itens com o MESMO nome_lider viram UM resultado (preferência para o do
+//   kit do contrato; sem isso, o primeiro na ordem do catálogo). Os itens
+//   seguem separados no banco (preço, kit e histórico próprios).
+// - Variações ocultas (marca) e itens exclusivos de outro contrato saem
+//   ANTES da busca, no servidor (`visaoDoLider` em pedidoLider.ts e
+//   `exclusivoDeOutroContrato` abaixo).
 
 export interface ItemBuscavel {
   id: string
@@ -611,6 +620,34 @@ export interface ItemBuscavel {
   noKit?: boolean
   /** Ids das variações que estão no kit (o item inteiro no kit = noKit). */
   variacoesNoKit?: string[]
+  /** Nome no link do líder (migration 136). Mesmo nome_lider = um resultado só. */
+  nome_lider?: string | null
+}
+
+/**
+ * Item exclusivo de outros contratos (mat_itens.contratos_exclusivos,
+ * migration 136): lista preenchida que não inclui o contrato. NULL ou vazia
+ * = item de todos os contratos.
+ */
+export function exclusivoDeOutroContrato(
+  item: { contratos_exclusivos?: string[] | null },
+  contratoId: string | null | undefined
+): boolean {
+  const lista = item.contratos_exclusivos ?? []
+  if (lista.length === 0) return false
+  return !contratoId || !lista.includes(contratoId)
+}
+
+/**
+ * Nome do item no link do líder: o `nome_lider` quando preenchido (com a
+ * variação visível, se houver); senão a regra de `nomeExibicaoItem`.
+ */
+export function nomeLiderItem(
+  item: { nome: string; nome_lider?: string | null },
+  rotuloVariacao?: string | null
+): string {
+  const lider = (item.nome_lider ?? '').trim()
+  return lider ? nomeExibicaoItem(lider, rotuloVariacao) : nomeExibicaoItem(item.nome, rotuloVariacao)
 }
 
 // Palavras de cadastro que não ajudam a pessoa a reconhecer o item.
@@ -777,16 +814,21 @@ export function buscarItens<T extends ItemBuscavel>(
 ): ResultadoBusca<T>[] {
   const tn = normalizarBusca(termo)
   if (tn.replace(/ /g, '').length < BUSCA_MIN_CARACTERES) return []
-  type Candidato = ResultadoBusca<T> & { ordemNoItem: number; kit: boolean }
+  type Candidato = ResultadoBusca<T> & { ordemNoItem: number; kit: boolean; ordemItem: number }
   const candidatos: Candidato[] = []
-  for (const item of itens) {
+  itens.forEach((item, ordemItem) => {
     const variacoes = item.variacoes ?? []
+    const lider = (item.nome_lider ?? '').trim()
     const alvos: { variacao: { id: string; rotulo: string } | null; nomes: string[]; aliases: string[]; kit: boolean }[] =
       variacoes.length === 0
-        ? [{ variacao: null, nomes: [item.nome], aliases: item.aliases ?? [], kit: !!item.noKit }]
+        ? [{ variacao: null, nomes: lider ? [lider, item.nome] : [item.nome], aliases: item.aliases ?? [], kit: !!item.noKit }]
         : variacoes.map((v) => ({
             variacao: v,
-            nomes: [nomeExibicaoItem(item.nome, v.rotulo), `${item.nome} ${v.rotulo}`],
+            nomes: [
+              nomeLiderItem(item, v.rotulo),
+              `${item.nome} ${v.rotulo}`,
+              ...(lider ? [nomeExibicaoItem(item.nome, v.rotulo)] : []),
+            ],
             aliases: [...(item.aliasesPorVariacao?.[v.id] ?? []), ...(item.aliases ?? [])],
             kit: !!item.noKit || (item.variacoesNoKit ?? []).includes(v.id),
           }))
@@ -812,14 +854,37 @@ export function buscarItens<T extends ItemBuscavel>(
       candidatos.push({
         item,
         variacao: alvo.variacao,
-        nome: nomeExibicaoItem(item.nome, alvo.variacao?.rotulo),
+        nome: nomeLiderItem(item, alvo.variacao?.rotulo),
         nota: Math.min(1, melhor) + (alvo.kit ? BONUS_KIT : 0),
         casouCom,
         ordemNoItem,
         kit: alvo.kit,
+        ordemItem,
       })
     })
+  })
+  // Mesmo nome_lider (+ variação visível) = um resultado só: fica o do kit do
+  // contrato; sem kit, o primeiro na ordem do catálogo. Vale a melhor nota do grupo.
+  const porNomeLider = new Map<string, Candidato>()
+  const unicos: Candidato[] = []
+  for (const c of candidatos) {
+    if (!(c.item.nome_lider ?? '').trim()) {
+      unicos.push(c)
+      continue
+    }
+    const chave = normalizarBusca(c.nome)
+    const atual = porNomeLider.get(chave)
+    if (!atual) {
+      porNomeLider.set(chave, c)
+      continue
+    }
+    const nota = Math.max(atual.nota - (atual.kit ? BONUS_KIT : 0), c.nota - (c.kit ? BONUS_KIT : 0))
+    const fica = atual.kit !== c.kit ? (c.kit ? c : atual) : atual.ordemItem <= c.ordemItem ? atual : c
+    fica.nota = nota + (fica.kit ? BONUS_KIT : 0)
+    porNomeLider.set(chave, fica)
   }
+  candidatos.length = 0
+  candidatos.push(...unicos, ...porNomeLider.values())
   // Ordem entre as variações do mesmo item que empataram: a 1ª de cada item
   // vem antes da 2ª de qualquer item.
   const faixa = (n: number) => Math.round(n * 100)
@@ -948,6 +1013,17 @@ export interface ItemPublico {
   unidade: string
   validade_meses: number | null
   variacoes: { id: string; rotulo: string }[]
+  /** Nome no link do líder (migration 136); ausente/NULL = nome do cadastro sem a unidade. */
+  nome_lider?: string | null
+}
+
+/**
+ * Item como o SERVIDOR lê do catálogo (nunca vai assim para o link): com a
+ * marcação de variação oculta e a lista de contratos exclusivos (migration 136).
+ */
+export interface ItemCatalogoServidor extends Omit<ItemPublico, 'variacoes'> {
+  variacoes: { id: string; rotulo: string; oculta_lider?: boolean }[]
+  contratos_exclusivos?: string[] | null
 }
 
 export interface KitPublico {
@@ -995,6 +1071,71 @@ export interface ContextoPedido {
    * extra no servidor.
    */
   kitConfirmado?: boolean
+  /**
+   * Itens exclusivos de OUTROS contratos (migration 136): linha com eles é
+   * recusada no envio (o link nunca os oferece). Calculado por visaoDoLider.
+   */
+  indisponiveis?: string[]
+}
+
+/**
+ * O que o líder vê do catálogo e do kit (migration 136, decisões da gestora
+ * de 16/10/2026). Lógica pura usada pela Edge Function em `carregar`,
+ * `buscar_item` e `enviar` — o filtro é do SERVIDOR.
+ *
+ * - Variação oculta (é marca: "Mop Cabeleira Pequena" Max Teck/Starclean)
+ *   some da lista. Linha do kit com variação oculta vira linha do ITEM
+ *   (variacao_id null; duas marcas no kit somam numa linha só, vale a menor
+ *   periodicidade). Com TODAS as variações ocultas o item fica sem variação e
+ *   a linha é gravada com variacao_id null.
+ * - Item exclusivo de outros contratos (contratos_exclusivos preenchido sem
+ *   este contrato) sai do catálogo e entra em `indisponiveis` — EXCETO se o
+ *   gestor o pôs no kit deste contrato (a tela interna avisa sem bloquear; a
+ *   escolha do gestor vale).
+ * - `nome_lider` segue no item (o navegador mostra; a busca agrupa).
+ */
+export function visaoDoLider(
+  catalogo: ItemCatalogoServidor[],
+  kit: KitPublico[],
+  contratoId: string | null
+): { catalogo: ItemPublico[]; kit: KitPublico[]; indisponiveis: string[] } {
+  const noKit = new Set(kit.map((k) => k.item_id))
+  const ocultas = new Set<string>()
+  const indisponiveis: string[] = []
+  const visiveis: ItemPublico[] = []
+  for (const item of catalogo) {
+    const lista = item.contratos_exclusivos ?? []
+    if (lista.length > 0 && (!contratoId || !lista.includes(contratoId)) && !noKit.has(item.id)) {
+      indisponiveis.push(item.id)
+      continue
+    }
+    for (const v of item.variacoes) if (v.oculta_lider) ocultas.add(v.id)
+    visiveis.push({
+      id: item.id,
+      nome: item.nome,
+      categoria: item.categoria,
+      unidade: item.unidade,
+      validade_meses: item.validade_meses,
+      variacoes: item.variacoes.filter((v) => !v.oculta_lider).map((v) => ({ id: v.id, rotulo: v.rotulo })),
+      ...(item.nome_lider ? { nome_lider: item.nome_lider } : {}),
+    })
+  }
+  const kitLider: KitPublico[] = []
+  const porChave = new Map<string, KitPublico>()
+  for (const k of kit) {
+    const variacao = k.variacao_id && ocultas.has(k.variacao_id) ? null : k.variacao_id ?? null
+    const chave = `${k.item_id}|${variacao ?? ''}`
+    const atual = porChave.get(chave)
+    if (atual) {
+      atual.quantidade = Math.round((atual.quantidade + k.quantidade) * 100) / 100
+      atual.periodicidade_meses = Math.min(atual.periodicidade_meses, k.periodicidade_meses)
+      continue
+    }
+    const linha = { ...k, variacao_id: variacao }
+    porChave.set(chave, linha)
+    kitLider.push(linha)
+  }
+  return { catalogo: visiveis, kit: kitLider, indisponiveis }
 }
 
 /** Parte da linha de produto: o kit do mês (vai receber) ou o pedido extra. */
@@ -1353,6 +1494,13 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
       continue
     }
 
+    if (ctx.indisponiveis?.includes(itemId)) {
+      // Item exclusivo de outro contrato (migration 136): recusado, nunca
+      // convertido em texto livre — o link não oferece esse item, então só
+      // chega aqui por cliente adulterado ou link aberto há muito tempo.
+      erro(chave, 'geral', 'Há um item que não está disponível para este posto. Recarregue a página.')
+      continue
+    }
     const item = catalogo.get(itemId)
     if (!item) {
       erro(chave, 'geral', 'Há um item que não está mais no catálogo. Recarregue a página.')
@@ -2209,23 +2357,34 @@ async function janelaDoContrato(sb: SupabaseClient, contratoId: string, hoje: st
   return janelaPublica(hoje, diaLimite, reab?.[0]?.ate ?? null)
 }
 
-/** Catálogo ATIVO completo (só no servidor — nunca vai inteiro para o link). */
-async function catalogoAtivo(sb: SupabaseClient): Promise<ItemPublico[]> {
+/**
+ * Catálogo ATIVO completo (só no servidor — nunca vai inteiro para o link),
+ * com variação oculta e contratos exclusivos (migration 136). Passe sempre
+ * por `visaoDoLider` antes de devolver qualquer coisa ao link.
+ */
+async function catalogoAtivo(sb: SupabaseClient): Promise<ItemCatalogoServidor[]> {
   const [rItens, rVar] = await Promise.all([
-    sb.from('mat_itens').select('id, nome, categoria, unidade_pedido, validade_meses, ordem').eq('ativo', true).order('ordem', { nullsFirst: false }).order('nome'),
-    sb.from('mat_item_variacoes').select('id, item_id, rotulo, ordem').eq('ativo', true).order('ordem', { nullsFirst: false }).order('rotulo'),
+    sb
+      .from('mat_itens')
+      .select('id, nome, nome_lider, contratos_exclusivos, categoria, unidade_pedido, validade_meses, ordem')
+      .eq('ativo', true)
+      .order('ordem', { nullsFirst: false })
+      .order('nome'),
+    sb.from('mat_item_variacoes').select('id, item_id, rotulo, oculta_lider, ordem').eq('ativo', true).order('ordem', { nullsFirst: false }).order('rotulo'),
   ])
   const erro = rItens.error ?? rVar.error
   if (erro) throw new Error(erro.message)
-  const variacoes = new Map<string, { id: string; rotulo: string }[]>()
+  const variacoes = new Map<string, { id: string; rotulo: string; oculta_lider: boolean }[]>()
   for (const v of rVar.data ?? []) {
     const lista = variacoes.get(v.item_id) ?? []
-    lista.push({ id: v.id, rotulo: v.rotulo })
+    lista.push({ id: v.id, rotulo: v.rotulo, oculta_lider: v.oculta_lider === true })
     variacoes.set(v.item_id, lista)
   }
   return (rItens.data ?? []).map((i) => ({
     id: i.id,
     nome: i.nome,
+    nome_lider: i.nome_lider ?? null,
+    contratos_exclusivos: i.contratos_exclusivos ?? null,
     categoria: i.categoria,
     unidade: i.unidade_pedido,
     validade_meses: i.validade_meses,
@@ -2423,12 +2582,13 @@ async function resumoDoMes(sb: SupabaseClient, contratoId: string, competencia: 
   const idsVar = [...new Set(produtos.map((p) => p.variacao_id).filter(Boolean))] as string[]
   const nomes = { itens: {} as Record<string, { nome: string; unidade: string }>, variacoes: {} as Record<string, string> }
   if (idsItens.length > 0) {
-    const { data } = await sb.from('mat_itens').select('id, nome, unidade_pedido').in('id', idsItens)
-    for (const i of data ?? []) nomes.itens[i.id] = { nome: i.nome, unidade: i.unidade_pedido }
+    // Visão do líder (migration 136): nome_lider e marca oculta.
+    const { data } = await sb.from('mat_itens').select('id, nome, nome_lider, unidade_pedido').in('id', idsItens)
+    for (const i of data ?? []) nomes.itens[i.id] = { nome: (i.nome_lider ?? '').trim() || i.nome, unidade: i.unidade_pedido }
   }
   if (idsVar.length > 0) {
-    const { data } = await sb.from('mat_item_variacoes').select('id, rotulo').in('id', idsVar)
-    for (const v of data ?? []) nomes.variacoes[v.id] = v.rotulo
+    const { data } = await sb.from('mat_item_variacoes').select('id, rotulo, oculta_lider').in('id', idsVar)
+    for (const v of data ?? []) if (v.oculta_lider !== true) nomes.variacoes[v.id] = v.rotulo
   }
 
   const destino: { produtos: DestinoFilaPublico; ceu: DestinoFilaPublico } = mensal
@@ -2461,7 +2621,7 @@ async function kitConfirmadoNoMes(sb: SupabaseClient, contratoId: string, compet
 }
 
 /** Itens do catálogo que o contrato pode pedir (sem limpeza: só portaria). */
-function catalogoPermitido(catalogo: ItemPublico[], recebeLimpeza: boolean): ItemPublico[] {
+function catalogoPermitido<T extends ItemPublico>(catalogo: T[], recebeLimpeza: boolean): T[] {
   return recebeLimpeza ? catalogo : catalogo.filter((c) => c.categoria === 'portaria')
 }
 
@@ -2490,9 +2650,11 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
     kitConfirmadoNoMes(sb, contrato.id, janela.competencia),
   ])
 
-  // Minimização: SÓ os itens do Kit Mensal (o resto do catálogo só por buscar_item).
-  const noKit = new Set(kitInfo.kit.map((k) => k.item_id))
-  const itensDoKit = catalogoPermitido(catalogo, contrato.recebe_limpeza).filter((c) => noKit.has(c.id))
+  // Minimização: SÓ os itens do Kit Mensal (o resto do catálogo só por buscar_item),
+  // já na visão do líder (marca oculta, exclusivos de outro contrato fora — migration 136).
+  const visao = visaoDoLider(catalogo, kitInfo.kit, contrato.id)
+  const noKit = new Set(visao.kit.map((k) => k.item_id))
+  const itensDoKit = catalogoPermitido(visao.catalogo, contrato.recebe_limpeza).filter((c) => noKit.has(c.id))
   const idsDoKit = new Set(itensDoKit.map((c) => c.id))
   const ultimas: Record<string, string> = {}
   for (const [id, comp] of Object.entries(kitInfo.ultimas)) if (idsDoKit.has(id)) ultimas[id] = comp
@@ -2502,7 +2664,7 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
     hoje,
     janela,
     catalogo: itensDoKit,
-    kit: kitInfo.kit.filter((k) => idsDoKit.has(k.item_id)),
+    kit: visao.kit.filter((k) => idsDoKit.has(k.item_id)),
     pecas: pecasInfo.pecas,
     sem_kit_uniforme: pecasInfo.semKitUniforme,
     equipe: equipe.publica,
@@ -2532,20 +2694,30 @@ async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | nul
   await registrarLog(sb, contrato.id, 'buscar', ip, ua)
 
   const secao = corpo.secao === 'portaria' || corpo.secao === 'materiais' ? corpo.secao : null
-  let candidatos = catalogoPermitido(await catalogoAtivo(sb), contrato.recebe_limpeza)
+  const [catalogo, { data: kit }] = await Promise.all([
+    catalogoAtivo(sb),
+    sb.from('mat_kit_itens').select('item_id, variacao_id').eq('contrato_id', contrato.id),
+  ])
+  // Visão do líder (migration 136): exclusivos de outro contrato e variações
+  // ocultas (marca) saem ANTES da busca — o líder nunca recebe esses ids.
+  const visao = visaoDoLider(
+    catalogo,
+    (kit ?? []).map((k) => ({ item_id: k.item_id, variacao_id: k.variacao_id, quantidade: 1, periodicidade_meses: 1 })),
+    contrato.id
+  )
+  let candidatos = catalogoPermitido(visao.catalogo, contrato.recebe_limpeza)
   if (secao === 'portaria') candidatos = candidatos.filter((c) => c.categoria === 'portaria')
   if (secao === 'materiais') candidatos = candidatos.filter((c) => c.categoria !== 'portaria')
 
   const ids = new Set(candidatos.map((c) => c.id))
-  const [{ data: aliases }, { data: kit }] = await Promise.all([
-    sb.from('mat_aliases').select('nome_legado, item_id, variacao_id'),
-    sb.from('mat_kit_itens').select('item_id, variacao_id').eq('contrato_id', contrato.id),
-  ])
+  const variacoesVisiveis = new Set(candidatos.flatMap((c) => c.variacoes.map((v) => v.id)))
+  const { data: aliases } = await sb.from('mat_aliases').select('nome_legado, item_id, variacao_id')
   const aliasesPorItem = new Map<string, string[]>()
   const aliasesPorVariacao = new Map<string, Record<string, string[]>>()
   for (const a of aliases ?? []) {
     if (!ids.has(a.item_id)) continue
-    if (a.variacao_id) {
+    // Alias de variação oculta (marca) vale para o item inteiro.
+    if (a.variacao_id && variacoesVisiveis.has(a.variacao_id)) {
       const porVar = aliasesPorVariacao.get(a.item_id) ?? {}
       ;(porVar[a.variacao_id] ??= []).push(a.nome_legado)
       aliasesPorVariacao.set(a.item_id, porVar)
@@ -2558,7 +2730,7 @@ async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | nul
   // Kit do contrato: só desempate (a busca procura no kit E no catálogo).
   const kitItem = new Set<string>()
   const kitVariacoes = new Map<string, string[]>()
-  for (const k of kit ?? []) {
+  for (const k of visao.kit) {
     if (!k.variacao_id) kitItem.add(k.item_id)
     else kitVariacoes.set(k.item_id, [...(kitVariacoes.get(k.item_id) ?? []), k.variacao_id])
   }
@@ -2580,6 +2752,7 @@ async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | nul
     itens: achados.map(({ item, variacao, nome }) => ({
       id: item.id,
       nome: item.nome,
+      nome_lider: item.nome_lider ?? null,
       nome_exibicao: nome,
       variacao_id: variacao?.id ?? null,
       categoria: item.categoria,
@@ -2611,11 +2784,15 @@ async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, u
     sb.from('mat_precos').select('item_id, variacao_id, preco, vigente_desde').lte('vigente_desde', hoje),
     kitConfirmadoNoMes(sb, contrato.id, janela.competencia),
   ])
+  // Visão do líder (migration 136): o servidor valida contra o MESMO catálogo
+  // e kit que o link mostra; item exclusivo de outro contrato é recusado.
+  const visao = visaoDoLider(catalogo, kitInfo.kit, contrato.id)
   const ctx: ContextoPedido = {
     hoje,
     recebeLimpeza: contrato.recebe_limpeza,
-    catalogo,
-    kit: kitInfo.kit,
+    catalogo: visao.catalogo,
+    kit: visao.kit,
+    indisponiveis: visao.indisponiveis,
     itensCeu: pecasInfo.itensCeu,
     pecas: pecasInfo.pecas,
     equipe: equipe.publica,

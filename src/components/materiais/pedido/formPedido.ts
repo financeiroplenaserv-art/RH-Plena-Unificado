@@ -1,7 +1,7 @@
 // Estado do formulário da tela pública do líder (/pedido/:token).
 import { linhasIniciaisDoKit, type ContextoPedido, type ErroCampo, type ExcecoesLinha, type ItemPublico, type PartePedido } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
-import { nomeExibicaoItem } from '@/lib/materiais/buscaItens'
+import { nomeLiderItem } from '@/lib/materiais/buscaItens'
 
 export type SecaoProduto = 'materiais' | 'portaria'
 
@@ -29,12 +29,13 @@ export interface LinhaProdutoForm {
  */
 export function nomeDaLinhaProduto(
   l: Pick<LinhaProdutoForm, 'item_id' | 'variacao_id' | 'descricao_livre'>,
-  item?: Pick<ItemPublico, 'nome' | 'variacoes'> | null
+  item?: Pick<ItemPublico, 'nome' | 'variacoes' | 'nome_lider'> | null
 ): string {
   if (!l.item_id) return l.descricao_livre?.trim() || 'Outro item'
   if (!item) return 'Item'
   const rotulo = l.variacao_id ? item.variacoes.find((v) => v.id === l.variacao_id)?.rotulo : null
-  return nomeExibicaoItem(item.nome, rotulo)
+  // nome_lider (migration 136) vence o nome do cadastro.
+  return nomeLiderItem(item, rotulo)
 }
 
 /** Parte do pedido da linha: só a linha do kit é 'kit'; o resto é pedido extra. */
