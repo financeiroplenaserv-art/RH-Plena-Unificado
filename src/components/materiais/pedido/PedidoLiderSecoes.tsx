@@ -639,8 +639,19 @@ export function BuscaOutroItem({
 
   const lista = curto ? null : local ? resultadosLocais : resultados
   const campoId = `busca-item-${secao}`
+
+  // No celular, o teclado cobre a metade de baixo da tela e escondia os
+  // resultados (achado da gestora, 16/10/2026): ao tocar no campo e ao começar
+  // a digitar, a busca sobe para o topo (abaixo do cabeçalho fixo — scroll-mt)
+  // e os resultados ficam entre o campo e o teclado. O atraso espera o teclado
+  // abrir e a tela encolher.
+  const blocoBusca = useRef<HTMLDivElement>(null)
+  const levarAoTopo = () => {
+    window.setTimeout(() => blocoBusca.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }), 300)
+  }
+
   return (
-    <div className="space-y-3">
+    <div ref={blocoBusca} className="scroll-mt-32 space-y-3">
       <label htmlFor={campoId} className={cn('block text-lg font-bold', TONS.extra.texto)}>
         O que mais você precisa?
       </label>
@@ -654,7 +665,11 @@ export function BuscaOutroItem({
           maxLength={80}
           autoComplete="off"
           enterKeyHint="search"
-          onChange={(e) => setTermo(e.target.value)}
+          onFocus={levarAoTopo}
+          onChange={(e) => {
+            if (!termo) levarAoTopo()
+            setTermo(e.target.value)
+          }}
           placeholder="Ex.: vassoura, detergente, flanela"
         />
         {termo && (
