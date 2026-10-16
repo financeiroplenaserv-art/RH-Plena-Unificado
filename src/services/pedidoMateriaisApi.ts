@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type { MembroEquipePublico, PecaPublica } from '@/lib/materiais/pecasCeu'
 import type {
   DestinoFilaPublico,
+  ItemBuscavelPublico,
   ItemPublico,
   JanelaPublica,
   KitPublico,
@@ -46,6 +47,12 @@ export interface DadosPedidoPublico {
   janela: JanelaPublica
   /** SÓ os itens do Kit Mensal do contrato (o resto do catálogo vem por buscarItemPublico). */
   catalogo: ItemPublico[]
+  /**
+   * Catálogo buscável do contrato (só nomes; sem preço/fornecedor/exclusivos):
+   * a busca "O que mais você precisa?" roda no aparelho. Ausente = function
+   * anterior (cai para `buscarItemPublico`).
+   */
+  catalogo_busca?: ItemBuscavelPublico[]
   kit: KitPublico[]
   /** Peças de uniforme/EPI do contrato, com os tamanhos de cada uma. */
   pecas: PecaPublica[]

@@ -17,6 +17,7 @@ import {
   apagarRascunho,
   errosDe,
   lerRascunho,
+  limparRascunhosAntigos,
   linhasKitDoForm,
   montarPayloadPedido,
   nomeDaLinhaProduto,
@@ -227,6 +228,7 @@ export function PedidoLiderPage() {
       setDados(d)
       setTentou(new Set())
       setErrosServidor([])
+      limparRascunhosAntigos(d.janela.competencia)
       const rascunho = lerRascunho(token, d.janela.competencia)
       if (rascunho) {
         const refs = new Set(d.equipe.map((m) => m.ref))
@@ -542,6 +544,7 @@ export function PedidoLiderPage() {
       ctx={ctx}
       erros={errosVisiveis}
       token={token}
+      catalogoBusca={dados?.catalogo_busca}
       secao={secao}
       onItemBusca={(item) => setItensBusca((is) => (is.some((i) => i.id === item.id) ? is : [...is, item]))}
     />

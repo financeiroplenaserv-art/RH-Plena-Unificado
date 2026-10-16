@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BadgeCheck, Loader2, Minus, Plus, Search, Trash2, UserPlus, X } from 'lucide-react'
 import { TONS, type Tom } from './tons'
 import {
@@ -9,10 +9,11 @@ import {
   qtdKitPublico,
   type ContextoPedido,
   type ErroCampo,
+  type ItemBuscavelPublico,
   type ItemPublico,
   type SecaoPedido,
 } from '@/lib/materiais/pedidoLider'
-import { BUSCA_MAX_RESULTADOS, BUSCA_MIN_CARACTERES, normalizarBusca } from '@/lib/materiais/buscaItens'
+import { BUSCA_MAX_RESULTADOS, BUSCA_MIN_CARACTERES, buscarItens, normalizarBusca } from '@/lib/materiais/buscaItens'
 import { pecasParaFuncao, type MembroEquipePublico, type PecaPublica } from '@/lib/materiais/pecasCeu'
 import { buscarItemPublico, type ItemBuscaPublico } from '@/services/pedidoMateriaisApi'
 import { cn } from '@/lib/utils'
@@ -219,6 +220,7 @@ export function SecaoProdutos({
   ctx,
   erros,
   token,
+  catalogoBusca,
   secao,
   onItemBusca,
 }: {
@@ -227,6 +229,8 @@ export function SecaoProdutos({
   ctx: ContextoPedido
   erros: ErroCampo[]
   token: string
+  /** Catálogo buscável (só nomes) enviado pelo `carregar`; ausente = function antiga (busca pela rede). */
+  catalogoBusca?: ItemBuscavelPublico[]
   secao: SecaoProduto
   /** Guarda o item escolhido na busca (o contexto do navegador só tem o kit). */
   onItemBusca: (item: ItemPublico) => void
@@ -456,7 +460,7 @@ export function SecaoProdutos({
             </div>
           )
         })}
-        <BuscaOutroItem token={token} secao={secao} kit={ctx.kit} onEscolher={adicionarDaBusca} onLivre={adicionarLivre} />
+        <BuscaOutroItem token={token} catalogoBusca={catalogoBusca} secao={secao} kit={ctx.kit} onEscolher={adicionarDaBusca} onLivre={adicionarLivre} />
         {avisoBusca && (
           <p role="status" className={cn('rounded-xl border-2 bg-card p-3 text-base font-medium', TONS.extra.contorno)}>
             {avisoBusca}
@@ -476,12 +480,14 @@ export function SecaoProdutos({
  */
 export function BuscaOutroItem({
   token,
+  catalogoBusca,
   secao,
   kit,
   onEscolher,
   onLivre,
 }: {
   token: string
+  catalogoBusca?: ItemBuscavelPublico[]
   secao: SecaoProduto
   kit: ContextoPedido['kit']
   onEscolher: (item: ItemBuscaPublico) => void
@@ -494,8 +500,36 @@ export function BuscaOutroItem({
   const sequencia = useRef(0)
 
   const curto = normalizarBusca(termo).replace(/ /g, '').length < BUSCA_MIN_CARACTERES
+  // Busca LOCAL (decisão da gestora, 16/10/2026): o catálogo de nomes veio no
+  // `carregar`; só um debounce curto de digitação, sem rede.
+  const local = !!catalogoBusca
+  const [termoLocal, setTermoLocal] = useState('')
   useEffect(() => {
-    if (curto) return
+    if (!local) return
+    const t = setTimeout(() => setTermoLocal(termo), 100)
+    return () => clearTimeout(t)
+  }, [local, termo])
+  const resultadosLocais = useMemo(() => {
+    if (!catalogoBusca) return null
+    const candidatos = catalogoBusca.filter((c) => (secao === 'portaria' ? c.categoria === 'portaria' : c.categoria !== 'portaria'))
+    return buscarItens(termoLocal, candidatos, BUSCA_MAX_RESULTADOS).map(
+      ({ item, variacao, nome }): ItemBuscaPublico => ({
+        id: item.id,
+        nome: item.nome,
+        nome_lider: item.nome_lider ?? null,
+        categoria: item.categoria,
+        unidade: item.unidade,
+        validade_meses: item.validade_meses,
+        variacoes: item.variacoes,
+        nome_exibicao: nome,
+        variacao_id: variacao?.id ?? null,
+      })
+    )
+  }, [catalogoBusca, termoLocal, secao])
+
+  // Sem catálogo (resposta de function antiga em cache): busca pela rede, como antes.
+  useEffect(() => {
+    if (curto || local) return
     const minha = ++sequencia.current
     const t = setTimeout(async () => {
       setBuscando(true)
@@ -513,16 +547,17 @@ export function BuscaOutroItem({
       }
     }, 350)
     return () => clearTimeout(t)
-  }, [curto, termo, token, secao])
+  }, [curto, local, termo, token, secao])
 
   const limpar = () => {
     sequencia.current++
     setTermo('')
+    setTermoLocal('')
     setResultados(null)
     setBuscando(false)
   }
 
-  const lista = curto ? null : resultados
+  const lista = curto ? null : local ? resultadosLocais : resultados
   const campoId = `busca-item-${secao}`
   return (
     <div className="space-y-3">

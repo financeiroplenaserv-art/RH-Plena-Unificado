@@ -4,6 +4,9 @@ import type { PecaPublica } from '@/lib/materiais/pecasCeu'
 import {
   errosDe,
   itemDaLinhaPeca,
+  lerRascunho,
+  limparRascunhosAntigos,
+  salvarRascunho,
   linhasKitDoForm,
   maximoDaLinhaKit,
   montarPayloadPedido,
@@ -292,5 +295,40 @@ describe('variações no link do líder (16/10/2026)', () => {
     expect(perguntaSimples({ foraKit: true, acimaKit: false }, 1)).toBe('Este item não vem todo mês. Por que você precisa?')
     expect(perguntaSimples({ foraKit: false, acimaKit: true }, 2.5)).toBe('Você está pedindo 2,5 a mais. Por que precisa?')
     expect(perguntaSimples({ foraKit: false, acimaKit: false }, 1)).toBe('')
+  })
+})
+
+describe('limparRascunhosAntigos (faxina do aparelho ao abrir o link)', () => {
+  const atual = '2026-10-01'
+  const rasc = { versao: 3, produtos: [], itensBusca: [], pessoas: [], pecas: [], crachas: [], termos: {}, seuNome: '', observacao: '' } as unknown as RascunhoPedido
+
+  it('apaga competências passadas (qualquer contrato), formato incompatível e ilegíveis; mantém o mês corrente', () => {
+    localStorage.clear()
+    salvarRascunho('contratoAAAAAAAAAAAA', atual, rasc)
+    salvarRascunho('contratoBBBBBBBBBBBB', atual, rasc)
+    salvarRascunho('contratoAAAAAAAAAAAA', '2026-09-01', rasc)
+    salvarRascunho('contratoCCCCCCCCCCCC', '2026-08-01', rasc)
+    localStorage.setItem('corh:pedido-lider:v2:contratoDDDDDDDDDDDD:2026-10-01', JSON.stringify({ ...rasc, versao: 1 }))
+    localStorage.setItem('corh:pedido-lider:v2:contratoEEEEEEEEEEEE:2026-10-01', '{quebrado')
+    localStorage.setItem('corh:pedido-lider:v1:contratoFFFFFFFFFFFF:2026-10-01', JSON.stringify(rasc))
+    localStorage.setItem('outra-coisa', 'fica')
+    expect(limparRascunhosAntigos(atual)).toBe(5)
+    expect(lerRascunho('contratoAAAAAAAAAAAA', atual)).not.toBeNull()
+    expect(lerRascunho('contratoBBBBBBBBBBBB', atual)).not.toBeNull()
+    expect(lerRascunho('contratoAAAAAAAAAAAA', '2026-09-01')).toBeNull()
+    expect(localStorage.getItem('outra-coisa')).toBe('fica')
+    expect(localStorage.length).toBe(3)
+  })
+
+  it('não lança se o armazenamento falhar', () => {
+    const original = Storage.prototype.key
+    Storage.prototype.key = () => {
+      throw new Error('bloqueado')
+    }
+    try {
+      expect(limparRascunhosAntigos(atual)).toBe(0)
+    } finally {
+      Storage.prototype.key = original
+    }
   })
 })

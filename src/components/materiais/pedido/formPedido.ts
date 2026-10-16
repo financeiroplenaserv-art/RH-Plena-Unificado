@@ -179,6 +179,45 @@ export function salvarRascunho(token: string, competencia: string, r: RascunhoPe
   }
 }
 
+const PREFIXO_RASCUNHO = 'corh:pedido-lider:'
+const FORMATO_CHAVE_RASCUNHO = /^corh:pedido-lider:v2:[^:]+:(\d{4}-\d{2}-\d{2})$/
+
+/**
+ * Faz a faxina dos rascunhos deste aparelho ao abrir o link (16/10/2026):
+ * apaga os de competências passadas (de qualquer contrato), os de chave ou
+ * versão de formato incompatível e os ilegíveis. O rascunho da competência
+ * corrente (ou futura) fica. Devolve quantos apagou. Nunca lança.
+ */
+export function limparRascunhosAntigos(competenciaAtual: string): number {
+  try {
+    const chaves: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith(PREFIXO_RASCUNHO)) chaves.push(k)
+    }
+    let apagados = 0
+    for (const k of chaves) {
+      const competencia = FORMATO_CHAVE_RASCUNHO.exec(k)?.[1]
+      let apagar = !competencia || competencia < competenciaAtual
+      if (!apagar) {
+        try {
+          const r = JSON.parse(localStorage.getItem(k) ?? 'null') as { versao?: number } | null
+          apagar = !r || (r.versao !== 2 && r.versao !== 3)
+        } catch {
+          apagar = true
+        }
+      }
+      if (apagar) {
+        localStorage.removeItem(k)
+        apagados++
+      }
+    }
+    return apagados
+  } catch {
+    return 0
+  }
+}
+
 export function apagarRascunho(token: string, competencia: string) {
   try {
     localStorage.removeItem(chaveRascunho(token, competencia))

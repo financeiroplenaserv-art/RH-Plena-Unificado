@@ -382,4 +382,33 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     fireEvent.change(screen.getByLabelText(/Seu nome/), { target: { value: 'Ana Souza' } })
     expect(screen.queryByText('Informe o seu nome.')).not.toBeInTheDocument()
   })
+
+  describe('busca local (catálogo no aparelho, 16/10/2026)', () => {
+    const catalogoBusca = [
+      { id: 'vass', nome: 'Vassoura Especial UN', categoria: 'limpeza', unidade: 'unidade', validade_meses: null, variacoes: [{ id: 'v-pia', rotulo: 'Piaçava' }, { id: 'v-novi', rotulo: 'Noviça' }], aliases: [], aliasesPorVariacao: {}, noKit: false, variacoesNoKit: [] },
+      { id: 'disco', nome: 'Disco branco UN', categoria: 'limpeza', unidade: 'unidade', validade_meses: null, variacoes: [{ id: 'd350', rotulo: '350 mm' }, { id: 'd410', rotulo: '410 mm' }], aliases: [], aliasesPorVariacao: {}, noKit: false, variacoesNoKit: [] },
+    ] as DadosPedidoPublico['catalogo_busca']
+
+    it('acha "piaçava" e "disco 350" sem chamar a rede', async () => {
+      api.carregar.mockResolvedValue(dados({ catalogo_busca: catalogoBusca }))
+      renderizar()
+      await screen.findByText('Vem este mês')
+      fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: 'piaçava' } })
+      expect(await screen.findByRole('button', { name: /Vassoura Piaçava/ })).toBeInTheDocument()
+      fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: 'disco 350' } })
+      expect(await screen.findByRole('button', { name: /Disco branco 350 mm/ })).toBeInTheDocument()
+      expect(api.buscar).not.toHaveBeenCalled()
+      expect(screen.queryByText('Procurando...')).not.toBeInTheDocument()
+    })
+
+    it('sem catálogo na resposta (function antiga) cai para a busca pela rede', async () => {
+      api.carregar.mockResolvedValue(dados())
+      api.buscar.mockResolvedValue({ itens: [] })
+      renderizar()
+      await screen.findByText('Vem este mês')
+      fireEvent.change(screen.getByLabelText(BUSCA), { target: { value: 'piaçava' } })
+      await screen.findByText('Não encontramos nada parecido.', undefined, { timeout: 2000 })
+      expect(api.buscar).toHaveBeenCalledTimes(1)
+    })
+  })
 })
