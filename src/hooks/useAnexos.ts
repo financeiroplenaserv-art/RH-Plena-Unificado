@@ -29,6 +29,16 @@ export function useAnexos() {
 
   const uploadAnexo = useCallback(
     async (ocorrenciaId: string, file: File, descricao?: string, tipoDocumento?: TipoDocumentoAnexo) => {
+      // Arquivo vazio (0 bytes): comum com foto ainda sincronizando da nuvem
+      // (iCloud/OneDrive) ou download interrompido — subir assim grava um
+      // objeto ilegível no bucket (página em branco ao abrir).
+      if (file.size === 0) {
+        toast.error(
+          'O arquivo está vazio (0 bytes). Verifique se ele abre no computador antes de enviar — se estiver na nuvem (iCloud/OneDrive), baixe-o primeiro.'
+        )
+        return null
+      }
+
       const ext = file.name.split('.').pop() || ''
       const path = `${ocorrenciaId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${ext}`
 
