@@ -369,3 +369,17 @@ Roteiro — parte B (histórico, "vale ouro"; depois da parte A, porque depende 
 - Telas: `/materiais/pedidos` (lista do mês + "Pedido extra" para mesa/inspetoria, inclusive faltista em ADM PLENA), `/materiais/pedidos/:id` (validação do inspetor, aprovação do gestor, comentários por item), `/materiais/validacao`, `/materiais/painel`, `/materiais/sem-pedido` e a aba **CEU → Pedidos** (`/ceu/pedidos`). Lógica pura em `src/lib/materiais/filas.ts` e `painel.ts`.
 - **"Devolver ao líder"** = comentário registrado ("Devolvido ao líder: …") com o pedido mantido em `em_validacao` — não há devolução pelo link (seção 4.3); o complemento do líder é mesclado e o inspetor valida depois.
 - **Migration 124** (`124_materiais_filas_ajustes.sql`, **versionada, NÃO aplicada**): `ceu_pedido_itens.qtd_atendida`/`motivo_atendimento` + RPC `atender_linhas_pedido_ceu` (Beth registra a quantidade entregue; menor que a conferida exige motivo); `preencher_pedido_pelo_kit` passa a aproveitar o pedido em que o líder só enviou uniforme/EPI/crachá; `mat_contratos_sem_pedido` lista esse caso (`pedido_id`). Sem a 124 a tela atende só pela quantidade conferida (RPC da 122) e o "preencher pelo kit" recusa contrato que já enviou uniforme.
+
+## 13. Kit Mensal confirmável + pedido extra (decisão da gestão, 16/10/2026 — migration 135)
+
+**Substitui** a regra "exceção exige justificativa" (§4.1 "exceções recalculadas … e justificativa exigida", §4.2 "justificativa automática na linha com exceção (bloqueia o envio até preencher)").
+
+1. **O Kit Mensal é o que o posto VAI RECEBER.** A tela do líder mostra "Seu kit do mês": ele só confirma. Cada item tem "Não preciso este mês" e −/+ para diminuir (nunca aumentar). Tirar ou diminuir não pede motivo; a linha zerada é registrada (o inspetor vê que o líder tirou).
+2. **O que o líder pede é o que está ALÉM do kit** ("Precisa de mais alguma coisa?"): a mais de um item do kit (linha extra separada), "Preciso de outro item" (busca) e "Não achei, enviar assim".
+3. **Motivo do extra é OPCIONAL** (cliente, Edge Function e RPC; o CHECK `mat_pedido_itens_justificativa_ck` saiu). "Antes da validade" vira só aviso interno. Teto de sanidade mantido.
+4. **Nada é automático**: todo líder envia; sem envio, "ainda não pediram" + "Preencher pelo kit".
+5. **Kit aprovado na hora** com a configuração `materiais_config.kit_aprovacao_automatica` (padrão LIGADA; interruptor no topo do Painel do gestor, só gestor/admin, RPC `mat_salvar_config`). Só os extras passam pelo inspetor e pelo gestor. Desligada, o kit passa pela aprovação junto com os extras. Inspetor/gestor ajustam qualquer linha do kit (diminuir, tirar, trocar) com motivo, pelo botão "Ajustar" do detalhe (`ajustar_linha_kit_materiais`), enquanto o pedido está em validação/validado/aprovado.
+6. "Preencher pelo kit" gera só linhas de kit — mesma regra de aprovação.
+7. Uniforme, EPI e crachá não mudam.
+
+**Desenho do status**: status por linha (`mat_pedido_itens.parte` = kit/extra + `aprovado_automatico`) e `mat_pedidos.status_produtos` como a fila do que ainda depende de alguém — só kit (opção ligada) → `aprovado`; com extra → `em_validacao` → `validado` → `aprovado` (as linhas do kit aprovadas são ignoradas pela validação/aprovação). Segundo envio no mês com o kit já confirmado: o kit não vem de novo — qualquer linha de kit vira extra (mescla enquanto o mensal está antes de `aprovado`; depois, pedido extra). Painel mostra o valor separado (kit × extra) e "N extras pendentes".
