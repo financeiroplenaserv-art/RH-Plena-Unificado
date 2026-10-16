@@ -959,6 +959,13 @@ export type Database = {
       }
       definir_rota_pedido: { Args: { p_pedido: string; p_rota: number | null; p_motivo?: string | null }; Returns: void }
       preencher_pedido_pelo_kit: { Args: { p_contrato: string; p_competencia: string }; Returns: string }
+      // Migration 135: kit confirmável + pedido extra
+      ajustar_linha_kit_materiais: {
+        Args: { p_linha: string; p_qtd: number; p_motivo: string; p_item?: string | null; p_variacao?: string | null }
+        Returns: void
+      }
+      mat_salvar_config: { Args: { p_config: Record<string, unknown> }; Returns: Record<string, unknown> }
+      mat_kit_aprovacao_automatica: { Args: Record<string, never>; Returns: boolean }
       mat_contratos_sem_pedido: {
         Args: { p_competencia: string }
         Returns: {

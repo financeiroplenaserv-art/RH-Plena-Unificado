@@ -246,6 +246,17 @@ export interface MatPedidoItem {
   ajustado_por: string | null
   ajustado_em: string | null
   created_at?: string
+  /**
+   * Migration 135 (16/10/2026): 'kit' = Kit Mensal confirmado pelo líder (o
+   * que o posto vai receber); 'extra' = além do kit. Opcional para funcionar
+   * antes da migration (ausente = tratado como extra).
+   */
+  parte?: 'kit' | 'extra'
+  /** Linha do kit aprovada na gravação (materiais_config.kit_aprovacao_automatica). */
+  aprovado_automatico?: boolean
+  /** Item pedido originalmente, quando o inspetor/gestor trocou o item da linha do kit. */
+  item_original_id?: string | null
+  variacao_original_id?: string | null
 }
 
 export type TipoLinhaCeuPedido = 'uniforme' | 'epi' | 'cracha'
@@ -316,4 +327,10 @@ export interface MateriaisConfig {
   dia_limite: number
   dia_aviso: number
   aviso_recibo: string
+  /**
+   * Linhas do kit confirmadas pelo líder saem aprovadas (só os extras passam
+   * pelo inspetor e pelo gestor). Padrão: ligada (decisão de 16/10/2026,
+   * migration 135).
+   */
+  kit_aprovacao_automatica: boolean
 }

@@ -18,7 +18,9 @@ import { rotaEfetiva } from '@/lib/materiais/pedidos'
 import { temExcecao } from '@/lib/materiais/filas'
 
 // Fila do inspetor (docs/PLANO_MATERIAIS_FASE1.md §5.1): só pedidos com
-// exceção (em_validacao), por rota. Pedido sem exceção vai direto ao gestor.
+// pedido extra/exceção (em_validacao), por rota. Desde 16/10/2026 (migration
+// 135) o kit do mês confirmado pelo líder não passa por aqui (com a
+// configuração ligada já sai aprovado) — o inspetor valida só os extras.
 
 export function MateriaisValidacaoPage() {
   const { pedidos, itens, loading, estruturaPendente, carregar } = useMateriaisPedidos()
@@ -56,7 +58,7 @@ export function MateriaisValidacaoPage() {
       <PageHeader
         showBackButton={false}
         title="Validação"
-        description="Pedidos com exceção (acima do kit, antes da validade, outros materiais ou repetição) aguardando o inspetor. Uniforme, EPI e crachá são conferidos na aba CEU → Pedidos."
+        description="Pedidos com pedido extra (a mais do kit, fora do kit, outros materiais) ou repetição aguardando o inspetor. O kit do mês não passa por aqui. Uniforme, EPI e crachá são conferidos na aba CEU → Pedidos."
       />
       {estruturaPendente ? (
         <EstruturaPendente />
@@ -71,7 +73,7 @@ export function MateriaisValidacaoPage() {
             {loading ? (
               <LoadingScreen className="h-48" />
             ) : linhas.length === 0 ? (
-              <EmptyState icon={<ClipboardCheck className="size-6" />} title="Nada para validar" description="Nenhum pedido com exceção aguardando o inspetor." />
+              <EmptyState icon={<ClipboardCheck className="size-6" />} title="Nada para validar" description="Nenhum pedido extra aguardando o inspetor." />
             ) : (
               <Table>
                 <TableHeader>
@@ -79,7 +81,7 @@ export function MateriaisValidacaoPage() {
                     <TableHead>Rota</TableHead>
                     <TableHead>Contrato</TableHead>
                     <TableHead>Mês</TableHead>
-                    <TableHead>Exceções</TableHead>
+                    <TableHead>Pedido extra</TableHead>
                     <TableHead>Último envio</TableHead>
                   </TableRow>
                 </TableHeader>

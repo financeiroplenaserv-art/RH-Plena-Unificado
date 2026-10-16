@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Check, CornerUpLeft, MessageSquare, PackageSearch } from 'lucide-react'
+import { Check, CornerUpLeft, MessageSquare, PackageSearch, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
 import { EmptyState } from '@/components/corh/EmptyState'
@@ -24,6 +24,9 @@ import { podeAprovarMateriais, podeValidarMateriais } from '@/lib/permissoes'
 import { formatarData, formatarDataHora, mascaraMoeda } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import {
+  ehLinhaKit,
+  kitAprovadoAutomatico,
+  montarAjusteKit,
   montarAprovacao,
   montarValidacao,
   origemDaLinha,
@@ -31,6 +34,7 @@ import {
   rotulosExcecao,
   temExcecao,
   type DecisaoRepeticao,
+  type EdicaoKit,
   type EdicaoLinha,
 } from '@/lib/materiais/filas'
 import { rotaEfetiva } from '@/lib/materiais/pedidos'
@@ -42,6 +46,14 @@ import type { MatComentario, MatPedidoItem } from '@/types/materiais'
 // data e "Seu nome"), exceções com a justificativa do líder, avisos de
 // repetição (só aviso: somar, descartar ou ignorar) e comentários por item.
 // Inspetor valida/corta/devolve; gestor aprova tudo ou ajusta item a item.
+//
+// Kit confirmável + pedido extra (decisão da gestão, 16/10/2026 — migration
+// 135): as linhas aparecem em duas tabelas, "Kit do mês" (o que o posto vai
+// receber — com a configuração ligada já sai aprovado) e "Pedido extra" (o
+// que passa do kit — é isso que o inspetor valida e o gestor aprova).
+// Inspetor e gestor podem AJUSTAR qualquer linha do kit (diminuir, tirar,
+// trocar o item), sempre com motivo, pelo botão "Ajustar" (RPC
+// ajustar_linha_kit_materiais).
 
 type Modo = 'validar' | 'aprovar' | 'ler'
 
@@ -59,6 +71,7 @@ export function MateriaisPedidoDetalhePage() {
   const [devolucao, setDevolucao] = useState<string | null>(null)
   const [confirmar, setConfirmar] = useState<'validar' | 'aprovar_tudo' | 'aprovar_ajustes' | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [ajuste, setAjuste] = useState<{ linha: MatPedidoItem; edicao: EdicaoKit } | null>(null)
 
   const { carregar } = det
   const { carregar: carregarCatalogo } = catalogo
@@ -95,6 +108,13 @@ export function MateriaisPedidoDetalhePage() {
 
   const valorTotal = det.itens.reduce((s, l) => s + qtdEfetiva(l) * (l.preco_unitario ?? 0), 0)
   const excecoes = det.itens.filter(temExcecao).length
+  const itensKit = det.itens.filter(ehLinhaKit)
+  const itensExtra = det.itens.filter((l) => !ehLinhaKit(l))
+  const valorKit = itensKit.reduce((s, l) => s + qtdEfetiva(l) * (l.preco_unitario ?? 0), 0)
+  const kitAuto = itensKit.some(kitAprovadoAutomatico)
+  const podeAjustarKit =
+    !!p && !!nivel && (podeValidarMateriais(nivel) || podeAprovarMateriais(nivel)) && ['em_validacao', 'validado', 'aprovado'].includes(p.status_produtos)
+  const itensAtivos = useMemo(() => catalogo.itens.filter((i) => i.ativo).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [catalogo.itens])
 
   const descrever = (l: MatPedidoItem) => {
     if (!l.item_id) return l.descricao_livre ?? 'Outro material'
@@ -133,6 +153,21 @@ export function MateriaisPedidoDetalhePage() {
     }
   }
 
+  const salvarAjuste = async () => {
+    if (!ajuste) return
+    const itemTroca = ajuste.edicao.itemId
+    const temVariacoes = !!itemTroca && catalogo.variacoes.some((v) => v.item_id === itemTroca && v.ativo)
+    const { payload, erro } = montarAjusteKit(ajuste.linha, ajuste.edicao, temVariacoes)
+    if (erro || !payload) return toast.error(erro ?? 'Confira o ajuste')
+    setEnviando(true)
+    const ok = await det.ajustarKit(payload)
+    setEnviando(false)
+    if (ok) {
+      setAjuste(null)
+      recarregar()
+    }
+  }
+
   const devolver = async () => {
     if (!p || devolucao == null) return
     if (!devolucao.trim()) return toast.error('Escreva o que o líder precisa corrigir')
@@ -154,6 +189,143 @@ export function MateriaisPedidoDetalhePage() {
     })
     if (ok) await carregar(id)
     return ok
+  }
+
+  /** Tabela de linhas de produto (kit do mês ou pedido extra). */
+  const tabelaLinhas = (linhas: MatPedidoItem[], ehKit: boolean) => {
+    const colunaEdicao = modo !== 'ler' || (ehKit && podeAjustarKit)
+    return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Origem</TableHead>
+                    <TableHead className="text-right">Kit</TableHead>
+                    <TableHead className="text-right">Pedido</TableHead>
+                    <TableHead className="text-right">Validado</TableHead>
+                    <TableHead className="text-right">Aprovado</TableHead>
+                    <TableHead className="text-right">Preço</TableHead>
+                    {colunaEdicao && <TableHead className="w-64">{modo === 'validar' ? 'Validação' : modo === 'aprovar' ? 'Ajuste' : 'Kit'}</TableHead>}
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {linhas.map((l) => {
+                    const origem = origemDaLinha(l, det.envios)
+                    const exc = rotulosExcecao(l)
+                    const ed = edicoes[l.id]
+                    const coms = comentariosPorLinha.get(l.id) ?? []
+                    const destacada = (!ehKit && exc.length > 0) || l.possivel_repeticao
+                    const auto = kitAprovadoAutomatico(l)
+                    const editavel = modo !== 'ler' && !auto
+                    const original = l.item_original_id ? nomeItem.get(l.item_original_id)?.nome : null
+                    return (
+                      <TableRow key={l.id} className={`align-top hover:bg-accent/40 ${destacada ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
+                        <TableCell className="max-w-xs">
+                          <p className="font-medium">{descrever(l)}</p>
+                          {l.item_id && <p className="text-xs text-muted-foreground">{nomeItem.get(l.item_id)?.unidade_pedido}</p>}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {auto && <Selo tom="verde">kit aprovado</Selo>}
+                            {ehKit && l.qtd_kit != null && Number(l.qtd_pedida) === 0 && <Selo tom="cinza">líder tirou este mês</Selo>}
+                            {ehKit && l.qtd_kit != null && Number(l.qtd_pedida) > 0 && Number(l.qtd_pedida) < Number(l.qtd_kit) && (
+                              <Selo tom="cinza">líder diminuiu</Selo>
+                            )}
+                            {exc.map((x) => (
+                              <Selo key={x} tom={ehKit ? 'cinza' : undefined} title={ehKit ? 'Aviso interno — não exige motivo' : undefined}>
+                                {x}
+                              </Selo>
+                            ))}
+                            {l.possivel_repeticao && <Selo tom="vermelho" title="Mesmo item já pedido em outro envio deste pedido">possível repetição</Selo>}
+                            {l.decisao_repeticao && <Selo tom="cinza">{l.decisao_repeticao === 'somar' ? 'somado' : 'descartado'}</Selo>}
+                          </div>
+                          {original && <p className="mt-1 text-xs text-muted-foreground">Trocado de: {original}</p>}
+                          {l.justificativa && <p className="mt-1 text-xs">Motivo do líder: “{l.justificativa}”</p>}
+                          {!ehKit && !l.justificativa && (l.excecao_acima_kit || l.excecao_fora_kit) && (
+                            <p className="mt-1 text-xs text-muted-foreground">O líder não contou o motivo.</p>
+                          )}
+                          {l.excecao_validade && l.ultima_entrega_em && (
+                            <p className="text-xs text-muted-foreground">Última entrega: {formatarData(l.ultima_entrega_em)}</p>
+                          )}
+                          {l.motivo_ajuste && <p className="text-xs text-muted-foreground">Motivo do ajuste: {l.motivo_ajuste}</p>}
+                          {coms.map((c) => (
+                            <p key={c.id} className="mt-1 rounded bg-muted px-2 py-1 text-xs">
+                              <span className="font-medium">{c.autor_nome ?? 'Usuário'}</span> ({formatarDataHora(c.created_at)}): {c.texto}
+                            </p>
+                          ))}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {origem ? (
+                            <>
+                              <p>{origem.origem === 'original' ? 'Original' : 'Complemento'}</p>
+                              <p className="tabular-nums text-muted-foreground">{formatarDataHora(origem.enviadoEm)}</p>
+                              <p className="text-muted-foreground">{origem.seuNome}</p>
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{l.qtd_kit ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">{l.qtd_pedida}</TableCell>
+                        <TableCell className="text-right tabular-nums">{l.qtd_validada ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{l.qtd_aprovada ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{l.preco_unitario != null ? mascaraMoeda(l.preco_unitario) : '—'}</TableCell>
+                        {colunaEdicao && (
+                          <TableCell className="space-y-1.5">
+                            {ehKit && podeAjustarKit && (auto || modo === 'ler') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAjuste({ linha: l, edicao: { qtd: null, motivo: '', itemId: null, variacaoId: null } })}
+                              >
+                                <SlidersHorizontal className="size-4" /> Ajustar
+                              </Button>
+                            )}
+                            {editavel && modo === 'validar' && l.possivel_repeticao && (
+                              <select
+                                aria-label={`Repetição de ${descrever(l)}`}
+                                className={CLASSE_SELECT}
+                                value={ed?.decisao ?? ''}
+                                onChange={(e) => editar(l.id, { decisao: (e.target.value || null) as DecisaoRepeticao })}
+                              >
+                                <option value="">Ignorar aviso</option>
+                                <option value="somar">Somar (conta a quantidade)</option>
+                                <option value="descartar">Descartar (zera a linha)</option>
+                              </select>
+                            )}
+                            {editavel && ed?.decisao !== 'descartar' && (
+                              <Input
+                                aria-label={`${modo === 'validar' ? 'Quantidade validada' : 'Quantidade aprovada'} de ${descrever(l)}`}
+                                inputMode="decimal"
+                                className="tabular-nums"
+                                placeholder={`Manter ${modo === 'validar' ? l.qtd_pedida : (l.qtd_validada ?? l.qtd_pedida)}`}
+                                value={ed?.qtd ?? ''}
+                                onChange={(e) => {
+                                  const v = e.target.value.replace(',', '.')
+                                  editar(l.id, { qtd: v === '' ? null : Number(v) })
+                                }}
+                              />
+                            )}
+                            {editavel && (ed?.qtd != null || ed?.decisao === 'descartar') && (
+                              <Input
+                                aria-label={`Motivo para ${descrever(l)}`}
+                                placeholder={ed?.decisao === 'descartar' ? 'Motivo (padrão: repetição)' : 'Motivo do ajuste'}
+                                value={ed?.motivo ?? ''}
+                                onChange={(e) => editar(l.id, { motivo: e.target.value })}
+                              />
+                            )}
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Button variant="ghost" size="icon" aria-label={`Comentar ${descrever(l)}`} onClick={() => setComentarioLinha({ linha: l, texto: '' })}>
+                            <MessageSquare className="size-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+    )
   }
 
   if (det.estruturaPendente) {
@@ -217,6 +389,11 @@ export function MateriaisPedidoDetalhePage() {
           <div>
             <p className="text-xs text-muted-foreground">Valor ({p.status_produtos === 'aprovado' ? 'aprovado' : 'pedido'})</p>
             <p className="mt-1 font-semibold tabular-nums">{mascaraMoeda(valorTotal)}</p>
+            {itensKit.length > 0 && (
+              <p className="text-xs text-muted-foreground tabular-nums">
+                Kit {mascaraMoeda(valorKit)} · extra {mascaraMoeda(valorTotal - valorKit)}
+              </p>
+            )}
           </div>
           <div className="sm:col-span-2 lg:col-span-4">
             <p className="text-xs text-muted-foreground">Envios</p>
@@ -235,127 +412,36 @@ export function MateriaisPedidoDetalhePage() {
 
         {modo === 'validar' && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            Este pedido tem exceção. Confira as linhas destacadas: valide como está, altere a quantidade (com motivo, para mais ou
-            para menos) ou devolva ao líder com um comentário. Avisos de repetição não travam — some, descarte ou ignore.
+            {kitAuto ? 'O kit do mês já está aprovado. Confira o pedido extra' : 'Este pedido tem exceção. Confira as linhas destacadas'}: valide
+            como está, altere a quantidade (com motivo, para mais ou para menos) ou devolva ao líder com um comentário. O motivo do
+            líder é opcional. Avisos de repetição não travam — some, descarte ou ignore.
           </p>
         )}
         {modo === 'aprovar' && (
           <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
-            Pedido validado. Aprove tudo ou ajuste item a item (motivo obrigatório ao alterar a quantidade, para mais ou para menos).
+            {kitAuto ? 'Pedido extra validado.' : 'Pedido validado.'} Aprove tudo ou ajuste item a item (motivo obrigatório ao alterar a
+            quantidade, para mais ou para menos).
           </p>
         )}
 
-        <DataTable title="Produtos" count={det.itens.length} minWidth={980}>
-          {det.itens.length === 0 ? (
-            <EmptyState icon={<PackageSearch className="size-6" />} title="Sem produtos" description="Este pedido não tem linhas de produtos." />
+        {itensKit.length > 0 && (
+          <DataTable
+            title={`Kit do mês${kitAuto ? ' — aprovado automaticamente' : ''}`}
+            count={itensKit.length}
+            minWidth={980}
+          >
+            {tabelaLinhas(itensKit, true)}
+          </DataTable>
+        )}
+        <DataTable title={itensKit.length > 0 ? 'Pedido extra' : 'Produtos'} count={itensExtra.length} minWidth={980}>
+          {itensExtra.length === 0 ? (
+            <EmptyState
+              icon={<PackageSearch className="size-6" />}
+              title={itensKit.length > 0 ? 'Sem pedido extra' : 'Sem produtos'}
+              description={itensKit.length > 0 ? 'O líder só confirmou o kit do mês.' : 'Este pedido não tem linhas de produtos.'}
+            />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead className="text-right">Kit</TableHead>
-                  <TableHead className="text-right">Pedido</TableHead>
-                  <TableHead className="text-right">Validado</TableHead>
-                  <TableHead className="text-right">Aprovado</TableHead>
-                  <TableHead className="text-right">Preço</TableHead>
-                  {modo !== 'ler' && <TableHead className="w-64">{modo === 'validar' ? 'Validação' : 'Ajuste'}</TableHead>}
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {det.itens.map((l) => {
-                  const origem = origemDaLinha(l, det.envios)
-                  const exc = rotulosExcecao(l)
-                  const ed = edicoes[l.id]
-                  const coms = comentariosPorLinha.get(l.id) ?? []
-                  const destacada = exc.length > 0 || l.possivel_repeticao
-                  return (
-                    <TableRow key={l.id} className={`align-top hover:bg-accent/40 ${destacada ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
-                      <TableCell className="max-w-xs">
-                        <p className="font-medium">{descrever(l)}</p>
-                        {l.item_id && <p className="text-xs text-muted-foreground">{nomeItem.get(l.item_id)?.unidade_pedido}</p>}
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {exc.map((x) => (
-                            <Selo key={x}>{x}</Selo>
-                          ))}
-                          {l.possivel_repeticao && <Selo tom="vermelho" title="Mesmo item já pedido em outro envio deste pedido">possível repetição</Selo>}
-                          {l.decisao_repeticao && <Selo tom="cinza">{l.decisao_repeticao === 'somar' ? 'somado' : 'descartado'}</Selo>}
-                        </div>
-                        {l.justificativa && <p className="mt-1 text-xs">Justificativa do líder: “{l.justificativa}”</p>}
-                        {l.excecao_validade && l.ultima_entrega_em && (
-                          <p className="text-xs text-muted-foreground">Última entrega: {formatarData(l.ultima_entrega_em)}</p>
-                        )}
-                        {l.motivo_ajuste && <p className="text-xs text-muted-foreground">Motivo do ajuste: {l.motivo_ajuste}</p>}
-                        {coms.map((c) => (
-                          <p key={c.id} className="mt-1 rounded bg-muted px-2 py-1 text-xs">
-                            <span className="font-medium">{c.autor_nome ?? 'Usuário'}</span> ({formatarDataHora(c.created_at)}): {c.texto}
-                          </p>
-                        ))}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {origem ? (
-                          <>
-                            <p>{origem.origem === 'original' ? 'Original' : 'Complemento'}</p>
-                            <p className="tabular-nums text-muted-foreground">{formatarDataHora(origem.enviadoEm)}</p>
-                            <p className="text-muted-foreground">{origem.seuNome}</p>
-                          </>
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{l.qtd_kit ?? '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums font-medium">{l.qtd_pedida}</TableCell>
-                      <TableCell className="text-right tabular-nums">{l.qtd_validada ?? '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums">{l.qtd_aprovada ?? '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums">{l.preco_unitario != null ? mascaraMoeda(l.preco_unitario) : '—'}</TableCell>
-                      {modo !== 'ler' && (
-                        <TableCell className="space-y-1.5">
-                          {modo === 'validar' && l.possivel_repeticao && (
-                            <select
-                              aria-label={`Repetição de ${descrever(l)}`}
-                              className={CLASSE_SELECT}
-                              value={ed?.decisao ?? ''}
-                              onChange={(e) => editar(l.id, { decisao: (e.target.value || null) as DecisaoRepeticao })}
-                            >
-                              <option value="">Ignorar aviso</option>
-                              <option value="somar">Somar (conta a quantidade)</option>
-                              <option value="descartar">Descartar (zera a linha)</option>
-                            </select>
-                          )}
-                          {ed?.decisao !== 'descartar' && (
-                            <Input
-                              aria-label={`${modo === 'validar' ? 'Quantidade validada' : 'Quantidade aprovada'} de ${descrever(l)}`}
-                              inputMode="decimal"
-                              className="tabular-nums"
-                              placeholder={`Manter ${modo === 'validar' ? l.qtd_pedida : (l.qtd_validada ?? l.qtd_pedida)}`}
-                              value={ed?.qtd ?? ''}
-                              onChange={(e) => {
-                                const v = e.target.value.replace(',', '.')
-                                editar(l.id, { qtd: v === '' ? null : Number(v) })
-                              }}
-                            />
-                          )}
-                          {(ed?.qtd != null || ed?.decisao === 'descartar') && (
-                            <Input
-                              aria-label={`Motivo para ${descrever(l)}`}
-                              placeholder={ed?.decisao === 'descartar' ? 'Motivo (padrão: repetição)' : 'Motivo do ajuste'}
-                              value={ed?.motivo ?? ''}
-                              onChange={(e) => editar(l.id, { motivo: e.target.value })}
-                            />
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <Button variant="ghost" size="icon" aria-label={`Comentar ${descrever(l)}`} onClick={() => setComentarioLinha({ linha: l, texto: '' })}>
-                          <MessageSquare className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            tabelaLinhas(itensExtra, false)
           )}
         </DataTable>
 
@@ -446,6 +532,89 @@ export function MateriaisPedidoDetalhePage() {
         confirmDisabled={enviando}
         onConfirm={executar}
       />
+
+      <ConfirmDialog
+        open={!!ajuste}
+        onOpenChange={(a) => !a && setAjuste(null)}
+        icon={<SlidersHorizontal className="size-6 text-primary" />}
+        iconClassName="bg-sky-50"
+        title="Ajustar linha do kit"
+        description={
+          ajuste
+            ? `${descrever(ajuste.linha)} — kit ${ajuste.linha.qtd_kit ?? '—'}, líder confirmou ${ajuste.linha.qtd_pedida}. O kit só diminui; para dar mais, use o pedido extra.`
+            : ''
+        }
+        confirmLabel={enviando ? 'Salvando…' : 'Salvar ajuste'}
+        confirmDisabled={enviando || !ajuste?.edicao.motivo.trim()}
+        onConfirm={salvarAjuste}
+      >
+        {ajuste && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ajuste-qtd">Quantidade</Label>
+              <Input
+                id="ajuste-qtd"
+                inputMode="decimal"
+                className="tabular-nums"
+                placeholder={`Manter ${ajuste.linha.qtd_validada ?? ajuste.linha.qtd_pedida}`}
+                value={ajuste.edicao.qtd ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value.replace(',', '.')
+                  setAjuste((a) => (a ? { ...a, edicao: { ...a.edicao, qtd: v === '' ? null : Number(v) } } : a))
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ajuste-item">Trocar o item (opcional)</Label>
+              <select
+                id="ajuste-item"
+                className={CLASSE_SELECT}
+                value={ajuste.edicao.itemId ?? ''}
+                onChange={(e) =>
+                  setAjuste((a) => (a ? { ...a, edicao: { ...a.edicao, itemId: e.target.value || null, variacaoId: null } } : a))
+                }
+              >
+                <option value="">Manter o item</option>
+                {itensAtivos.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {ajuste.edicao.itemId && catalogo.variacoes.some((v) => v.item_id === ajuste.edicao.itemId && v.ativo) && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ajuste-variacao">Opção</Label>
+                <select
+                  id="ajuste-variacao"
+                  className={CLASSE_SELECT}
+                  value={ajuste.edicao.variacaoId ?? ''}
+                  onChange={(e) => setAjuste((a) => (a ? { ...a, edicao: { ...a.edicao, variacaoId: e.target.value || null } } : a))}
+                >
+                  <option value="">Escolha</option>
+                  {catalogo.variacoes
+                    .filter((v) => v.item_id === ajuste.edicao.itemId && v.ativo)
+                    .map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.rotulo}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="ajuste-motivo">Motivo (obrigatório)</Label>
+              <Textarea
+                id="ajuste-motivo"
+                rows={2}
+                maxLength={500}
+                value={ajuste.edicao.motivo}
+                onChange={(e) => setAjuste((a) => (a ? { ...a, edicao: { ...a.edicao, motivo: e.target.value } } : a))}
+              />
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={devolucao != null}

@@ -222,7 +222,7 @@ export function MateriaisPedidosPage() {
                         <TableCell>
                           <div className="flex flex-wrap items-center gap-1">
                             <StatusProdutosBadge status={p.status_produtos} />
-                            {(r?.excecoes ?? 0) > 0 && <Selo>{r!.excecoes} exceç{r!.excecoes === 1 ? 'ão' : 'ões'}</Selo>}
+                            {(r?.excecoes ?? 0) > 0 && <Selo title="Linhas de pedido extra (além do kit do mês)">{r!.excecoes} extra{r!.excecoes === 1 ? '' : 's'}</Selo>}
                             {(r?.repeticoes ?? 0) > 0 && <Selo tom="vermelho">repetição</Selo>}
                           </div>
                         </TableCell>

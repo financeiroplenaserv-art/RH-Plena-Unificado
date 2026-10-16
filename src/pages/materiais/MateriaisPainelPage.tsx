@@ -18,7 +18,7 @@ import { rotuloCompetencia } from '@/components/materiais/rotulosFilas'
 import { MateriaisShell } from './MateriaisShell'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
-import { useMateriaisPainel } from '@/hooks/useMateriaisPedidos'
+import { lerMateriaisConfig, salvarMateriaisConfig, useMateriaisPainel } from '@/hooks/useMateriaisPedidos'
 import { podeAprovarMateriais } from '@/lib/permissoes'
 import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import { competenciaDoMes } from '@/lib/materiais/painel'
@@ -26,6 +26,10 @@ import { competenciaDoMes } from '@/lib/materiais/painel'
 // Painel do gestor (docs/PLANO_MATERIAIS_FASE1.md §5.1): por contrato, valor
 // pedido × limite (Kit × preço vigente) × média dos últimos 6 meses fechados
 // (12 meses como referência). Aprovar selecionados ou ajustar item a item.
+// Kit confirmável (16/10/2026, migration 135): o valor separa kit do mês e
+// pedido extra; "Aprovar" aprova os EXTRAS validados (o kit, com a
+// configuração ligada, já sai aprovado). A configuração "Aprovação
+// automática do kit" fica no topo desta tela (gestor/admin).
 
 interface FiltroPainel {
   mostrar: 'com_pedido' | 'acima' | 'aprovar' | 'todos'
@@ -42,6 +46,26 @@ export function MateriaisPainelPage() {
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [confirmar, setConfirmar] = useState(false)
   const competencia = competenciaDoMes(mes)
+  const [kitAuto, setKitAuto] = useState<boolean | null>(null)
+  const [salvandoConfig, setSalvandoConfig] = useState(false)
+  const [confirmarConfig, setConfirmarConfig] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    lerMateriaisConfig().then((c) => vivo && setKitAuto(c.kit_aprovacao_automatica))
+    return () => {
+      vivo = false
+    }
+  }, [])
+
+  const salvarConfig = async () => {
+    if (confirmarConfig == null) return
+    setSalvandoConfig(true)
+    const ok = await salvarMateriaisConfig({ kit_aprovacao_automatica: confirmarConfig })
+    setSalvandoConfig(false)
+    if (ok) setKitAuto(confirmarConfig)
+    setConfirmarConfig(null)
+  }
 
   useEffect(() => {
     carregar(competencia)
@@ -108,6 +132,31 @@ export function MateriaisPainelPage() {
         <EstruturaPendente />
       ) : (
         <div className="space-y-4">
+          {podeAprovar && kitAuto != null && (
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-semibold">Aprovação automática do kit</p>
+                <p className="text-sm text-muted-foreground">
+                  {kitAuto
+                    ? 'Ligada: o kit do mês confirmado pelo líder já sai aprovado. Só o pedido extra passa pelo inspetor e por você.'
+                    : 'Desligada: o kit do mês passa pela aprovação junto com o pedido extra.'}
+                </p>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  className="size-5 accent-primary"
+                  checked={kitAuto}
+                  disabled={salvandoConfig}
+                  onChange={(e) => setConfirmarConfig(e.target.checked)}
+                  aria-label="Aprovação automática do kit"
+                />
+                {kitAuto ? 'Ligada' : 'Desligada'}
+              </label>
+            </section>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-3">
             <Resumo titulo="Pedido no mês" valor={mascaraMoeda(totais.pedido)} />
             <Resumo titulo="Soma dos limites" valor={mascaraMoeda(totais.limite)} />
@@ -181,6 +230,11 @@ export function MateriaisPainelPage() {
                         <div className="mt-0.5 flex flex-wrap gap-1">
                           {l.excedeu && <Selo tom="vermelho">acima do limite</Selo>}
                           {l.preenchidoPeloEscritorio && <Selo tom="cinza">preenchido pelo escritório</Selo>}
+                          {l.extrasPendentes > 0 && (
+                            <Selo tom="azul">
+                              {l.extrasPendentes} extra{l.extrasPendentes === 1 ? '' : 's'} pendente{l.extrasPendentes === 1 ? '' : 's'}
+                            </Selo>
+                          )}
                           {l.excecoes > 0 && <Selo>{l.excecoes} exceç{l.excecoes === 1 ? 'ão' : 'ões'}</Selo>}
                           {l.semPreco > 0 && <Selo tom="cinza">{l.semPreco} sem preço</Selo>}
                         </div>
@@ -198,6 +252,11 @@ export function MateriaisPainelPage() {
                       </TableCell>
                       <TableCell className={`text-right tabular-nums ${l.excedeu ? 'font-semibold text-red-700 dark:text-red-400' : ''}`}>
                         {mascaraMoeda(l.valorPedido)}
+                        {l.valorKit > 0 && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            kit {mascaraMoeda(l.valorKit)} · extra {mascaraMoeda(l.valorExtras)}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{l.limite > 0 ? mascaraMoeda(l.limite) : '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">{l.percentual != null ? `${Math.round(l.percentual * 100)}%` : '—'}</TableCell>
@@ -225,9 +284,25 @@ export function MateriaisPainelPage() {
         icon={<Check className="size-6 text-emerald-600" />}
         iconClassName="bg-emerald-50"
         title="Aprovar pedidos selecionados?"
-        description={`${selecionados.size} contrato(s): os pedidos validados de ${rotuloCompetencia(competencia)} serão aprovados pela quantidade validada. Pedidos ainda com o inspetor ficam de fora.`}
+        description={`${selecionados.size} contrato(s): os pedidos validados de ${rotuloCompetencia(competencia)} serão aprovados pela quantidade validada (o kit já aprovado não muda). Pedidos ainda com o inspetor ficam de fora.`}
         confirmLabel="Aprovar"
         onConfirm={aprovar}
+      />
+
+      <ConfirmDialog
+        open={confirmarConfig != null}
+        onOpenChange={(a) => !a && setConfirmarConfig(null)}
+        icon={<Check className="size-6 text-primary" />}
+        iconClassName="bg-sky-50"
+        title={confirmarConfig ? 'Ligar a aprovação automática do kit?' : 'Desligar a aprovação automática do kit?'}
+        description={
+          confirmarConfig
+            ? 'Os próximos envios dos líderes terão o kit do mês aprovado na hora; só o pedido extra passa pelo inspetor e pela aprovação. Pedidos já enviados não mudam.'
+            : 'Os próximos envios voltam a passar inteiros pela aprovação (kit e extra). Pedidos já enviados não mudam.'
+        }
+        confirmLabel={salvandoConfig ? 'Salvando…' : confirmarConfig ? 'Ligar' : 'Desligar'}
+        confirmDisabled={salvandoConfig}
+        onConfirm={salvarConfig}
       />
     </MateriaisShell>
   )

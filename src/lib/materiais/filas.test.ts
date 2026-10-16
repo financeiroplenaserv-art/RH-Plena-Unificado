@@ -5,6 +5,7 @@ import {
   entregaRecente,
   etapaLinhaCeu,
   faltaComprar,
+  montarAjusteKit,
   montarAprovacao,
   montarAtendimento,
   montarValidacao,
@@ -13,6 +14,7 @@ import {
   qtdEfetiva,
   rotulosExcecao,
   sugerirColaboradores,
+  temExcecao,
 } from './filas'
 import { montarPainel } from './painel'
 
@@ -270,5 +272,55 @@ describe('painel do gestor', () => {
     })
     expect(l.valorPedido).toBe(0)
     expect(l.pedidoIds).toEqual([])
+  })
+})
+
+describe('kit confirmável + pedido extra (migration 135)', () => {
+  const kitAuto = {
+    id: 'k1',
+    qtd_kit: 5,
+    qtd_pedida: 5,
+    qtd_validada: 5,
+    item_id: 'det',
+    variacao_id: null,
+    motivo_ajuste: null,
+    parte: 'kit' as const,
+    aprovado_automatico: true,
+  }
+
+  it('linha do kit não é exceção (validade é só aviso); a extra é', () => {
+    const exc = { excecao_acima_kit: false, excecao_validade: true, excecao_fora_kit: false, item_id: 'det' }
+    expect(temExcecao({ ...exc, parte: 'kit' })).toBe(false)
+    expect(temExcecao({ ...exc, excecao_validade: false, excecao_acima_kit: true, parte: 'extra' })).toBe(true)
+    expect(rotulosExcecao({ ...exc, excecao_validade: false, excecao_acima_kit: true, parte: 'extra' })).toEqual(['A mais do kit'])
+    // Sem parte (antes da 135): segue como antes.
+    expect(temExcecao(exc)).toBe(true)
+  })
+
+  it('validação e aprovação ignoram a linha do kit aprovada automaticamente', () => {
+    const ed = { k1: { qtd: 2, motivo: 'sobrou', decisao: null } }
+    expect(montarValidacao([kitAuto], ed).itens).toEqual([])
+    expect(montarAprovacao([kitAuto], ed).itens).toEqual([])
+    const extra = { ...kitAuto, id: 'e1', parte: 'extra' as const, aprovado_automatico: false }
+    expect(montarValidacao([extra], { e1: ed.k1 }).itens).toHaveLength(1)
+  })
+
+  it('ajuste do kit: só diminui, motivo obrigatório, troca exige opção quando o item tem variações', () => {
+    expect(montarAjusteKit(kitAuto, { qtd: 6, motivo: 'x', itemId: null, variacaoId: null }).erro).toMatch(/só diminui/)
+    expect(montarAjusteKit(kitAuto, { qtd: 3, motivo: ' ', itemId: null, variacaoId: null }).erro).toMatch(/motivo/)
+    expect(montarAjusteKit(kitAuto, { qtd: null, motivo: 'x', itemId: null, variacaoId: null }).erro).toMatch(/Nada mudou/)
+    expect(montarAjusteKit(kitAuto, { qtd: 0, motivo: 'posto fechado', itemId: null, variacaoId: null }).payload).toEqual({
+      linhaId: 'k1',
+      qtd: 0,
+      motivo: 'posto fechado',
+      itemId: null,
+      variacaoId: null,
+    })
+    expect(montarAjusteKit(kitAuto, { qtd: null, motivo: 'troca', itemId: 'rodo', variacaoId: null }, true).erro).toMatch(/opção/)
+    expect(montarAjusteKit(kitAuto, { qtd: null, motivo: 'troca', itemId: 'rodo', variacaoId: 'r45' }, true).payload).toMatchObject({
+      qtd: 5,
+      itemId: 'rodo',
+      variacaoId: 'r45',
+    })
   })
 })

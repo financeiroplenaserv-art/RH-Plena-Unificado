@@ -16,19 +16,75 @@ import { tetoQuantidade } from './pedidoLider'
 // Produtos
 // ------------------------------------------------------------------
 
-type LinhaExcecao = Pick<MatPedidoItem, 'excecao_acima_kit' | 'excecao_validade' | 'excecao_fora_kit' | 'item_id'>
+type LinhaExcecao = Pick<MatPedidoItem, 'excecao_acima_kit' | 'excecao_validade' | 'excecao_fora_kit' | 'item_id'> &
+  Partial<Pick<MatPedidoItem, 'parte'>>
 
+// Kit confirmável + pedido extra (decisão da gestão, 16/10/2026 — migration
+// 135): a linha 'kit' é o que o posto vai receber (só diminui); a 'extra' é
+// o que passa do kit. Linha sem `parte` (antes da 135, pedido extra
+// operacional) conta como extra.
+
+/** Linha do Kit Mensal confirmada pelo líder (ou preenchida pelo escritório). */
+export function ehLinhaKit(l: Partial<Pick<MatPedidoItem, 'parte'>>): boolean {
+  return l.parte === 'kit'
+}
+
+/** Linha do kit aprovada na gravação: validação/aprovação a ignoram; muda só pelo ajuste do kit. */
+export function kitAprovadoAutomatico(l: Partial<Pick<MatPedidoItem, 'parte' | 'aprovado_automatico'>>): boolean {
+  return l.parte === 'kit' && l.aprovado_automatico === true
+}
+
+/**
+ * Exceção = o que o inspetor precisa olhar: pedido extra (acima/fora do kit,
+ * texto livre). Na linha do kit, "antes da validade" é só aviso interno
+ * (decisão de 16/10/2026) — não conta como exceção.
+ */
 export function temExcecao(l: LinhaExcecao): boolean {
+  if (ehLinhaKit(l)) return false
   return l.excecao_acima_kit || l.excecao_validade || l.excecao_fora_kit
 }
 
 /** Rótulos curtos das exceções da linha ("Outros materiais" = texto livre). */
 export function rotulosExcecao(l: LinhaExcecao): string[] {
   const r: string[] = []
-  if (l.excecao_acima_kit) r.push('Acima do kit')
+  if (l.excecao_acima_kit) r.push(l.parte === 'extra' ? 'A mais do kit' : 'Acima do kit')
   if (l.excecao_validade) r.push('Antes da validade')
   if (l.excecao_fora_kit) r.push(l.item_id ? 'Fora do kit' : 'Outros materiais')
   return r
+}
+
+export interface EdicaoKit {
+  qtd: number | null
+  motivo: string
+  /** Troca do item (null = mantém). */
+  itemId: string | null
+  variacaoId: string | null
+}
+
+/**
+ * Ajuste de uma linha do KIT pelo inspetor/gestor (RPC
+ * ajustar_linha_kit_materiais): diminuir, tirar (0) ou trocar o item, sempre
+ * com motivo. Nunca acima do kit (para dar mais, o caminho é o pedido extra).
+ */
+export function montarAjusteKit(
+  l: Pick<MatPedidoItem, 'id' | 'qtd_kit' | 'qtd_pedida' | 'qtd_validada' | 'item_id' | 'variacao_id'>,
+  e: EdicaoKit,
+  itemTemVariacoes = false
+): { payload: { linhaId: string; qtd: number; motivo: string; itemId: string | null; variacaoId: string | null } | null; erro: string | null } {
+  const atual = Number(l.qtd_validada ?? l.qtd_pedida)
+  const qtd = e.qtd ?? atual
+  const teto = Math.max(Number(l.qtd_kit ?? 0), Number(l.qtd_pedida))
+  if (!Number.isFinite(qtd) || qtd < 0) return { payload: null, erro: 'Quantidade inválida' }
+  if (qtd > teto) return { payload: null, erro: `O kit só diminui (máximo ${teto}). Para dar mais, use o pedido extra.` }
+  const troca = !!e.itemId && (e.itemId !== l.item_id || (e.variacaoId ?? null) !== (l.variacao_id ?? null))
+  if (troca && itemTemVariacoes && !e.variacaoId) return { payload: null, erro: 'Escolha a opção do item de troca' }
+  if (!troca && qtd === atual) return { payload: null, erro: 'Nada mudou: altere a quantidade ou troque o item' }
+  const motivo = e.motivo.trim()
+  if (!motivo) return { payload: null, erro: 'Informe o motivo do ajuste' }
+  return {
+    payload: { linhaId: l.id, qtd, motivo, itemId: troca ? e.itemId : null, variacaoId: troca ? e.variacaoId ?? null : null },
+    erro: null,
+  }
 }
 
 /** Quantidade que vale para valor/consumo: aprovada > validada > pedida. */
@@ -76,14 +132,15 @@ export interface PayloadValidacao {
  * sanidade do envio do líder (tetoQuantidade — pedidoLider.ts).
  */
 export function montarValidacao(
-  linhas: Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'qtd_kit'>[],
+  linhas: (Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'qtd_kit'> & Partial<Pick<MatPedidoItem, 'parte' | 'aprovado_automatico'>>)[],
   edicoes: Record<string, EdicaoLinha | undefined>
 ): { itens: PayloadValidacao[]; erros: string[] } {
   const itens: PayloadValidacao[] = []
   const erros: string[] = []
   linhas.forEach((l, i) => {
     const e = edicoes[l.id]
-    if (!e) return
+    // Kit já aprovado: muda só pelo ajuste do kit (o banco também ignora).
+    if (!e || kitAprovadoAutomatico(l)) return
     const decisao = e.decisao ?? null
     const motivo = e.motivo.trim() || null
     if (decisao === 'descartar') {
@@ -124,14 +181,14 @@ export interface PayloadAprovacao {
  * do envio do líder (tetoQuantidade — pedidoLider.ts).
  */
 export function montarAprovacao(
-  linhas: Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'qtd_kit' | 'motivo_ajuste'>[],
+  linhas: (Pick<MatPedidoItem, 'id' | 'qtd_pedida' | 'qtd_kit' | 'motivo_ajuste'> & Partial<Pick<MatPedidoItem, 'parte' | 'aprovado_automatico'>>)[],
   edicoes: Record<string, EdicaoLinha | undefined>
 ): { itens: PayloadAprovacao[]; erros: string[] } {
   const itens: PayloadAprovacao[] = []
   const erros: string[] = []
   linhas.forEach((l, i) => {
     const e = edicoes[l.id]
-    if (!e || e.qtd == null) return
+    if (!e || e.qtd == null || kitAprovadoAutomatico(l)) return
     if (!Number.isFinite(e.qtd) || e.qtd < 0) {
       erros.push(`Linha ${i + 1}: quantidade inválida`)
       return

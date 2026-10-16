@@ -30,7 +30,7 @@ import type {
 export const COLUNAS_PEDIDO =
   'id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, rota_override, rota_override_motivo, rota_override_por, responsavel_nome, observacao, termos_aceitos, status_produtos, status_ceu, enviado_em, reaberto_por, reaberto_em, criado_por, created_at'
 export const COLUNAS_ITEM_PEDIDO =
-  'id, pedido_id, envio_id, possivel_repeticao, repete_linha_id, decisao_repeticao, item_id, variacao_id, descricao_livre, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada, qtd_entregue, preco_unitario, justificativa, excecao_acima_kit, excecao_validade, excecao_fora_kit, ultima_entrega_em, motivo_ajuste, ajustado_por, ajustado_em, created_at'
+  'id, pedido_id, envio_id, possivel_repeticao, repete_linha_id, decisao_repeticao, item_id, variacao_id, descricao_livre, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada, qtd_entregue, preco_unitario, justificativa, excecao_acima_kit, excecao_validade, excecao_fora_kit, ultima_entrega_em, motivo_ajuste, ajustado_por, ajustado_em, created_at, parte, aprovado_automatico, item_original_id, variacao_original_id'
 /** Sem qtd_atendida/motivo_atendimento (migration 124) — funciona antes e depois dela. */
 export const COLUNAS_CEU_PEDIDO =
   'id, pedido_id, envio_id, possivel_repeticao, nome_digitado, colaborador_id, identificado_por, identificado_em, fora_da_equipe, tipo, item_id, tamanho, tamanho_cadastro, qtd_pedida, qtd_conferida, alerta_tamanho, ultima_entrega_em, cracha_nome, cracha_motivo, cracha_cordao, status, conferido_por, conferido_em, atendido_por, atendido_em, motivo_ajuste, created_at'
@@ -82,7 +82,7 @@ function rpcOk(error: Erro, acao: string): boolean {
 
 /** Configuração do módulo (dia limite/aviso), com padrão 15/10 quando não há. */
 export async function lerMateriaisConfig(): Promise<MateriaisConfig> {
-  const padrao: MateriaisConfig = { dia_limite: 15, dia_aviso: 10, aviso_recibo: '' }
+  const padrao: MateriaisConfig = { dia_limite: 15, dia_aviso: 10, aviso_recibo: '', kit_aprovacao_automatica: true }
   const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'materiais_config').maybeSingle()
   try {
     const bruto = (data as { valor?: unknown } | null)?.valor
@@ -93,6 +93,8 @@ export async function lerMateriaisConfig(): Promise<MateriaisConfig> {
       dia_limite: Number.isInteger(dl) && dl >= 1 && dl <= 28 ? dl : padrao.dia_limite,
       dia_aviso: Number.isInteger(da) && da >= 1 && da <= 28 ? da : padrao.dia_aviso,
       aviso_recibo: typeof v?.aviso_recibo === 'string' ? v.aviso_recibo : '',
+      // Ausente = ligada (padrão da decisão de 16/10/2026).
+      kit_aprovacao_automatica: typeof v?.kit_aprovacao_automatica === 'boolean' ? v.kit_aprovacao_automatica : true,
     }
   } catch {
     return padrao
@@ -251,7 +253,24 @@ export function usePedidoMaterial() {
     []
   )
 
-  return { pedido, envios, itens, ceuItens, comentarios, kit, loading, estruturaPendente, carregar, validar, aprovar, comentar }
+  /** Ajuste de uma linha do KIT (diminuir, tirar, trocar) com motivo — migration 135. */
+  const ajustarKit = useCallback(
+    async (dados: { linhaId: string; qtd: number; motivo: string; itemId?: string | null; variacaoId?: string | null }) => {
+      const { error } = await supabase.rpc('ajustar_linha_kit_materiais', {
+        p_linha: dados.linhaId,
+        p_qtd: dados.qtd,
+        p_motivo: dados.motivo,
+        p_item: dados.itemId ?? null,
+        p_variacao: dados.variacaoId ?? null,
+      })
+      if (!rpcOk(error, 'ajustar o kit')) return false
+      toast.success('Kit ajustado')
+      return true
+    },
+    []
+  )
+
+  return { pedido, envios, itens, ceuItens, comentarios, kit, loading, estruturaPendente, carregar, validar, aprovar, comentar, ajustarKit }
 }
 
 // ------------------------------------------------------------------
@@ -374,7 +393,7 @@ export interface ContratoSemPedido {
 
 export function useMateriaisSemPedido() {
   const [lista, setLista] = useState<ContratoSemPedido[]>([])
-  const [config, setConfig] = useState<MateriaisConfig>({ dia_limite: 15, dia_aviso: 10, aviso_recibo: '' })
+  const [config, setConfig] = useState<MateriaisConfig>({ dia_limite: 15, dia_aviso: 10, aviso_recibo: '', kit_aprovacao_automatica: true })
   const [loading, setLoading] = useState(false)
   const [estruturaPendente, setEstruturaPendente] = useState(false)
 
@@ -531,4 +550,12 @@ export async function criarPedidoExtra(dados: {
   }
   toast.success('Pedido extra enviado')
   return pedidoId
+}
+
+/** Grava chaves da configuração do módulo (RPC mat_salvar_config — gestor/admin, migration 135). */
+export async function salvarMateriaisConfig(parcial: Partial<Pick<MateriaisConfig, 'kit_aprovacao_automatica' | 'dia_aviso' | 'dia_limite'>>) {
+  const { error } = await supabase.rpc('mat_salvar_config', { p_config: parcial as unknown as Record<string, unknown> })
+  if (!rpcOk(error, 'salvar a configuração')) return false
+  toast.success('Configuração salva')
+  return true
 }

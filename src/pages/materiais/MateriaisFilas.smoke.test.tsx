@@ -90,13 +90,16 @@ vi.mock('@/hooks/useMateriaisPedidos', () => estabilizar({
   useMateriaisPedidos: () => ({ pedidos: [pedido], itens, ceuItens: [], loading: false, estruturaPendente: false, carregar: vi.fn() }),
   usePedidoMaterial: () => ({
     pedido, envios, itens, ceuItens: [], comentarios: [], kit: [], loading: false, estruturaPendente: false,
-    carregar: vi.fn(), validar: vi.fn(), aprovar: vi.fn(), comentar: vi.fn(),
+    carregar: vi.fn(), validar: vi.fn(), aprovar: vi.fn(), comentar: vi.fn(), ajustarKit: vi.fn(),
   }),
+  lerMateriaisConfig: () => Promise.resolve({ dia_limite: 15, dia_aviso: 10, aviso_recibo: '', kit_aprovacao_automatica: true }),
+  salvarMateriaisConfig: vi.fn(),
   useMateriaisPainel: () => ({
     linhas: [
       {
         contratoId: 'c1', nome: 'Abaeté', pedidoIds: ['p1'], pedidoMensalId: 'p1', status: ['validado'], valorPedido: 80, limite: 40,
         media6: 35, media12: 30, excedeu: true, diferenca: 40, percentual: 2, preenchidoPeloEscritorio: false, excecoes: 1, aprovavel: true, semPreco: 0,
+        valorKit: 0, valorExtras: 80, extrasPendentes: 1,
       },
     ],
     loading: false,
@@ -106,7 +109,7 @@ vi.mock('@/hooks/useMateriaisPedidos', () => estabilizar({
   }),
   useMateriaisSemPedido: () => ({
     lista: [{ contrato_id: 'c1', nome: 'Abaeté', departamento_id: 'd1', rota: 2, ultimo_responsavel: 'Maria', link_aberto_no_mes: true, tem_link: true, pedido_id: 'p9' }],
-    config: { dia_limite: 15, dia_aviso: 10, aviso_recibo: '' },
+    config: { dia_limite: 15, dia_aviso: 10, aviso_recibo: '', kit_aprovacao_automatica: true },
     loading: false,
     estruturaPendente: false,
     carregar: vi.fn(),
@@ -178,7 +181,7 @@ describe('Filas de Materiais — smoke test', () => {
     expect(screen.getByText('Pedidos do mês')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Abaeté' })).toBeTruthy()
     expect(screen.getByText('ABAETÉ')).toBeTruthy()
-    expect(screen.getByText('1 exceção')).toBeTruthy()
+    expect(screen.getByText('1 extra')).toBeTruthy()
     expect(screen.getByText('repetição')).toBeTruthy()
     // gestor não faz pedido extra (mesa/inspetoria)
     expect(screen.queryByText('Pedido extra')).toBeNull()
