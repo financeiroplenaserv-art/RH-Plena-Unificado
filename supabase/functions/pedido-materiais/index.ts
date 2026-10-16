@@ -572,9 +572,16 @@ export function idsEquipeDoContrato(
 
 // >>> LÓGICA PURA: src/lib/materiais/buscaItens.ts (cópia — não editar aqui)
 // Busca tolerante a erro de digitação no catálogo de materiais — lógica pura.
-// Usada pelo "Preciso de outro item" do link do líder (ação `buscar_item` da
-// Edge Function pedido-materiais): o líder digita "cab", "cabo vasora",
-// "detergete" e recebe até 5 sugestões de itens ATIVOS.
+// Usada pelo campo único "O que mais você precisa?" do link do líder (ação
+// `buscar_item` da Edge Function pedido-materiais): o líder digita "cab",
+// "cabo vasora", "detergete", "piaçava", "disco 350" e recebe até 5
+// sugestões ATIVAS.
+//
+// Variações (decisão da gestão, 16/10/2026): item com variações vira UM
+// resultado por variação, com nome de exibição completo ("Vassoura Noviça",
+// "Disco branco 350 mm", "Flanela Microfibra amarela") — a busca olha também
+// o rótulo da variação e os nomes antigos (`mat_aliases`) ligados a ela. No
+// link do líder cada quadro tem um item e uma variação já definidos aqui.
 //
 // ESTE ARQUIVO É COPIADO PARA DENTRO DA EDGE FUNCTION
 // supabase/functions/pedido-materiais/index.ts por
@@ -594,8 +601,44 @@ export function idsEquipeDoContrato(
 export interface ItemBuscavel {
   id: string
   nome: string
-  /** Nomes antigos e grafias (mat_aliases.nome_legado). */
+  /** Nomes antigos e grafias do ITEM (mat_aliases.nome_legado sem variacao_id). */
   aliases?: string[]
+  /** Variações ativas: com elas, cada variação é um resultado próprio. */
+  variacoes?: { id: string; rotulo: string }[]
+  /** Nomes antigos ligados a uma variação (mat_aliases com variacao_id), por id da variação. */
+  aliasesPorVariacao?: Record<string, string[]>
+  /** Itens (ou variações) do kit do contrato: pequena preferência no desempate. */
+  noKit?: boolean
+  /** Ids das variações que estão no kit (o item inteiro no kit = noKit). */
+  variacoesNoKit?: string[]
+}
+
+// Palavras de cadastro que não ajudam a pessoa a reconhecer o item.
+// Conservador: só a unidade no FIM do nome ("Pedra Sanitária UN", "Saco de
+// lixo PCT") e "Especial" quando há uma variação para pôr no lugar
+// ("Vassoura Especial" + "Noviça" = "Vassoura Noviça").
+const UNIDADE_NO_FIM = /\s+(UN|UND|UNID|PCT)\.?$/i
+const GENERICAS_COM_VARIACAO = /\s+especial\b/gi
+
+/**
+ * Nome amigável do item (com a variação, quando houver): "Vassoura Especial
+ * UN" + "Noviça" = "Vassoura Noviça"; "Disco branco UN" + "350 mm" = "Disco
+ * branco 350 mm"; "Pedra Sanitária UN" = "Pedra Sanitária". Na dúvida (o nome
+ * ficaria vazio), mantém o nome do cadastro.
+ */
+export function nomeExibicaoItem(nome: string, rotuloVariacao?: string | null): string {
+  const original = (nome ?? '').trim()
+  let base = original.replace(UNIDADE_NO_FIM, '').trim()
+  const rotulo = (rotuloVariacao ?? '').trim()
+  if (rotulo) {
+    const semGenerica = base.replace(GENERICAS_COM_VARIACAO, '').replace(/\s+/g, ' ').trim()
+    if (semGenerica) base = semGenerica
+  }
+  if (!base) base = original
+  if (!rotulo) return base
+  // Rótulo que já está no nome ("Mop Cabo grande" + "grande") não repete.
+  if (` ${normalizarBusca(base)}`.endsWith(` ${normalizarBusca(rotulo)}`)) return base
+  return `${base} ${rotulo}`
 }
 
 /** Assinatura do fallback futuro (não usado hoje). Deve devolver ids do catálogo. */
@@ -705,14 +748,24 @@ export function notaNome(termo: string, nome: string): number {
 
 export interface ResultadoBusca<T> {
   item: T
+  /** Variação do resultado (item com variações = um resultado por variação). */
+  variacao: { id: string; rotulo: string } | null
+  /** Nome de exibição completo (nomeExibicaoItem). */
+  nome: string
   nota: number
   /** Nome (ou alias) que casou melhor. */
   casouCom: string
 }
 
+/** Preferência do kit do contrato no desempate (não faz item ruim passar na frente de item bom). */
+const BONUS_KIT = 0.03
+
 /**
- * Até `limite` itens que casam com o termo, do melhor para o pior. Termo com
- * menos de BUSCA_MIN_CARACTERES letras não busca (evita "listar tudo").
+ * Até `limite` resultados que casam com o termo, do melhor para o pior. Item
+ * com variações gera um resultado por variação. Termo com menos de
+ * BUSCA_MIN_CARACTERES letras não busca (evita "listar tudo"). Em empate,
+ * vem primeiro o do kit do contrato e uma variação de cada item antes da
+ * segunda do mesmo item ("vassoura" mostra vassouras diferentes).
  */
 export function buscarItens<T extends ItemBuscavel>(
   termo: string,
@@ -722,23 +775,74 @@ export function buscarItens<T extends ItemBuscavel>(
 ): ResultadoBusca<T>[] {
   const tn = normalizarBusca(termo)
   if (tn.replace(/ /g, '').length < BUSCA_MIN_CARACTERES) return []
-  const resultados: ResultadoBusca<T>[] = []
+  type Candidato = ResultadoBusca<T> & { ordemNoItem: number; kit: boolean }
+  const candidatos: Candidato[] = []
   for (const item of itens) {
-    let melhor = notaNome(tn, item.nome)
-    let casouCom = item.nome
-    for (const a of item.aliases ?? []) {
-      // alias vale um pouco menos que o nome oficial (desempate)
-      const n = notaNome(tn, a) * 0.97
-      if (n > melhor) {
-        melhor = n
-        casouCom = a
+    const variacoes = item.variacoes ?? []
+    const alvos: { variacao: { id: string; rotulo: string } | null; nomes: string[]; aliases: string[]; kit: boolean }[] =
+      variacoes.length === 0
+        ? [{ variacao: null, nomes: [item.nome], aliases: item.aliases ?? [], kit: !!item.noKit }]
+        : variacoes.map((v) => ({
+            variacao: v,
+            nomes: [nomeExibicaoItem(item.nome, v.rotulo), `${item.nome} ${v.rotulo}`],
+            aliases: [...(item.aliasesPorVariacao?.[v.id] ?? []), ...(item.aliases ?? [])],
+            kit: !!item.noKit || (item.variacoesNoKit ?? []).includes(v.id),
+          }))
+    alvos.forEach((alvo, ordemNoItem) => {
+      let melhor = 0
+      let casouCom = alvo.nomes[0]
+      for (const n of alvo.nomes) {
+        const nota = notaNome(tn, n)
+        if (nota > melhor) {
+          melhor = nota
+          casouCom = n
+        }
       }
-    }
-    if (melhor >= notaMinima) resultados.push({ item, nota: melhor, casouCom })
+      for (const a of alvo.aliases) {
+        // alias vale um pouco menos que o nome oficial (desempate)
+        const n = notaNome(tn, a) * 0.97
+        if (n > melhor) {
+          melhor = n
+          casouCom = a
+        }
+      }
+      if (melhor < notaMinima) return
+      candidatos.push({
+        item,
+        variacao: alvo.variacao,
+        nome: nomeExibicaoItem(item.nome, alvo.variacao?.rotulo),
+        nota: Math.min(1, melhor) + (alvo.kit ? BONUS_KIT : 0),
+        casouCom,
+        ordemNoItem,
+        kit: alvo.kit,
+      })
+    })
   }
-  return resultados
-    .sort((a, b) => b.nota - a.nota || a.item.nome.localeCompare(b.item.nome, 'pt-BR'))
+  // Ordem entre as variações do mesmo item que empataram: a 1ª de cada item
+  // vem antes da 2ª de qualquer item.
+  const faixa = (n: number) => Math.round(n * 100)
+  const vistosPorFaixa = new Map<string, number>()
+  const ordenados = candidatos.sort(
+    (a, b) => b.nota - a.nota || a.ordemNoItem - b.ordemNoItem || a.nome.localeCompare(b.nome, 'pt-BR')
+  )
+  const posicaoNoItem = new Map<Candidato, number>()
+  for (const c of ordenados) {
+    const chave = `${faixa(c.nota)}|${c.item.id}`
+    const n = vistosPorFaixa.get(chave) ?? 0
+    posicaoNoItem.set(c, n)
+    vistosPorFaixa.set(chave, n + 1)
+  }
+  return ordenados
+    .sort(
+      (a, b) =>
+        faixa(b.nota) - faixa(a.nota) ||
+        posicaoNoItem.get(a)! - posicaoNoItem.get(b)! ||
+        b.nota - a.nota ||
+        a.ordemNoItem - b.ordemNoItem ||
+        a.nome.localeCompare(b.nome, 'pt-BR')
+    )
     .slice(0, Math.max(0, Math.min(limite, BUSCA_MAX_RESULTADOS)))
+    .map(({ item, variacao, nome, nota, casouCom }) => ({ item, variacao, nome, nota, casouCom }))
 }
 // <<< FIM: src/lib/materiais/buscaItens.ts
 
@@ -2408,9 +2512,9 @@ async function acaoCarregar(sb: SupabaseClient, corpo: Corpo, ip: string | null,
 }
 
 /**
- * "Preciso de outro item": até 5 itens ATIVOS que casam com o termo (≥ 3
- * letras). Devolve só nome, categoria, unidade, validade e variações — nunca
- * a lista completa. Busca fuzzy local (sem chamada externa); ponto de
+ * "O que mais você precisa?": até 5 resultados ATIVOS (item ou variação) que
+ * casam com o termo (≥ 3 letras). Devolve só nome, categoria, unidade,
+ * validade e variações — nunca a lista completa. Busca fuzzy local (sem chamada externa); ponto de
  * extensão para um fallback futuro documentado em buscaItens.ts.
  */
 async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | null, ua: string | null) {
@@ -2431,23 +2535,51 @@ async function acaoBuscarItem(sb: SupabaseClient, corpo: Corpo, ip: string | nul
   if (secao === 'materiais') candidatos = candidatos.filter((c) => c.categoria !== 'portaria')
 
   const ids = new Set(candidatos.map((c) => c.id))
-  const { data: aliases } = await sb.from('mat_aliases').select('nome_legado, item_id')
+  const [{ data: aliases }, { data: kit }] = await Promise.all([
+    sb.from('mat_aliases').select('nome_legado, item_id, variacao_id'),
+    sb.from('mat_kit_itens').select('item_id, variacao_id').eq('contrato_id', contrato.id),
+  ])
   const aliasesPorItem = new Map<string, string[]>()
+  const aliasesPorVariacao = new Map<string, Record<string, string[]>>()
   for (const a of aliases ?? []) {
     if (!ids.has(a.item_id)) continue
+    if (a.variacao_id) {
+      const porVar = aliasesPorVariacao.get(a.item_id) ?? {}
+      ;(porVar[a.variacao_id] ??= []).push(a.nome_legado)
+      aliasesPorVariacao.set(a.item_id, porVar)
+      continue
+    }
     const lista = aliasesPorItem.get(a.item_id) ?? []
     lista.push(a.nome_legado)
     aliasesPorItem.set(a.item_id, lista)
   }
+  // Kit do contrato: só desempate (a busca procura no kit E no catálogo).
+  const kitItem = new Set<string>()
+  const kitVariacoes = new Map<string, string[]>()
+  for (const k of kit ?? []) {
+    if (!k.variacao_id) kitItem.add(k.item_id)
+    else kitVariacoes.set(k.item_id, [...(kitVariacoes.get(k.item_id) ?? []), k.variacao_id])
+  }
   const achados = buscarItens(
     termo,
-    candidatos.map((c) => ({ ...c, aliases: aliasesPorItem.get(c.id) ?? [] })),
+    candidatos.map((c) => ({
+      ...c,
+      aliases: aliasesPorItem.get(c.id) ?? [],
+      aliasesPorVariacao: aliasesPorVariacao.get(c.id) ?? {},
+      noKit: kitItem.has(c.id),
+      variacoesNoKit: kitVariacoes.get(c.id) ?? [],
+    })),
     BUSCA_MAX_RESULTADOS
   )
+  // Um resultado por VARIAÇÃO (16/10/2026): o quadro do líder nasce com o
+  // item e a variação definidos. `variacoes` segue com as do item (o
+  // navegador valida a variação escolhida contra elas).
   return {
-    itens: achados.map(({ item }) => ({
+    itens: achados.map(({ item, variacao, nome }) => ({
       id: item.id,
       nome: item.nome,
+      nome_exibicao: nome,
+      variacao_id: variacao?.id ?? null,
       categoria: item.categoria,
       unidade: item.unidade,
       validade_meses: item.validade_meses,
