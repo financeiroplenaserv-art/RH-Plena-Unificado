@@ -1,7 +1,8 @@
 // Tipos do módulo Materiais (migrations 121 a 123 — docs/PLANO_MATERIAIS_FASE1.md)
 
 export type CategoriaMaterial = 'limpeza' | 'portaria' | 'descartaveis' | 'acessorios' | 'piscina'
-export type RotaMaterial = 1 | 2 | 3
+/** Rota de entrega (dia de entrega). 4 rotas desde a migration 145 (17/10/2026) — a 4 é só CBO MACAÉ. */
+export type RotaMaterial = 1 | 2 | 3 | 4
 
 export interface MatItem {
   id: string

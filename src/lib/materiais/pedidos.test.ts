@@ -10,7 +10,12 @@ import {
 } from './mescla'
 import { aplicarDecisaoRepeticao, repeticaoCeu, repeticaoProdutos } from './repeticao'
 import { converterQuantidade, resolverAlias } from './aliases'
-import { rotaEfetiva, tamanhosDivergem } from './pedidos'
+import {
+  lerRota,
+  rotaEfetiva,
+  ROTAS_MATERIAIS,
+  tamanhosDivergem,
+} from './pedidos'
 
 describe('normalização de texto', () => {
   it('remove acentos, pontuação e espaços repetidos', () => {
@@ -177,6 +182,17 @@ describe('aliases, rota e tamanhos', () => {
     expect(converterQuantidade(10, a!.fator)).toBe(2)
     expect(resolverAlias('desconhecido', aliases)).toBeNull()
     expect(resolverAlias('   ', aliases)).toBeNull()
+  })
+
+  it('rotas válidas são 1 a 4 (migration 145) e lerRota não apaga a rota 4', () => {
+    expect([...ROTAS_MATERIAIS]).toEqual([1, 2, 3, 4])
+    expect(lerRota('4')).toBe(4)
+    expect(lerRota('1')).toBe(1)
+    expect(lerRota('')).toBeNull()
+    expect(lerRota('5')).toBeNull()
+    expect(lerRota('0')).toBeNull()
+    expect(lerRota(null)).toBeNull()
+    expect(rotaEfetiva({ rota_override: 4 }, { rota: 3 })).toBe(4)
   })
 
   it('rota efetiva = override do pedido ou padrão do contrato', () => {

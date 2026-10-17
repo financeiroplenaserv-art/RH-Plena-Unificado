@@ -17,7 +17,7 @@
 - A **Beth** ganha, na aba CEU → Pedidos, a **lista de compra de uniforme/EPI** do que ela não tem para entregar, no mesmo formato de planilha. O estoque do CEU continua manual.
 - O **financeiro** passa a consultar as compras com valores (sem alterar).
 - Ficam para a Fase 3: o relatório de entrega único assinado pelo líder e o lançamento automático das entregas no CEU.
-- As entregas são em **4 rotas** (a rota 4 é só CBO MACAÉ). A gestora já informou a rota dos contratos e o fornecedor padrão das peças do CEU (etapa 0, seção 9); faltam decidir 2 nomes e 10 contratos sem rota.
+- As entregas são em **4 rotas** (a rota 4 é só CBO MACAÉ). A gestora já informou a rota de todos os contratos e o fornecedor padrão das peças do CEU (etapa 0, seção 9) — pronto para aplicar.
 
 ---
 
@@ -29,7 +29,7 @@
 | Status do pedido | `status_produtos`: `nao_se_aplica, rascunho, enviado, em_validacao, validado, aprovado, cancelado` | 35 em validação, 1 aprovado, 21 não se aplica | Ganha `em_compra`, `entregue`, `entregue_parcial` (já previstos na Fase 1 §3.3) |
 | Constante na Edge Function | `supabase/functions/pedido-materiais/index.ts`: `STATUS_PRODUTOS_ENTREGUE = ['aprovado','em_compra','entregue','entregue_parcial']` | já prevê os estados novos | Nada a mudar na function, só conferir |
 | Mescla de envios | `mat_registrar_envio` (143) mescla só antes de `aprovado`; depois cria pedido extra | — | Os estados novos ficam fora da mescla automaticamente (não estão na lista) — o envio do líder depois da compra vira pedido extra, como hoje depois da aprovação |
-| Rota | `mat_contratos.rota` + `mat_pedidos.rota_override` (1 a 4 desde a migration 145) | 64 rotas vazias em 17/10; etapa 0 grava 54 (seção 9) | Rota efetiva `coalesce(rota_override, rota)` separa o Excel e a lista de separação |
+| Rota | `mat_contratos.rota` + `mat_pedidos.rota_override` (1 a 4 desde a migration 145) | 64 rotas vazias em 17/10; a etapa 0 grava as 65 (seção 9) | Rota efetiva `coalesce(rota_override, rota)` separa o Excel e a lista de separação |
 | Fornecedores | `fornecedores` (cadastro único, 121) | 16 fornecedores | Fornecedor da compra |
 | Fornecedor padrão do item | `mat_itens.fornecedor_id` | 112 de 116 itens ativos têm (Antolimp 67, Contecom 16, Bralimpia 11, Loja das Bombas 6, Essex 5, Compra Avulsa 5, outros 2). Sem fornecedor: os 4 de portaria (Livro de Ocorrências, Protocolo de Correspondências, Planilhas de Controle de Acessos e de Veículos) — **ficam sem fornecedor de propósito** (decisão 1: preparados no escritório) | Fornecedor padrão de cada item na compra; o comprador troca pontualmente numa compra (decisão 12) |
 | Preços com histórico | `mat_precos` (item, variação, **fornecedor**, preço, vigente desde) + `precoVigente()` em `src/lib/materiais/precos.ts` | 188 preços, todos com fornecedor; 4 itens sem preço; 15 linhas de outubro sem preço | Preço da compra = vigente na data da compra (snapshot) |
@@ -308,7 +308,7 @@ Cada etapa deixa o sistema funcionando. Migrations aplicadas pela Management API
 
 | # | Entrega | Como testar | Tam. |
 |---|---|---|---|
-| 0 | **Etapa 0 — cadastro da gestora** (seção 9): **migration 145** (rota 1 a 4) + tela Materiais → Contratos aceitando a rota 4 + `dados-locais/fase2_etapa0/aplicar_etapa0.sql` (rotas de 54 contratos e fornecedor de 94 peças do CEU; backup e conferência de contagem no próprio arquivo) | Testado em transação desfeita em 17/10: rota 1 = 22, 2 = 16, 3 = 15, 4 = 1, sem rota = 10; 94 peças com fornecedor. Depois de aplicar: o SELECT final do arquivo | P |
+| 0 | **Etapa 0 — cadastro da gestora** (seção 9): **migration 145** (rota 1 a 4) + tela Materiais → Contratos aceitando a rota 4 + `dados-locais/fase2_etapa0/aplicar_etapa0.sql` (unificação Avulso → Compra Avulsa, contrato LEIRIA, rotas dos 65 contratos e fornecedor de 94 peças do CEU; backup e conferência de contagem no próprio arquivo) | Testado 2x em transação desfeita em 17/10: rota 1 = 23, 2 = 16, 3 = 25, 4 = 1, nenhum sem rota; 94 peças com fornecedor; só "Compra Avulsa" sobra. Depois de aplicar: o SELECT final do arquivo | P |
 | 1 | **Migration 146** — estoque (movimentos, view de saldo, contagens, `pode_*` novas, RPCs de movimento e contagem) + tipos em `src/types/materiais.ts`/`database.ts` | Teste de fumaça em transação desfeita (como na 135/144): INSERT direto como `authenticated` = permission denied; movimento com sinal errado recusado; saída sem motivo recusada; contagem fecha e gera os ajustes certos; fechar com linha sem quantidade recusado; estorno de estorno recusado; varredura `chr(65533)` nas funções | M |
 | 2 | Lógica pura `src/lib/materiais/estoque.ts` (saldo, diferença, ordem da folha) + telas **Estoque** e **Contagem** | Vitest; smoke das páginas; contagem real de teste com 3 itens | M |
 | **D1** | Deploy: estoque e contagem no ar até 15/11 — **a 1ª contagem real (16 a 19/11) vira o saldo inicial** (não há saldo para importar: a planilha só tinha as linhas "Modelo" até 04/2026) | hash do bundle = `dist/` | — |
@@ -345,24 +345,25 @@ Cada etapa deixa o sistema funcionando. Migrations aplicadas pela Management API
 
 ---
 
-## 9. Etapa 0 — cadastro da gestora (preenchido em 17/10/2026)
+## 9. Etapa 0 — cadastro da gestora (preenchido e decidido em 17/10/2026)
 
-A gestora preencheu `dados-locais/fase2_etapa0/etapa0_cadastro_para_gestora.xlsx`. Em vez da coluna ROTA da aba "Contratos", ela escreveu a lista de contratos de cada rota na aba "Rotas" — são **4 rotas** (a rota 4 é só CBO MACAÉ). O agente casou cada nome com um contrato de pedido (`mat_contratos`), só quando o casamento era inequívoco.
+A gestora preencheu `dados-locais/fase2_etapa0/etapa0_cadastro_para_gestora.xlsx` e respondeu as pendências. Em vez da coluna ROTA, ela escreveu a lista de contratos de cada rota na aba "Rotas" — são **4 rotas** (a rota 4 é só CBO MACAÉ). O agente casou cada nome com um contrato de pedido (`mat_contratos`) só quando o casamento era inequívoco; os casos duvidosos foram decididos por ela.
 
-**O que está pronto para gravar** — `dados-locais/fase2_etapa0/aplicar_etapa0.sql` (UTF-8, idempotente, com conferência de contagem e SELECT final; backups das 64 linhas de `mat_contratos` e das 130 de `itens` em `dados-locais/fase2_etapa0/backup_2026-10-17/`, feitos antes). Testado numa transação desfeita em 17/10 (banco sem alteração):
-- **Rotas de 54 dos 64 contratos ativos**: rota 1 = 22, rota 2 = 16, rota 3 = 15, rota 4 = 1. São 48 com nome ou nome curto igual (ex.: "CASCAIS" = nome curto de VILA DE CASCAIS, "THATIANA" = TATHIANA, "ÉVORA" = SOLAR DE ÉVORA, "D'ORLEANS" = ORLEANS, "CBO" = CBO NITERÓI, cujo nome curto é CBO) e 6 por grafia aproximada com candidato único, a conferir: "PRAIA DOFFIR" → PRAIA D'OFIR, "BLUE TERMINALS" → BLUE TERMINAL, "CALLE MAGIORE" → CALLE MAGGIORE, "GALPÃO QUINCAS" → QUINCAS PATRIMONIAL, "JARDIM RES. FONSECA" → FONSECA, "PROF. OITICICA" → OITICICA.
-- **Fornecedor padrão de 94 das 98 peças ativas do CEU** (gravado em `itens.fornecedor_id`, coluna que já existe, com FK para `fornecedores`): Justo 67, Multistilo 14, Kaufmann Sr Modas 9 ("Kaufmann" na planilha — prefixo único), Avulso 4. As 4 sem fornecedor são crachá/cordinha (de propósito).
+**Tudo pronto em `dados-locais/fase2_etapa0/aplicar_etapa0.sql`** (UTF-8, idempotente, uma transação, conferência de contagem em cada bloco e SELECT final). Testado em 17/10 numa transação desfeita junto com a migration 145, **rodado 2 vezes seguidas** (o banco não foi alterado):
+1. **"Avulso" × "Compra Avulsa" unificados** ("pode apagar um"): fica **Compra Avulsa** (5 itens de materiais + 5 preços); as referências de "Avulso" nas 4 FKs para `fornecedores` (`itens`, `mat_itens`, `mat_precos`, `ceu_itens_precos` — nenhuma em 17/10) passam para ela e "Avulso" é apagado. O bloco aborta se aparecer FK nova para `fornecedores`.
+2. **Contrato de pedido LEIRIA criado** (departamento CONDOMÍNIO DO EDIFÍCIO CIDADE DE LEIRIA, nome curto LEIRIA), sem kit e sem link/QR.
+3. **Rota dos 65 contratos ativos** (64 + LEIRIA): **rota 1 = 23, rota 2 = 16, rota 3 = 25, rota 4 = 1; nenhum sem rota.** São 48 por nome ou nome curto igual, 6 por grafia aproximada confirmada pela gestora (PRAIA DOFFIR, BLUE TERMINALS, CALLE MAGIORE, GALPÃO QUINCAS, JARDIM RES. FONSECA, PROF. OITICICA), os 4 TELEX na rota 3, LEIRIA na rota 1 e, na rota 3 por decisão dela, os 6 que não estavam em nenhuma lista (ADRIANA, ESCRITÓRIO PLENA, FLAMBOYANT, MONTREAL, SOLAR DAS OLIVEIRAS, TECH).
+4. **Fornecedor padrão de 94 das 98 peças ativas do CEU** (`itens.fornecedor_id`): Justo 67, Multistilo 14, Kaufmann Sr Modas 9, Compra Avulsa 4. As 4 sem fornecedor são crachá/cordinha (de propósito).
 
-**Antes de aplicar o SQL** (o arquivo aborta sem o item 1):
-1. **Migration 145** (`supabase/migrations/145_materiais_rota_4.sql`): os CHECKs de `mat_contratos.rota` e `mat_pedidos.rota_override` e as RPCs `definir_rota_contrato`/`definir_rota_pedido` passam a aceitar 1 a 4.
-2. **Tela Materiais → Contratos com a rota 4**: hoje `RotaMaterial = 1 | 2 | 3` (`src/types/materiais.ts`), `lerRota` e os três `<select>` de `MateriaisContratosPage.tsx` só conhecem 1–3 — salvar o formulário do CBO MACAÉ numa tela antiga gravaria a rota NULL. Publicar a tela nova junto com a migration.
+Backups feitos ANTES, por SELECT, em `dados-locais/fase2_etapa0/backup_2026-10-17/`: os 64 contratos (todos sem rota), as 130 peças (todas sem fornecedor), os 16 fornecedores com as referências do "Avulso" (nenhuma) e as duas funções de rota.
 
-**Pendências para a gestora** (detalhe em `dados-locais/fase2_etapa0/pendencias_etapa0.txt`):
-1. **"CENTRO AUDITIVO TELEX"** (rota 3) corresponde a **4 contratos de pedido** (Barra/Tij/Ipa; Copa/Mad/Bota/Méier; Icaraí/Centro Nit/Centro RJ; Sede). Os 4 vão na rota 3?
-2. **"CIDADE DE LEIRIA"** (rota 1): o departamento existe (ativo, nome curto LEIRIA), mas **não tem contrato de pedido** em Materiais → Contratos. Criar o contrato (e dar a rota 1) ou ele não recebe material?
-3. **Contratos ativos que não estão em nenhuma rota** (ficam sem rota): ADRIANA, ESCRITÓRIO PLENA (ADM PLENA), FLAMBOYANT, MONTREAL, SOLAR DAS OLIVEIRAS, TECH — além dos 4 TELEX do item 1.
-4. **"avulso"** foi casado com o fornecedor "Avulso", mas também existe "Compra Avulsa" (usado nos itens de materiais). Confirmar e, se forem a mesma coisa, unificar os dois cadastros depois. Peças: 703 Protetor facial, 718 Sapato CNOOP (grafia do cadastro), 335 Camisa social branca, 322 Gravata.
-5. **Dia de cada rota**: a gestora informou que a rota é o conjunto de departamentos entregues no mesmo dia, mas o dia ainda não está definido. Não bloqueia: o Excel e a separação usam só o número da rota.
+**Tela com a rota 4**: `RotaMaterial` passou a 1–4; a lista única `ROTAS_MATERIAIS` e `lerRota` (`src/lib/materiais/pedidos.ts`, com teste) alimentam os três seletores da tela Materiais → Contratos (filtro, linha e formulário). Nenhuma outra tela limitava a 1–3: listas, validação e "sem pedido" só exibem o número, e a ordenação da fila de validação já tolera qualquer valor.
+
+**Ordem de aplicação**: (1) migration 145; (2) `aplicar_etapa0.sql` (aborta sem a 145); (3) deploy da tela com a rota 4. Até o deploy, ninguém deve salvar o formulário do contrato CBO MACAÉ na tela antiga — ela gravaria a rota vazia.
+
+**Para a gestora ajustar na tela, se quiser** (valores do contrato LEIRIA que seguiram o padrão): nome do contrato "LEIRIA" (nome curto do departamento — pode virar "CIDADE DE LEIRIA"); **recebe limpeza = sim** (padrão da tabela; o posto tem 1 ASG ativo); sem kit (contratos sem kit ficam vazios); link/QR a gerar quando for usar.
+
+**Ainda em aberto (não bloqueia)**: o dia de cada rota — o Excel e a separação usam só o número.
 
 ---
 
@@ -394,3 +395,4 @@ A gestora preencheu `dados-locais/fase2_etapa0/etapa0_cadastro_para_gestora.xlsx
 13. **Um estoque central só** (escritório).
 14. **Financeiro consulta as compras com valores, sem alterar** (aba Compras, `menu/rota.materiais_compras`).
 15. **Etapa 0 (respostas na planilha, 17/10/2026)**: são **4 rotas** — a rota 4 é só CBO MACAÉ; a rota é "o conjunto de departamentos entregues no mesmo dia", o dia de cada rota ainda não está definido; o **gestor aprova até o dia 20** (não 19); primeira contagem entre 16 e 19/11; inspetor até o dia 17; lista dos 4 itens do escritório confirmada.
+16. **Pendências da etapa 0 (17/10/2026)**: os 6 casamentos aproximados estão corretos; os 4 TELEX vão na rota 3; criar o contrato de pedido de CIDADE DE LEIRIA (rota 1, sem kit); ADRIANA, ESCRITÓRIO PLENA, FLAMBOYANT, MONTREAL, SOLAR DAS OLIVEIRAS e TECH na rota 3; "Avulso" × "Compra Avulsa": "pode apagar um" — fica o que tem mais referências (Compra Avulsa).

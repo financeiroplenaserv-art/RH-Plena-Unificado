@@ -53,7 +53,7 @@ vi.mock('@/hooks/useMateriaisFornecedores', () => ({
 vi.mock('@/hooks/useMateriaisContratos', () => ({
   useMateriaisContratos: () => ({
     contratos: [
-      { id: 'c1', departamento_id: 'd1', nome: 'Telex Sede', rota: 2, recebe_limpeza: true, ativo: true, observacao: null },
+      { id: 'c1', departamento_id: 'd1', nome: 'Telex Sede', rota: 4, recebe_limpeza: true, ativo: true, observacao: null },
       { id: 'c2', departamento_id: 'd1', nome: 'Telex Barra/Tij/Ipa', rota: 1, recebe_limpeza: true, ativo: true, observacao: null },
     ],
     itensNoKit: { c1: 1 },
@@ -118,6 +118,15 @@ describe('Páginas Materiais — smoke test', () => {
     // Gestor gerencia o link/QR do líder; situação do link na coluna Link.
     expect(screen.getByLabelText('Link e QR code de Telex Sede')).toBeTruthy()
     expect(screen.queryByText('Revogado')).toBeNull()
+  })
+
+  it('Contratos: rota 4 aparece no seletor e não some (migration 145)', () => {
+    renderizar(<MateriaisContratosPage />)
+    const sel = screen.getByLabelText('Rota de Telex Sede') as HTMLSelectElement
+    expect(sel.value).toBe('4')
+    expect(Array.from(sel.options).map((o) => o.value)).toEqual(['', '1', '2', '3', '4'])
+    const filtro = screen.getByLabelText('Rota') as HTMLSelectElement
+    expect(Array.from(filtro.options).map((o) => o.value)).toContain('4')
   })
 
   it('Kit Mensal: mostra o limite em R$ (kit × preço vigente)', () => {

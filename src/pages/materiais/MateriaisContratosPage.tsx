@@ -26,8 +26,9 @@ import { podeAprovarMateriais, podeEditarCatalogoMateriais, podeEditarRotaMateri
 import { departamentosSelecionaveis, nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
+import { lerRota, ROTAS_MATERIAIS } from '@/lib/materiais/pedidos'
 import { mascaraMoeda } from '@/lib/utils'
-import type { MatContrato, RotaMaterial } from '@/types/materiais'
+import type { MatContrato } from '@/types/materiais'
 
 interface FiltroContratos {
   busca: string
@@ -52,10 +53,6 @@ interface FormContrato {
 }
 
 const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '', equipeExtra: [], limite: '' }
-
-function lerRota(valor: string): RotaMaterial | null {
-  return valor === '1' || valor === '2' || valor === '3' ? (Number(valor) as RotaMaterial) : null
-}
 
 export function MateriaisContratosPage() {
   const { user } = useAuth()
@@ -195,9 +192,11 @@ export function MateriaisContratosPage() {
               <Label htmlFor="ctr-rota">Rota</Label>
               <select id="ctr-rota" className={CLASSE_SELECT} value={rascunho.rota} onChange={(e) => setRascunho((r) => ({ ...r, rota: e.target.value }))}>
                 <option value="todas">Todas</option>
-                <option value="1">Rota 1</option>
-                <option value="2">Rota 2</option>
-                <option value="3">Rota 3</option>
+                {ROTAS_MATERIAIS.map((r) => (
+                  <option key={r} value={String(r)}>
+                    Rota {r}
+                  </option>
+                ))}
                 <option value="sem">Sem rota</option>
               </select>
             </div>
@@ -254,9 +253,11 @@ export function MateriaisContratosPage() {
                             aria-label={`Rota de ${c.nome}`}
                           >
                             <option value="">Sem rota</option>
-                            <option value="1">Rota 1</option>
-                            <option value="2">Rota 2</option>
-                            <option value="3">Rota 3</option>
+                            {ROTAS_MATERIAIS.map((r) => (
+                              <option key={r} value={String(r)}>
+                                Rota {r}
+                              </option>
+                            ))}
                           </select>
                         ) : c.rota ? (
                           `Rota ${c.rota}`
@@ -363,9 +364,11 @@ export function MateriaisContratosPage() {
                 <Label htmlFor="ctr-form-rota">Rota padrão</Label>
                 <select id="ctr-form-rota" className={CLASSE_SELECT} value={form.rota} onChange={(e) => setForm({ ...form, rota: e.target.value })}>
                   <option value="">Sem rota</option>
-                  <option value="1">Rota 1</option>
-                  <option value="2">Rota 2</option>
-                  <option value="3">Rota 3</option>
+                  {ROTAS_MATERIAIS.map((r) => (
+                    <option key={r} value={String(r)}>
+                      Rota {r}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex flex-col justify-end gap-2">
