@@ -942,6 +942,9 @@ export function SecaoUniformes({
                     <p className="text-lg font-bold">{peca.rotulo}</p>
                     <BotaoApagar rotulo={`Tirar ${peca.rotulo}`} onConfirmar={() => setLinhas((ls) => ls.filter((l) => l.chave !== linha.chave))} />
                   </div>
+                  {peca.compra_na_loja && (
+                    <p className="rounded-xl bg-muted px-3 py-2 text-base font-medium">Compra na loja com autorização — não precisa de tamanho.</p>
+                  )}
                   {tamanhos.length > 0 && (
                     <div>
                       <p className="mb-1.5 text-base font-semibold">Tamanho</p>

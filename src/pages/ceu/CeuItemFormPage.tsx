@@ -49,6 +49,7 @@ export function CeuItemFormPage() {
     unidade: string
     ultima_compra: string
     situacao: string
+    compra_na_loja: boolean
   }>({
     codigo: '',
     tipo: '',
@@ -64,6 +65,7 @@ export function CeuItemFormPage() {
     unidade: '',
     ultima_compra: '',
     situacao: 'A',
+    compra_na_loja: false,
   })
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function CeuItemFormPage() {
           unidade: item.unidade || '',
           ultima_compra: item.ultima_compra || '',
           situacao: item.situacao || 'A',
+          compra_na_loja: item.compra_na_loja === true,
         })
       }
       setLoading(false)
@@ -320,6 +323,19 @@ export function CeuItemFormPage() {
                   />
                 </div>
               </div>
+
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={form.compra_na_loja}
+                  onChange={(e) => setForm((f) => ({ ...f, compra_na_loja: e.target.checked }))}
+                />
+                <span>
+                  <strong>Compra na loja com autorização</strong> — item sem estoque (ex.: calça social, blazer). O link do líder não pede
+                  tamanho.
+                </span>
+              </label>
 
               {/* Linha 6: CA + Validade do CA — só EPI */}
               {form.tipo === 'EPI' && (

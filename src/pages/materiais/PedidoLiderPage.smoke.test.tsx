@@ -349,6 +349,25 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
       expect(screen.getByRole('radio', { name: 'Limpeza e encarregado' })).toHaveAttribute('aria-checked', 'true')
     })
 
+    it('peça "compra na loja": sem escolha de tamanho, com a frase curta, e o Pronto recolhe', async () => {
+      const d = dados()
+      api.carregar.mockResolvedValue({
+        ...d,
+        pecas: [...d.pecas, { id: 'uniforme:blazer', rotulo: 'Blazer', tipo: 'uniforme', funcoes: ['portaria'], opcoes: [{ tamanho: '', item_id: 'blazer' }], compra_na_loja: true }],
+      })
+      renderizar()
+      await screen.findByText('Cloro')
+      irParaEtapa(/Uniformes e EPIs/)
+      fireEvent.click(screen.getByRole('radio', { name: 'Portaria' }))
+      fireEvent.click(screen.getByRole('button', { name: 'João S.' }))
+      fireEvent.click(screen.getByRole('button', { name: /Blazer/ }))
+      expect(screen.getByText('Compra na loja com autorização — não precisa de tamanho.')).toBeInTheDocument()
+      expect(screen.queryByRole('radiogroup', { name: /Tamanho de/ })).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      expect(screen.queryByText(/escolha o tamanho/)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Editar: João S\. · Blazer/ })).toBeInTheDocument()
+    })
+
     it('crachá: sem motivo não recolhe; com motivo vira "Crachá · Nome — motivo"', async () => {
       api.carregar.mockResolvedValue(dados())
       renderizar()

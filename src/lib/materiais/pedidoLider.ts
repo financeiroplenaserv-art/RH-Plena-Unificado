@@ -599,6 +599,11 @@ export function tamanhosDoItemCeu(pecas: PecaPublica[] | undefined, itemId: stri
   return tamanhos
 }
 
+/** A peça deste item é "compra na loja com autorização" (migration 141)? Então não leva tamanho. */
+export function itemCeuCompraNaLoja(pecas: PecaPublica[] | undefined, itemId: string): boolean {
+  return !!pecas?.some((p) => p.compra_na_loja === true && p.opcoes.some((o) => o.item_id === itemId))
+}
+
 // ---------- Validação do envio (cliente e servidor) ----------
 
 export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): ResultadoValidacaoPedido {
@@ -833,7 +838,9 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     const itemId = texto(c.item_id)
     const item = itemId ? itensCeu.get(itemId) : undefined
     if (!item || item.tipo !== tipo) erro(chave, 'peca', `${rotuloLinha}: escolha a peça na lista.`)
-    const tamanho = texto(c.tamanho)
+    // Compra na loja com autorização (migration 141): sem tamanho, mesmo que o cliente mande.
+    const semTamanho = !!item && itemCeuCompraNaLoja(ctx.pecas, item.id)
+    const tamanho = semTamanho ? '' : texto(c.tamanho)
     if (tamanho.length > LIMITES_PEDIDO.tamanho) erro(chave, 'tamanho', `${rotuloLinha}: tamanho passa de ${LIMITES_PEDIDO.tamanho} caracteres.`)
     if (item) {
       const validos = tamanhosDoItemCeu(ctx.pecas, item.id)

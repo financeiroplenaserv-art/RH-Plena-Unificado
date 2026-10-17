@@ -171,8 +171,9 @@ export function CeuPedidosPage() {
     return {
       colab,
       item,
-      tamanhoCadastro: tam?.tamanhoCadastro ?? l.tamanho_cadastro,
-      diverge: tam ? tam.diverge : l.alerta_tamanho,
+      compraNaLoja: item?.compra_na_loja === true,
+      tamanhoCadastro: item?.compra_na_loja ? null : tam?.tamanhoCadastro ?? l.tamanho_cadastro,
+      diverge: item?.compra_na_loja ? false : tam ? tam.diverge : l.alerta_tamanho,
       ultima,
       ultimaItemId: daPeca?.item_id ?? null,
       tamanhoUltima,
@@ -480,6 +481,10 @@ export function CeuPedidosPage() {
                             <TableCell className="tabular-nums">
                               {l.tipo === 'cracha' ? (
                                 '—'
+                              ) : a.compraNaLoja ? (
+                                <p className="text-sm font-medium" title="Sem estoque: o colaborador compra na loja com autorização">
+                                  Compra na loja (autorização)
+                                </p>
                               ) : (
                                 <>
                                   <p className={a.diverge ? 'font-semibold text-red-700 dark:text-red-400' : ''}>Pedido: {l.tamanho ?? '—'}</p>

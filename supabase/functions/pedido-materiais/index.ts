@@ -281,6 +281,8 @@ export interface ItemCeuCadastro {
   nome: string
   tipo: TipoPeca
   ativo: boolean
+  /** Migration 141: sem estoque — o colaborador compra na loja com autorização (sem tamanho no pedido). */
+  compra_na_loja?: boolean
 }
 
 export interface OpcaoPeca {
@@ -297,13 +299,15 @@ export interface PecaPublica {
   /** Vazio = serve para qualquer função. */
   funcoes: FuncaoPeca[]
   opcoes: OpcaoPeca[]
+  /** Compra na loja com autorização: o link não pede tamanho (só aparece quando true). */
+  compra_na_loja?: boolean
 }
 
 interface GrupoPeca {
   chave: string
   base: string
   tipo: TipoPeca
-  itens: { id: string; tamanho: string | null; ativo: boolean }[]
+  itens: { id: string; tamanho: string | null; ativo: boolean; compra_na_loja: boolean }[]
 }
 
 export function agruparItensEmPecas(itens: ItemCeuCadastro[]): Map<string, GrupoPeca> {
@@ -314,15 +318,23 @@ export function agruparItensEmPecas(itens: ItemCeuCadastro[]): Map<string, Grupo
     const g = grupos.get(chave) ?? { chave, base, tipo: i.tipo, itens: [] }
     // O nome exibido vem de um item ativo, se houver.
     if (i.ativo && !g.itens.some((x) => x.ativo)) g.base = base
-    g.itens.push({ id: i.id, tamanho, ativo: i.ativo })
+    g.itens.push({ id: i.id, tamanho, ativo: i.ativo, compra_na_loja: i.compra_na_loja === true })
     grupos.set(chave, g)
   }
   return grupos
 }
 
+/** A peça é "compra na loja" quando TODOS os seus itens ativos estão marcados. */
+export function pecaCompraNaLoja(g: GrupoPeca): boolean {
+  const ativos = g.itens.filter((i) => i.ativo)
+  return ativos.length > 0 && ativos.every((i) => i.compra_na_loja)
+}
+
 /** Opções de tamanho da peça: os tamanhos ATIVOS do cadastro; sem tamanho no cadastro, a lista genérica. */
 export function opcoesDoGrupo(g: GrupoPeca): OpcaoPeca[] {
   const ativos = g.itens.filter((i) => i.ativo)
+  // Compra na loja: sem escolha de tamanho (opção única, tamanho vazio).
+  if (pecaCompraNaLoja(g)) return [{ tamanho: '', item_id: ativos[0].id }]
   const comTamanho = ativos.filter((i) => i.tamanho)
   if (comTamanho.length > 0) {
     const porTamanho = new Map<string, string>()
@@ -372,7 +384,7 @@ export function pecasDoContrato(
   const ativas = config.filter((c) => c.ativo)
   if (ativas.length === 0) {
     const pecas = [...grupos.values()]
-      .map((g) => ({ id: g.chave, rotulo: nomeAmigavelPeca(g.base), tipo: g.tipo, funcoes: [] as FuncaoPeca[], opcoes: opcoesDoGrupo(g) }))
+      .map((g) => ({ id: g.chave, rotulo: nomeAmigavelPeca(g.base), tipo: g.tipo, funcoes: [] as FuncaoPeca[], opcoes: opcoesDoGrupo(g), ...(pecaCompraNaLoja(g) ? { compra_na_loja: true } : {}) }))
       .filter((p) => p.opcoes.length > 0)
       .sort((a, b) => (a.tipo === b.tipo ? a.rotulo.localeCompare(b.rotulo, 'pt-BR') : a.tipo === 'uniforme' ? -1 : 1))
     return { pecas, semKitUniforme: true }
@@ -398,12 +410,13 @@ export function pecasDoContrato(
       tipo: g.tipo,
       funcoes,
       opcoes,
+      ...(pecaCompraNaLoja(g) ? { compra_na_loja: true } : {}),
       ordem: c.ordem ?? 9999,
     })
   }
   const pecas = [...porChave.values()]
     .sort((a, b) => (a.tipo !== b.tipo ? (a.tipo === 'uniforme' ? -1 : 1) : a.ordem - b.ordem || a.rotulo.localeCompare(b.rotulo, 'pt-BR')))
-    .map((p) => ({ id: p.id, rotulo: p.rotulo, tipo: p.tipo, funcoes: p.funcoes, opcoes: p.opcoes }))
+    .map((p) => ({ id: p.id, rotulo: p.rotulo, tipo: p.tipo, funcoes: p.funcoes, opcoes: p.opcoes, ...(p.compra_na_loja ? { compra_na_loja: true } : {}) }))
   return { pecas, semKitUniforme: false }
 }
 
@@ -1551,6 +1564,11 @@ export function tamanhosDoItemCeu(pecas: PecaPublica[] | undefined, itemId: stri
   return tamanhos
 }
 
+/** A peça deste item é "compra na loja com autorização" (migration 141)? Então não leva tamanho. */
+export function itemCeuCompraNaLoja(pecas: PecaPublica[] | undefined, itemId: string): boolean {
+  return !!pecas?.some((p) => p.compra_na_loja === true && p.opcoes.some((o) => o.item_id === itemId))
+}
+
 // ---------- Validação do envio (cliente e servidor) ----------
 
 export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): ResultadoValidacaoPedido {
@@ -1785,7 +1803,9 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     const itemId = texto(c.item_id)
     const item = itemId ? itensCeu.get(itemId) : undefined
     if (!item || item.tipo !== tipo) erro(chave, 'peca', `${rotuloLinha}: escolha a peça na lista.`)
-    const tamanho = texto(c.tamanho)
+    // Compra na loja com autorização (migration 141): sem tamanho, mesmo que o cliente mande.
+    const semTamanho = !!item && itemCeuCompraNaLoja(ctx.pecas, item.id)
+    const tamanho = semTamanho ? '' : texto(c.tamanho)
     if (tamanho.length > LIMITES_PEDIDO.tamanho) erro(chave, 'tamanho', `${rotuloLinha}: tamanho passa de ${LIMITES_PEDIDO.tamanho} caracteres.`)
     if (item) {
       const validos = tamanhosDoItemCeu(ctx.pecas, item.id)
@@ -2558,7 +2578,7 @@ async function catalogoAtivo(sb: SupabaseClient): Promise<ItemCatalogoServidor[]
  */
 async function pecasDoContratoBanco(sb: SupabaseClient, contratoId: string) {
   const [rItens, rCfg] = await Promise.all([
-    sb.from('itens').select('id, nome, tipo, situacao').in('tipo', ['Uniforme', 'EPI']).order('nome'),
+    sb.from('itens').select('id, nome, tipo, situacao, compra_na_loja').in('tipo', ['Uniforme', 'EPI']).order('nome'),
     sb.from('mat_contrato_ceu_itens').select('item_id, rotulo, funcoes, ordem, ativo').eq('contrato_id', contratoId),
   ])
   if (rItens.error) throw new Error(rItens.error.message)
@@ -2569,6 +2589,7 @@ async function pecasDoContratoBanco(sb: SupabaseClient, contratoId: string) {
     nome: i.nome,
     tipo: i.tipo === 'EPI' ? 'epi' : 'uniforme',
     ativo: !i.situacao || String(i.situacao).toUpperCase() === 'A',
+    compra_na_loja: i.compra_na_loja === true,
   }))
   const resultado = pecasDoContrato((rCfg.data ?? []) as ConfigPecaContrato[], itens)
   const nomePorId = new Map(itens.map((i) => [i.id, i.nome]))
@@ -2615,6 +2636,16 @@ async function snapshotsIdentificados(
     if (!l.colaborador_id || !l.item_id || l.tipo === 'cracha') return
     const ultima = ultimaEntregaDaPeca(entregasPor.get(l.colaborador_id) ?? [], itensDaMesmaPeca(itensCadastro, l.item_id))
     const nome = nomePorId.get(l.item_id) ?? ''
+    // Compra na loja: sem tamanho no pedido e sem alerta de tamanho (migration 141).
+    if (itensCadastro.find((x) => x.id === l.item_id)?.compra_na_loja) {
+      vazio.set(i, {
+        ultima_entrega_em: ultima?.data ?? null,
+        ultima_entrega_item_id: ultima?.item_id ?? null,
+        tamanho_cadastro: null,
+        alerta_tamanho: false,
+      })
+      return
+    }
     const tamanhoCadastro = tamanhoCadastroParaItem(nome, tamanhosPor.get(l.colaborador_id))
     const tamanhoPedido = l.tamanho || separarTamanhoDoNome(nome).tamanho
     vazio.set(i, {

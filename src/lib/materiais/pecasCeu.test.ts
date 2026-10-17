@@ -343,3 +343,35 @@ describe('grupos da equipe no link (uniforme/EPI)', () => {
     expect(equipeDoGrupo(eq, null)).toEqual(eq)
   })
 })
+
+describe('compra na loja com autorização (migration 141)', () => {
+  const base = [
+    { id: 'bl', nome: 'BLAZER', tipo: 'uniforme' as const, ativo: true, compra_na_loja: true },
+    { id: 'cs', nome: 'CALÇA SOCIAL', tipo: 'uniforme' as const, ativo: true, compra_na_loja: true },
+    { id: 'cb', nome: 'CAMISA SOCIAL BRANCA', tipo: 'uniforme' as const, ativo: true },
+    { id: 'cm', nome: 'CAMISA POLO - Tam. M', tipo: 'uniforme' as const, ativo: true, compra_na_loja: true },
+    { id: 'cg', nome: 'CAMISA POLO - Tam. G', tipo: 'uniforme' as const, ativo: true },
+  ]
+  it('peça marcada tem opção única sem tamanho e leva o flag; a não marcada continua com tamanho', () => {
+    const { pecas } = pecasDoContrato(
+      [
+        { item_id: 'bl', rotulo: null, funcoes: ['portaria'], ordem: 1, ativo: true },
+        { item_id: 'cs', rotulo: null, funcoes: [], ordem: 2, ativo: true },
+        { item_id: 'cb', rotulo: null, funcoes: ['asg'], ordem: 3, ativo: true },
+      ],
+      base
+    )
+    const blazer = pecas.find((p) => p.rotulo === 'Blazer')!
+    expect(blazer.compra_na_loja).toBe(true)
+    expect(blazer.opcoes).toEqual([{ tamanho: '', item_id: 'bl' }])
+    expect(pecas.find((p) => p.rotulo === 'Calça social')?.compra_na_loja).toBe(true)
+    const camisa = pecas.find((p) => p.rotulo === 'Camisa social branca')!
+    expect(camisa.compra_na_loja).toBeUndefined()
+    expect(camisa.opcoes.length).toBeGreaterThan(1)
+  })
+  it('peça com só ALGUNS itens ativos marcados não é compra na loja', () => {
+    const { pecas } = pecasDoContrato([{ item_id: 'cm', rotulo: null, funcoes: [], ordem: 1, ativo: true }], base)
+    expect(pecas[0].compra_na_loja).toBeUndefined()
+    expect(pecas[0].opcoes.map((o) => o.tamanho)).toEqual(['M', 'G'])
+  })
+})

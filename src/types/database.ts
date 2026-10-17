@@ -434,6 +434,8 @@ export interface ItemCEU {
   unidade?: string | null
   ultima_compra?: string | null
   situacao?: string | null
+  /** Migration 141: sem estoque; compra na loja com autorização (o link do líder não pede tamanho). */
+  compra_na_loja?: boolean
   created_at?: string
 
   // Relações

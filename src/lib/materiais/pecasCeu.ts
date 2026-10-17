@@ -206,6 +206,8 @@ export interface ItemCeuCadastro {
   nome: string
   tipo: TipoPeca
   ativo: boolean
+  /** Migration 141: sem estoque — o colaborador compra na loja com autorização (sem tamanho no pedido). */
+  compra_na_loja?: boolean
 }
 
 export interface OpcaoPeca {
@@ -222,13 +224,15 @@ export interface PecaPublica {
   /** Vazio = serve para qualquer função. */
   funcoes: FuncaoPeca[]
   opcoes: OpcaoPeca[]
+  /** Compra na loja com autorização: o link não pede tamanho (só aparece quando true). */
+  compra_na_loja?: boolean
 }
 
 interface GrupoPeca {
   chave: string
   base: string
   tipo: TipoPeca
-  itens: { id: string; tamanho: string | null; ativo: boolean }[]
+  itens: { id: string; tamanho: string | null; ativo: boolean; compra_na_loja: boolean }[]
 }
 
 export function agruparItensEmPecas(itens: ItemCeuCadastro[]): Map<string, GrupoPeca> {
@@ -239,15 +243,23 @@ export function agruparItensEmPecas(itens: ItemCeuCadastro[]): Map<string, Grupo
     const g = grupos.get(chave) ?? { chave, base, tipo: i.tipo, itens: [] }
     // O nome exibido vem de um item ativo, se houver.
     if (i.ativo && !g.itens.some((x) => x.ativo)) g.base = base
-    g.itens.push({ id: i.id, tamanho, ativo: i.ativo })
+    g.itens.push({ id: i.id, tamanho, ativo: i.ativo, compra_na_loja: i.compra_na_loja === true })
     grupos.set(chave, g)
   }
   return grupos
 }
 
+/** A peça é "compra na loja" quando TODOS os seus itens ativos estão marcados. */
+export function pecaCompraNaLoja(g: GrupoPeca): boolean {
+  const ativos = g.itens.filter((i) => i.ativo)
+  return ativos.length > 0 && ativos.every((i) => i.compra_na_loja)
+}
+
 /** Opções de tamanho da peça: os tamanhos ATIVOS do cadastro; sem tamanho no cadastro, a lista genérica. */
 export function opcoesDoGrupo(g: GrupoPeca): OpcaoPeca[] {
   const ativos = g.itens.filter((i) => i.ativo)
+  // Compra na loja: sem escolha de tamanho (opção única, tamanho vazio).
+  if (pecaCompraNaLoja(g)) return [{ tamanho: '', item_id: ativos[0].id }]
   const comTamanho = ativos.filter((i) => i.tamanho)
   if (comTamanho.length > 0) {
     const porTamanho = new Map<string, string>()
@@ -297,7 +309,7 @@ export function pecasDoContrato(
   const ativas = config.filter((c) => c.ativo)
   if (ativas.length === 0) {
     const pecas = [...grupos.values()]
-      .map((g) => ({ id: g.chave, rotulo: nomeAmigavelPeca(g.base), tipo: g.tipo, funcoes: [] as FuncaoPeca[], opcoes: opcoesDoGrupo(g) }))
+      .map((g) => ({ id: g.chave, rotulo: nomeAmigavelPeca(g.base), tipo: g.tipo, funcoes: [] as FuncaoPeca[], opcoes: opcoesDoGrupo(g), ...(pecaCompraNaLoja(g) ? { compra_na_loja: true } : {}) }))
       .filter((p) => p.opcoes.length > 0)
       .sort((a, b) => (a.tipo === b.tipo ? a.rotulo.localeCompare(b.rotulo, 'pt-BR') : a.tipo === 'uniforme' ? -1 : 1))
     return { pecas, semKitUniforme: true }
@@ -323,12 +335,13 @@ export function pecasDoContrato(
       tipo: g.tipo,
       funcoes,
       opcoes,
+      ...(pecaCompraNaLoja(g) ? { compra_na_loja: true } : {}),
       ordem: c.ordem ?? 9999,
     })
   }
   const pecas = [...porChave.values()]
     .sort((a, b) => (a.tipo !== b.tipo ? (a.tipo === 'uniforme' ? -1 : 1) : a.ordem - b.ordem || a.rotulo.localeCompare(b.rotulo, 'pt-BR')))
-    .map((p) => ({ id: p.id, rotulo: p.rotulo, tipo: p.tipo, funcoes: p.funcoes, opcoes: p.opcoes }))
+    .map((p) => ({ id: p.id, rotulo: p.rotulo, tipo: p.tipo, funcoes: p.funcoes, opcoes: p.opcoes, ...(p.compra_na_loja ? { compra_na_loja: true } : {}) }))
   return { pecas, semKitUniforme: false }
 }
 

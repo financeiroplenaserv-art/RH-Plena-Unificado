@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   agruparDeclaracoes,
+  itemCeuCompraNaLoja,
   envioSemPedido,
   excecoesLinhaPedido,
   janelaPublica,
@@ -413,6 +414,32 @@ describe('linhas de uniforme/EPI/crachá vazias e equipe', () => {
         expect.objectContaining({ chave: 'd', campo: 'tamanho', mensagem: expect.stringMatching(/escolha o tamanho/) }),
       ])
     )
+  })
+
+  it('peça "compra na loja" não pede tamanho (e ignora o que o cliente mandar)', () => {
+    const ctxLoja: ContextoPedido = {
+      ...ctxEquipe,
+      pecas: [
+        ...pecas,
+        { id: 'uniforme:blazer', rotulo: 'Blazer', tipo: 'uniforme' as const, funcoes: ['portaria'], opcoes: [{ tamanho: '', item_id: 'blazer' }], compra_na_loja: true },
+      ],
+      itensCeu: [...ctx.itensCeu, { id: 'blazer', nome: 'BLAZER', tipo: 'uniforme' }],
+    }
+    expect(itemCeuCompraNaLoja(ctxLoja.pecas, 'blazer')).toBe(true)
+    expect(itemCeuCompraNaLoja(ctxLoja.pecas, 'camisa')).toBe(false)
+    const r = validarEnvioPedido(
+      {
+        ...base,
+        ceu: [
+          { chave: 'x', tipo: 'uniforme', colaborador_ref: 'refAAAAAAAAA', item_id: 'blazer', tamanho: '', quantidade: 1 },
+          { chave: 'y', tipo: 'uniforme', colaborador_ref: 'refBBBBBBBBB', item_id: 'blazer', tamanho: 'GG', quantidade: 2 },
+        ],
+      },
+      ctxLoja
+    )
+    expect(r.errosCampo.filter((e) => e.campo === 'tamanho')).toEqual([])
+    expect(r.ceu.map((l) => l.tamanho)).toEqual([null, null])
+    expect(r.ceu.map((l) => l.qtd_pedida)).toEqual([1, 2])
   })
 
   it('crachá de pessoa da equipe pode ir sem o nome do crachá; de outra pessoa usa o nome digitado', () => {
