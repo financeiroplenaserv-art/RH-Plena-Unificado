@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { useAuth } from '@/hooks/useAuth'
 import { verificarPermissao } from '@/lib/permissoes'
+import { MODULO_FERIAS_LIBERADO } from '@/lib/modulos'
 
 interface RelatorioItem {
   titulo: string
@@ -142,7 +143,12 @@ export function RelatoriosPage() {
 
   const gruposVisiveis = GRUPOS.map((grupo) => ({
     ...grupo,
-    itens: grupo.itens.filter((item) => verificarPermissao(user.nivel_acesso, 'rota', item.rotaAcao)),
+    itens: grupo.itens.filter(
+      (item) =>
+        // Férias oculto até liberação da gestora (ver src/lib/modulos.ts)
+        (MODULO_FERIAS_LIBERADO || item.rotaAcao !== 'ferias') &&
+        verificarPermissao(user.nivel_acesso, 'rota', item.rotaAcao),
+    ),
   })).filter((grupo) => grupo.itens.length > 0)
 
   return (

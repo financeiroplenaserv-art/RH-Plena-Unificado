@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
+import { MODULO_FERIAS_LIBERADO } from '@/lib/modulos'
 import type { Perfil } from '@/types/database'
 
 interface SidebarProps {
@@ -92,7 +93,10 @@ const groups: MenuGroup[] = [
     label: 'RH',
     icon: HeartPulse,
     items: [
-      { path: '/ferias', label: 'Férias', icon: Umbrella, permissao: { recurso: 'menu', acao: 'ferias' } },
+      // Férias oculto até liberação da gestora (ver src/lib/modulos.ts)
+      ...(MODULO_FERIAS_LIBERADO
+        ? [{ path: '/ferias', label: 'Férias', icon: Umbrella, permissao: { recurso: 'menu', acao: 'ferias' } }]
+        : []),
       { path: '/rh/ocorrencias', label: 'Ocorrências', icon: FileWarning, permissao: { recurso: 'menu', acao: 'rh' } },
     ],
   },

@@ -1028,6 +1028,7 @@ function montarDadosColaborador(
   return registro
 }
 
+
 /**
  * Aplica as regras de upsertPorMatricula em memória e devolve as decisões
  * (inserts e updates) já mescladas. Os mapas são compartilhados entre as
@@ -1338,8 +1339,9 @@ async function processarEmpresa(
   }
   const empresa = empresasDB.find((e) => e.id === empresaId) || null
 
-  // 3) Departamentos: match fuzzy contra os ativos — NUNCA cria (09/10/2026);
-  // os sem match são registrados no histórico para cadastro manual
+  // 3) Departamentos: match fuzzy (todas as linhas — o redirect de inativa
+  // decide o destino) — NUNCA cria (09/10/2026); os sem match são registrados
+  // no histórico para cadastro manual
   let departamentosMap = new Map<string, string>()
   try {
     const resultado = await sincronizarDepartamentos(supabase, lista, empresaId)

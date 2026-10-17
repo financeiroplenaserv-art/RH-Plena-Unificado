@@ -7,6 +7,7 @@ import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { agoraBrasil, hojeBrasil } from '@/lib/utils'
 import { extrairPeriodoFeriasEcontador, decidirSincronizacaoFerias } from '@/lib/ferias/feriasEcontador'
 import { resolverFuncao } from '@/lib/ferias/funcoesFerias'
+import { MODULO_FERIAS_LIBERADO } from '@/lib/modulos'
 import type { EContadorEmpresa, EContadorFuncionario, HistoricoImportacao } from '@/types/econtador'
 import type { StatusColaborador } from '@/types/database'
 import type { FeriasFuncao, FeriasSolicitacao } from '@/types/ferias'
@@ -508,8 +509,12 @@ export function useEContador() {
     }
 
     // Férias em andamento no e-Contador → ferias_solicitacoes (best-effort:
-    // falha aqui não invalida a importação dos colaboradores)
-    const { sincronizadas: feriasSincronizadas, erros: errosFerias } = await sincronizarFeriasEcontador(listaUnica, colaboradoresSincronizados)
+    // falha aqui não invalida a importação dos colaboradores). Só roda com o
+    // módulo Férias liberado (src/lib/modulos.ts) — mesmo critério da Edge
+    // Function sync-econtador publicada (versão da main, sem o bloco de férias).
+    const { sincronizadas: feriasSincronizadas, erros: errosFerias } = MODULO_FERIAS_LIBERADO
+      ? await sincronizarFeriasEcontador(listaUnica, colaboradoresSincronizados)
+      : { sincronizadas: 0, erros: 0 }
     if (errosFerias > 0) {
       console.warn(`Sincronização de férias do e-Contador: ${errosFerias} erro(s) (ver console)`)
     }

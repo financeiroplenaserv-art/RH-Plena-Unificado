@@ -18,7 +18,7 @@
 - **Escalas** — locais de trabalho, mapeamento FLIT e importação de escala.
 - **Férias** — períodos por colaborador (gozo/agendado/previsto), importação da planilha Flit, painel CLT e notificações.
 - **PerformanceLab (BI)** — dashboard de checklists, visitas dos inspetores e eventos, alimentado 1x ao dia da API PerformanceLab pela Edge Function `sync-performancelab` (tabelas `bi_*`).
-- **Materiais** (EM CONSTRUÇÃO na branch `materiais-fase1`, ainda não publicado) — pedido mensal de materiais de limpeza/kit portaria e de uniformes/EPI/crachá pelos líderes via link público (QR code), filas do inspetor/gestor/mesa e aba CEU → Pedidos da Beth. Plano: `docs/PLANO_MATERIAIS_FASE1.md`; handoff: `docs/HANDOFF_09-10-2026_MATERIAIS.md`.
+- **Materiais** (LIBERADO pela gestora em 17/10/2026; desenvolvido na branch `materiais-fase1`, mesclada na `main` na mesma data) — pedido mensal de materiais de limpeza/kit portaria e de uniformes/EPI/crachá pelos líderes via link público (QR code), filas do inspetor/gestor/mesa e aba CEU → Pedidos da Beth. Plano: `docs/PLANO_MATERIAIS_FASE1.md`; handoff: `docs/HANDOFF_09-10-2026_MATERIAIS.md`.
 
 O backend (banco, autenticação, storage, edge functions) roda no **Supabase**. O frontend é uma SPA/PWA estática gerada pelo **Vite**.
 
@@ -470,11 +470,13 @@ npx vitest
 >
 > - **Registro do erro:** em 14/10/2026, às 21:13 UTC, um `netlify deploy --prod` feito a partir da cópia de trabalho da branch `materiais-fase1` publicou o módulo Materiais (em construção) no site oficial sem autorização. Em 15/10/2026 a gestora mandou tirar **Materiais e Férias** do ar (build da branch `producao-sem-materiais-ferias`: main + correção do CEU 7aeea77, sem Materiais e com Férias oculto por `MODULO_FERIAS_LIBERADO = false` em `src/lib/modulos.ts`).
 > - **Materiais e Férias só vão ao ar com liberação expressa da gestora.**
+> - **Materiais LIBERADO pela gestora em 17/10/2026**: a branch `materiais-fase1` foi mesclada na `main` (merge de 17/10/2026) e o módulo pode ir ao ar a partir da `main`. **Férias continua NÃO liberado** — oculto por `MODULO_FERIAS_LIBERADO = false` (rotas `/ferias*` redirecionam ao Dashboard, menu e atalho de Relatórios somem, e a importação manual do e-Contador não sincroniza férias).
+> - **Edge Functions `sync-econtador` e `econtador`: NÃO redeployar enquanto Férias não for liberado** — o código na `main` (vindo da branch) tem o bloco de férias; a versão publicada no Supabase é a da `main` antiga, sem ele.
 > - **Checklist pré-deploy (todos obrigatórios):**
 >   1. branch = `main` (`git branch --show-current`) — nunca branch de módulo;
 >   2. working tree limpo (`git status --short` vazio — nada fora de commit);
->   3. bundle sem `/materiais`: `grep -o 'materiais[a-z/]*' dist/assets/*.js | sort | uniq -c` não mostra rotas de materiais;
->   4. `MODULO_FERIAS_LIBERADO` conferido em `src/lib/modulos.ts` (`false` até a gestora liberar).
+>   3. ~~bundle sem `/materiais`~~ — **deixou de valer em 17/10/2026** (Materiais liberado);
+>   4. `MODULO_FERIAS_LIBERADO` conferido em `src/lib/modulos.ts` (`false` até a gestora liberar) — **continua obrigatório**.
 
 - Veja o roteiro completo em `docs/DEPLOY.md`.
 - **PWA — ciclo de atualização do service worker (02/09/2026)**: `src/sw.ts` usa `skipWaiting()` + `clientsClaim()` (workbox-core) e `src/main.tsx` ouve `controllerchange` para recarregar a aba **uma vez** quando o SW novo assume (guarda `recarregando`); no `load`, chama `reg.update()` e repete a cada 60 min. Sem o trecho do `main.tsx`, o `registerSW.js` do vite-plugin-pwa apenas registra o SW e quem mantém a aba aberta fica preso no build antigo após o deploy. **Não remova nenhum dos dois lados** — trabalham em par.
