@@ -24,7 +24,7 @@ import { podeEditarKitMateriais, podeEditarKitUniforme, podeSolicitarAlteracaoKi
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { avisoItemExclusivo, jaNoKit, lerNumero, montarLinhasKit, type LinhaKit } from '@/lib/materiais/cadastro'
 import { mediasReferencia } from '@/lib/materiais/media'
-import { limiteContrato } from '@/lib/materiais/precos'
+import { limiteContrato, limiteEfetivo } from '@/lib/materiais/precos'
 import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
 
 type ModoForm = 'editar' | 'solicitar'
@@ -95,6 +95,7 @@ export function MateriaisKitPage() {
     [kit, catalogo.itens, catalogo.variacoes, catalogo.precos, hoje, consumos]
   )
   const limite = useMemo(() => limiteContrato(kit, catalogo.precos, hoje), [kit, catalogo.precos, hoje])
+  const limiteVale = useMemo(() => limiteEfetivo(limite.total, contrato?.limite_mensal), [limite.total, contrato?.limite_mensal])
   const medias = useMemo(() => mediasReferencia(consumos, catalogo.precos, hoje), [consumos, catalogo.precos, hoje])
 
   const itensAtivos = catalogo.itens.filter((i) => i.ativo || i.id === form?.item_id)
@@ -222,7 +223,12 @@ export function MateriaisKitPage() {
           ) : (
             <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Resumo titulo="Limite mensal (kit × preço)" valor={mascaraMoeda(limite.total)} destaque />
+                <Resumo
+                  titulo={limiteVale.manual ? 'Limite mensal (definido pelo gestor)' : 'Limite mensal (calculado pelo kit)'}
+                  valor={mascaraMoeda(limiteVale.valor)}
+                  destaque
+                  nota={limiteVale.manual ? `Calculado pelo kit: ${mascaraMoeda(limite.total)}` : undefined}
+                />
                 <Resumo titulo="Média dos últimos 6 meses" valor={consumos.length ? mascaraMoeda(medias.media6.valorMedio) : 'sem histórico'} />
                 <Resumo titulo="Média de 12 meses (referência)" valor={consumos.length ? mascaraMoeda(medias.media12.valorMedio) : 'sem histórico'} />
               </div>
@@ -446,11 +452,12 @@ export function MateriaisKitPage() {
   )
 }
 
-function Resumo({ titulo, valor, destaque = false }: { titulo: string; valor: string; destaque?: boolean }) {
+function Resumo({ titulo, valor, destaque = false, nota }: { titulo: string; valor: string; destaque?: boolean; nota?: string }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <p className="text-xs text-muted-foreground">{titulo}</p>
       <p className={`mt-1 tabular-nums ${destaque ? 'text-xl font-semibold text-primary' : 'text-lg font-medium'}`}>{valor}</p>
+      {nota && <p className="mt-0.5 text-xs text-muted-foreground">{nota}</p>}
     </div>
   )
 }

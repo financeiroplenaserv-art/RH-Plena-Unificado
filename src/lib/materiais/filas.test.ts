@@ -263,6 +263,18 @@ describe('painel do gestor', () => {
     expect(linhas[1]).toMatchObject({ contratoId: 'enseada', valorPedido: 60, limite: 100, excedeu: false, preenchidoPeloEscritorio: true, aprovavel: false })
   })
 
+  it('limite manual do gestor vale sobre o calculado pelo kit (e o calculado fica de referência)', () => {
+    const [l] = montarPainel({
+      ...base,
+      contratos: [{ ...base.contratos[0], limite_mensal: 500 }],
+      pedidosDoMes: [{ id: 'p1', contrato_id: 'abaete', tipo: 'mensal', status_produtos: 'validado', preenchido_pelo_escritorio: false }],
+      itensDoMes: [
+        { pedido_id: 'p1', item_id: 'det', variacao_id: null, qtd_pedida: 5, qtd_validada: 4, qtd_aprovada: null, preco_unitario: 20, excecao_acima_kit: false, excecao_validade: false, excecao_fora_kit: false },
+      ],
+    })
+    expect(l).toMatchObject({ limite: 500, limiteManual: true, limiteCalculado: 40, excedeu: false })
+  })
+
   it('pedido cancelado não conta', () => {
     const [l] = montarPainel({
       ...base,

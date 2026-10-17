@@ -67,6 +67,22 @@ export function limiteContrato(
   return { total: arredondar(total), itensSemPreco }
 }
 
+export interface LimiteEfetivo {
+  /** Valor que vale (manual do gestor quando definido; senão o calculado pelo kit). */
+  valor: number
+  /** true = definido pelo gestor (migration 138). */
+  manual: boolean
+  /** Cálculo pelo kit, sempre disponível como referência. */
+  calculado: number
+}
+
+/** Limite que vale para o contrato: o manual (> 0 ou 0 explícito) tem prioridade sobre o calculado. */
+export function limiteEfetivo(calculado: number, manual: number | string | null | undefined): LimiteEfetivo {
+  const m = manual == null || manual === '' ? null : Number(manual)
+  if (m == null || !Number.isFinite(m) || m < 0) return { valor: calculado, manual: false, calculado }
+  return { valor: arredondar(m), manual: true, calculado }
+}
+
 /** Valor do pedido a partir de linhas com quantidade e preço unitário. */
 export function valorPedido(linhas: { quantidade: number; preco_unitario: number | null }[]): number {
   return arredondar(linhas.reduce((s, l) => s + l.quantidade * (l.preco_unitario ?? 0), 0))

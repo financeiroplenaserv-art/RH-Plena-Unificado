@@ -258,7 +258,16 @@ export function MateriaisPainelPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{l.limite > 0 ? mascaraMoeda(l.limite) : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {l.limite > 0 || l.limiteManual ? mascaraMoeda(l.limite) : '—'}
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {l.limiteManual
+                            ? `definido pelo gestor · calculado ${mascaraMoeda(l.limiteCalculado)}`
+                            : l.limite > 0
+                              ? 'calculado pelo kit'
+                              : ''}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{l.percentual != null ? `${Math.round(l.percentual * 100)}%` : '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">{mascaraMoeda(l.media6)}</TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">{mascaraMoeda(l.media12)}</TableCell>

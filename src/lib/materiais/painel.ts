@@ -1,7 +1,7 @@
 import type { MatContrato, MatKitItem, MatPedido, MatPedidoItem } from '@/types/materiais'
 import { competenciaDe } from './datas'
 import { consumoDePedidosAprovados, mediasReferencia, unirConsumo, type ConsumoMes } from './media'
-import { arredondar, compararComLimite, limiteContrato, precoVigente, type PrecoHistorico } from './precos'
+import { arredondar, compararComLimite, limiteContrato, limiteEfetivo, precoVigente, type PrecoHistorico } from './precos'
 import { ehLinhaKit, qtdEfetiva, temExcecao } from './filas'
 import { aplicarSubstituicoes, aplicarSubstituicoesLinhas, type VinculoSubstituicao } from './substituicao'
 
@@ -25,7 +25,12 @@ export interface LinhaPainel {
   valorExtras: number
   /** Linhas de pedido extra ainda não aprovadas (com o inspetor ou aguardando o gestor). */
   extrasPendentes: number
+  /** Limite que vale: o manual do gestor (migration 138) ou, sem ele, o calculado pelo kit. */
   limite: number
+  /** O limite que vale foi definido pelo gestor. */
+  limiteManual: boolean
+  /** Cálculo pelo kit (referência ao lado do manual). */
+  limiteCalculado: number
   media6: number
   media12: number
   excedeu: boolean
@@ -41,7 +46,7 @@ export interface LinhaPainel {
 }
 
 export interface EntradaPainel {
-  contratos: Pick<MatContrato, 'id' | 'nome' | 'ativo'>[]
+  contratos: (Pick<MatContrato, 'id' | 'nome' | 'ativo'> & Partial<Pick<MatContrato, 'limite_mensal'>>)[]
   pedidosDoMes: Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'>[]
   itensDoMes: (Pick<
     MatPedidoItem,
@@ -110,7 +115,8 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
         }
       }
       const kit = e.kits.filter((k) => k.contrato_id === c.id)
-      const limite = limiteContrato(kit, e.precos, e.hoje).total
+      const lim = limiteEfetivo(limiteContrato(kit, e.precos, e.hoje).total, c.limite_mensal)
+      const limite = lim.valor
       const anteriores = e.pedidosAnteriores.filter((p) => p.contrato_id === c.id)
       const idsAnteriores = new Set(anteriores.map((p) => p.id))
       const consumo = unirConsumo(
@@ -132,6 +138,8 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
         valorExtras: arredondar(valorPedido - arredondar(valorKit)),
         extrasPendentes,
         limite,
+        limiteManual: lim.manual,
+        limiteCalculado: lim.calculado,
         media6: media6.valorMedio,
         media12: media12.valorMedio,
         // Sem limite cadastrado não há como "passar do limite".

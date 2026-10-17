@@ -17,6 +17,8 @@ const COLUNAS = '*'
 
 export type ContratoInput = Pick<MatContrato, 'departamento_id' | 'nome' | 'rota' | 'recebe_limpeza' | 'ativo' | 'observacao'> & {
   departamentos_equipe_extra?: string[]
+  /** Só enviado por gestor/admin (a policy de UPDATE já exige). NULL = calculado pelo kit. */
+  limite_mensal?: number | null
 }
 
 export function useMateriaisContratos() {
@@ -65,8 +67,12 @@ export function useMateriaisContratos() {
   }, [])
 
   const salvar = useCallback(async (entrada: ContratoInput, id?: string | null) => {
-    const { departamentos_equipe_extra, ...resto } = entrada
-    const dados = departamentos_equipe_extra === undefined ? resto : { ...resto, departamentos_equipe_extra }
+    const { departamentos_equipe_extra, limite_mensal, ...resto } = entrada
+    const dados = {
+      ...resto,
+      ...(departamentos_equipe_extra === undefined ? {} : { departamentos_equipe_extra }),
+      ...(limite_mensal === undefined ? {} : { limite_mensal }),
+    }
     const resultado = id
       ? await supabase.from('mat_contratos').update(dados).eq('id', id).select('id')
       : await supabase.from('mat_contratos').insert(dados).select('id')

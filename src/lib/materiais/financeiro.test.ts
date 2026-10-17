@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compararComLimite, limiteContrato, precoVigente, valorPedido } from './precos'
+import { compararComLimite, limiteContrato, limiteEfetivo, precoVigente, valorPedido } from './precos'
 import { chaveItem, consumoDePedidosAprovados, mediaConsumo, mediasReferencia, unirConsumo } from './media'
 import { itensDoKitParaPedido } from './kit'
 
@@ -131,5 +131,18 @@ describe('kit com periodicidade', () => {
 
   it('quantidade zero nunca entra', () => {
     expect(itensDoKitParaPedido(kit, '2026-10-01', []).some((i) => i.item_id === 'C')).toBe(false)
+  })
+})
+
+describe('limite definido pelo gestor (migration 138)', () => {
+  it('sem manual vale o calculado; com manual vale o manual e o calculado fica de referência', () => {
+    expect(limiteEfetivo(120, null)).toEqual({ valor: 120, manual: false, calculado: 120 })
+    expect(limiteEfetivo(120, undefined).manual).toBe(false)
+    expect(limiteEfetivo(120, 200)).toEqual({ valor: 200, manual: true, calculado: 120 })
+    expect(limiteEfetivo(120, '350.5')).toEqual({ valor: 350.5, manual: true, calculado: 120 })
+  })
+  it('valor inválido ou negativo cai no calculado', () => {
+    expect(limiteEfetivo(120, -5).manual).toBe(false)
+    expect(limiteEfetivo(120, 'abc').manual).toBe(false)
   })
 })

@@ -22,10 +22,11 @@ import { MateriaisShell } from './MateriaisShell'
 import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
-import { podeEditarCatalogoMateriais, podeEditarRotaMateriais, podeGerenciarLinksMateriais } from '@/lib/permissoes'
+import { podeAprovarMateriais, podeEditarCatalogoMateriais, podeEditarRotaMateriais, podeGerenciarLinksMateriais } from '@/lib/permissoes'
 import { departamentosSelecionaveis, nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
+import { mascaraMoeda } from '@/lib/utils'
 import type { MatContrato, RotaMaterial } from '@/types/materiais'
 
 interface FiltroContratos {
@@ -46,9 +47,11 @@ interface FormContrato {
   observacao: string
   /** Departamentos extras da equipe do link (migration 129). */
   equipeExtra: string[]
+  /** Limite mensal em R$ (texto; vazio = calculado pelo kit). Só gestor/admin edita. */
+  limite: string
 }
 
-const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '', equipeExtra: [] }
+const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '', equipeExtra: [], limite: '' }
 
 function lerRota(valor: string): RotaMaterial | null {
   return valor === '1' || valor === '2' || valor === '3' ? (Number(valor) as RotaMaterial) : null
@@ -59,6 +62,7 @@ export function MateriaisContratosPage() {
   const navigate = useNavigate()
   const podeEditar = user ? podeEditarCatalogoMateriais(user.nivel_acesso) : false
   const podeRota = user ? podeEditarRotaMateriais(user.nivel_acesso) : false
+  const podeLimite = user ? podeAprovarMateriais(user.nivel_acesso) : false
   const podeLinks = user ? podeGerenciarLinksMateriais(user.nivel_acesso) : false
   const { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, loading, estruturaPendente, carregar, salvar, definirRota } =
     useMateriaisContratos()
@@ -110,6 +114,7 @@ export function MateriaisContratosPage() {
             ativo: c.ativo,
             observacao: c.observacao ?? '',
             equipeExtra: c.departamentos_equipe_extra ?? [],
+            limite: c.limite_mensal == null ? '' : String(c.limite_mensal).replace('.', ','),
           }
         : FORM_VAZIO
     )
@@ -125,7 +130,9 @@ export function MateriaisContratosPage() {
   const outrosDoDepartamento = form?.departamento_id
     ? contratos.filter((c) => c.departamento_id === form.departamento_id && c.id !== form.id)
     : []
-  const formValido = !!form && !!form.departamento_id && !!form.nome.trim() && !duplicado
+  const limiteNumero = form && form.limite.trim() ? Number(form.limite.replace(/\./g, '').replace(',', '.')) : null
+  const limiteInvalido = limiteNumero != null && (!Number.isFinite(limiteNumero) || limiteNumero < 0)
+  const formValido = !!form && !!form.departamento_id && !!form.nome.trim() && !duplicado && !limiteInvalido
 
   const handleSalvar = async () => {
     if (!form || !formValido) return
@@ -138,6 +145,7 @@ export function MateriaisContratosPage() {
         recebe_limpeza: form.recebe_limpeza,
         ativo: form.ativo,
         observacao: form.observacao.trim() || null,
+        ...(podeLimite ? { limite_mensal: limiteNumero } : {}),
         ...(suportaEquipeExtra ? { departamentos_equipe_extra: form.equipeExtra.filter((d) => d !== form.departamento_id) } : {}),
       },
       form.id
@@ -226,6 +234,7 @@ export function MateriaisContratosPage() {
                     <TableHead>Rota</TableHead>
                     <TableHead>Limpeza</TableHead>
                     <TableHead className="text-right">Itens no kit</TableHead>
+                    <TableHead className="text-right">Limite mensal</TableHead>
                     <TableHead>Situação</TableHead>
                     <TableHead>Link</TableHead>
                     <TableHead className="w-32" />
@@ -257,6 +266,13 @@ export function MateriaisContratosPage() {
                       </TableCell>
                       <TableCell>{c.recebe_limpeza ? 'Sim' : 'Não'}</TableCell>
                       <TableCell className="text-right tabular-nums">{itensNoKit[c.id] ?? 0}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {c.limite_mensal != null ? (
+                          mascaraMoeda(Number(c.limite_mensal))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">calculado pelo kit</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <StatusBadge variant={c.ativo ? 'success' : 'neutral'}>{c.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
                       </TableCell>
@@ -361,6 +377,23 @@ export function MateriaisContratosPage() {
                   <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} />
                   Contrato ativo
                 </label>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="ctr-limite">Limite mensal (R$)</Label>
+                <Input
+                  id="ctr-limite"
+                  inputMode="decimal"
+                  value={form.limite}
+                  disabled={!podeLimite}
+                  onChange={(e) => setForm({ ...form, limite: e.target.value })}
+                  placeholder="Vazio = calculado pelo kit"
+                />
+                {limiteInvalido && <p className="text-xs text-red-600">Informe um valor válido, como 1500,00.</p>}
+                <p className="text-xs text-muted-foreground">
+                  {podeLimite
+                    ? 'Definido pelo gestor. Deixe vazio para usar o cálculo (Kit Mensal × preço vigente).'
+                    : 'Só o gestor define o limite. Sem valor definido, vale o cálculo pelo kit.'}
+                </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="ctr-equipe-extra">A equipe também inclui o(s) departamento(s)</Label>
