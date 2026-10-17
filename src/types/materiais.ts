@@ -188,6 +188,10 @@ export type StatusProdutos =
   | 'validado'
   | 'aprovado'
   | 'cancelado'
+  // Fase 2 (migration 147): depois da compra enviada
+  | 'em_compra'
+  | 'entregue'
+  | 'entregue_parcial'
 
 export type StatusCeuPedido =
   | 'nao_se_aplica'
@@ -276,6 +280,64 @@ export interface MatPedidoItem {
   /** Migration 139: texto livre ligado ao catálogo (descricao_livre guarda o texto original). */
   ligado_por?: string | null
   ligado_em?: string | null
+  // ---- Fase 2 (migration 147): destino na compra e entrega. Opcionais: lidos à parte,
+  // de forma tolerante, para a tela funcionar antes da migration.
+  atendimento?: AtendimentoLinha | null
+  qtd_estoque?: number | null
+  qtd_compra?: number | null
+  compra_item_id?: string | null
+  motivo_nao_atendido?: string | null
+  qtd_entregue_estoque?: number | null
+  qtd_recebida_fornecedor?: number | null
+  motivo_entrega?: string | null
+  entregue_em?: string | null
+}
+
+/** Destino da linha aprovada na compra (migration 147). */
+export type AtendimentoLinha = 'fornecedor' | 'estoque' | 'escritorio' | 'nao_atendido'
+
+export type TipoCompraMaterial = 'mensal' | 'avulsa' | 'reposicao_estoque'
+export type StatusCompraMaterial = 'rascunho' | 'enviada' | 'recebida_parcial' | 'recebida' | 'cancelada'
+
+/** Pedido a um fornecedor ("o Excel que vai para a Antolimp") — migration 147. */
+export interface MatCompra {
+  id: string
+  competencia: string
+  fornecedor_id: string
+  numero: string
+  tipo: TipoCompraMaterial
+  status: StatusCompraMaterial
+  antes_da_janela: boolean
+  data_corte: string
+  entrega_prevista: string | null
+  enviada_em: string | null
+  enviada_por: string | null
+  cancelada_em: string | null
+  cancelada_motivo: string | null
+  observacao: string | null
+  criado_por: string | null
+  created_at: string
+}
+
+/** Célula da compra: item × variação × contrato (NULL = reposição do estoque). Snapshots de nome/rota. */
+export interface MatCompraItem {
+  id: string
+  compra_id: string
+  item_id: string
+  variacao_id: string | null
+  contrato_id: string | null
+  item_nome: string
+  variacao_rotulo: string | null
+  unidade: string | null
+  categoria: string | null
+  contrato_nome: string | null
+  rota: RotaMaterial | null
+  quantidade: number
+  preco_unitario: number | null
+  qtd_recebida: number | null
+  motivo_recebimento: string | null
+  recebido_em: string | null
+  entrega_local: 'posto' | 'escritorio'
 }
 
 export type TipoLinhaCeuPedido = 'uniforme' | 'epi' | 'cracha'
@@ -352,4 +414,9 @@ export interface MateriaisConfig {
    * migration 135).
    */
   kit_aprovacao_automatica: boolean
+  /** Fase 2 (calendário — avisos, não travas): inspetor até 17, gestor até 20, compra 20 a 25. */
+  dia_limite_validacao?: number
+  dia_limite_aprovacao?: number
+  dia_inicio_compra?: number
+  dia_fim_compra?: number
 }

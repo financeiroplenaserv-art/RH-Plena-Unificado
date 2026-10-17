@@ -5,6 +5,7 @@ import { hojeBrasil } from '@/lib/utils'
 import { adicionarMeses, competenciaDe } from '@/lib/materiais/datas'
 import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
+import { STATUS_APROVADO_OU_DEPOIS } from '@/lib/materiais/pedidos'
 import { montarPainel, type LinhaPainel } from '@/lib/materiais/painel'
 import type { PayloadAprovacao, PayloadValidacao } from '@/lib/materiais/filas'
 import type { PrecoHistorico } from '@/lib/materiais/precos'
@@ -229,23 +230,24 @@ export function usePedidoMaterial() {
         .select('id, competencia')
         .eq('contrato_id', p.contrato_id)
         .lt('competencia', p.competencia)
-        .eq('status_produtos', 'aprovado') // Fase 1: aprovado = entregue (a Fase 2 amplia)
+        .in('status_produtos', [...STATUS_APROVADO_OU_DEPOIS]) // aprovado, em compra ou entregue
       const fatos: FatoEntrega[] = (rh.data ?? []).map((x) => ({ ...x, quantidade: Number(x.quantidade) }))
       const competenciaDoPedido = new Map(((rped.data as { id: string; competencia: string }[]) ?? []).map((x) => [x.id, x.competencia]))
       if (competenciaDoPedido.size > 0) {
-        const rl = await buscarPorIds<{ pedido_id: string; item_id: string | null; qtd_pedida: number; qtd_aprovada: number | null }>(
+        const rl = await buscarPorIds<{ pedido_id: string; item_id: string | null; qtd_pedida: number; qtd_aprovada: number | null; qtd_entregue: number | null }>(
           [...competenciaDoPedido.keys()],
           (lote, de, ate) =>
             supabase
               .from('mat_pedido_itens')
-              .select('id, pedido_id, item_id, qtd_pedida, qtd_aprovada')
+              .select('id, pedido_id, item_id, qtd_pedida, qtd_aprovada, qtd_entregue')
               .in('pedido_id', lote)
               .not('item_id', 'is', null)
               .order('id')
               .range(de, ate)
         )
         for (const l of rl.data) {
-          const q = Number(l.qtd_aprovada ?? l.qtd_pedida)
+          // Fase 2: o que foi de fato entregue, quando registrado; senão o aprovado.
+          const q = Number(l.qtd_entregue ?? l.qtd_aprovada ?? l.qtd_pedida)
           if (l.item_id && q > 0) fatos.push({ item_id: l.item_id, competencia: competenciaDoPedido.get(l.pedido_id)!, quantidade: q })
         }
       }
@@ -394,7 +396,7 @@ export function useMateriaisPainel() {
         supabase
           .from('mat_pedidos')
           .select('id, contrato_id, competencia, status_produtos')
-          .eq('status_produtos', 'aprovado')
+          .in('status_produtos', [...STATUS_APROVADO_OU_DEPOIS])
           .gte('competencia', desde)
           .lt('competencia', comp)
           .order('id')

@@ -1,5 +1,6 @@
 import { competenciaDe, mesesFechados } from './datas'
 import { arredondar, precoVigente, type PrecoHistorico } from './precos'
+import { aprovadoOuDepois } from './pedidos'
 
 // Média de consumo do contrato. Referência do painel do gestor: ÚLTIMOS 6
 // MESES FECHADOS (exclui o mês corrente; mês sem pedido conta como ZERO), em
@@ -79,13 +80,13 @@ export function mediasReferencia(consumos: ConsumoMes[], precos: PrecoHistorico[
   return { media6: mediaConsumo(consumos, precos, hoje, 6), media12: mediaConsumo(consumos, precos, hoje, 12) }
 }
 
-/** Consumo vindo dos pedidos aprovados (soma de qtd_aprovada por mês/item). */
+/** Consumo vindo dos pedidos aprovados ou já em compra/entregues (soma de qtd_aprovada por mês/item). */
 export function consumoDePedidosAprovados(
   pedidos: { id: string; competencia: string; status_produtos: string }[],
   itens: { pedido_id: string; item_id: string | null; variacao_id: string | null; qtd_aprovada: number | null }[]
 ): ConsumoMes[] {
   const comp = new Map(
-    pedidos.filter((p) => p.status_produtos === 'aprovado').map((p) => [p.id, competenciaDe(p.competencia)])
+    pedidos.filter((p) => aprovadoOuDepois(p.status_produtos)).map((p) => [p.id, competenciaDe(p.competencia)])
   )
   const acum = new Map<string, ConsumoMes>()
   for (const i of itens) {

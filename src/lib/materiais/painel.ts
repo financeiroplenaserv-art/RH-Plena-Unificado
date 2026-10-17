@@ -4,6 +4,7 @@ import { consumoDePedidosAprovados, mediasReferencia, unirConsumo, type ConsumoM
 import { arredondar, compararComLimite, limiteContrato, limiteEfetivo, precoVigente, type PrecoHistorico } from './precos'
 import { ehLinhaKit, qtdEfetiva, temExcecao } from './filas'
 import { aplicarSubstituicoes, aplicarSubstituicoesLinhas, type VinculoSubstituicao } from './substituicao'
+import { aprovadoOuDepois } from './pedidos'
 
 // Painel do gestor (docs/PLANO_MATERIAIS_FASE1.md §5.1): por contrato, valor
 // pedido no mês × limite (Kit × preço vigente) × média dos últimos 6 meses
@@ -99,7 +100,7 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
       let extrasPendentes = 0
       for (const p of pedidos) {
         for (const l of itensPorPedido.get(p.id) ?? []) {
-          if (!ehLinhaKit(l) && p.status_produtos !== 'aprovado' && Number(l.qtd_pedida) > 0) extrasPendentes++
+          if (!ehLinhaKit(l) && !aprovadoOuDepois(p.status_produtos) && Number(l.qtd_pedida) > 0) extrasPendentes++
           const preco =
             l.preco_unitario != null
               ? Number(l.preco_unitario)

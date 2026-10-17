@@ -13,6 +13,9 @@ export const ROTULO_STATUS_PRODUTOS: Record<StatusProdutos, { texto: string; var
   validado: { texto: 'Aguarda gestor', variante: 'info' },
   aprovado: { texto: 'Aprovado', variante: 'success' },
   cancelado: { texto: 'Cancelado', variante: 'danger' },
+  em_compra: { texto: 'Em compra', variante: 'info' },
+  entregue: { texto: 'Entregue', variante: 'success' },
+  entregue_parcial: { texto: 'Entregue parcial', variante: 'warning' },
 }
 
 export const ROTULO_STATUS_CEU: Record<StatusCeuPedido, { texto: string; variante: Variante }> = {

@@ -1,4 +1,14 @@
-import type { MatContrato, MatPedido, RotaMaterial } from '@/types/materiais'
+import type { MatContrato, MatPedido, RotaMaterial, StatusProdutos } from '@/types/materiais'
+
+/**
+ * Status de pedido cujo conteúdo já foi decidido pelo gestor e segue para a
+ * entrega (Fase 2, migration 147). Espelho de STATUS_PRODUTOS_ENTREGUE da Edge
+ * Function pedido-materiais. Use esta lista em vez de comparar com 'aprovado'.
+ */
+export const STATUS_APROVADO_OU_DEPOIS: readonly StatusProdutos[] = ['aprovado', 'em_compra', 'entregue', 'entregue_parcial']
+
+export const aprovadoOuDepois = (s: string | null | undefined): boolean =>
+  (STATUS_APROVADO_OU_DEPOIS as readonly string[]).includes(s ?? '')
 
 /**
  * Rotas de entrega válidas — espelho dos CHECKs de mat_contratos.rota e
