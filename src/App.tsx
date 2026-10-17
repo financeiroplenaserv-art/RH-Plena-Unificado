@@ -66,6 +66,8 @@ import {
   MateriaisValidacaoPage,
   MateriaisPainelPage,
   MateriaisSemPedidoPage,
+  MateriaisComprasPage,
+  MateriaisCompraDetalhePage,
   CeuPedidosPage,
   QuadroColaboradoresPage,
   AdicionaisContratosPage,
@@ -442,6 +444,40 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'materiais', acao: 'ver_sem_pedido' }}>
                     <MateriaisSemPedidoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/compras"
+                element={
+                  // Fase 2: o financeiro (sem o módulo inteiro) entra só na aba Compras
+                  <ProtectedRoute
+                    user={user}
+                    permissao={{ recurso: 'rota', acao: 'materiais' }}
+                    fallback={
+                      <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais_compras' }}>
+                        <MateriaisComprasPage />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <MateriaisComprasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/compras/:id"
+                element={
+                  // Fase 2: o financeiro (sem o módulo inteiro) entra só na aba Compras
+                  <ProtectedRoute
+                    user={user}
+                    permissao={{ recurso: 'rota', acao: 'materiais' }}
+                    fallback={
+                      <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais_compras' }}>
+                        <MateriaisCompraDetalhePage />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <MateriaisCompraDetalhePage />
                   </ProtectedRoute>
                 }
               />

@@ -127,6 +127,12 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     aprovar: ['gestor'],
     pedido_extra: ['mesa', 'inspetoria'],
     reabrir_pedido: ['gestor', 'mesa'],
+    // Fase 2 (migrations 146/147, decisões 2 e 14 de 17/10/2026). Banco:
+    // pode_comprar_materiais() = admin, adm, gestor, mesa; pode_ver_compras_materiais()
+    // = quem vê o módulo + financeiro (que entra só na aba Compras —
+    // menu/rota.materiais_compras). Nada é gerado sozinho: o comprador clica.
+    comprar: ['gestor', 'mesa'],
+    ver_compras: ['gestor', 'mesa', 'inspetoria', 'financeiro'],
   },
   ferias: {
     importar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
@@ -364,6 +370,12 @@ export const podeCriarPedidoExtraMateriais = (p: NivelAcesso) => temPermissaoCom
 
 /** Reabrir o link de um contrato fora da janela 1–15 */
 export const podeReabrirPedidoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'reabrir_pedido')
+
+/** Preparar, gerar, enviar e cancelar a compra do mês ao fornecedor (Fase 2) */
+export const podeComprarMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'comprar')
+
+/** Consultar as compras (o financeiro confere com valores, sem alterar) */
+export const podeVerComprasMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'ver_compras')
 
 // ================= ADICIONAIS CONTRATUAIS =================
 

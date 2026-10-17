@@ -87,6 +87,8 @@ export const MateriaisPedidoDetalhePage = lazyNamed(() => import('@/pages/materi
 export const MateriaisValidacaoPage = lazyNamed(() => import('@/pages/materiais/MateriaisValidacaoPage'), 'MateriaisValidacaoPage')
 export const MateriaisPainelPage = lazyNamed(() => import('@/pages/materiais/MateriaisPainelPage'), 'MateriaisPainelPage')
 export const MateriaisSemPedidoPage = lazyNamed(() => import('@/pages/materiais/MateriaisSemPedidoPage'), 'MateriaisSemPedidoPage')
+export const MateriaisComprasPage = lazyNamed(() => import('@/pages/materiais/MateriaisComprasPage'), 'MateriaisComprasPage')
+export const MateriaisCompraDetalhePage = lazyNamed(() => import('@/pages/materiais/MateriaisCompraDetalhePage'), 'MateriaisCompraDetalhePage')
 export const CeuPedidosPage = lazyNamed(() => import('@/pages/ceu/CeuPedidosPage'), 'CeuPedidosPage')
 export const PedidoLiderPage = lazyNamed(() => import('@/pages/materiais/PedidoLiderPage'), 'PedidoLiderPage')
 export const PermissoesPage = lazyNamed(() => import('@/pages/PermissoesPage'), 'PermissoesPage')

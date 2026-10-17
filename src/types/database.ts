@@ -6,6 +6,7 @@ import type {
 } from '@/types/adicionais'
 import type { Extra, CategoriaExtra, ReciboExtra } from '@/types/extras'
 import type {
+  MatCompra, MatCompraItem,
   MatItem, MatItemVariacao, MatPreco, MatAlias, MatContrato, MatContratoAcesso, MatAcessoLog,
   MatKitItem, MatContratoCeuItem, MatKitAlteracao, MatHistoricoConsumo, MatPedido, MatPedidoEnvio, MatPedidoItem,
   CeuPedidoItem, MatComentario, MatReabertura, MatStatusLink, ResultadoSubstituicaoItem,
@@ -779,6 +780,19 @@ export type Database = {
         Update: Partial<MatReabertura> & Record<string, unknown>
         Relationships: []
       }
+      // Fase 2 (migrations 146/147): leitura direta; escrita só por RPC
+      mat_compras: {
+        Row: MatCompra & Record<string, unknown>
+        Insert: Partial<MatCompra> & Record<string, unknown>
+        Update: Partial<MatCompra> & Record<string, unknown>
+        Relationships: []
+      }
+      mat_compra_itens: {
+        Row: MatCompraItem & Record<string, unknown>
+        Insert: Partial<MatCompraItem> & Record<string, unknown>
+        Update: Partial<MatCompraItem> & Record<string, unknown>
+        Relationships: []
+      }
       fornecedores: {
         Row: Fornecedor & Record<string, unknown>
         Insert: Partial<Fornecedor> & Record<string, unknown>
@@ -979,6 +993,23 @@ export type Database = {
       }
       mat_salvar_config: { Args: { p_config: Record<string, unknown> }; Returns: Record<string, unknown> }
       mat_kit_aprovacao_automatica: { Args: Record<string, never>; Returns: boolean }
+      // Fase 2 (migration 147): compra ao fornecedor, chegada e separação
+      mat_previa_compra: { Args: { p_competencia: string }; Returns: Record<string, unknown> }
+      mat_gerar_compras: {
+        Args: { p_competencia: string; p_tipo: string; p_linhas: Record<string, unknown>[]; p_observacao?: string | null }
+        Returns: Record<string, unknown>
+      }
+      mat_gerar_compra_reposicao: {
+        Args: { p_fornecedor: string; p_itens: Record<string, unknown>[]; p_observacao?: string | null }
+        Returns: Record<string, unknown>
+      }
+      mat_enviar_compra: { Args: { p_compra: string; p_entrega_prevista?: string | null }; Returns: Record<string, unknown> }
+      mat_cancelar_compra: { Args: { p_compra: string; p_motivo: string }; Returns: Record<string, unknown> }
+      mat_registrar_chegada: {
+        Args: { p_compra: string; p_itens: Record<string, unknown>[]; p_data?: string | null }
+        Returns: Record<string, unknown>
+      }
+      mat_registrar_separacao: { Args: { p_linhas: Record<string, unknown>[]; p_data?: string | null }; Returns: Record<string, unknown> }
       mat_contratos_sem_pedido: {
         Args: { p_competencia: string }
         Returns: {

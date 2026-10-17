@@ -29,6 +29,8 @@ import {
   podeDecidirAlteracaoKit,
   podeGerenciarLinksMateriais,
   podeVerSemPedidoMateriais,
+  podeComprarMateriais,
+  podeVerComprasMateriais,
   podePreencherPeloKitMateriais,
   podeValidarMateriais,
   podeAprovarMateriais,
@@ -394,6 +396,13 @@ describe('Permissões do módulo Materiais (migrations 121 a 123)', () => {
       expect(podeGerenciarFornecedoresMateriais(p)).toBe(false)
     }
     expect(podeEditarCatalogoMateriais('mesa')).toBe(false)
+  })
+
+  it('Fase 2: comprador = gestor e mesa; financeiro e inspetoria só consultam (espelho das pode_* da 146)', () => {
+    for (const p of ['gestor', 'mesa', 'admin', 'adm'] as const) expect(podeComprarMateriais(p)).toBe(true)
+    for (const p of ['inspetoria', 'financeiro', 'dp1', 'dp2', 'dp3', 'rh', 'visualizador'] as const) expect(podeComprarMateriais(p)).toBe(false)
+    for (const p of ['gestor', 'mesa', 'inspetoria', 'financeiro'] as const) expect(podeVerComprasMateriais(p)).toBe(true)
+    for (const p of ['dp1', 'dp3', 'rh', 'visualizador'] as const) expect(podeVerComprasMateriais(p)).toBe(false)
   })
 
   it('linha dinâmica concedida pela tela Permissões prevalece sobre o padrão', () => {

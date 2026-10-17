@@ -142,6 +142,8 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'materiais', acao: 'aprovar', label: 'Aprovar pedidos', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'pedido_extra', label: 'Lançar pedido extra', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'reabrir_pedido', label: 'Reabrir link fora do prazo', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'comprar', label: 'Preparar e enviar a compra ao fornecedor', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'ver_compras', label: 'Consultar as compras (com valores)', grupo: 'Materiais' },
 
   // Férias
   { recurso: 'ferias', acao: 'importar', label: 'Importar planilha do Flit', grupo: 'Férias' },
@@ -168,6 +170,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'materiais', label: 'Ver menu Materiais', grupo: 'Menus' },
   { recurso: 'menu', acao: 'materiais_fornecedores', label: 'Ver menu Fornecedores (sem o resto de Materiais)', grupo: 'Menus' },
   { recurso: 'menu', acao: 'materiais_kit', label: 'Ver menu Kit Mensal (sem o resto de Materiais)', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'materiais_compras', label: 'Ver menu Compras (sem o resto de Materiais)', grupo: 'Menus' },
   { recurso: 'menu', acao: 'crachas', label: 'Ver menu Crachás (só aparece a quem não tem o menu CEU)', grupo: 'Menus' },
 
   // Rotas
@@ -181,6 +184,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'rota', acao: 'materiais', label: 'Acessar rotas de Materiais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais_fornecedores', label: 'Acessar só Fornecedores (Materiais)', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais_kit', label: 'Acessar só Kit Mensal (Materiais — uniformes/EPIs do contrato)', grupo: 'Rotas' },
+  { recurso: 'rota', acao: 'materiais_compras', label: 'Acessar só Compras (Materiais — consulta do financeiro)', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'adicionais', label: 'Acessar rotas de adicionais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'importar_econtador', label: 'Acessar importação e-Contador', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'configuracoes', label: 'Acessar configurações', grupo: 'Rotas' },
