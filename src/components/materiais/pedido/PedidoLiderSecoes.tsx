@@ -681,7 +681,9 @@ export function BuscaOutroItem({
             if (!termo) levarAoTopo()
             setTermo(e.target.value)
           }}
-          placeholder="Ex.: vassoura, detergente, flanela"
+          // Exemplos da própria seção — contrato só de portaria (ex.: Exclusive)
+          // não pode ver sugestão de limpeza (retorno da gestora, 17/10/2026).
+          placeholder={secao === 'portaria' ? 'Ex.: livro de ocorrências, protocolo' : 'Ex.: vassoura, detergente, flanela'}
         />
         {termo && (
           <button
