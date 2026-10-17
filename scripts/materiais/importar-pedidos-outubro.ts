@@ -770,7 +770,8 @@ function escreverSaidas(d: {
     console.log('\n--aplicar: executando o SQL (backup antes)...')
     // backup JSON dos pedidos de teste e de tudo que pende deles
     const ids2 = d.apagar.map((p) => q(p.id)).join(', ')
-    for (const [tab, col] of [['mat_pedidos', 'id'], ['mat_pedido_envios', 'pedido_id'], ['mat_pedido_itens', 'pedido_id'], ['ceu_pedido_itens', 'pedido_id'], ['mat_comentarios', 'pedido_id']] as const) {
+    // Sem pedidos de teste a apagar (já removidos antes): nada a copiar — evita 'in ()' inválido.
+    if (d.apagar.length > 0) for (const [tab, col] of [['mat_pedidos', 'id'], ['mat_pedido_envios', 'pedido_id'], ['mat_pedido_itens', 'pedido_id'], ['ceu_pedido_itens', 'pedido_id'], ['mat_comentarios', 'pedido_id']] as const) {
       execFileSync('powershell', ['-NoProfile', '-File', 'scripts/lib/executar-sql-arquivo.ps1', '-Saida', `${DIR}/backup_${tab}.json`, '-Query', `select * from public.${tab} where ${col} in (${ids2})`], { stdio: 'pipe' })
     }
     execFileSync('powershell', ['-NoProfile', '-File', 'scripts/lib/executar-arquivo-sql-management-api.ps1', '-Arquivo', `${DIR}/aplicar.sql`], { stdio: 'inherit' })
@@ -845,7 +846,11 @@ function escreverRevisao3(d: DadosSaida) {
   folha('Vai entrar', ['Contrato', 'Respostas', 'Produtos prontos', 'Uniforme/EPI prontos', 'Crachás prontos', 'Ainda pendente (linhas)', 'Produtos que entram', 'Uniformes/EPI/crachás que entram'],
     linhasEntra, [30, 10, 10, 12, 10, 12, 80, 80])
   wb2.SheetNames = ['Vai entrar', 'A decidir depois', 'Uniformes para a Beth conferir']
-  fs.writeFileSync(`${DIR}/revisao3.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
+  try {
+    fs.writeFileSync(`${DIR}/revisao3.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
+  } catch (e) {
+    console.warn(`Aviso: revisao3.xlsx não foi regravada (arquivo aberto?): ${(e as Error).message}`)
+  }
 }
 
 main()
