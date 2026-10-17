@@ -217,6 +217,8 @@ interface DecisaoLinha {
   texto?: string
   fora?: string
   partes?: { item_id: string; variacao_id: string | null; quantidade: number }[]
+  /** true = a resposta NÃO entra e não aparece como pendência (ex.: duplicata de outra linha já decidida). */
+  ignorar?: boolean
   observacao?: string
 }
 
@@ -473,7 +475,7 @@ function main() {
       }
       for (const c of colunas.filter((x) => x.tipo === 'livre_produto' || x.tipo === 'livre_epi' || x.tipo === 'livre_uniforme' || x.tipo === 'portaria')) {
         const v = valorDe(c)
-        if (!v || ehNaoPrecisa(v)) continue
+        if (!v || ehNaoPrecisa(v) || decLinha(c.titulo)?.ignorar) continue
         const lixo = c.tipo === 'portaria' && /^(nao|sim)\.?$/.test(norm(v))
         if (lixo) continue
         addPend(c.tipo === 'portaria' ? 'Kit portaria (texto livre)' : 'Texto livre (outros)', c.titulo, v, 'texto livre: a gestora decide item e quantidade')
@@ -581,9 +583,7 @@ function main() {
       }
       for (const p of val.produtos) { if (p.parte === 'kit') resumo.kit++; else resumo.extra++ }
       envios.push({ contrato, aba: nomeAba.trim(), n: nEnvio, carimbo, carimboIso, responsavel: respondente, observacao: observacaoFinal, entrada, refParaColab, ctx })
-      if (respostas.length > 1 && nEnvio === 1) {
-        addPend('Duas respostas no mês', 'Carimbo', respostas.map((x) => String(x[0]).slice(0, 19)).join(' e '), 'duas respostas em outubro: parecem o mesmo pedido refeito? somar as duas (complemento) ou usar só a última?')
-      }
+      // Duas respostas no mês: decisão da gestora (17/10/2026) = somar as duas, em ordem (complemento do mesmo pedido).
     })
   }
 
@@ -696,7 +696,7 @@ function escreverSaidas(d: {
   // A revisão completa original (onde a gestora marcou as escolhas) NUNCA é sobrescrita.
   const arqRevisao = `${DIR}/revisao.xlsx`
   if (!fs.existsSync(arqRevisao)) fs.writeFileSync(arqRevisao, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
-  escreverRevisao2(d)
+  escreverRevisao3(d)
 
   // prévia do SQL (a ser executado só com --aplicar)
   const sql: string[] = ['-- PRÉVIA gerada pelo dry-run. NÃO foi executada.', `-- Origem das linhas: p_user_agent = '${ORIGEM}'`]
@@ -778,7 +778,7 @@ function escreverSaidas(d: {
   }
 }
 
-// ---------- revisão enxuta (revisao2.xlsx) ----------
+// ---------- revisão enxuta (revisao3.xlsx) ----------
 type DadosSaida = Parameters<typeof escreverSaidas>[0]
 
 /** "Nome [itemId / variacaoId] | Outro [itemId]" → sugestões legíveis + ids (ids vão em coluna oculta). */
@@ -793,7 +793,7 @@ function lerSugestoes(sugestao: string): { nome: string; ids: string }[] {
     })
 }
 
-function escreverRevisao2(d: DadosSaida) {
+function escreverRevisao3(d: DadosSaida) {
   const wb2 = XLSX.utils.book_new()
   const folha = (nome: string, cab: string[], linhas: (string | number | null)[][], larguras: number[], ocultas: number[] = []) => {
     const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas])
@@ -823,12 +823,12 @@ function escreverRevisao2(d: DadosSaida) {
       const exemplos = [...new Set(g.exemplos)].slice(0, max).join('\n') + (new Set(g.exemplos).size > max ? `\n(+${new Set(g.exemplos).size - max} outras)` : '')
       return [g.pergunta, g.tipo, g.n, [...g.contratos].join(', '), exemplos, s[0]?.nome ?? '', s[1]?.nome ?? '', s[2]?.nome ?? '', '', s[0]?.ids ?? '', s[1]?.ids ?? '', s[2]?.ids ?? '']
     })
-  folha('Falta decidir', ['Pergunta do form', 'O que falta', 'Respostas', 'Contratos afetados', 'Respostas de exemplo', 'Sugestão 1', 'Sugestão 2', 'Sugestão 3', 'Escolha', 'ids sugestão 1 (item|variação)', 'ids sugestão 2', 'ids sugestão 3'],
+  folha('A decidir depois', ['Pergunta do form', 'O que falta', 'Respostas', 'Contratos afetados', 'Respostas de exemplo', 'Sugestão 1', 'Sugestão 2', 'Sugestão 3', 'Escolha', 'ids sugestão 1 (item|variação)', 'ids sugestão 2', 'ids sugestão 3'],
     linhasDecidir, [44, 26, 10, 36, 54, 34, 34, 34, 30, 12, 12, 12], [9, 10, 11])
 
   // ---- Uniformes a conferir: só uniforme/EPI/crachá pendentes ----
   const unifPend = d.unifs.filter((u) => u.status === 'pendente')
-  folha('Uniformes a conferir', ['Contrato', 'Tipo', 'Pergunta do form', 'Resposta original', 'Pessoa casada', 'Peça', 'Tamanho lido', 'Qtd lida', 'Por que ficou pendente', 'Escolha'],
+  folha('Uniformes para a Beth conferir', ['Contrato', 'Tipo', 'Pergunta do form', 'Resposta original', 'Pessoa casada', 'Peça', 'Tamanho lido', 'Qtd lida', 'Por que ficou pendente', 'Escolha'],
     unifPend.map((u) => [u.contrato, u.tipo, u.coluna, u.valor, u.colaborador, u.peca, u.tamanho, u.qtd, u.obs, '']),
     [26, 10, 40, 44, 34, 26, 12, 9, 50, 30])
 
@@ -844,7 +844,8 @@ function escreverRevisao2(d: DadosSaida) {
     })
   folha('Vai entrar', ['Contrato', 'Respostas', 'Produtos prontos', 'Uniforme/EPI prontos', 'Crachás prontos', 'Ainda pendente (linhas)', 'Produtos que entram', 'Uniformes/EPI/crachás que entram'],
     linhasEntra, [30, 10, 10, 12, 10, 12, 80, 80])
-  fs.writeFileSync(`${DIR}/revisao2.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
+  wb2.SheetNames = ['Vai entrar', 'A decidir depois', 'Uniformes para a Beth conferir']
+  fs.writeFileSync(`${DIR}/revisao3.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
 }
 
 main()
