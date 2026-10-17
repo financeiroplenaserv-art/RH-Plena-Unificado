@@ -180,7 +180,28 @@ export function salvarRascunho(token: string, competencia: string, r: RascunhoPe
 }
 
 const PREFIXO_RASCUNHO = 'corh:pedido-lider:'
-const FORMATO_CHAVE_RASCUNHO = /^corh:pedido-lider:v2:[^:]+:(\d{4}-\d{2}-\d{2})$/
+const FORMATO_CHAVE_RASCUNHO = /^corh:pedido-lider:v2e?:[^:]+:(\d{4}-\d{2}-\d{2})$/
+const chaveIdEnvio = (token: string, competencia: string) => `corh:pedido-lider:v2e:${token.slice(0, 12)}:${competencia}`
+
+/**
+ * Id da tentativa de envio (migration 143), guardado no aparelho até dar certo: se a rede
+ * falhar DEPOIS de o servidor gravar, o reenvio do MESMO conteúdo reaproveita o id e o
+ * servidor devolve o mesmo resultado sem duplicar linhas. Se o líder mudou algo entre as
+ * tentativas, o conteúdo é outro e nasce um id novo. Sem armazenamento, gera um id solto.
+ */
+export function idEnvioDaTentativa(token: string, competencia: string, conteudo: string): string {
+  const novo = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now().toString(16).padStart(8, '0')}-0000-4000-8000-${Math.random().toString(16).slice(2).padEnd(12, '0').slice(0, 12)}`)
+  try {
+    const chave = chaveIdEnvio(token, competencia)
+    const guardado = JSON.parse(localStorage.getItem(chave) ?? 'null') as { id?: string; conteudo?: string } | null
+    if (guardado?.id && guardado.conteudo === conteudo) return guardado.id
+    const id = novo()
+    localStorage.setItem(chave, JSON.stringify({ id, conteudo }))
+    return id
+  } catch {
+    return novo()
+  }
+}
 
 /**
  * Faz a faxina dos rascunhos deste aparelho ao abrir o link (16/10/2026):
@@ -199,7 +220,7 @@ export function limparRascunhosAntigos(competenciaAtual: string): number {
     for (const k of chaves) {
       const competencia = FORMATO_CHAVE_RASCUNHO.exec(k)?.[1]
       let apagar = !competencia || competencia < competenciaAtual
-      if (!apagar) {
+      if (!apagar && !k.startsWith('corh:pedido-lider:v2e:')) {
         try {
           const r = JSON.parse(localStorage.getItem(k) ?? 'null') as { versao?: number } | null
           apagar = !r || (r.versao !== 2 && r.versao !== 3)
@@ -221,6 +242,7 @@ export function limparRascunhosAntigos(competenciaAtual: string): number {
 export function apagarRascunho(token: string, competencia: string) {
   try {
     localStorage.removeItem(chaveRascunho(token, competencia))
+    localStorage.removeItem(chaveIdEnvio(token, competencia))
   } catch {
     // idem
   }

@@ -544,6 +544,26 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(screen.getByText('Avisamos o escritório que o posto não precisa de nada este mês.')).toBeInTheDocument()
   })
 
+  it('falha de rede e reenvio: o MESMO id de envio vai de novo (o servidor não duplica); mudou algo = id novo', async () => {
+    api.carregar.mockResolvedValue(dados({ kit: [] }))
+    api.enviar.mockRejectedValueOnce(new Error('network')).mockResolvedValue({ ok: true, vazio: true, protocolo: 'VAZIO123', mesclado_produtos: false, mesclado_ceu: false, virou_extra_produtos: false, virou_extra_ceu: false })
+    renderizar()
+    await screen.findByText('TELEX BAR, TIJ E IPA')
+    irParaEtapa(/Revisar e enviar/)
+    fireEvent.change(screen.getByLabelText(/Seu nome/), { target: { value: 'Ana Souza' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Enviar pedido/ }))
+    })
+    expect(await screen.findByText('Erro ao enviar. Tente de novo.')).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Enviar pedido/ }))
+    })
+    expect(api.enviar).toHaveBeenCalledTimes(2)
+    const id1 = api.enviar.mock.calls[0][2]
+    expect(id1).toMatch(/^[0-9a-f-]{36}$/i)
+    expect(api.enviar.mock.calls[1][2]).toBe(id1)
+  })
+
   it('não envia sem seu nome; o aviso some ao digitar', async () => {
     api.carregar.mockResolvedValue(dados())
     renderizar()

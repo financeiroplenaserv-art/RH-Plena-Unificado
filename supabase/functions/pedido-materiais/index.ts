@@ -2985,6 +2985,8 @@ async function acaoEnviar(sb: SupabaseClient, corpo: Corpo, ip: string | null, u
     p_user_agent: ua ? ua.slice(0, 300) : null,
     p_produtos: v.produtos,
     p_ceu: ceu,
+    // Idempotência (migration 143): o mesmo id repetido devolve o mesmo resultado sem regravar.
+    p_id_envio: typeof corpo.id_envio === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(corpo.id_envio) ? corpo.id_envio : null,
   })
   if (error) {
     await registrarLog(sb, contrato.id, 'envio_recusado', ip, ua)

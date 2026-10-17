@@ -16,6 +16,7 @@ import { TONS, type Tom } from '@/components/materiais/pedido/tons'
 import {
   CAMPO,
   apagarRascunho,
+  idEnvioDaTentativa,
   errosDe,
   lerRascunho,
   limparRascunhosAntigos,
@@ -416,7 +417,9 @@ export function PedidoLiderPage() {
     setEnviando(true)
     setErrosServidor([])
     try {
-      const resultado = await enviarPedidoPublico(token, payload())
+      const conteudo = payload()
+      const idEnvio = idEnvioDaTentativa(token, dados.janela.competencia, JSON.stringify(conteudo))
+      const resultado = await enviarPedidoPublico(token, conteudo, idEnvio)
       apagarRascunho(token, dados.janela.competencia)
       const resumo: ResumoMes = {
         envios: [],

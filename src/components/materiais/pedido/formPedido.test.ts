@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import type { ContextoPedido, ItemPublico } from '@/lib/materiais/pedidoLider'
 import type { PecaPublica } from '@/lib/materiais/pecasCeu'
 import {
@@ -20,6 +20,8 @@ import {
   reconciliarRascunhoComKit,
   type LinhaProdutoForm,
   type RascunhoPedido,
+  apagarRascunho,
+  idEnvioDaTentativa,
 } from './formPedido'
 
 const bota: PecaPublica = {
@@ -350,5 +352,26 @@ describe('quadros recolhíveis: ordem da equipe e resumos', () => {
     expect(resumoLinhaPeca('Walace D.', 'Boné', '', '2')).toBe('Walace D. · Boné — 2')
     expect(resumoLinhaCracha('Dagno S.', 'Perda')).toBe('Crachá · Dagno S. — perda')
     expect(resumoLinhaCracha('Dagno S.', 'Não se aplica. Pedido apenas do cordão com prendedor.')).toBe('Crachá · Dagno S. — só o cordão')
+  })
+})
+
+describe('id da tentativa de envio (idempotência, migration 143)', () => {
+  it('mesmo conteúdo reaproveita o id; conteúdo diferente gera outro; apagarRascunho limpa', () => {
+    localStorage.clear()
+    const a = idEnvioDaTentativa('tok123456789abc', '2026-10-01', '{"a":1}')
+    expect(a).toMatch(/^[0-9a-f-]{36}$/i)
+    expect(idEnvioDaTentativa('tok123456789abc', '2026-10-01', '{"a":1}')).toBe(a)
+    const b = idEnvioDaTentativa('tok123456789abc', '2026-10-01', '{"a":2}')
+    expect(b).not.toBe(a)
+    apagarRascunho('tok123456789abc', '2026-10-01')
+    expect(idEnvioDaTentativa('tok123456789abc', '2026-10-01', '{"a":2}')).not.toBe(b)
+  })
+  it('a faxina de rascunhos antigos não apaga o id da competência corrente', () => {
+    localStorage.clear()
+    idEnvioDaTentativa('tokabcdefghij', '2026-10-01', 'x')
+    limparRascunhosAntigos('2026-10-01')
+    expect(localStorage.length).toBe(1)
+    limparRascunhosAntigos('2026-11-01')
+    expect(localStorage.length).toBe(0)
   })
 })

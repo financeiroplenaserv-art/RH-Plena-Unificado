@@ -85,6 +85,8 @@ export interface ResultadoEnvioPedido {
   vazio?: boolean
   /** Migration 140: envio vazio num mês que já tinha pedido — nada foi alterado. */
   ja_havia_pedido?: boolean
+  /** Migration 143: o servidor já tinha este envio (repetição por falha de rede) e devolveu o mesmo resultado. */
+  repetido?: boolean
 }
 
 export interface LinkPedido {
@@ -148,8 +150,9 @@ export function buscarItemPublico(token: string, termo: string, secao?: 'materia
   return chamar({ acao: 'buscar_item', token, termo, secao })
 }
 
-export function enviarPedidoPublico(token: string, pedido: Record<string, unknown>): Promise<ResultadoEnvioPedido> {
-  return chamar({ acao: 'enviar', token, pedido })
+/** `idEnvio`: uuid da tentativa (migration 143) — a repetição do mesmo id não duplica o pedido. */
+export function enviarPedidoPublico(token: string, pedido: Record<string, unknown>, idEnvio?: string): Promise<ResultadoEnvioPedido> {
+  return chamar({ acao: 'enviar', token, pedido, ...(idEnvio ? { id_envio: idEnvio } : {}) })
 }
 
 async function jwtDaSessao(): Promise<string> {
