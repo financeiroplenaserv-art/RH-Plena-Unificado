@@ -81,6 +81,10 @@ export interface ResultadoEnvioPedido {
   kit_aprovado?: boolean
   /** Migration 135: o envio tem pedido extra (vai para o inspetor). */
   tem_extras?: boolean
+  /** Migration 140: envio sem nenhuma linha ("o posto não precisa de nada este mês"). */
+  vazio?: boolean
+  /** Migration 140: envio vazio num mês que já tinha pedido — nada foi alterado. */
+  ja_havia_pedido?: boolean
 }
 
 export interface LinkPedido {

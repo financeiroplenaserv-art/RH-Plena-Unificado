@@ -30,7 +30,7 @@ import type {
 // autor (pedido extra) e comentários — sempre com .select('id').
 
 export const COLUNAS_PEDIDO =
-  'id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, rota_override, rota_override_motivo, rota_override_por, responsavel_nome, observacao, termos_aceitos, status_produtos, status_ceu, enviado_em, reaberto_por, reaberto_em, criado_por, created_at'
+  'id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, rota_override, rota_override_motivo, rota_override_por, responsavel_nome, observacao, termos_aceitos, status_produtos, status_ceu, enviado_em, reaberto_por, reaberto_em, criado_por, created_at, sem_necessidade'
 export const COLUNAS_ITEM_PEDIDO =
   'id, pedido_id, envio_id, possivel_repeticao, repete_linha_id, decisao_repeticao, item_id, variacao_id, descricao_livre, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada, qtd_entregue, preco_unitario, justificativa, excecao_acima_kit, excecao_validade, excecao_fora_kit, ultima_entrega_em, motivo_ajuste, ajustado_por, ajustado_em, created_at, parte, aprovado_automatico, item_original_id, variacao_original_id, incluido_por, incluido_em, ligado_por, ligado_em'
 /** Sem qtd_atendida/motivo_atendimento (migration 124) — funciona antes e depois dela. */

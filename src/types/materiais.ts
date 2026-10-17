@@ -217,6 +217,8 @@ export interface MatPedido {
   reaberto_por: string | null
   reaberto_em: string | null
   criado_por: string | null
+  /** Migration 140: o posto respondeu pelo link que não precisa de nada este mês (envio vazio). */
+  sem_necessidade?: boolean
   created_at?: string
 }
 

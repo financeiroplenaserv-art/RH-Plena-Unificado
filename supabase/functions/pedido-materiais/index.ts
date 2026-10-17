@@ -1807,8 +1807,9 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     })
   })
 
-  // Kit inteiro com "Não preciso este mês" é um envio válido (o líder avisou).
-  if (produtos.length === 0 && ceu.length === 0) erro(null, 'vazio', 'O pedido está vazio: informe ao menos um item.')
+  // Envio vazio NÃO é erro (decisão de 17/10/2026): o líder pode concluir sem
+  // pedir nada — fica registrado como "o posto não precisa de nada este mês".
+  // A tela mostra uma observação amigável (`envioSemPedido`).
 
   const secoes = secoesUsadas(produtos, ceu, ctx.catalogo, ctx.recebeLimpeza)
   const semTermo = TERMOS_PEDIDO.filter((t) => secoes.includes(t.id) && !termos[t.id])
@@ -1825,6 +1826,21 @@ export function validarEnvioPedido(entrada: unknown, ctx: ContextoPedido): Resul
     ceu,
   }
 }
+
+/**
+ * O envio não pede nada? (nenhuma linha de produto com quantidade, nenhum
+ * uniforme/EPI/crachá). Vale para o envio sem linhas e para o kit todo
+ * zerado com "Não preciso este mês". Só informativo — nunca bloqueia.
+ */
+export function envioSemPedido(
+  produtos: { qtd_pedida: number }[],
+  ceu: unknown[]
+): boolean {
+  return ceu.length === 0 && produtos.every((p) => !(p.qtd_pedida > 0))
+}
+
+/** Texto amigável para a revisão final quando não há nada pedido. */
+export const AVISO_ENVIO_SEM_PEDIDO = 'Você não pediu nada este mês. Pode enviar assim mesmo.'
 
 /**
  * Seções com linhas no envio — cada uma exige a sua declaração. Texto livre
@@ -1917,6 +1933,9 @@ export function diaMesBrasilia(iso: string): string {
 export function tituloResumo(resumo: ResumoMes, competencia: string): string | null {
   const primeiro = resumo.envios[0]
   if (!primeiro) return null
+  if (resumo.produtos.length === 0 && resumo.contagem.uniforme_epi === 0 && resumo.contagem.cracha === 0) {
+    return `Em ${diaMesBrasilia(primeiro.enviado_em)}, ${primeiro.seu_nome} avisou que o posto não precisa de nada em ${nomeMes(competencia)}`
+  }
   return `Pedido de ${nomeMes(competencia)} enviado em ${diaMesBrasilia(primeiro.enviado_em)} por ${primeiro.seu_nome}`
 }
 

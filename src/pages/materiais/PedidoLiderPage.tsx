@@ -30,7 +30,9 @@ import {
   type SecaoProduto,
 } from '@/components/materiais/pedido/formPedido'
 import {
+  AVISO_ENVIO_SEM_PEDIDO,
   agruparDeclaracoes,
+  envioSemPedido,
   secoesUsadas,
   textoDestino,
   tituloResumo,
@@ -518,12 +520,16 @@ export function PedidoLiderPage() {
         <main className="mx-auto max-w-xl space-y-4 px-4 py-6">
           <div className="space-y-2 text-center">
             <CheckCircle2 className="mx-auto size-12 text-green-600" aria-hidden />
-            <h2 className="text-xl font-semibold">Pedido enviado!</h2>
+            <h2 className="text-xl font-semibold">{r.vazio ? 'Resposta enviada!' : 'Pedido enviado!'}</h2>
             <p className="text-muted-foreground">
               Protocolo <strong className="font-mono text-foreground">{r.protocolo}</strong>
             </p>
             <p className="text-sm text-muted-foreground">
-              {extra
+              {r.vazio
+                ? r.ja_havia_pedido
+                  ? 'Este mês já tem pedido. Nada foi alterado.'
+                  : 'Avisamos o escritório que o posto não precisa de nada este mês.'
+                : extra
                 ? 'Como o pedido do mês já tinha sido conferido, este envio virou um pedido extra.'
                 : r.mesclado_produtos || r.mesclado_ceu
                   ? 'Este envio foi somado ao pedido do mês.'
@@ -757,6 +763,11 @@ export function PedidoLiderPage() {
                   )
                 })}
             </ul>
+            {envioSemPedido(validacao.produtos, validacao.ceu) && (
+              <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-base text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
+                {AVISO_ENVIO_SEM_PEDIDO}
+              </p>
+            )}
             {tentou.has('revisar') && pendentes.length > 0 && (
               <MensagemErro mensagens={[`Falta corrigir: ${pendentes.map((e) => TITULOS[e]).join(', ')}. Toque na etapa para ver.`]} />
             )}

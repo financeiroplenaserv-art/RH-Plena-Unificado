@@ -506,6 +506,11 @@ export function MateriaisPedidoDetalhePage() {
           </div>
         </section>
 
+        {p.sem_necessidade && (
+          <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
+            Sem necessidade este mês: o posto abriu o link e respondeu que não precisa de nada. Não há nada para validar ou aprovar.
+          </p>
+        )}
         {modo === 'validar' && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             {kitAuto ? 'O kit do mês já está aprovado. Confira o pedido extra' : 'Este pedido tem exceção. Confira as linhas destacadas'}: valide
@@ -540,8 +545,8 @@ export function MateriaisPedidoDetalhePage() {
           {itensExtra.length === 0 ? (
             <EmptyState
               icon={<PackageSearch className="size-6" />}
-              title={itensKit.length > 0 ? 'Sem pedido extra' : 'Sem produtos'}
-              description={itensKit.length > 0 ? 'O líder só confirmou o kit do mês.' : 'Este pedido não tem linhas de produtos.'}
+              title={itensKit.length > 0 ? 'Sem pedido extra' : p.sem_necessidade ? 'Sem necessidade este mês' : 'Sem produtos'}
+              description={itensKit.length > 0 ? 'O líder só confirmou o kit do mês.' : p.sem_necessidade ? 'O líder avisou que o posto não precisa de nada.' : 'Este pedido não tem linhas de produtos.'}
             />
           ) : (
             tabelaLinhas(itensExtra, false)

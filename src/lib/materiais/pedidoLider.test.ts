@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   agruparDeclaracoes,
+  envioSemPedido,
   excecoesLinhaPedido,
   janelaPublica,
   linhaCeuVazia,
@@ -143,8 +144,10 @@ describe('validarEnvioPedido', () => {
       expect.objectContaining({ parte: 'kit', item_id: 'balde', qtd_pedida: 0, qtd_kit: 1, excecao_validade: false }),
     ])
     expect(secoesUsadas(r.produtos, [], ctx.catalogo)).toEqual([])
-    // Extra com 0 é ignorado.
-    expect(validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 0, parte: 'extra' }] }, ctx).erros.join(' ')).toMatch(/vazio/)
+    // Extra com 0 é ignorado — e envio sem nenhuma linha não é mais erro (17/10/2026).
+    const vazio = validarEnvioPedido({ ...base, produtos: [{ item_id: 'cloro', quantidade: 0, parte: 'extra' }] }, ctx)
+    expect(vazio.ok).toBe(true)
+    expect(vazio.produtos).toEqual([])
   })
 
   it('kit já confirmado no mês: tudo vira extra; item que não vem este mês (periodicidade) também', () => {
@@ -214,11 +217,19 @@ describe('validarEnvioPedido', () => {
     expect(comLimpeza.produtos.map((p) => p.item_id)).toEqual(['cloro', 'livro', null])
   })
 
-  it('exige seu nome, a declaração de cada seção usada e pedido não vazio', () => {
+  it('exige seu nome, a declaração de cada seção usada e aceita envio vazio', () => {
     expect(validarEnvioPedido({ termos: termosTodos, produtos: [{ item_id: 'cloro', quantidade: 3 }] }, ctx).erros).toContain(
       'Informe o seu nome.'
     )
-    expect(validarEnvioPedido({ ...base, produtos: [] }, ctx).erros.join(' ')).toMatch(/vazio/)
+    // Envio vazio: o líder pode concluir sem pedir nada (fica registrado como "não precisa de nada").
+    const semNada = validarEnvioPedido({ ...base, produtos: [] }, ctx)
+    expect(semNada.ok).toBe(true)
+    expect(semNada.produtos).toEqual([])
+    expect(semNada.ceu).toEqual([])
+    expect(envioSemPedido(semNada.produtos, semNada.ceu)).toBe(true)
+    expect(envioSemPedido([{ qtd_pedida: 0 }], [])).toBe(true) // kit todo zerado
+    expect(envioSemPedido([{ qtd_pedida: 2 }], [])).toBe(false)
+    expect(envioSemPedido([], [{}])).toBe(false)
     const semTermo = validarEnvioPedido(
       { seu_nome: 'Ana', termos: { materiais: true }, produtos: [{ item_id: 'cloro', quantidade: 3 }], ceu: [{ tipo: 'cracha', cracha_nome: 'Ana S', cracha_motivo: 'Perda' }] },
       ctx
@@ -289,6 +300,9 @@ describe('resumo do mês', () => {
   it('título usa o 1º envio no horário de Brasília', () => {
     // 03/10 02:30 UTC = 02/10 23:30 em Brasília
     expect(tituloResumo(resumo, '2026-10-01')).toBe('Pedido de outubro enviado em 02/10 por Ana')
+    expect(
+      tituloResumo({ envios: [{ tipo_pedido: 'mensal', origem: 'original', seu_nome: 'Ana', enviado_em: '2026-10-02T15:00:00Z' }], produtos: [], contagem: { uniforme_epi: 0, cracha: 0 } }, '2026-10-01')
+    ).toBe('Em 02/10, Ana avisou que o posto não precisa de nada em outubro')
     expect(tituloResumo({ envios: [], produtos: [], contagem: { uniforme_epi: 0, cracha: 0 } }, '2026-10-01')).toBeNull()
   })
 

@@ -506,6 +506,25 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(screen.getByText('Mop Cabeleira Pequena')).toBeInTheDocument()
   })
 
+  it('envio vazio (17/10/2026): mostra a observação amigável, não bloqueia e registra a resposta', async () => {
+    api.carregar.mockResolvedValue(dados({ kit: [] }))
+    api.enviar.mockResolvedValue({ ok: true, vazio: true, protocolo: 'VAZIO123', mesclado_produtos: false, mesclado_ceu: false, virou_extra_produtos: false, virou_extra_ceu: false })
+    renderizar()
+    await screen.findByText('TELEX BAR, TIJ E IPA')
+    irParaEtapa(/Revisar e enviar/)
+    expect(screen.getByText('Você não pediu nada este mês. Pode enviar assim mesmo.')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/Seu nome/), { target: { value: 'Ana Souza' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Enviar pedido/ }))
+    })
+    expect(api.enviar).toHaveBeenCalledTimes(1)
+    const corpo = api.enviar.mock.calls[0][1] as { produtos: unknown[]; ceu: unknown[] }
+    expect(corpo.produtos ?? []).toEqual([])
+    expect(corpo.ceu ?? []).toEqual([])
+    expect(await screen.findByText('Resposta enviada!')).toBeInTheDocument()
+    expect(screen.getByText('Avisamos o escritório que o posto não precisa de nada este mês.')).toBeInTheDocument()
+  })
+
   it('não envia sem seu nome; o aviso some ao digitar', async () => {
     api.carregar.mockResolvedValue(dados())
     renderizar()
