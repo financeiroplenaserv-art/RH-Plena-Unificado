@@ -73,3 +73,21 @@ export function lerQuantidadePorVariacao(valor: string, regras: RegraVariacaoTex
   }
   return { ok: true, partes }
 }
+
+const NUMEROS_EXTENSO: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, treis: 3, tris: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10 }
+
+/**
+ * Quantidade em texto livre ("Três borrifador preto", "Dois pacotes", "Sim 2", "01 Lata 500ml"):
+ * só vale se houver EXATAMENTE UM número (dígitos ou por extenso) no texto — o resto vira
+ * observação. Dois números ("3 gatilhos 3 completos", "Um de cinco litros") ou nenhum
+ * ("Preciso", "Outro") devolvem null. Usada só em perguntas que a gestora já confirmou.
+ */
+export function lerQuantidadeEmTexto(valor: string): { qtd: number; resto: string } | null {
+  const tokens = normalizarTexto(valor).split(' ').filter(Boolean)
+  const numeros = tokens.filter((t) => /^\d{1,3}$/.test(t) || t in NUMEROS_EXTENSO)
+  if (numeros.length !== 1) return null
+  const t = numeros[0]
+  const qtd = /^\d/.test(t) ? Number(t) : NUMEROS_EXTENSO[t]
+  if (!(qtd > 0)) return null
+  return { qtd, resto: tokens.length > 1 ? valor.trim() : '' }
+}

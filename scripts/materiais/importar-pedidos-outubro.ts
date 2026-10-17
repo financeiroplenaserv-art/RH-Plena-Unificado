@@ -44,7 +44,7 @@ import * as XLSXns from '@e965/xlsx'
 import type { DepartamentoFuzzy } from '../../src/lib/departamentos'
 import { normalizarTexto } from '../../src/lib/materiais/normalizar'
 import { buscarItens } from '../../src/lib/materiais/buscaItens'
-import { lerQuantidadeComUnidade, lerQuantidadePorVariacao, type RegraVariacaoTexto } from '../../src/lib/materiais/respostasPlanilha'
+import { lerQuantidadeComUnidade, lerQuantidadeEmTexto, lerQuantidadePorVariacao, type RegraVariacaoTexto } from '../../src/lib/materiais/respostasPlanilha'
 import {
   idsEquipeDoContrato,
   nomesCurtos,
@@ -202,7 +202,7 @@ function formasDoTitulo(titulo: string): string[] {
 
 interface AlvoItem { item: ItemMat; variacao: VariacaoMat | null }
 /** Decisão da gestora para uma PERGUNTA do form (vale para todos os contratos). */
-interface DecisaoColuna { item_id: string; variacao_id?: string | null; variacoes_por_texto?: RegraVariacaoTexto[] }
+interface DecisaoColuna { item_id: string; variacao_id?: string | null; variacoes_por_texto?: RegraVariacaoTexto[]; /** aceita "Três borrifador", "Sim 2" (um único número no texto) */ texto_qtd?: boolean }
 /**
  * Decisão da gestora para UMA resposta (contrato + envio + pergunta).
  * - texto: substitui o texto da resposta (recorte/limpeza feita a partir do texto original);
@@ -219,6 +219,11 @@ interface DecisaoLinha {
   partes?: { item_id: string; variacao_id: string | null; quantidade: number }[]
   /** true = a resposta NÃO entra e não aparece como pendência (ex.: duplicata de outra linha já decidida). */
   ignorar?: boolean
+  /** Crachá: troca o nome digitado (nome_de) pelo nome da pessoa (nome_para). */
+  nome_de?: string
+  nome_para?: string
+  /** Crachá: o crachá repetido da mesma pessoa na mesma resposta é aceito (conta 1) e não vira pendência. */
+  aceitar_repetido?: boolean
   observacao?: string
 }
 
@@ -266,10 +271,10 @@ function main() {
   // Decisões por LINHA (uma resposta de um contrato): texto reescrito/recortado, partes explícitas.
   const decisoesLinhasArq = `${DIR}/decisoes_linhas.json`
   const decisoesLinhas: DecisaoLinha[] = fs.existsSync(decisoesLinhasArq) ? JSON.parse(fs.readFileSync(decisoesLinhasArq, 'utf-8')) : []
-  const casarTitulo = (titulo: string): { alvo: AlvoItem | null; motivo: string; sugestao: string; decidido?: boolean; regras?: RegraVariacaoTexto[] } => {
+  const casarTitulo = (titulo: string): { alvo: AlvoItem | null; motivo: string; sugestao: string; decidido?: boolean; regras?: RegraVariacaoTexto[]; textoQtd?: boolean } => {
     const dec = decisoes[titulo.split('\n')[0].trim()]
     if (dec && itemPorId.get(dec.item_id)) {
-      return { alvo: { item: itemPorId.get(dec.item_id)!, variacao: dec.variacao_id ? variacaoPorId.get(dec.variacao_id) ?? null : null }, motivo: '', sugestao: '', decidido: true, regras: dec.variacoes_por_texto }
+      return { alvo: { item: itemPorId.get(dec.item_id)!, variacao: dec.variacao_id ? variacaoPorId.get(dec.variacao_id) ?? null : null }, motivo: '', sugestao: '', decidido: true, regras: dec.variacoes_por_texto, textoQtd: dec.texto_qtd }
     }
     const achados = new Map<string, AlvoItem>()
     for (const f of formasDoTitulo(titulo)) for (const [k, a] of indice.get(f) ?? []) achados.set(k, a)
@@ -448,6 +453,7 @@ function main() {
         if (qtd == null) {
           const lida = lerQuantidadeComUnidade(vEf, alvoItem.unidade_pedido)
           if (lida) { qtd = lida.qtd; restoTexto = lida.resto }
+          else if (casou.textoQtd && lerQuantidadeEmTexto(vEf)) { const t = lerQuantidadeEmTexto(vEf)!; qtd = t.qtd; restoTexto = t.resto }
           else if (comUnidadeAntigo) {
             if (ACEITAR_QTD_COM_UNIDADE) qtd = Number(comUnidadeAntigo[1])
             else qtdComUnidadeResolvivel++
@@ -476,6 +482,17 @@ function main() {
       for (const c of colunas.filter((x) => x.tipo === 'livre_produto' || x.tipo === 'livre_epi' || x.tipo === 'livre_uniforme' || x.tipo === 'portaria')) {
         const v = valorDe(c)
         if (!v || ehNaoPrecisa(v) || decLinha(c.titulo)?.ignorar) continue
+        const ovP = decLinha(c.titulo)
+        if (ovP?.partes) {
+          for (const p of ovP.partes) {
+            const it = itemPorId.get(p.item_id)
+            produtos.push({ contrato: contrato.nome, aba: nomeAba.trim(), envio: nEnvio, carimbo, coluna: c.titulo, valor: v, item: it?.nome ?? '', variacao: '', qtd: p.quantidade, casamento: it ? 'exato' : 'pendente', obs: 'definido pela gestora para esta resposta (decisoes_linhas.json)' })
+            if (!it) { resumo.prodPend++; continue }
+            resumo.prodAuto++
+            entProd.push({ item_id: it.id, variacao_id: p.variacao_id, quantidade: p.quantidade, parte: noKit(it.id, p.variacao_id) ? 'kit' : 'extra', coluna: c.titulo })
+          }
+          continue
+        }
         const lixo = c.tipo === 'portaria' && /^(nao|sim)\.?$/.test(norm(v))
         if (lixo) continue
         addPend(c.tipo === 'portaria' ? 'Kit portaria (texto livre)' : 'Texto livre (outros)', c.titulo, v, 'texto livre: a gestora decide item e quantidade')
@@ -538,7 +555,8 @@ function main() {
         const fechar = () => {
           if (!atual || !atual.nome) { atual = null; return }
           const a = atual
-          const seg = segmentarPessoas(norm(a.nome ?? ''), equipe, tokensNome)
+          const ovC = decisoesLinhas.find((x) => norm(x.contrato) === norm(contrato.nome) && x.envio === nEnvio && norm(x.coluna) === 'cracha' && x.nome_de && norm(x.nome_de) === norm(a.nome ?? ''))
+          const seg = segmentarPessoas(norm(ovC?.nome_para ?? a.nome ?? ''), equipe, tokensNome)
           const motivoOk = MOTIVOS_CRACHA.find((m) => norm(m) === norm(a.motivo ?? ''))
           const cordao = /^sim/.test(norm(a.cordao ?? '')) ? true : /^nao/.test(norm(a.cordao ?? '')) ? false : null
           const linha: LinhaUnif = { contrato: contrato.nome, aba: nomeAba.trim(), envio: nEnvio, carimbo, tipo: 'cracha', coluna: 'Crachá', valor: `${a.nome} | ${a.motivo ?? ''} | cordão: ${a.cordao ?? ''}`, pessoa: a.nome ?? '', colaborador: '', peca: 'Crachá', tamanho: '', qtd: 1, status: 'pendente', obs: '' }
@@ -550,6 +568,10 @@ function main() {
           if (cordao == null) motivos.push('cordão: resposta não é Sim/Não')
           if (motivos.length) { linha.obs = motivos.join('; '); resumo.crachaPend++; addPend('Crachá', 'Crachá', linha.valor, linha.obs, linha.colaborador); atual = null; return }
           const chaveCracha = `${seg.itens[0].indice}`
+          if (crachasVistos.has(chaveCracha) && decisoesLinhas.some((x) => norm(x.contrato) === norm(contrato.nome) && x.envio === nEnvio && norm(x.coluna) === 'cracha' && x.aceitar_repetido)) {
+            unifs.splice(unifs.indexOf(linha), 1) // decisão da gestora: conta 1 crachá, o repetido some
+            atual = null; return
+          }
           if (crachasVistos.has(chaveCracha)) { linha.obs = 'crachá repetido da mesma pessoa na mesma resposta'; resumo.crachaPend++; addPend('Crachá', 'Crachá', linha.valor, linha.obs, linha.colaborador); atual = null; return }
           crachasVistos.add(chaveCracha)
           linha.status = 'exato'; resumo.crachaAuto++
@@ -588,7 +610,10 @@ function main() {
   }
 
   // ---- o que seria apagado (6 pedidos de teste) ----
-  const apagar = testes
+  // Os pedidos de teste de outubro JÁ FORAM APAGADOS (17/10/2026): este script não apaga mais nada.
+  // Segurança: o --aplicar só roda com o banco SEM pedidos de outubro (senão pode ser pedido real de líder).
+  if (APLICAR && (OFFLINE || testes.length > 0)) throw new Error(OFFLINE ? '--aplicar não pode ser usado com --offline' : `Há ${testes.length} pedido(s) de outubro no banco — PARE e reporte (pode ser pedido real de líder).`)
+  const apagar: typeof testes = []
   const algumAtendido = apagar.some((p) => p.ceu_atendidas > 0)
 
   escreverSaidas({ resumos, produtos, unifs, pends, envios, apagar, algumAtendido, mapaColunas, qtdComUnidadeResolvivel })
@@ -696,11 +721,11 @@ function escreverSaidas(d: {
   // A revisão completa original (onde a gestora marcou as escolhas) NUNCA é sobrescrita.
   const arqRevisao = `${DIR}/revisao.xlsx`
   if (!fs.existsSync(arqRevisao)) fs.writeFileSync(arqRevisao, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
-  escreverRevisao3(d)
+  escreverRevisao4(d)
 
   // prévia do SQL (a ser executado só com --aplicar)
   const sql: string[] = ['-- PRÉVIA gerada pelo dry-run. NÃO foi executada.', `-- Origem das linhas: p_user_agent = '${ORIGEM}'`]
-  sql.push('-- 1) apagar os pedidos de teste de outubro (faça o backup JSON antes — o script --aplicar faz)')
+  sql.push('-- 1) (nada a apagar: os pedidos de teste de outubro já foram removidos; o --aplicar exige o banco sem pedidos de outubro)')
   const ids = d.apagar.map((p) => q(p.id)).join(', ')
   if (ids) {
     sql.push(`delete from public.mat_comentarios where pedido_id in (${ids});`)
@@ -754,9 +779,7 @@ function escreverSaidas(d: {
     'Pendências por tipo:',
     ...[...porCat.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `  ${n}  ${c}`),
     '',
-    `Pedidos de teste de outubro a apagar: ${d.apagar.length} (${d.apagar.map((p) => p.contrato + ' ' + p.tipo).join('; ')})`,
-    `  linhas de produto: ${d.apagar.reduce((s, p) => s + p.linhas, 0)} | linhas CEU: ${d.apagar.reduce((s, p) => s + p.ceu, 0)} | envios: ${d.apagar.reduce((s, p) => s + p.envios, 0)} | comentários: ${d.apagar.reduce((s, p) => s + p.coment, 0)}`,
-    `  linhas CEU já atendidas (virariam entrega): ${d.apagar.reduce((s, p) => s + p.ceu_atendidas, 0)} ${d.algumAtendido ? '— ATENÇÃO: PARAR e reportar' : '(nenhuma — seguro apagar)'}`,
+    'Pedidos de teste de outubro: já apagados em 17/10/2026 — este script não apaga mais nada (--aplicar exige o banco sem pedidos de outubro).',
     '',
     'Comportamento do --aplicar (decisões da gestora, 17/10/2026): materiais entram AGUARDANDO VALIDAÇÃO (kit aprovado',
     'automático pela regra da 135, extras para o inspetor e depois o gestor); uniforme/EPI/crachá entram na fila da Beth.',
@@ -779,7 +802,7 @@ function escreverSaidas(d: {
   }
 }
 
-// ---------- revisão enxuta (revisao3.xlsx) ----------
+// ---------- revisão enxuta (revisao4.xlsx) ----------
 type DadosSaida = Parameters<typeof escreverSaidas>[0]
 
 /** "Nome [itemId / variacaoId] | Outro [itemId]" → sugestões legíveis + ids (ids vão em coluna oculta). */
@@ -794,7 +817,7 @@ function lerSugestoes(sugestao: string): { nome: string; ids: string }[] {
     })
 }
 
-function escreverRevisao3(d: DadosSaida) {
+function escreverRevisao4(d: DadosSaida) {
   const wb2 = XLSX.utils.book_new()
   const folha = (nome: string, cab: string[], linhas: (string | number | null)[][], larguras: number[], ocultas: number[] = []) => {
     const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas])
@@ -847,9 +870,9 @@ function escreverRevisao3(d: DadosSaida) {
     linhasEntra, [30, 10, 10, 12, 10, 12, 80, 80])
   wb2.SheetNames = ['Vai entrar', 'A decidir depois', 'Uniformes para a Beth conferir']
   try {
-    fs.writeFileSync(`${DIR}/revisao3.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
+    fs.writeFileSync(`${DIR}/revisao4.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
   } catch (e) {
-    console.warn(`Aviso: revisao3.xlsx não foi regravada (arquivo aberto?): ${(e as Error).message}`)
+    console.warn(`Aviso: revisao4.xlsx não foi regravada (arquivo aberto?): ${(e as Error).message}`)
   }
 }
 

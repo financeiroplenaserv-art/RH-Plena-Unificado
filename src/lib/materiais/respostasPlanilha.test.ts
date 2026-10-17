@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lerQuantidadeComUnidade, lerQuantidadePorVariacao, unidadeBate, type RegraVariacaoTexto } from './respostasPlanilha'
+import { lerQuantidadeComUnidade, lerQuantidadeEmTexto, lerQuantidadePorVariacao, unidadeBate, type RegraVariacaoTexto } from './respostasPlanilha'
 
 describe('lerQuantidadeComUnidade', () => {
   it('aceita número + unidade que bate com a do item', () => {
@@ -67,5 +67,22 @@ describe('lerQuantidadePorVariacao', () => {
   })
   it('soma a mesma variação repetida', () => {
     expect(lerQuantidadePorVariacao('1 azul 2 azul', FLANELA)).toEqual({ ok: true, partes: [{ variacao_id: 'az', quantidade: 3 }] })
+  })
+})
+
+describe('lerQuantidadeEmTexto', () => {
+  it('lê um único número, em dígitos ou por extenso', () => {
+    expect(lerQuantidadeEmTexto('Três borrifador preto')).toEqual({ qtd: 3, resto: 'Três borrifador preto' })
+    expect(lerQuantidadeEmTexto('Dois pacotes')?.qtd).toBe(2)
+    expect(lerQuantidadeEmTexto('Sim 2')?.qtd).toBe(2)
+    expect(lerQuantidadeEmTexto('01 Lata 500ml')?.qtd).toBe(1)
+    expect(lerQuantidadeEmTexto('2')).toEqual({ qtd: 2, resto: '' })
+  })
+  it('recusa zero número ou mais de um', () => {
+    expect(lerQuantidadeEmTexto('Preciso')).toBeNull()
+    expect(lerQuantidadeEmTexto('Outro')).toBeNull()
+    expect(lerQuantidadeEmTexto('3 gatilhos 3 completos.')).toBeNull()
+    expect(lerQuantidadeEmTexto('Um de cinco litros')).toBeNull()
+    expect(lerQuantidadeEmTexto('0')).toBeNull()
   })
 })
