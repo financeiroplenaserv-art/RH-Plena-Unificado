@@ -30,6 +30,7 @@ import {
   type SecaoProduto,
 } from '@/components/materiais/pedido/formPedido'
 import {
+  agruparDeclaracoes,
   secoesUsadas,
   textoDestino,
   tituloResumo,
@@ -86,6 +87,39 @@ const TERMOS_DA_ETAPA: Record<Etapa, SecaoPedido[]> = {
   pecas: ['uniforme', 'epi'],
   cracha: ['cracha'],
   revisar: [],
+}
+
+/**
+ * Declarações da etapa. Uniforme e EPI aparecem como UMA caixa só (marcar
+ * vale para as duas); os demais seguem um a um.
+ */
+function Declaracoes({
+  secoes,
+  termos,
+  setTermos,
+  erro,
+}: {
+  secoes: SecaoPedido[]
+  termos: Record<string, boolean>
+  setTermos: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  erro: boolean
+}) {
+  return (
+    <>
+      {agruparDeclaracoes(secoes).map((s) => {
+        const ids: SecaoPedido[] = s === 'uniforme_epi' ? ['uniforme', 'epi'] : [s]
+        return (
+          <Declaracao
+            key={s}
+            secao={s}
+            marcado={ids.every((i) => !!termos[i])}
+            erro={erro}
+            onChange={(v) => setTermos((t) => ({ ...t, ...Object.fromEntries(ids.map((i) => [i, v])) }))}
+          />
+        )
+      })}
+    </>
+  )
 }
 
 function useMetaPrivada() {
@@ -642,11 +676,12 @@ export function PedidoLiderPage() {
         )}
 
         {atual !== 'revisar' &&
-          TERMOS_DA_ETAPA[atual]
-            .filter((s) => usadas.includes(s))
-            .map((s) => (
-              <Declaracao key={s} secao={s} marcado={!!termos[s]} erro={mostrarTermoErro} onChange={(v) => setTermos((t) => ({ ...t, [s]: v }))} />
-            ))}
+          <Declaracoes
+            secoes={TERMOS_DA_ETAPA[atual].filter((s) => usadas.includes(s))}
+            termos={termos}
+            setTermos={setTermos}
+            erro={mostrarTermoErro}
+          />}
         {atual !== 'revisar' && mostrarTermoErro && termosFaltando(atual).length > 0 && (
           <MensagemErro mensagens={['Marque a declaração para continuar.']} />
         )}
@@ -725,11 +760,12 @@ export function PedidoLiderPage() {
             {tentou.has('revisar') && pendentes.length > 0 && (
               <MensagemErro mensagens={[`Falta corrigir: ${pendentes.map((e) => TITULOS[e]).join(', ')}. Toque na etapa para ver.`]} />
             )}
-            {usadas
-              .filter((s) => !termos[s])
-              .map((s) => (
-                <Declaracao key={s} secao={s} marcado={false} erro={tentou.has('revisar')} onChange={(v) => setTermos((t) => ({ ...t, [s]: v }))} />
-              ))}
+            <Declaracoes
+              secoes={usadas.filter((s) => !termos[s])}
+              termos={termos}
+              setTermos={setTermos}
+              erro={tentou.has('revisar')}
+            />
             <div className="space-y-1.5" data-erro={tentou.has('revisar') && errosDe(erros, null, 'seu_nome').length > 0 ? 'true' : undefined}>
               <label htmlFor="seu-nome" className="text-base font-medium">
                 Seu nome *

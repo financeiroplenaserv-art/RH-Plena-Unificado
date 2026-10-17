@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { tamanhoDoNomeItem } from '@/lib/ceu/tamanhosPuro'
 import {
   agruparItensEmPecas,
+  equipeDoGrupo,
+  equipeTemDoisGrupos,
+  grupoDaFuncao,
+  type FuncaoPeca,
   chavePeca,
   funcaoDoCargo,
   idsEquipeDoContrato,
@@ -316,5 +320,26 @@ describe('itens ocultos do link do líder (camisa 331, 15/10/2026)', () => {
     const { pecas, semKitUniforme } = pecasDoContrato([{ item_id: ID_331, rotulo: null, funcoes: [], ordem: 1, ativo: true }], itens)
     expect(semKitUniforme).toBe(false)
     expect(pecas).toHaveLength(0)
+  })
+})
+
+describe('grupos da equipe no link (uniforme/EPI)', () => {
+  const m = (funcao: FuncaoPeca | null) => ({ funcao })
+  it('grupoDaFuncao: portaria/recepção/monitoramento = portaria; o resto = limpeza e encarregado', () => {
+    expect(grupoDaFuncao('portaria')).toBe('portaria')
+    expect(grupoDaFuncao('recepcao')).toBe('portaria')
+    expect(grupoDaFuncao('monitoramento')).toBe('portaria')
+    for (const f of ['asg', 'encarregado', 'manutencao', 'jardinagem', 'administrativo'] as const) expect(grupoDaFuncao(f)).toBe('limpeza')
+    expect(grupoDaFuncao(null)).toBeNull()
+  })
+  it('seletor só com gente dos dois grupos; função desconhecida não conta', () => {
+    expect(equipeTemDoisGrupos([m('asg'), m('encarregado'), m(null)])).toBe(false)
+    expect(equipeTemDoisGrupos([m('asg'), m('portaria')])).toBe(true)
+  })
+  it('equipeDoGrupo filtra e mantém quem tem função desconhecida nos dois', () => {
+    const eq = [m('asg'), m('portaria'), m(null)]
+    expect(equipeDoGrupo(eq, 'portaria')).toEqual([m('portaria'), m(null)])
+    expect(equipeDoGrupo(eq, 'limpeza')).toEqual([m('asg'), m(null)])
+    expect(equipeDoGrupo(eq, null)).toEqual(eq)
   })
 })

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  agruparDeclaracoes,
   excecoesLinhaPedido,
   janelaPublica,
   linhaCeuVazia,
@@ -431,5 +432,16 @@ describe('linhas de uniforme/EPI/crachá vazias e equipe', () => {
     const kit = excecoesLinhaPedido(ctx, 'cloro', null, 3, 'kit')
     expect(kit).toMatchObject({ pedeMotivo: false, acimaKit: false, qtdKit: 3 })
     expect(perguntaMotivo(kit, 3)).toBe('')
+  })
+})
+
+describe('declarações agrupadas (uniforme + EPI numa caixa só)', () => {
+  it('junta uniforme e epi quando os dois pedem', () => {
+    expect(agruparDeclaracoes(['uniforme', 'epi'])).toEqual(['uniforme_epi'])
+    expect(agruparDeclaracoes(['materiais', 'uniforme', 'epi', 'cracha'])).toEqual(['materiais', 'uniforme_epi', 'cracha'])
+  })
+  it('só um dos dois fica como está', () => {
+    expect(agruparDeclaracoes(['epi'])).toEqual(['epi'])
+    expect(agruparDeclaracoes(['uniforme'])).toEqual(['uniforme'])
   })
 })

@@ -165,3 +165,22 @@ describe('visão do líder — itens exclusivos de contrato (CNOOC)', () => {
     }
   })
 })
+
+describe('visão do líder — item escondido para um contrato (migration 137)', () => {
+  const catalogo: ItemCatalogoServidor[] = [
+    item('dupla', 'Esponja dupla face UN', { contratos_ocultos: [CNOOC] }),
+    item('scotch', 'Esponja Scotch Brite', { contratos_exclusivos: [CNOOC] }),
+  ]
+  it('some para o contrato escondido e segue para os outros', () => {
+    const cnooc = visaoDoLider(catalogo, [], CNOOC)
+    expect(cnooc.catalogo.map((c) => c.id)).toEqual(['scotch'])
+    expect(cnooc.indisponiveis).toEqual(['dupla'])
+    const outro = visaoDoLider(catalogo, [], OUTRO)
+    expect(outro.catalogo.map((c) => c.id)).toEqual(['dupla'])
+  })
+  it('exceção: item no kit do contrato continua visível', () => {
+    const v = visaoDoLider(catalogo, [kitLinha('dupla', null)], CNOOC)
+    expect(v.catalogo.map((c) => c.id)).toContain('dupla')
+    expect(v.indisponiveis).toEqual([])
+  })
+})

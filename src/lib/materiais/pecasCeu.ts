@@ -410,6 +410,43 @@ export interface MembroEquipePublico {
   funcao: FuncaoPeca | null
 }
 
+// ---------- Grupos da equipe no link (17/10/2026) ----------
+
+export type GrupoEquipe = 'limpeza' | 'portaria'
+
+export const GRUPOS_EQUIPE: { id: GrupoEquipe; rotulo: string }[] = [
+  { id: 'limpeza', rotulo: 'Limpeza e encarregado' },
+  { id: 'portaria', rotulo: 'Portaria' },
+]
+
+/**
+ * Grupo de uma função, para dividir a lista da equipe em contratos grandes.
+ * Portaria = portaria, recepção e monitoramento (ficam no balcão/guarita).
+ * Limpeza e encarregado = ASG, encarregado, manutenção, jardinagem e
+ * administrativo (apoio do posto). Função não reconhecida (null) não decide
+ * grupo: a pessoa aparece nos dois.
+ */
+export function grupoDaFuncao(funcao: FuncaoPeca | null | undefined): GrupoEquipe | null {
+  if (!funcao) return null
+  if (funcao === 'portaria' || funcao === 'recepcao' || funcao === 'monitoramento') return 'portaria'
+  return 'limpeza'
+}
+
+/** O seletor de grupo só faz sentido se a equipe tem gente dos dois grupos. */
+export function equipeTemDoisGrupos(equipe: { funcao: FuncaoPeca | null }[]): boolean {
+  const grupos = new Set(equipe.map((m) => grupoDaFuncao(m.funcao)).filter(Boolean))
+  return grupos.size === 2
+}
+
+/** Equipe do grupo escolhido (função não reconhecida entra nos dois). */
+export function equipeDoGrupo<T extends { funcao: FuncaoPeca | null }>(equipe: T[], grupo: GrupoEquipe | null): T[] {
+  if (!grupo) return equipe
+  return equipe.filter((m) => {
+    const g = grupoDaFuncao(m.funcao)
+    return g === null || g === grupo
+  })
+}
+
 /** Lista da equipe para o link público, ordenada pelo nome exibido. */
 export function montarEquipePublica(membros: { ref: string; nome_completo: string; cargo: string | null }[]): MembroEquipePublico[] {
   const curtos = nomesCurtos(membros.map((m) => m.nome_completo))

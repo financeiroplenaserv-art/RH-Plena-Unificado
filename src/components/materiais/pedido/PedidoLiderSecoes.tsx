@@ -4,6 +4,7 @@ import { TONS, type Tom } from './tons'
 import {
   MOTIVOS_CRACHA,
   TERMOS_PEDIDO,
+  TERMO_UNIFORME_EPI,
   excecoesLinhaPedido,
   linhasIniciaisDoKit,
   qtdKitPublico,
@@ -14,7 +15,16 @@ import {
   type SecaoPedido,
 } from '@/lib/materiais/pedidoLider'
 import { BUSCA_MAX_RESULTADOS, BUSCA_MIN_CARACTERES, buscarItens, normalizarBusca } from '@/lib/materiais/buscaItens'
-import { pecasParaFuncao, type MembroEquipePublico, type PecaPublica } from '@/lib/materiais/pecasCeu'
+import {
+  GRUPOS_EQUIPE,
+  equipeDoGrupo,
+  equipeTemDoisGrupos,
+  grupoDaFuncao,
+  pecasParaFuncao,
+  type GrupoEquipe,
+  type MembroEquipePublico,
+  type PecaPublica,
+} from '@/lib/materiais/pecasCeu'
 import { buscarItemPublico, type ItemBuscaPublico } from '@/services/pedidoMateriaisApi'
 import { cn } from '@/lib/utils'
 import {
@@ -209,12 +219,13 @@ export function Declaracao({
   onChange,
   erro = false,
 }: {
-  secao: SecaoPedido
+  secao: SecaoPedido | 'uniforme_epi'
   marcado: boolean
   onChange: (v: boolean) => void
   erro?: boolean
 }) {
-  const termo = TERMOS_PEDIDO.find((t) => t.id === secao)
+  const termo =
+    secao === 'uniforme_epi' ? { texto: TERMO_UNIFORME_EPI } : TERMOS_PEDIDO.find((t) => t.id === secao)
   if (!termo) return null
   return (
     <label
@@ -845,11 +856,37 @@ export function SecaoUniformes({
   const pecaPorId = new Map(pecas.map((x) => [x.id, x]))
   const funcaoPorRef = new Map(equipe.map((m) => [m.ref, m.funcao]))
   const [todasPara, setTodasPara] = useState<Set<string>>(new Set())
+  const doisGrupos = equipeTemDoisGrupos(equipe)
+  // Quem já está no pedido (rascunho) define o grupo inicial.
+  const [grupo, setGrupo] = useState<GrupoEquipe | null>(() => {
+    const primeira = pessoas.find((p) => p.ref)
+    return primeira ? grupoDaFuncao(equipe.find((m) => m.ref === primeira.ref)?.funcao) : null
+  })
+  const precisaEscolherGrupo = doisGrupos && grupo === null
   const alterar = (chave: string, patch: Partial<LinhaPecaForm>) =>
     setLinhas((ls) => ls.map((l) => (l.chave === chave ? { ...l, ...patch } : l)))
 
   return (
     <div className="space-y-4">
+      {doisGrupos && (
+        <div className="space-y-2">
+          <p className={cn('text-lg font-bold', TONS.epi.texto)}>Qual grupo?</p>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Grupo da equipe">
+            {GRUPOS_EQUIPE.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                role="radio"
+                aria-checked={grupo === g.id}
+                onClick={() => setGrupo(g.id)}
+                className={cn(BOTAO_GRANDE, 'min-h-16 text-lg', grupo === g.id ? TONS.epi.cheio : 'border-input bg-background')}
+              >
+                {g.rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {semKitUniforme && (
         <Ajuda>Este contrato ainda não tem as peças cadastradas: aparecem todas as peças do estoque.</Ajuda>
       )}
@@ -977,8 +1014,8 @@ export function SecaoUniformes({
         )
       })}
 
-      <EscolherPessoa
-        equipe={equipe}
+      {!precisaEscolherGrupo && <EscolherPessoa
+        equipe={equipeDoGrupo(equipe, doisGrupos ? grupo : null)}
         jaEscolhidos={new Set(pessoas.map((p) => p.ref).filter((r): r is string => !!r))}
         titulo={pessoas.length === 0 ? 'Para quem é o pedido?' : 'Mais alguém precisa?'}
         tom="epi"
@@ -986,7 +1023,7 @@ export function SecaoUniformes({
           quadros.recolherValidas()
           setPessoas((ps) => [...ps, { chave: novaChave(), ref: p.ref, nome: p.nome }])
         }}
-      />
+      />}
     </div>
   )
 }

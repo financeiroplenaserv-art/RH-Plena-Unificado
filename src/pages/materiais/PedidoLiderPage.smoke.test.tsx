@@ -209,6 +209,7 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     expect(screen.queryByText('Marque a declaração para continuar.')).not.toBeInTheDocument()
 
     irParaEtapa(/Uniformes e EPIs/)
+    fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
     fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
     fireEvent.click(screen.getByRole('button', { name: /Bota PVC cano curto/ }))
     fireEvent.click(screen.getByRole('button', { name: /Próximo/ }))
@@ -222,7 +223,11 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     renderizar()
     await screen.findByText('Cloro')
     irParaEtapa(/Uniformes e EPIs/)
+    fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
+    expect(screen.queryByRole('button', { name: 'João S.' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Portaria' }))
     expect(screen.getByRole('button', { name: 'João S.' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
     fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
     expect(screen.getByRole('button', { name: /Camisa polo azul clara — ASG/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Camisa social branca/ })).not.toBeInTheDocument()
@@ -237,10 +242,12 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     await screen.findByText('Cloro')
     fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
     irParaEtapa(/Uniformes e EPIs/)
+    fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
     fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
     fireEvent.click(screen.getByRole('button', { name: /Camisa polo azul clara — ASG/ }))
     fireEvent.click(screen.getByRole('radio', { name: 'M' }))
     fireEvent.click(screen.getByRole('checkbox')) // declaração do uniforme
+    fireEvent.click(screen.getByRole('radio', { name: 'Portaria' }))
     fireEvent.click(screen.getByRole('button', { name: 'João S.' })) // 3ª pessoa, sem peça
     fireEvent.click(screen.getByRole('button', { name: /Outra pessoa/ }))
     fireEvent.change(screen.getByLabelText('Nome da outra pessoa'), { target: { value: 'Carla' } })
@@ -309,6 +316,7 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
       renderizar()
       await screen.findByText('Cloro')
       irParaEtapa(/Uniformes e EPIs/)
+      fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
       fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
       fireEvent.click(screen.getByRole('button', { name: /Camisa polo azul clara — ASG/ }))
       fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
@@ -440,6 +448,7 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     await screen.findByText('TELEX BAR, TIJ E IPA')
     fireEvent.click(screen.getByRole('checkbox')) // declaração dos materiais
     irParaEtapa(/Uniformes e EPIs/)
+    fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
     fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
     fireEvent.click(screen.getByRole('button', { name: /Bota PVC cano curto/ }))
     fireEvent.click(screen.getByRole('radio', { name: '40' }))

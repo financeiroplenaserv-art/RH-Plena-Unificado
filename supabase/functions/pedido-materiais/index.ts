@@ -485,6 +485,43 @@ export interface MembroEquipePublico {
   funcao: FuncaoPeca | null
 }
 
+// ---------- Grupos da equipe no link (17/10/2026) ----------
+
+export type GrupoEquipe = 'limpeza' | 'portaria'
+
+export const GRUPOS_EQUIPE: { id: GrupoEquipe; rotulo: string }[] = [
+  { id: 'limpeza', rotulo: 'Limpeza e encarregado' },
+  { id: 'portaria', rotulo: 'Portaria' },
+]
+
+/**
+ * Grupo de uma função, para dividir a lista da equipe em contratos grandes.
+ * Portaria = portaria, recepção e monitoramento (ficam no balcão/guarita).
+ * Limpeza e encarregado = ASG, encarregado, manutenção, jardinagem e
+ * administrativo (apoio do posto). Função não reconhecida (null) não decide
+ * grupo: a pessoa aparece nos dois.
+ */
+export function grupoDaFuncao(funcao: FuncaoPeca | null | undefined): GrupoEquipe | null {
+  if (!funcao) return null
+  if (funcao === 'portaria' || funcao === 'recepcao' || funcao === 'monitoramento') return 'portaria'
+  return 'limpeza'
+}
+
+/** O seletor de grupo só faz sentido se a equipe tem gente dos dois grupos. */
+export function equipeTemDoisGrupos(equipe: { funcao: FuncaoPeca | null }[]): boolean {
+  const grupos = new Set(equipe.map((m) => grupoDaFuncao(m.funcao)).filter(Boolean))
+  return grupos.size === 2
+}
+
+/** Equipe do grupo escolhido (função não reconhecida entra nos dois). */
+export function equipeDoGrupo<T extends { funcao: FuncaoPeca | null }>(equipe: T[], grupo: GrupoEquipe | null): T[] {
+  if (!grupo) return equipe
+  return equipe.filter((m) => {
+    const g = grupoDaFuncao(m.funcao)
+    return g === null || g === grupo
+  })
+}
+
 /** Lista da equipe para o link público, ordenada pelo nome exibido. */
 export function montarEquipePublica(membros: { ref: string; nome_completo: string; cargo: string | null }[]): MembroEquipePublico[] {
   const curtos = nomesCurtos(membros.map((m) => m.nome_completo))
@@ -990,6 +1027,25 @@ export const TERMOS_PEDIDO: { id: SecaoPedido; texto: string }[] = [
   },
 ]
 
+/**
+ * Uniforme e EPI andam juntos na mesma etapa: a tela mostra UMA caixa só
+ * (marcar vale para as duas declarações, que o servidor segue exigindo).
+ */
+export const TERMO_UNIFORME_EPI =
+  "Declaro que as informações acima são verdadeiras e me comprometo a manter e zelar pelo uniforme e a utilizar, manter e conservar os EPI's de acordo com as normas de segurança."
+
+/** Junta uniforme + EPI numa declaração só quando os dois pedem; o resto fica como está. */
+export function agruparDeclaracoes(secoes: SecaoPedido[]): (SecaoPedido | 'uniforme_epi')[] {
+  const junta = secoes.includes('uniforme') && secoes.includes('epi')
+  const saida: (SecaoPedido | 'uniforme_epi')[] = []
+  for (const s of secoes) {
+    if (junta && s === 'uniforme') saida.push('uniforme_epi')
+    else if (junta && s === 'epi') continue
+    else saida.push(s)
+  }
+  return saida
+}
+
 export const MOTIVOS_CRACHA = [
   'Desgaste natural',
   'Quebra no encaixe do prendedor',
@@ -1024,6 +1080,8 @@ export interface ItemPublico {
 export interface ItemCatalogoServidor extends Omit<ItemPublico, 'variacoes'> {
   variacoes: { id: string; rotulo: string; oculta_lider?: boolean }[]
   contratos_exclusivos?: string[] | null
+  /** Contratos para os quais o item fica ESCONDIDO no link (migration 137). */
+  contratos_ocultos?: string[] | null
 }
 
 export interface KitPublico {
@@ -1092,6 +1150,9 @@ export interface ContextoPedido {
  *   este contrato) sai do catálogo e entra em `indisponiveis` — EXCETO se o
  *   gestor o pôs no kit deste contrato (a tela interna avisa sem bloquear; a
  *   escolha do gestor vale).
+ * - Item escondido para este contrato (contratos_ocultos, migration 137: ex.
+ *   "Esponja dupla face" na CNOOC) sai do catálogo igual ao exclusivo de
+ *   outro contrato, com a mesma exceção do kit.
  * - `nome_lider` segue no item (o navegador mostra; a busca agrupa).
  */
 export function visaoDoLider(
@@ -1105,7 +1166,11 @@ export function visaoDoLider(
   const visiveis: ItemPublico[] = []
   for (const item of catalogo) {
     const lista = item.contratos_exclusivos ?? []
-    if (lista.length > 0 && (!contratoId || !lista.includes(contratoId)) && !noKit.has(item.id)) {
+    const escondido = !!contratoId && (item.contratos_ocultos ?? []).includes(contratoId)
+    if (
+      ((lista.length > 0 && (!contratoId || !lista.includes(contratoId))) || escondido) &&
+      !noKit.has(item.id)
+    ) {
       indisponiveis.push(item.id)
       continue
     }
@@ -2440,7 +2505,7 @@ async function catalogoAtivo(sb: SupabaseClient): Promise<ItemCatalogoServidor[]
   const [rItens, rVar] = await Promise.all([
     sb
       .from('mat_itens')
-      .select('id, nome, nome_lider, contratos_exclusivos, categoria, unidade_pedido, validade_meses, ordem')
+      .select('id, nome, nome_lider, contratos_exclusivos, contratos_ocultos, categoria, unidade_pedido, validade_meses, ordem')
       .eq('ativo', true)
       .order('ordem', { nullsFirst: false })
       .order('nome'),
@@ -2459,6 +2524,7 @@ async function catalogoAtivo(sb: SupabaseClient): Promise<ItemCatalogoServidor[]
     nome: i.nome,
     nome_lider: i.nome_lider ?? null,
     contratos_exclusivos: i.contratos_exclusivos ?? null,
+    contratos_ocultos: i.contratos_ocultos ?? null,
     categoria: i.categoria,
     unidade: i.unidade_pedido,
     validade_meses: i.validade_meses,
