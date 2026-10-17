@@ -237,6 +237,9 @@ function main() {
   const variacoes = consultar<VariacaoMat>('variacoes', 'select id, item_id, rotulo, ativo, oculta_lider from public.mat_item_variacoes')
   const aliases = consultar<AliasMat>('aliases', 'select nome_legado, item_id, variacao_id from public.mat_aliases')
   const kits = consultar<KitLinha>('kits', 'select contrato_id, item_id, variacao_id, quantidade, periodicidade_meses from public.mat_kit_itens')
+  // Preços do catálogo: a RPC mat_registrar_envio NÃO precifica, grava o preco_unitario que vem na linha
+  // (no link, a Edge Function carrega mat_precos). Sem isto as linhas importadas ficam sem preço.
+  const precosCat = consultar<{ item_id: string; variacao_id: string | null; preco: number | string; vigente_desde: string }>('precos', 'select item_id, variacao_id, preco, vigente_desde::text vigente_desde from public.mat_precos')
   const itensCeu = consultar<ItemCeu>('itens_ceu', "select id, nome, tipo, situacao, compra_na_loja from public.itens where tipo in ('Uniforme','EPI')")
   const cfgCeu = consultar<ConfigPecaContrato & { contrato_id: string }>('cfg_ceu', 'select contrato_id, item_id, rotulo, funcoes, ordem, ativo from public.mat_contrato_ceu_itens')
   const deps = consultar<DepartamentoFuzzy>('departamentos', 'select id, nome, nome_curto, empresa_id, status from public.departamentos')
@@ -590,7 +593,7 @@ function main() {
       const observacaoFinal = [observacao, ...notasDecisao].filter(Boolean).join(' | ').slice(0, 500) || null
       const ctx: ContextoPedido = {
         hoje: `${aaaa}-${mm}-${dd}`, recebeLimpeza: contrato.recebe_limpeza, catalogo: visao.catalogo, kit: visao.kit, indisponiveis: visao.indisponiveis,
-        itensCeu: itensCeuCtx, pecas: pecasInfo.pecas, equipe: equipePublica, ultimasEntregas: {}, precos: [], kitConfirmado: nEnvio > 1,
+        itensCeu: itensCeuCtx, pecas: pecasInfo.pecas, equipe: equipePublica, ultimasEntregas: {}, precos: precosCat.map((p) => ({ ...p, preco: Number(p.preco) })), kitConfirmado: nEnvio > 1,
       }
       const entrada = {
         seu_nome: respondente || 'Importado da planilha',
