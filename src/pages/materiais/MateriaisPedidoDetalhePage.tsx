@@ -41,6 +41,7 @@ import { rotaEfetiva } from '@/lib/materiais/pedidos'
 import { antesDoPrazo, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
 import { avisosItemParaContrato, inclusaoReabrePedido, podeEditarLinhasDoPedido, validarInclusao } from '@/lib/materiais/inclusaoPedido'
 import { nomesExclusivos } from '@/lib/materiais/cadastro'
+import { quantidadeComUnidade } from '@/lib/materiais/unidades'
 import { UltimaEntregaCelula } from '@/components/materiais/UltimaEntregaCelula'
 import { EscolherItemCatalogo, type ItemEscolhido } from '@/components/materiais/EscolherItemCatalogo'
 import { toast } from 'sonner'
@@ -360,7 +361,7 @@ export function MateriaisPedidoDetalhePage() {
                             return (
                               <UltimaEntregaCelula
                                 data={u?.ult?.data}
-                                detalhe={u?.ult ? `${u.ult.quantidade}${un ? ` ${un}` : ''}` : null}
+                                detalhe={u?.ult ? quantidadeComUnidade(u.ult.quantidade, un) : null}
                                 antesDoPrazo={u?.antes}
                               />
                             )

@@ -27,6 +27,7 @@ import {
 } from '@/lib/materiais/pecasCeu'
 import { buscarItemPublico, type ItemBuscaPublico } from '@/services/pedidoMateriaisApi'
 import { cn } from '@/lib/utils'
+import { unidadeParaQuantidade } from '@/lib/materiais/unidades'
 import {
   CAMPO,
   errosDe,
@@ -208,7 +209,7 @@ export function CampoQuantidade({
       <button type="button" onClick={() => passo(1)} disabled={noMaximo} className={botao} aria-label={`Aumentar ${rotulo}`}>
         <Plus className="size-7" strokeWidth={3} />
       </button>
-      {unidade && <span className="min-w-0 text-base text-muted-foreground">{unidade}</span>}
+      {unidade && <span className="min-w-0 text-base text-muted-foreground">{unidadeParaQuantidade(unidade, atual)}</span>}
     </div>
   )
 }
@@ -433,8 +434,8 @@ export function SecaoProdutos({
                       {tirou
                         ? 'Você avisou que não precisa este mês.'
                         : qtd < maximo
-                          ? `Vai receber ${fmt(qtd)} de ${fmt(maximo)} ${item?.unidade ?? ''}`
-                          : `Vai receber ${fmt(maximo)} ${item?.unidade ?? ''}`}
+                          ? `Vai receber ${fmt(qtd)} de ${fmt(maximo)} ${unidadeParaQuantidade(item?.unidade, maximo)}`
+                          : `Vai receber ${fmt(maximo)} ${unidadeParaQuantidade(item?.unidade, maximo)}`}
                     </p>
                   </div>
                 </div>

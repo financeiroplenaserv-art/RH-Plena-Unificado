@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Link2Off, Loader2 } from 'lucide-react'
 import { Button } from '@/components/corh/Button'
+import { quantidadeComUnidade, unidadeParaQuantidade } from '@/lib/materiais/unidades'
 import {
   Ajuda,
   Declaracao,
@@ -177,7 +178,7 @@ function ResumoDoMes({ resumo, competencia, destino }: { resumo: ResumoMes; comp
               <li key={i} className="flex justify-between gap-3 px-3 py-2">
                 <span>{p.descricao}</span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {p.quantidade} {p.unidade ?? ''}
+                  {quantidadeComUnidade(p.quantidade, p.unidade)}
                 </span>
               </li>
             ))}
@@ -604,9 +605,10 @@ export function PedidoLiderPage() {
       { item_id: p.item_id, variacao_id: p.variacao_id, descricao_livre: p.descricao_livre ?? '' },
       p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id) : null
     )
-  const unidadeProduto = (p: LinhaProdutoRpc) => {
+  const unidadeProduto = (p: LinhaProdutoRpc, qtd: number = p.qtd_pedida) => {
     const u = p.item_id ? ctx.catalogo.find((c) => c.id === p.item_id)?.unidade : null
-    return u ? ` ${u}` : ''
+    const un = unidadeParaQuantidade(u, qtd)
+    return un ? ` ${un}` : ''
   }
 
   return (
@@ -742,7 +744,7 @@ export function PedidoLiderPage() {
                               p.qtd_pedida === 0
                                 ? 'não precisa este mês'
                                 : p.qtd_kit != null && p.qtd_pedida < p.qtd_kit
-                                  ? `${p.qtd_pedida} de ${p.qtd_kit}${unidadeProduto(p)}`
+                                  ? `${p.qtd_pedida} de ${p.qtd_kit}${unidadeProduto(p, p.qtd_kit ?? p.qtd_pedida)}`
                                   : `${p.qtd_pedida}${unidadeProduto(p)}`,
                             destaque: p.qtd_kit != null && p.qtd_pedida < p.qtd_kit,
                           }))}

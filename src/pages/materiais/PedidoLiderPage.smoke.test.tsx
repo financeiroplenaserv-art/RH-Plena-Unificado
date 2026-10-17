@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { DadosPedidoPublico } from '@/services/pedidoMateriaisApi'
@@ -497,7 +497,7 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
     // Produto pelo nome + unidade; peça com tamanho e pessoa.
     expect(screen.getByText('Cloro')).toBeInTheDocument()
     expect(screen.getByText(/Bota PVC cano curto — Tam\. 40 · Michelle A\./)).toBeInTheDocument()
-    expect(screen.getByText(/3 bombona 5L/)).toBeInTheDocument()
+    expect(screen.getByText(/3 bombonas 5L/)).toBeInTheDocument()
   })
 
   it('visão do líder (migration 136): kit com nome do líder e mop sem marca, também na revisão', async () => {
