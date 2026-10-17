@@ -304,15 +304,23 @@ function VisaoLiderSecao({
   const { contratos, carregar, salvarVisaoLider, alternarOcultaLider } = catalogo
   const [nomeLider, setNomeLider] = useState(item.nome_lider ?? '')
   const [exclusivos, setExclusivos] = useState<string[]>(item.contratos_exclusivos ?? [])
+  const [ocultos, setOcultos] = useState<string[]>(item.contratos_ocultos ?? [])
   const [salvando, setSalvando] = useState(false)
   const nomeContrato = new Map(contratos.map((c) => [c.id, c.nome]))
   const opcoes = contratos.filter((c) => c.ativo || exclusivos.includes(c.id))
-  const original = { nome: item.nome_lider ?? '', exclusivos: [...(item.contratos_exclusivos ?? [])].sort().join(',') }
-  const mudou = nomeLider.trim() !== original.nome.trim() || [...exclusivos].sort().join(',') !== original.exclusivos
+  const opcoesOcultos = contratos.filter((c) => c.ativo || ocultos.includes(c.id))
+  const original = {
+    nome: item.nome_lider ?? '',
+    exclusivos: [...(item.contratos_exclusivos ?? [])].sort().join(','),
+    ocultos: [...(item.contratos_ocultos ?? [])].sort().join(','),
+  }
+  const mudou = nomeLider.trim() !== original.nome.trim() ||
+    [...exclusivos].sort().join(',') !== original.exclusivos ||
+    [...ocultos].sort().join(',') !== original.ocultos
 
   const salvar = async () => {
     setSalvando(true)
-    const ok = await salvarVisaoLider(item.id, { nome_lider: nomeLider, contratos_exclusivos: exclusivos })
+    const ok = await salvarVisaoLider(item.id, { nome_lider: nomeLider, contratos_exclusivos: exclusivos, contratos_ocultos: ocultos })
     setSalvando(false)
     if (ok) carregar()
   }
@@ -345,6 +353,26 @@ function VisaoLiderSecao({
                     checked={exclusivos.includes(c.id)}
                     onChange={(e) =>
                       setExclusivos((xs) => (e.target.checked ? [...xs, c.id] : xs.filter((x) => x !== c.id)))
+                    }
+                  />
+                  {c.nome}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium">Escondido destes contratos</legend>
+            <p className="text-xs text-muted-foreground">
+              O item some do link do líder nos contratos marcados. Se o item estiver no Kit Mensal do contrato, continua aparecendo.
+            </p>
+            <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-border p-2 sm:grid-cols-2">
+              {opcoesOcultos.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={ocultos.includes(c.id)}
+                    onChange={(e) =>
+                      setOcultos((xs) => (e.target.checked ? [...xs, c.id] : xs.filter((x) => x !== c.id)))
                     }
                   />
                   {c.nome}

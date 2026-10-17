@@ -128,13 +128,17 @@ export function avisoItemExclusivo(
 
 /** Selos da lista do catálogo: "Exclusivo: CNOOC" e "Marca oculta para o líder". */
 export function selosVisaoLider(
-  item: Pick<MatItem, 'id' | 'contratos_exclusivos'>,
+  item: Pick<MatItem, 'id' | 'contratos_exclusivos'> & Partial<Pick<MatItem, 'contratos_ocultos'>>,
   variacoes: Pick<MatItemVariacao, 'item_id' | 'oculta_lider'>[],
   contratos: { id: string; nome: string }[]
 ): string[] {
   const selos: string[] = []
   const nomes = nomesExclusivos(item, contratos)
   if (nomes.length > 0) selos.push(`Exclusivo: ${nomes.join(', ')}`)
+  const ocultos = (item.contratos_ocultos ?? []).map(
+    (id) => (contratos ?? []).find((c) => c.id === id)?.nome ?? 'contrato removido'
+  )
+  if (ocultos.length > 0) selos.push(`Escondido de: ${ocultos.join(', ')}`)
   if (variacoes.some((v) => v.item_id === item.id && v.oculta_lider)) selos.push('Marca oculta para o líder')
   return selos
 }

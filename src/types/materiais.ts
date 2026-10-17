@@ -22,6 +22,8 @@ export interface MatItem {
   nome_lider?: string | null
   /** Migration 136: contratos de pedido (mat_contratos) que podem pedir pelo link. NULL/vazio = todos. */
   contratos_exclusivos?: string[] | null
+  /** Migration 137: contratos para os quais o item fica ESCONDIDO no link (ex.: esponja dupla face na CNOOC). */
+  contratos_ocultos?: string[] | null
 }
 
 export interface MatItemVariacao {

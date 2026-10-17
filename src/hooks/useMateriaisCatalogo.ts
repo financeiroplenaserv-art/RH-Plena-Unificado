@@ -9,7 +9,7 @@ import type { MatItem, MatItemVariacao, MatPreco } from '@/types/materiais'
 // preços. Preço nunca é alterado — cada mudança é uma linha nova.
 
 const COLUNAS_ITEM =
-  'id, nome, categoria, unidade_pedido, fornecedor_id, validade_meses, tem_variacao, ativo, ordem, created_at, nome_lider, contratos_exclusivos'
+  'id, nome, categoria, unidade_pedido, fornecedor_id, validade_meses, tem_variacao, ativo, ordem, created_at, nome_lider, contratos_exclusivos, contratos_ocultos'
 const COLUNAS_VARIACAO = 'id, item_id, rotulo, ativo, ordem, created_at, oculta_lider'
 const COLUNAS_PRECO = 'id, item_id, variacao_id, fornecedor_id, preco, vigente_desde, criado_por, created_at'
 
@@ -22,6 +22,7 @@ export type ItemMaterialInput = Pick<
 export interface VisaoLiderInput {
   nome_lider: string | null
   contratos_exclusivos: string[] | null
+  contratos_ocultos: string[] | null
 }
 
 /** Contrato de pedido (só o necessário para o seletor "Exclusivo dos contratos"). */
@@ -110,9 +111,10 @@ export function useMateriaisCatalogo() {
   const salvarVisaoLider = useCallback(async (id: string, dados: VisaoLiderInput) => {
     const nome = dados.nome_lider?.trim() || null
     const lista = dados.contratos_exclusivos?.length ? dados.contratos_exclusivos : null
+    const ocultos = dados.contratos_ocultos?.length ? dados.contratos_ocultos : null
     const resultado = await supabase
       .from('mat_itens')
-      .update({ nome_lider: nome, contratos_exclusivos: lista })
+      .update({ nome_lider: nome, contratos_exclusivos: lista, contratos_ocultos: ocultos })
       .eq('id', id)
       .select('id')
     if (!escritaOk(resultado, 'salvar o que o líder vê')) return false
