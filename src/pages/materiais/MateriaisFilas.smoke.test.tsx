@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Perfil } from '@/types/database'
 
@@ -90,7 +90,7 @@ vi.mock('@/hooks/useMateriaisPedidos', () => estabilizar({
   useMateriaisPedidos: () => ({ pedidos: [pedido], itens, ceuItens: [], loading: false, estruturaPendente: false, carregar: vi.fn() }),
   usePedidoMaterial: () => ({
     pedido, envios, itens, ceuItens: [], comentarios: [], kit: [], entregasAnteriores: [], vinculos: [], loading: false, estruturaPendente: false,
-    carregar: vi.fn(), validar: vi.fn(), aprovar: vi.fn(), comentar: vi.fn(), ajustarKit: vi.fn(),
+    carregar: vi.fn(), validar: vi.fn(), aprovar: vi.fn(), comentar: vi.fn(), ajustarKit: vi.fn(), incluirLinha: vi.fn(), ligarLinha: vi.fn(),
   }),
   lerMateriaisConfig: () => Promise.resolve({ dia_limite: 15, dia_aviso: 10, aviso_recibo: '', kit_aprovacao_automatica: true }),
   salvarMateriaisConfig: vi.fn(),
@@ -208,6 +208,19 @@ describe('Filas de Materiais — smoke test', () => {
     expect(screen.getByText('Validar')).toBeTruthy()
     expect(screen.getByText('Devolver ao líder')).toBeTruthy()
     expect(screen.getByLabelText(/Repetição de Detergente/)).toBeTruthy()
+  })
+
+  it('Detalhe: "Adicionar item" abre o diálogo com o motivo obrigatório ("Qual o motivo?")', () => {
+    render(
+      <MemoryRouter initialEntries={['/materiais/pedidos/p1']}>
+        <Routes>
+          <Route path="/materiais/pedidos/:id" element={<MateriaisPedidoDetalhePage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/ }))
+    expect(screen.getByPlaceholderText('Qual o motivo?')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Incluir item' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('Validação: lista o pedido com exceção', () => {

@@ -84,6 +84,8 @@ export interface MatContrato {
   observacao: string | null
   /** Departamentos cuja equipe também entra no link do líder (migration 129; caso Telex × DuoConnect). */
   departamentos_equipe_extra?: string[]
+  /** Migration 138: limite mensal em R$ definido pelo gestor. NULL = calculado pelo kit. */
+  limite_mensal?: number | null
   created_at?: string
 }
 
@@ -265,6 +267,12 @@ export interface MatPedidoItem {
   /** Item pedido originalmente, quando o inspetor/gestor trocou o item da linha do kit. */
   item_original_id?: string | null
   variacao_original_id?: string | null
+  /** Migration 139: linha incluída pelo escritório no pedido do líder (quem/quando). */
+  incluido_por?: string | null
+  incluido_em?: string | null
+  /** Migration 139: texto livre ligado ao catálogo (descricao_livre guarda o texto original). */
+  ligado_por?: string | null
+  ligado_em?: string | null
 }
 
 export type TipoLinhaCeuPedido = 'uniforme' | 'epi' | 'cracha'

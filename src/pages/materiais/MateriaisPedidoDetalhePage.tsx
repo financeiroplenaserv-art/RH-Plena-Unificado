@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Check, CornerUpLeft, MessageSquare, PackageSearch, SlidersHorizontal } from 'lucide-react'
+import { Check, CornerUpLeft, Link2, MessageSquare, PackageSearch, Plus, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
 import { EmptyState } from '@/components/corh/EmptyState'
@@ -39,6 +39,9 @@ import {
 } from '@/lib/materiais/filas'
 import { rotaEfetiva } from '@/lib/materiais/pedidos'
 import { antesDoPrazo, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
+import { avisosItemParaContrato, inclusaoReabrePedido, podeEditarLinhasDoPedido, validarInclusao } from '@/lib/materiais/inclusaoPedido'
+import { nomesExclusivos } from '@/lib/materiais/cadastro'
+import { EscolherItemCatalogo, type ItemEscolhido } from '@/components/materiais/EscolherItemCatalogo'
 import { toast } from 'sonner'
 import type { MatComentario, MatPedidoItem } from '@/types/materiais'
 
@@ -73,6 +76,9 @@ export function MateriaisPedidoDetalhePage() {
   const [confirmar, setConfirmar] = useState<'validar' | 'aprovar_tudo' | 'aprovar_ajustes' | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [ajuste, setAjuste] = useState<{ linha: MatPedidoItem; edicao: EdicaoKit } | null>(null)
+  // "Adicionar item" e "Ligar ao catálogo" (migration 139)
+  const [inclusao, setInclusao] = useState<{ item: ItemEscolhido | null; qtd: string; motivo: string } | null>(null)
+  const [ligacao, setLigacao] = useState<{ linha: MatPedidoItem; item: ItemEscolhido | null; motivo: string } | null>(null)
 
   const { carregar } = det
   const { carregar: carregarCatalogo } = catalogo
@@ -128,6 +134,16 @@ export function MateriaisPedidoDetalhePage() {
     return { ult, antes: antesDoPrazo(ult.data, nomeItem.get(l.item_id)?.validade_meses, hoje) }
   }
 
+  const podeEditarLinhas =
+    !!p &&
+    !!nivel &&
+    podeEditarLinhasDoPedido(p.status_produtos, podeValidarMateriais(nivel) || podeAprovarMateriais(nivel), podeAprovarMateriais(nivel))
+  const itensDoKit = useMemo(() => new Set(det.kit.map((k) => k.item_id)), [det.kit])
+  const avisoEscolha = (e: ItemEscolhido | null) => {
+    const it = e ? nomeItem.get(e.itemId) : null
+    return avisosItemParaContrato(it, p?.contrato_id, it ? nomesExclusivos(it, catalogo.contratos ?? []) : [])
+  }
+
   const descrever = (l: MatPedidoItem) => {
     if (!l.item_id) return l.descricao_livre ?? 'Outro material'
     const it = nomeItem.get(l.item_id)
@@ -176,6 +192,42 @@ export function MateriaisPedidoDetalhePage() {
     setEnviando(false)
     if (ok) {
       setAjuste(null)
+      recarregar()
+    }
+  }
+
+  const salvarInclusao = async () => {
+    if (!p || !inclusao) return
+    const qtd = inclusao.qtd.trim() ? Number(inclusao.qtd.replace(',', '.')) : null
+    const erro = validarInclusao({ itemId: inclusao.item?.itemId ?? null, quantidade: qtd, motivo: inclusao.motivo })
+    if (erro || !inclusao.item || qtd == null) return toast.error(erro ?? 'Confira os dados')
+    setEnviando(true)
+    const ok = await det.incluirLinha({
+      pedidoId: p.id,
+      itemId: inclusao.item.itemId,
+      variacaoId: inclusao.item.variacaoId,
+      qtd,
+      motivo: inclusao.motivo.trim(),
+    })
+    setEnviando(false)
+    if (ok) {
+      setInclusao(null)
+      recarregar()
+    }
+  }
+
+  const salvarLigacao = async () => {
+    if (!ligacao?.item) return toast.error('Escolha o item do catálogo.')
+    setEnviando(true)
+    const ok = await det.ligarLinha({
+      linhaId: ligacao.linha.id,
+      itemId: ligacao.item.itemId,
+      variacaoId: ligacao.item.variacaoId,
+      motivo: ligacao.motivo.trim() || null,
+    })
+    setEnviando(false)
+    if (ok) {
+      setLigacao(null)
       recarregar()
     }
   }
@@ -248,10 +300,25 @@ export function MateriaisPedidoDetalhePage() {
                               </Selo>
                             ))}
                             {l.possivel_repeticao && <Selo tom="vermelho" title="Mesmo item já pedido em outro envio deste pedido">possível repetição</Selo>}
+                            {l.incluido_em && <Selo tom="azul" title="Linha incluída pelo escritório, não pelo líder">incluído pelo escritório</Selo>}
+                            {!l.item_id && <Selo tom="vermelho" title="Texto livre do líder, sem item do catálogo">fora do catálogo</Selo>}
+                            {l.ligado_em && <Selo tom="cinza">ligado ao catálogo</Selo>}
                             {l.decisao_repeticao && <Selo tom="cinza">{l.decisao_repeticao === 'somar' ? 'somado' : 'descartado'}</Selo>}
                           </div>
                           {original && <p className="mt-1 text-xs text-muted-foreground">Trocado de: {original}</p>}
-                          {l.justificativa && <p className="mt-1 text-xs">Motivo do líder: “{l.justificativa}”</p>}
+                          {l.ligado_em && l.descricao_livre && (
+                            <p className="mt-1 text-xs text-muted-foreground">O líder escreveu: “{l.descricao_livre}”</p>
+                          )}
+                          {l.justificativa && (
+                            <p className="mt-1 text-xs">
+                              {l.incluido_em ? 'Motivo da inclusão' : 'Motivo do líder'}: “{l.justificativa}”
+                            </p>
+                          )}
+                          {!l.item_id && podeEditarLinhas && (
+                            <Button variant="outline" size="sm" className="mt-1" onClick={() => setLigacao({ linha: l, item: null, motivo: '' })}>
+                              <Link2 className="size-4" /> Ligar ao catálogo
+                            </Button>
+                          )}
                           {!ehKit && !l.justificativa && (l.excecao_acima_kit || l.excecao_fora_kit) && (
                             <p className="mt-1 text-xs text-muted-foreground">O líder não contou o motivo.</p>
                           )}
@@ -278,7 +345,12 @@ export function MateriaisPedidoDetalhePage() {
                           ))}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {origem ? (
+                          {l.incluido_em ? (
+                            <>
+                              <p>Incluído pelo escritório</p>
+                              <p className="tabular-nums text-muted-foreground">{formatarDataHora(l.incluido_em)}</p>
+                            </>
+                          ) : origem ? (
                             <>
                               <p>{origem.origem === 'original' ? 'Original' : 'Complemento'}</p>
                               <p className="tabular-nums text-muted-foreground">{formatarDataHora(origem.enviadoEm)}</p>
@@ -457,6 +529,13 @@ export function MateriaisPedidoDetalhePage() {
             {tabelaLinhas(itensKit, true)}
           </DataTable>
         )}
+        {podeEditarLinhas && (
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setInclusao({ item: null, qtd: '1', motivo: '' })}>
+              <Plus className="size-4" /> Adicionar item
+            </Button>
+          </div>
+        )}
         <DataTable title={itensKit.length > 0 ? 'Pedido extra' : 'Produtos'} count={itensExtra.length} minWidth={980}>
           {itensExtra.length === 0 ? (
             <EmptyState
@@ -634,6 +713,97 @@ export function MateriaisPedidoDetalhePage() {
                 maxLength={500}
                 value={ajuste.edicao.motivo}
                 onChange={(e) => setAjuste((a) => (a ? { ...a, edicao: { ...a.edicao, motivo: e.target.value } } : a))}
+              />
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!inclusao}
+        onOpenChange={(a) => !a && setInclusao(null)}
+        icon={<Plus className="size-6 text-primary" />}
+        iconClassName="bg-sky-50"
+        title="Adicionar item ao pedido"
+        description={
+          p && inclusaoReabrePedido(p.status_produtos)
+            ? 'Este pedido já está aprovado. Ao incluir, ele volta para o gestor aprovar o novo item (o que já foi aprovado continua aprovado).'
+            : 'O item entra como pedido extra, marcado como incluído pelo escritório, e segue o fluxo normal de aprovação.'
+        }
+        confirmLabel={enviando ? 'Incluindo…' : 'Incluir item'}
+        confirmDisabled={enviando || !inclusao?.item || !inclusao.qtd.trim() || !inclusao.motivo.trim()}
+        onConfirm={salvarInclusao}
+      >
+        {inclusao && (
+          <div className="space-y-3">
+            <EscolherItemCatalogo
+              idBusca="incl-busca"
+              itens={catalogo.itens}
+              variacoes={catalogo.variacoes}
+              kitItemIds={itensDoKit}
+              escolhido={inclusao.item}
+              onEscolher={(e) => setInclusao((i) => (i ? { ...i, item: e } : i))}
+              aviso={avisoEscolha(inclusao.item)}
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="incl-qtd">Quantidade</Label>
+              <Input
+                id="incl-qtd"
+                inputMode="decimal"
+                className="tabular-nums"
+                value={inclusao.qtd}
+                onChange={(e) => setInclusao((i) => (i ? { ...i, qtd: e.target.value } : i))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="incl-motivo">Qual o motivo?</Label>
+              <Textarea
+                id="incl-motivo"
+                rows={2}
+                maxLength={500}
+                placeholder="Qual o motivo?"
+                value={inclusao.motivo}
+                onChange={(e) => setInclusao((i) => (i ? { ...i, motivo: e.target.value } : i))}
+              />
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!ligacao}
+        onOpenChange={(a) => !a && setLigacao(null)}
+        icon={<Link2 className="size-6 text-primary" />}
+        iconClassName="bg-sky-50"
+        title="Ligar ao catálogo"
+        description={
+          ligacao
+            ? `O líder escreveu “${ligacao.linha.descricao_livre}”. Escolha o item certo do catálogo. O texto original fica guardado e o preço vigente passa a valer.`
+            : ''
+        }
+        confirmLabel={enviando ? 'Salvando…' : 'Ligar'}
+        confirmDisabled={enviando || !ligacao?.item}
+        onConfirm={salvarLigacao}
+      >
+        {ligacao && (
+          <div className="space-y-3">
+            <EscolherItemCatalogo
+              idBusca="lig-busca"
+              itens={catalogo.itens}
+              variacoes={catalogo.variacoes}
+              kitItemIds={itensDoKit}
+              escolhido={ligacao.item}
+              onEscolher={(e) => setLigacao((l) => (l ? { ...l, item: e } : l))}
+              aviso={avisoEscolha(ligacao.item)}
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="lig-motivo">Observação (opcional)</Label>
+              <Textarea
+                id="lig-motivo"
+                rows={2}
+                maxLength={500}
+                value={ligacao.motivo}
+                onChange={(e) => setLigacao((l) => (l ? { ...l, motivo: e.target.value } : l))}
               />
             </div>
           </div>

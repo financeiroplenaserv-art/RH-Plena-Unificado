@@ -964,6 +964,15 @@ export type Database = {
         Args: { p_linha: string; p_qtd: number; p_motivo: string; p_item?: string | null; p_variacao?: string | null }
         Returns: void
       }
+      // Migration 139: incluir item no pedido e ligar texto livre ao catálogo
+      incluir_linha_pedido_materiais: {
+        Args: { p_pedido: string; p_item: string; p_variacao: string | null; p_qtd: number; p_motivo: string }
+        Returns: string
+      }
+      ligar_linha_catalogo_materiais: {
+        Args: { p_linha: string; p_item: string; p_variacao: string | null; p_motivo?: string | null }
+        Returns: void
+      }
       mat_salvar_config: { Args: { p_config: Record<string, unknown> }; Returns: Record<string, unknown> }
       mat_kit_aprovacao_automatica: { Args: Record<string, never>; Returns: boolean }
       mat_contratos_sem_pedido: {

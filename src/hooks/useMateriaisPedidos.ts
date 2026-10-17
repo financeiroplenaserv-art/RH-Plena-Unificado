@@ -32,7 +32,7 @@ import type {
 export const COLUNAS_PEDIDO =
   'id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, rota_override, rota_override_motivo, rota_override_por, responsavel_nome, observacao, termos_aceitos, status_produtos, status_ceu, enviado_em, reaberto_por, reaberto_em, criado_por, created_at'
 export const COLUNAS_ITEM_PEDIDO =
-  'id, pedido_id, envio_id, possivel_repeticao, repete_linha_id, decisao_repeticao, item_id, variacao_id, descricao_livre, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada, qtd_entregue, preco_unitario, justificativa, excecao_acima_kit, excecao_validade, excecao_fora_kit, ultima_entrega_em, motivo_ajuste, ajustado_por, ajustado_em, created_at, parte, aprovado_automatico, item_original_id, variacao_original_id'
+  'id, pedido_id, envio_id, possivel_repeticao, repete_linha_id, decisao_repeticao, item_id, variacao_id, descricao_livre, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada, qtd_entregue, preco_unitario, justificativa, excecao_acima_kit, excecao_validade, excecao_fora_kit, ultima_entrega_em, motivo_ajuste, ajustado_por, ajustado_em, created_at, parte, aprovado_automatico, item_original_id, variacao_original_id, incluido_por, incluido_em, ligado_por, ligado_em'
 /** Sem qtd_atendida/motivo_atendimento (migration 124) — funciona antes e depois dela. */
 export const COLUNAS_CEU_PEDIDO =
   'id, pedido_id, envio_id, possivel_repeticao, nome_digitado, colaborador_id, identificado_por, identificado_em, fora_da_equipe, tipo, item_id, tamanho, tamanho_cadastro, qtd_pedida, qtd_conferida, alerta_tamanho, ultima_entrega_em, cracha_nome, cracha_motivo, cracha_cordao, status, conferido_por, conferido_em, atendido_por, atendido_em, motivo_ajuste, created_at'
@@ -320,7 +320,40 @@ export function usePedidoMaterial() {
     []
   )
 
-  return { pedido, envios, itens, ceuItens, comentarios, kit, entregasAnteriores, vinculos, loading, estruturaPendente, carregar, validar, aprovar, comentar, ajustarKit }
+  /** "Adicionar item" (migration 139): motivo obrigatório; o banco reconfere perfil e status. */
+  const incluirLinha = useCallback(
+    async (dados: { pedidoId: string; itemId: string; variacaoId: string | null; qtd: number; motivo: string }) => {
+      const { error } = await supabase.rpc('incluir_linha_pedido_materiais', {
+        p_pedido: dados.pedidoId,
+        p_item: dados.itemId,
+        p_variacao: dados.variacaoId,
+        p_qtd: dados.qtd,
+        p_motivo: dados.motivo,
+      })
+      if (!rpcOk(error, 'incluir o item')) return false
+      toast.success('Item incluído no pedido')
+      return true
+    },
+    []
+  )
+
+  /** "Ligar ao catálogo" (migration 139): texto livre ganha item/variação; o texto original fica. */
+  const ligarLinha = useCallback(
+    async (dados: { linhaId: string; itemId: string; variacaoId: string | null; motivo: string | null }) => {
+      const { error } = await supabase.rpc('ligar_linha_catalogo_materiais', {
+        p_linha: dados.linhaId,
+        p_item: dados.itemId,
+        p_variacao: dados.variacaoId,
+        p_motivo: dados.motivo,
+      })
+      if (!rpcOk(error, 'ligar a linha ao catálogo')) return false
+      toast.success('Linha ligada ao catálogo')
+      return true
+    },
+    []
+  )
+
+  return { pedido, envios, itens, ceuItens, comentarios, kit, entregasAnteriores, vinculos, loading, estruturaPendente, carregar, validar, aprovar, comentar, ajustarKit, incluirLinha, ligarLinha }
 }
 
 // ------------------------------------------------------------------
@@ -338,7 +371,7 @@ export function useMateriaisPainel() {
     const desde = adicionarMeses(comp, -12)
     const hoje = hojeBrasil()
     const [rc, rp, rk, rpr, rh, ra, vinculos] = await Promise.all([
-      supabase.from('mat_contratos').select('id, nome, ativo').order('nome'),
+      supabase.from('mat_contratos').select('id, nome, ativo, limite_mensal').order('nome'),
       supabase
         .from('mat_pedidos')
         .select('id, contrato_id, tipo, status_produtos, preenchido_pelo_escritorio')
