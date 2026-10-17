@@ -44,6 +44,7 @@ import * as XLSXns from '@e965/xlsx'
 import type { DepartamentoFuzzy } from '../../src/lib/departamentos'
 import { normalizarTexto } from '../../src/lib/materiais/normalizar'
 import { buscarItens } from '../../src/lib/materiais/buscaItens'
+import { lerQuantidadeComUnidade, lerQuantidadePorVariacao, type RegraVariacaoTexto } from '../../src/lib/materiais/respostasPlanilha'
 import {
   idsEquipeDoContrato,
   nomesCurtos,
@@ -200,6 +201,24 @@ function formasDoTitulo(titulo: string): string[] {
 }
 
 interface AlvoItem { item: ItemMat; variacao: VariacaoMat | null }
+/** Decisão da gestora para uma PERGUNTA do form (vale para todos os contratos). */
+interface DecisaoColuna { item_id: string; variacao_id?: string | null; variacoes_por_texto?: RegraVariacaoTexto[] }
+/**
+ * Decisão da gestora para UMA resposta (contrato + envio + pergunta).
+ * - texto: substitui o texto da resposta (recorte/limpeza feita a partir do texto original);
+ * - fora: trecho do texto original que NÃO entra (vira pendência);
+ * - partes: produto explícito (item/variação/quantidade), sem ler o texto;
+ * - observacao: guardada na observação do pedido.
+ */
+interface DecisaoLinha {
+  contrato: string
+  envio: number
+  coluna: string
+  texto?: string
+  fora?: string
+  partes?: { item_id: string; variacao_id: string | null; quantidade: number }[]
+  observacao?: string
+}
 
 // ---------- principal ----------
 function main() {
@@ -241,11 +260,14 @@ function main() {
     guardar(norm(a.nome_legado), { item: it, variacao: a.variacao_id ? variacaoPorId.get(a.variacao_id) ?? null : null })
   }
   const decisoesArq = `${DIR}/decisoes_colunas.json`
-  const decisoes: Record<string, { item_id: string; variacao_id?: string | null }> = fs.existsSync(decisoesArq) ? JSON.parse(fs.readFileSync(decisoesArq, 'utf-8')) : {}
-  const casarTitulo = (titulo: string): { alvo: AlvoItem | null; motivo: string; sugestao: string; decidido?: boolean } => {
+  const decisoes: Record<string, DecisaoColuna> = fs.existsSync(decisoesArq) ? JSON.parse(fs.readFileSync(decisoesArq, 'utf-8')) : {}
+  // Decisões por LINHA (uma resposta de um contrato): texto reescrito/recortado, partes explícitas.
+  const decisoesLinhasArq = `${DIR}/decisoes_linhas.json`
+  const decisoesLinhas: DecisaoLinha[] = fs.existsSync(decisoesLinhasArq) ? JSON.parse(fs.readFileSync(decisoesLinhasArq, 'utf-8')) : []
+  const casarTitulo = (titulo: string): { alvo: AlvoItem | null; motivo: string; sugestao: string; decidido?: boolean; regras?: RegraVariacaoTexto[] } => {
     const dec = decisoes[titulo.split('\n')[0].trim()]
     if (dec && itemPorId.get(dec.item_id)) {
-      return { alvo: { item: itemPorId.get(dec.item_id)!, variacao: dec.variacao_id ? variacaoPorId.get(dec.variacao_id) ?? null : null }, motivo: '', sugestao: '', decidido: true }
+      return { alvo: { item: itemPorId.get(dec.item_id)!, variacao: dec.variacao_id ? variacaoPorId.get(dec.variacao_id) ?? null : null }, motivo: '', sugestao: '', decidido: true, regras: dec.variacoes_por_texto }
     }
     const achados = new Map<string, AlvoItem>()
     for (const f of formasDoTitulo(titulo)) for (const [k, a] of indice.get(f) ?? []) achados.set(k, a)
@@ -348,11 +370,16 @@ function main() {
       const noKit = (itemId: string, varId: string | null) => kitContrato.some((k) => k.item_id === itemId && (k.variacao_id == null || k.variacao_id === varId))
 
       // ---- produtos ----
+      const notasDecisao: string[] = []
+      const decLinha = (coluna: string) => decisoesLinhas.find((d) => norm(d.contrato) === norm(contrato.nome) && d.envio === nEnvio && norm(d.coluna) === norm(coluna))
       for (const c of colunas.filter((x) => x.tipo === 'produto')) {
         const v = valorDe(c)
         if (!v) continue
         const casou = casarTitulo(cab[c.idx])
-        if (ehNaoPrecisa(v)) {
+        const ov = decLinha(c.titulo)
+        // Texto efetivo: a decisão da gestora para esta resposta pode recortar/limpar o texto original.
+        const vEf = ov?.texto ?? v
+        if (ehNaoPrecisa(vEf)) {
           // Item do kit com "Não precisa" = linha zerada (o líder tirou do mês), como no link.
           if (casou.alvo && kitContrato.some((k) => k.item_id === casou.alvo!.item.id)) {
             const alvoV = kitContrato.find((k) => k.item_id === casou.alvo!.item.id)!.variacao_id
@@ -361,35 +388,88 @@ function main() {
           }
           continue
         }
-        let qtd = numeroLimpo(v)
-        const comUnidade = norm(v).match(/^(\d{1,3}) ?(unidades?|unid|un|und|bombonas?|pacotes?|caixas?|litros?|galoes|galao|frascos?|fardos?|rolos?|latas?)$/)
-        if (qtd == null && comUnidade) {
-          if (ACEITAR_QTD_COM_UNIDADE) qtd = Number(comUnidade[1])
-          else qtdComUnidadeResolvivel++
+        const novaLinha = (extra: Partial<LinhaProduto>): LinhaProduto => {
+          const l: LinhaProduto = { contrato: contrato.nome, aba: nomeAba.trim(), envio: nEnvio, carimbo, coluna: c.titulo, valor: v, item: casou.alvo?.item.nome ?? '', variacao: casou.alvo?.variacao?.rotulo ?? '', qtd: null, casamento: 'pendente', obs: '', ...extra }
+          produtos.push(l)
+          return l
         }
-        const linha: LinhaProduto = { contrato: contrato.nome, aba: nomeAba.trim(), envio: nEnvio, carimbo, coluna: c.titulo, valor: v, item: casou.alvo?.item.nome ?? '', variacao: casou.alvo?.variacao?.rotulo ?? '', qtd, casamento: 'pendente', obs: '' }
-        produtos.push(linha)
+        const pendente = (linha: LinhaProduto, categoria: string, motivo: string, sugestao: string) => {
+          linha.obs = motivo; resumo.prodPend++; addPend(categoria, c.titulo, v, motivo, sugestao)
+        }
+        if (ov?.fora) addPend('Produto: trecho deixado de fora', c.titulo, ov.fora, 'a gestora decidiu o resto desta resposta, mas este trecho continua ambíguo', '')
+        if (ov?.observacao) notasDecisao.push(ov.observacao)
+
+        // (a) partes explícitas da gestora para esta resposta
+        if (ov?.partes) {
+          for (const p of ov.partes) {
+            const it = itemPorId.get(p.item_id)
+            if (!it) { pendente(novaLinha({}), 'Produto: decisão da linha', `item ${p.item_id} não existe no catálogo`, ''); continue }
+            const vr = p.variacao_id ? variacaoPorId.get(p.variacao_id) ?? null : null
+            novaLinha({ item: it.nome, variacao: vr?.rotulo ?? '', qtd: p.quantidade, casamento: 'exato', obs: 'definido pela gestora para esta resposta (decisoes_linhas.json)' })
+            resumo.prodAuto++
+            entProd.push({ item_id: it.id, variacao_id: p.variacao_id, quantidade: p.quantidade, parte: noKit(it.id, p.variacao_id) ? 'kit' : 'extra', coluna: c.titulo })
+          }
+          continue
+        }
+
         if (!casou.alvo) {
-          linha.obs = casou.motivo; resumo.prodPend++; addPend('Produto: coluna sem item', c.titulo, v, casou.motivo, casou.sugestao)
+          const linha = novaLinha({})
+          pendente(linha, 'Produto: coluna sem item', casou.motivo, casou.sugestao)
           const m = mapaColunas.get(c.titulo) ?? { n: 0, contratos: new Set<string>(), sugestao: casou.sugestao, motivo: casou.motivo }
           m.n++; m.contratos.add(contrato.nome); mapaColunas.set(c.titulo, m)
           continue
         }
-        if (casou.decidido) linha.obs = 'item definido pela gestora (decisoes_colunas.json)'
+        const alvoItem = casou.alvo.item
+        const ativas = variacoesAtivas(alvoItem.id)
+        const doDecididoObs = casou.decidido ? 'item definido pela gestora (decisoes_colunas.json)' : ''
+
+        // (b) variação lida do texto ("3 vassoura piaçava 3 vassoura noviça", "2 verde 2 azul", "3 350")
+        if (casou.regras?.length && numeroLimpo(vEf) == null) {
+          const lido = lerQuantidadePorVariacao(vEf, casou.regras)
+          if (!lido.ok) {
+            pendente(novaLinha({}), 'Produto: variação no texto', `${(lido as { motivo: string }).motivo} (item ${alvoItem.nome})`, ativas.map((x) => x.rotulo).join(' | '))
+            continue
+          }
+          for (const p of lido.partes) {
+            const vr = variacaoPorId.get(p.variacao_id)
+            novaLinha({ item: alvoItem.nome, variacao: vr?.rotulo ?? '', qtd: p.quantidade, casamento: 'exato', obs: `variação lida do texto da resposta; ${doDecididoObs}` })
+            resumo.prodAuto++
+            entProd.push({ item_id: alvoItem.id, variacao_id: p.variacao_id, quantidade: p.quantidade, parte: noKit(alvoItem.id, p.variacao_id) ? 'kit' : 'extra', coluna: c.titulo })
+          }
+          continue
+        }
+
+        // (c) quantidade: número limpo, ou "número + unidade" que bate com a unidade do item
+        let qtd = numeroLimpo(vEf)
+        let restoTexto = ''
+        const comUnidadeAntigo = norm(vEf).match(/^(\d{1,3}) ?(unidades?|unid|un|und|bombonas?|pacotes?|caixas?|litros?|galoes|galao|frascos?|fardos?|rolos?|latas?)$/)
+        if (qtd == null) {
+          const lida = lerQuantidadeComUnidade(vEf, alvoItem.unidade_pedido)
+          if (lida) { qtd = lida.qtd; restoTexto = lida.resto }
+          else if (comUnidadeAntigo) {
+            if (ACEITAR_QTD_COM_UNIDADE) qtd = Number(comUnidadeAntigo[1])
+            else qtdComUnidadeResolvivel++
+          }
+        }
+        const linha = novaLinha({ qtd })
+        if (doDecididoObs) linha.obs = doDecididoObs
         let variacaoId = casou.alvo.variacao?.id ?? null
-        const ativas = variacoesAtivas(casou.alvo.item.id)
         if (!variacaoId && ativas.length > 0) {
-          const doKit = kitContrato.filter((k) => k.item_id === casou.alvo!.item.id && k.variacao_id)
+          const doKit = kitContrato.filter((k) => k.item_id === alvoItem.id && k.variacao_id)
           const uniao = new Set(doKit.map((k) => k.variacao_id))
+          const visiveis = ativas.filter((x) => !x.oculta_lider)
           if (ativas.length === 1) variacaoId = ativas[0].id
+          else if (visiveis.length === 0) linha.obs = 'todas as variações são marca oculta para o líder — grava no item, sem variação (igual ao link)'
           else if (uniao.size === 1) { variacaoId = [...uniao][0]; linha.obs = 'variação do kit do contrato' }
         }
-        if (qtd == null) { linha.obs = `quantidade em texto (${v}); item ${casou.alvo.item.nome}`; resumo.prodPend++; addPend('Produto: quantidade em texto', c.titulo, v, comUnidade ? `quantidade com unidade (sugestão: ${comUnidade[1]}) — depende da regra "número + unidade"` : 'quantidade não é número limpo', `${casou.alvo.item.nome}${casou.alvo.variacao ? ' — ' + casou.alvo.variacao.rotulo : ''}`); continue }
-        if (!variacaoId && ativas.length > 0) { linha.obs = 'item tem variações: escolher'; resumo.prodPend++; addPend('Produto: escolher variação', c.titulo, v, `item ${casou.alvo.item.nome} tem ${ativas.length} variações`, ativas.map((x) => x.rotulo).join(' | ')); continue }
+        if (qtd == null) { pendente(linha, 'Produto: quantidade em texto', comUnidadeAntigo ? `quantidade com unidade que não bate com a do item (${alvoItem.unidade_pedido}); sugestão: ${comUnidadeAntigo[1]}` : 'quantidade não é número limpo', `${alvoItem.nome}${casou.alvo.variacao ? ' — ' + casou.alvo.variacao.rotulo : ''}`); continue }
+        const escolherVariacao = !variacaoId && ativas.length > 0 && ativas.some((x) => !x.oculta_lider)
+        if (escolherVariacao) { pendente(linha, 'Produto: escolher variação', `item ${alvoItem.nome} tem ${ativas.length} variações`, ativas.map((x) => x.rotulo).join(' | ')); continue }
         if (qtd === 0) continue
         linha.casamento = 'exato'; linha.variacao = variacaoId ? variacaoPorId.get(variacaoId)?.rotulo ?? '' : ''
+        if (restoTexto) { notasDecisao.push(`${alvoItem.nome}: "${restoTexto}"`); linha.obs = `${linha.obs ? linha.obs + '; ' : ''}texto da resposta guardado na observação` }
         resumo.prodAuto++
-        entProd.push({ item_id: casou.alvo.item.id, variacao_id: variacaoId, quantidade: qtd, parte: noKit(casou.alvo.item.id, variacaoId) ? 'kit' : 'extra', coluna: c.titulo })
+        entProd.push({ item_id: alvoItem.id, variacao_id: variacaoId, quantidade: qtd, parte: noKit(alvoItem.id, variacaoId) ? 'kit' : 'extra', coluna: c.titulo })
       }
       for (const c of colunas.filter((x) => x.tipo === 'livre_produto' || x.tipo === 'livre_epi' || x.tipo === 'livre_uniforme' || x.tipo === 'portaria')) {
         const v = valorDe(c)
@@ -403,12 +483,18 @@ function main() {
       // ---- uniforme / EPI ----
       const gateNao = (g: string | null) => g != null && /^nao/.test(g)
       for (const c of colunas.filter((x) => (x.tipo === 'uniforme' && !gateNao(gateUnif)) || (x.tipo === 'epi' && !gateNao(gateEpi)))) {
-        const v = valorDe(c)
+        const ov = decLinha(c.titulo)
+        const v = ov?.texto ?? valorDe(c)
         if (!v || ehNaoPrecisa(v)) continue
         const regra = c.regra!
+        if (ov?.observacao) notasDecisao.push(ov.observacao)
         const peca = pecaDoItem(regra.itemId)
         const lojaPeca = peca?.compra_na_loja === true
         const linhaBase = { contrato: contrato.nome, aba: nomeAba.trim(), envio: nEnvio, carimbo, tipo: regra.tipo, coluna: c.titulo, valor: v, peca: peca?.rotulo ?? regra.base }
+        if (ov?.fora) {
+          unifs.push({ ...linhaBase, valor: ov.fora, pessoa: '', colaborador: '', tamanho: '', qtd: null, status: 'pendente', obs: 'trecho do texto original deixado de fora (ambíguo / pessoa não identificada)' })
+          resumo.uniPend++; addPend('Uniforme/EPI: trecho deixado de fora', c.titulo, ov.fora, 'a gestora decidiu o resto desta resposta, mas este trecho continua ambíguo')
+        }
         if (!peca) {
           unifs.push({ ...linhaBase, pessoa: '', colaborador: '', tamanho: '', qtd: null, status: 'pendente', obs: 'peça fora do kit de uniforme/EPI deste contrato' })
           resumo.uniPend++; addPend('Uniforme/EPI: peça fora do kit', c.titulo, v, `peça ${regra.base} não está no kit deste contrato`)
@@ -477,13 +563,14 @@ function main() {
       }
 
       // ---- validação com a MESMA regra do link ----
+      const observacaoFinal = [observacao, ...notasDecisao].filter(Boolean).join(' | ').slice(0, 500) || null
       const ctx: ContextoPedido = {
         hoje: `${aaaa}-${mm}-${dd}`, recebeLimpeza: contrato.recebe_limpeza, catalogo: visao.catalogo, kit: visao.kit, indisponiveis: visao.indisponiveis,
         itensCeu: itensCeuCtx, pecas: pecasInfo.pecas, equipe: equipePublica, ultimasEntregas: {}, precos: [], kitConfirmado: nEnvio > 1,
       }
       const entrada = {
         seu_nome: respondente || 'Importado da planilha',
-        observacao,
+        observacao: observacaoFinal,
         termos: Object.fromEntries(TERMOS_PEDIDO.map((t) => [t.id, true])),
         produtos: entProd.map((p) => ({ item_id: p.item_id, variacao_id: p.variacao_id, quantidade: p.quantidade, parte: p.parte })),
         ceu: entCeu,
@@ -493,7 +580,7 @@ function main() {
         for (const e of val.errosCampo) addPend('Validação do link', e.campo, '', e.mensagem)
       }
       for (const p of val.produtos) { if (p.parte === 'kit') resumo.kit++; else resumo.extra++ }
-      envios.push({ contrato, aba: nomeAba.trim(), n: nEnvio, carimbo, carimboIso, responsavel: respondente, observacao, entrada, refParaColab, ctx })
+      envios.push({ contrato, aba: nomeAba.trim(), n: nEnvio, carimbo, carimboIso, responsavel: respondente, observacao: observacaoFinal, entrada, refParaColab, ctx })
       if (respostas.length > 1 && nEnvio === 1) {
         addPend('Duas respostas no mês', 'Carimbo', respostas.map((x) => String(x[0]).slice(0, 19)).join(' e '), 'duas respostas em outubro: parecem o mesmo pedido refeito? somar as duas (complemento) ou usar só a última?')
       }
@@ -606,7 +693,10 @@ function escreverSaidas(d: {
     d.pends.map((p) => [p.contrato, p.envio, p.categoria, p.coluna, p.valor, p.sugestao, p.motivo, '']))
   add('Pedidos de teste a apagar', ['Pedido', 'Contrato', 'Tipo', 'Status produtos', 'Status CEU', 'Envios', 'Linhas de produto', 'Linhas CEU', 'Linhas CEU atendidas', 'Comentários'],
     d.apagar.map((p) => [p.id, p.contrato, p.tipo, p.status_produtos, p.status_ceu, p.envios, p.linhas, p.ceu, p.ceu_atendidas, p.coment]))
-  fs.writeFileSync(`${DIR}/revisao.xlsx`, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+  // A revisão completa original (onde a gestora marcou as escolhas) NUNCA é sobrescrita.
+  const arqRevisao = `${DIR}/revisao.xlsx`
+  if (!fs.existsSync(arqRevisao)) fs.writeFileSync(arqRevisao, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+  escreverRevisao2(d)
 
   // prévia do SQL (a ser executado só com --aplicar)
   const sql: string[] = ['-- PRÉVIA gerada pelo dry-run. NÃO foi executada.', `-- Origem das linhas: p_user_agent = '${ORIGEM}'`]
@@ -686,6 +776,75 @@ function escreverSaidas(d: {
     execFileSync('powershell', ['-NoProfile', '-File', 'scripts/lib/executar-arquivo-sql-management-api.ps1', '-Arquivo', `${DIR}/aplicar.sql`], { stdio: 'inherit' })
     console.log('Concluído. Depois: conferir enviado_em/ordem dos envios e a fila de validação.')
   }
+}
+
+// ---------- revisão enxuta (revisao2.xlsx) ----------
+type DadosSaida = Parameters<typeof escreverSaidas>[0]
+
+/** "Nome [itemId / variacaoId] | Outro [itemId]" → sugestões legíveis + ids (ids vão em coluna oculta). */
+function lerSugestoes(sugestao: string): { nome: string; ids: string }[] {
+  return sugestao
+    .split(' | ')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const m = p.match(/^(.*?)\s*\[([0-9a-f-]{36})(?: \/ ([0-9a-f-]{36}))?\]$/)
+      return m ? { nome: m[1].trim(), ids: `${m[2]}|${m[3] ?? ''}` } : { nome: p, ids: '' }
+    })
+}
+
+function escreverRevisao2(d: DadosSaida) {
+  const wb2 = XLSX.utils.book_new()
+  const folha = (nome: string, cab: string[], linhas: (string | number | null)[][], larguras: number[], ocultas: number[] = []) => {
+    const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas])
+    ws['!cols'] = larguras.map((wch, i) => ({ wch, hidden: ocultas.includes(i) }))
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+    XLSX.utils.book_append_sheet(wb2, ws, nome)
+  }
+
+  // ---- Falta decidir: uma linha por pergunta do form ----
+  const ehUniforme = (c: string) => c.startsWith('Uniforme/EPI') || c === 'Crachá'
+  const grupos = new Map<string, { pergunta: string; tipo: string; contratos: Set<string>; exemplos: string[]; sugestao: string; n: number }>()
+  for (const p of d.pends.filter((x) => !ehUniforme(x.categoria))) {
+    const chave = `${p.categoria}||${p.coluna}`
+    const g = grupos.get(chave) ?? { pergunta: p.coluna, tipo: p.categoria, contratos: new Set<string>(), exemplos: [], sugestao: p.sugestao, n: 0 }
+    g.n++
+    g.contratos.add(p.contrato)
+    g.exemplos.push(`${p.contrato}: ${p.valor}`)
+    if (!g.sugestao && p.sugestao) g.sugestao = p.sugestao
+    grupos.set(chave, g)
+  }
+  const livre = (t: string) => t.startsWith('Texto livre') || t.startsWith('Kit portaria')
+  const linhasDecidir = [...grupos.values()]
+    .sort((a, b) => b.n - a.n || a.pergunta.localeCompare(b.pergunta, 'pt-BR'))
+    .map((g) => {
+      const s = lerSugestoes(g.sugestao)
+      const max = livre(g.tipo) ? 8 : 3
+      const exemplos = [...new Set(g.exemplos)].slice(0, max).join('\n') + (new Set(g.exemplos).size > max ? `\n(+${new Set(g.exemplos).size - max} outras)` : '')
+      return [g.pergunta, g.tipo, g.n, [...g.contratos].join(', '), exemplos, s[0]?.nome ?? '', s[1]?.nome ?? '', s[2]?.nome ?? '', '', s[0]?.ids ?? '', s[1]?.ids ?? '', s[2]?.ids ?? '']
+    })
+  folha('Falta decidir', ['Pergunta do form', 'O que falta', 'Respostas', 'Contratos afetados', 'Respostas de exemplo', 'Sugestão 1', 'Sugestão 2', 'Sugestão 3', 'Escolha', 'ids sugestão 1 (item|variação)', 'ids sugestão 2', 'ids sugestão 3'],
+    linhasDecidir, [44, 26, 10, 36, 54, 34, 34, 34, 30, 12, 12, 12], [9, 10, 11])
+
+  // ---- Uniformes a conferir: só uniforme/EPI/crachá pendentes ----
+  const unifPend = d.unifs.filter((u) => u.status === 'pendente')
+  folha('Uniformes a conferir', ['Contrato', 'Tipo', 'Pergunta do form', 'Resposta original', 'Pessoa casada', 'Peça', 'Tamanho lido', 'Qtd lida', 'Por que ficou pendente', 'Escolha'],
+    unifPend.map((u) => [u.contrato, u.tipo, u.coluna, u.valor, u.colaborador, u.peca, u.tamanho, u.qtd, u.obs, '']),
+    [26, 10, 40, 44, 34, 26, 12, 9, 50, 30])
+
+  // ---- Vai entrar: resumo por contrato do que já está pronto ----
+  const linhasEntra = d.resumos
+    .filter((r) => r.prodAuto + r.uniAuto + r.crachaAuto > 0)
+    .map((r) => {
+      const prod = d.produtos.filter((p) => p.contrato === r.contrato && p.casamento === 'exato' && (p.qtd ?? 0) > 0)
+        .map((p) => `${p.item}${p.variacao ? ' ' + p.variacao : ''} x${p.qtd}`)
+      const uni = d.unifs.filter((u) => u.contrato === r.contrato && u.status === 'exato')
+        .map((u) => `${u.colaborador} — ${u.peca}${u.tamanho ? ' ' + u.tamanho : ''} x${u.qtd}`)
+      return [r.contrato, r.respostas, r.prodAuto, r.uniAuto, r.crachaAuto, r.prodPend + r.uniPend + r.crachaPend, prod.join('; '), uni.join('; ')]
+    })
+  folha('Vai entrar', ['Contrato', 'Respostas', 'Produtos prontos', 'Uniforme/EPI prontos', 'Crachás prontos', 'Ainda pendente (linhas)', 'Produtos que entram', 'Uniformes/EPI/crachás que entram'],
+    linhasEntra, [30, 10, 10, 12, 10, 12, 80, 80])
+  fs.writeFileSync(`${DIR}/revisao2.xlsx`, XLSX.write(wb2, { type: 'buffer', bookType: 'xlsx' }))
 }
 
 main()
