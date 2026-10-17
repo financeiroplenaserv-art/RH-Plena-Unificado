@@ -80,7 +80,7 @@ export function MateriaisSemPedidoPage() {
       <PageHeader
         showBackButton={false}
         title="Contratos que ainda não pediram"
-        description={`Pedido de ${rotuloCompetencia(competencia)}. Nada é gerado automaticamente: cobre o líder primeiro.`}
+        description={`Pedido de ${rotuloCompetencia(competencia)}.`}
       />
 
       {estruturaPendente ? (
