@@ -21,7 +21,7 @@ import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
 import { usePedidoMaterial } from '@/hooks/useMateriaisPedidos'
 import { podeAprovarMateriais, podeValidarMateriais } from '@/lib/permissoes'
-import { formatarData, formatarDataHora, mascaraMoeda } from '@/lib/utils'
+import { formatarData, formatarDataHora, hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import {
   ehLinhaKit,
@@ -38,6 +38,7 @@ import {
   type EdicaoLinha,
 } from '@/lib/materiais/filas'
 import { rotaEfetiva } from '@/lib/materiais/pedidos'
+import { antesDoPrazo, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
 import { toast } from 'sonner'
 import type { MatComentario, MatPedidoItem } from '@/types/materiais'
 
@@ -115,6 +116,17 @@ export function MateriaisPedidoDetalhePage() {
   const podeAjustarKit =
     !!p && !!nivel && (podeValidarMateriais(nivel) || podeAprovarMateriais(nivel)) && ['em_validacao', 'validado', 'aprovado'].includes(p.status_produtos)
   const itensAtivos = useMemo(() => catalogo.itens.filter((i) => i.ativo).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [catalogo.itens])
+
+  // Última entrega dos itens EXTRAS (fora do kit ou a mais): data, quanto foi e
+  // selo "antes do prazo" quando a validade do item ainda não passou. Só aqui,
+  // nas telas internas — o link do líder nunca mostra isso.
+  const hoje = hojeBrasil()
+  const ultimaDoExtra = (l: MatPedidoItem) => {
+    if (!l.item_id || !p) return null
+    const ult = ultimaEntregaDoItem(l.item_id, det.entregasAnteriores, det.vinculos, p.competencia)
+    if (!ult) return { ult: null, antes: false }
+    return { ult, antes: antesDoPrazo(ult.data, nomeItem.get(l.item_id)?.validade_meses, hoje) }
+  }
 
   const descrever = (l: MatPedidoItem) => {
     if (!l.item_id) return l.descricao_livre ?? 'Outro material'
@@ -243,7 +255,19 @@ export function MateriaisPedidoDetalhePage() {
                           {!ehKit && !l.justificativa && (l.excecao_acima_kit || l.excecao_fora_kit) && (
                             <p className="mt-1 text-xs text-muted-foreground">O líder não contou o motivo.</p>
                           )}
-                          {l.excecao_validade && l.ultima_entrega_em && (
+                          {!ehKit && l.item_id && (() => {
+                            const u = ultimaDoExtra(l)
+                            if (!u) return null
+                            if (!u.ult) return <p className="text-xs text-muted-foreground">Nenhuma entrega anterior registrada para este posto.</p>
+                            return (
+                              <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                                Última entrega: {formatarData(u.ult.data)} ({u.ult.quantidade}
+                                {nomeItem.get(l.item_id)?.unidade_pedido ? ` ${nomeItem.get(l.item_id)?.unidade_pedido}` : ''})
+                                {u.antes && <Selo tom="vermelho" title="A última entrega foi há menos tempo que a validade do item">antes do prazo</Selo>}
+                              </p>
+                            )
+                          })()}
+                          {ehKit && l.excecao_validade && l.ultima_entrega_em && (
                             <p className="text-xs text-muted-foreground">Última entrega: {formatarData(l.ultima_entrega_em)}</p>
                           )}
                           {l.motivo_ajuste && <p className="text-xs text-muted-foreground">Motivo do ajuste: {l.motivo_ajuste}</p>}

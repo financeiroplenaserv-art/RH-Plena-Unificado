@@ -11,6 +11,8 @@ import type { PrecoHistorico } from '@/lib/materiais/precos'
 import type { ConsumoMes } from '@/lib/materiais/media'
 import { escritaMateriaisOk } from './useMateriaisCatalogo'
 import { carregarVinculosSubstituicao } from './useMateriaisSubstituicao'
+import type { FatoEntrega } from '@/lib/materiais/ultimaEntrega'
+import type { VinculoSubstituicao } from '@/lib/materiais/substituicao'
 import type {
   CeuPedidoItem,
   MatComentario,
@@ -165,6 +167,9 @@ export function usePedidoMaterial() {
   const [ceuItens, setCeuItens] = useState<CeuPedidoItem[]>([])
   const [comentarios, setComentarios] = useState<MatComentario[]>([])
   const [kit, setKit] = useState<MatKitItem[]>([])
+  // Só para as telas internas: entregas anteriores do contrato (última entrega dos extras).
+  const [entregasAnteriores, setEntregasAnteriores] = useState<FatoEntrega[]>([])
+  const [vinculos, setVinculos] = useState<VinculoSubstituicao[]>([])
   const [loading, setLoading] = useState(false)
   const [estruturaPendente, setEstruturaPendente] = useState(false)
 
@@ -205,6 +210,51 @@ export function usePedidoMaterial() {
     setCeuItens((rc.data as CeuPedidoItem[]) ?? [])
     setComentarios((rm.data as MatComentario[]) ?? [])
     setKit(((rk.data as MatKitItem[]) ?? []).map((k) => ({ ...k, quantidade: Number(k.quantidade) })))
+    // Última entrega dos itens (histórico das planilhas + pedidos já aprovados
+    // ou entregues do contrato, antes deste). Falha aqui nunca derruba a tela.
+    try {
+      const rh = await selecionarTudo<{ item_id: string; competencia: string; quantidade: number }>((de, ate) =>
+        supabase
+          .from('mat_historico_consumo')
+          .select('item_id, competencia, quantidade')
+          .eq('contrato_id', p.contrato_id)
+          .lt('competencia', p.competencia)
+          .gt('quantidade', 0)
+          .order('competencia')
+          .order('id')
+          .range(de, ate)
+      )
+      const rped = await supabase
+        .from('mat_pedidos')
+        .select('id, competencia')
+        .eq('contrato_id', p.contrato_id)
+        .lt('competencia', p.competencia)
+        .eq('status_produtos', 'aprovado') // Fase 1: aprovado = entregue (a Fase 2 amplia)
+      const fatos: FatoEntrega[] = (rh.data ?? []).map((x) => ({ ...x, quantidade: Number(x.quantidade) }))
+      const competenciaDoPedido = new Map(((rped.data as { id: string; competencia: string }[]) ?? []).map((x) => [x.id, x.competencia]))
+      if (competenciaDoPedido.size > 0) {
+        const rl = await buscarPorIds<{ pedido_id: string; item_id: string | null; qtd_pedida: number; qtd_aprovada: number | null }>(
+          [...competenciaDoPedido.keys()],
+          (lote, de, ate) =>
+            supabase
+              .from('mat_pedido_itens')
+              .select('id, pedido_id, item_id, qtd_pedida, qtd_aprovada')
+              .in('pedido_id', lote)
+              .not('item_id', 'is', null)
+              .order('id')
+              .range(de, ate)
+        )
+        for (const l of rl.data) {
+          const q = Number(l.qtd_aprovada ?? l.qtd_pedida)
+          if (l.item_id && q > 0) fatos.push({ item_id: l.item_id, competencia: competenciaDoPedido.get(l.pedido_id)!, quantidade: q })
+        }
+      }
+      setEntregasAnteriores(fatos)
+      setVinculos((await carregarVinculosSubstituicao()) ?? [])
+    } catch (e) {
+      console.warn('Última entrega indisponível:', e)
+      setEntregasAnteriores([])
+    }
     setLoading(false)
   }, [])
 
@@ -270,7 +320,7 @@ export function usePedidoMaterial() {
     []
   )
 
-  return { pedido, envios, itens, ceuItens, comentarios, kit, loading, estruturaPendente, carregar, validar, aprovar, comentar, ajustarKit }
+  return { pedido, envios, itens, ceuItens, comentarios, kit, entregasAnteriores, vinculos, loading, estruturaPendente, carregar, validar, aprovar, comentar, ajustarKit }
 }
 
 // ------------------------------------------------------------------

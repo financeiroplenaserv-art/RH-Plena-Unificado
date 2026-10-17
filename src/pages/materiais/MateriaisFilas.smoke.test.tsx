@@ -89,7 +89,7 @@ const envios = [
 vi.mock('@/hooks/useMateriaisPedidos', () => estabilizar({
   useMateriaisPedidos: () => ({ pedidos: [pedido], itens, ceuItens: [], loading: false, estruturaPendente: false, carregar: vi.fn() }),
   usePedidoMaterial: () => ({
-    pedido, envios, itens, ceuItens: [], comentarios: [], kit: [], loading: false, estruturaPendente: false,
+    pedido, envios, itens, ceuItens: [], comentarios: [], kit: [], entregasAnteriores: [], vinculos: [], loading: false, estruturaPendente: false,
     carregar: vi.fn(), validar: vi.fn(), aprovar: vi.fn(), comentar: vi.fn(), ajustarKit: vi.fn(),
   }),
   lerMateriaisConfig: () => Promise.resolve({ dia_limite: 15, dia_aviso: 10, aviso_recibo: '', kit_aprovacao_automatica: true }),
