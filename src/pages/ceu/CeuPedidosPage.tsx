@@ -22,8 +22,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFiltroPersistente } from '@/hooks/useFiltroPersistente'
 import { useCeuPedidos } from '@/hooks/useCeuPedidos'
 import { podeAtenderPedidoCEU, podeConferirPedidoCEU, podeEmitirCrachaCEU } from '@/lib/permissoes'
-import { formatarData, formatarDataHora, hojeBrasil } from '@/lib/utils'
+import { formatarDataHora, hojeBrasil } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { UltimaEntregaCelula } from '@/components/materiais/UltimaEntregaCelula'
 import { tamanhoDoNomeItem } from '@/lib/ceu/tamanhosPuro'
 import {
   analisarTamanho,
@@ -495,15 +496,12 @@ export function CeuPedidosPage() {
                               )}
                             </TableCell>
                             <TableCell className="tabular-nums">
-                              {a.ultima ? (
-                                <span className={a.recente ? 'font-semibold text-amber-700 dark:text-amber-400' : ''} title={a.recente ? 'Dentro do prazo de uso da peça' : undefined}>
-                                  {formatarData(a.ultima)}
-                                  {a.tamanhoUltima && <span className="block text-[11px] text-muted-foreground">tam. {a.tamanhoUltima}</span>}
-                                  {a.recente && <span className="block text-[11px]">entregue há pouco</span>}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                              <UltimaEntregaCelula
+                                data={a.ultima}
+                                detalhe={a.tamanhoUltima ? `tam. ${a.tamanhoUltima}` : null}
+                                antesDoPrazo={a.recente}
+                                titleSelo="Dentro do prazo de uso da peça"
+                              />
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {l.qtd_pedida}

@@ -21,7 +21,7 @@ import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
 import { usePedidoMaterial } from '@/hooks/useMateriaisPedidos'
 import { podeAprovarMateriais, podeValidarMateriais } from '@/lib/permissoes'
-import { formatarData, formatarDataHora, hojeBrasil, mascaraMoeda } from '@/lib/utils'
+import { formatarDataHora, hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import {
   ehLinhaKit,
@@ -41,6 +41,7 @@ import { rotaEfetiva } from '@/lib/materiais/pedidos'
 import { antesDoPrazo, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
 import { avisosItemParaContrato, inclusaoReabrePedido, podeEditarLinhasDoPedido, validarInclusao } from '@/lib/materiais/inclusaoPedido'
 import { nomesExclusivos } from '@/lib/materiais/cadastro'
+import { UltimaEntregaCelula } from '@/components/materiais/UltimaEntregaCelula'
 import { EscolherItemCatalogo, type ItemEscolhido } from '@/components/materiais/EscolherItemCatalogo'
 import { toast } from 'sonner'
 import type { MatComentario, MatPedidoItem } from '@/types/materiais'
@@ -268,6 +269,7 @@ export function MateriaisPedidoDetalhePage() {
                     <TableHead className="text-right">Pedido</TableHead>
                     <TableHead className="text-right">Validado</TableHead>
                     <TableHead className="text-right">Aprovado</TableHead>
+                    <TableHead>Última entrega</TableHead>
                     <TableHead className="text-right">Preço</TableHead>
                     {colunaEdicao && <TableHead className="w-64">{modo === 'validar' ? 'Validação' : modo === 'aprovar' ? 'Ajuste' : 'Kit'}</TableHead>}
                     <TableHead className="w-10" />
@@ -319,21 +321,6 @@ export function MateriaisPedidoDetalhePage() {
                               <Link2 className="size-4" /> Ligar ao catálogo
                             </Button>
                           )}
-                          {!ehKit && l.item_id && (() => {
-                            const u = ultimaDoExtra(l)
-                            if (!u) return null
-                            if (!u.ult) return <p className="text-xs text-muted-foreground">Nenhuma entrega anterior registrada para este posto.</p>
-                            return (
-                              <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                                Última entrega: {formatarData(u.ult.data)} ({u.ult.quantidade}
-                                {nomeItem.get(l.item_id)?.unidade_pedido ? ` ${nomeItem.get(l.item_id)?.unidade_pedido}` : ''})
-                                {u.antes && <Selo tom="vermelho" title="A última entrega foi há menos tempo que a validade do item">antes do prazo</Selo>}
-                              </p>
-                            )
-                          })()}
-                          {ehKit && l.excecao_validade && l.ultima_entrega_em && (
-                            <p className="text-xs text-muted-foreground">Última entrega: {formatarData(l.ultima_entrega_em)}</p>
-                          )}
                           {l.motivo_ajuste && <p className="text-xs text-muted-foreground">Motivo do ajuste: {l.motivo_ajuste}</p>}
                           {coms.map((c) => (
                             <p key={c.id} className="mt-1 rounded bg-muted px-2 py-1 text-xs">
@@ -361,6 +348,24 @@ export function MateriaisPedidoDetalhePage() {
                         <TableCell className="text-right tabular-nums font-medium">{l.qtd_pedida}</TableCell>
                         <TableCell className="text-right tabular-nums">{l.qtd_validada ?? '—'}</TableCell>
                         <TableCell className="text-right tabular-nums">{l.qtd_aprovada ?? '—'}</TableCell>
+                        <TableCell className="text-sm">
+                          {(() => {
+                            // Extra: calculada na leitura (histórico + pedidos aprovados). Kit: só o aviso de validade.
+                            if (!l.item_id) return <UltimaEntregaCelula data={null} />
+                            if (ehKit) {
+                              return <UltimaEntregaCelula data={l.excecao_validade ? l.ultima_entrega_em : null} antesDoPrazo={l.excecao_validade} />
+                            }
+                            const u = ultimaDoExtra(l)
+                            const un = nomeItem.get(l.item_id)?.unidade_pedido
+                            return (
+                              <UltimaEntregaCelula
+                                data={u?.ult?.data}
+                                detalhe={u?.ult ? `${u.ult.quantidade}${un ? ` ${un}` : ''}` : null}
+                                antesDoPrazo={u?.antes}
+                              />
+                            )
+                          })()}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{l.preco_unitario != null ? mascaraMoeda(l.preco_unitario) : '—'}</TableCell>
                         {colunaEdicao && (
                           <TableCell className="space-y-1.5">
