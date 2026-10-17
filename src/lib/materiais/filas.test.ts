@@ -170,6 +170,9 @@ describe('tamanho e última entrega', () => {
   it('entrega recente = dentro do prazo de uso do item', () => {
     expect(entregaRecente('2026-09-10', 180, '2026-10-09')).toBe(true)
     expect(entregaRecente('2026-01-10', 180, '2026-10-09')).toBe(false)
+    // Item de troca frequente (luva látex, migration 142): a data continua, o aviso não.
+    expect(entregaRecente('2026-09-10', 30, '2026-10-09')).toBe(true)
+    expect(entregaRecente('2026-09-10', 30, '2026-10-09', true)).toBe(false)
     expect(entregaRecente('2026-09-10', null, '2026-10-09')).toBe(false)
   })
 })

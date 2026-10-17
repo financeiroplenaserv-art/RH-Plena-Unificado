@@ -436,6 +436,8 @@ export interface ItemCEU {
   situacao?: string | null
   /** Migration 141: sem estoque; compra na loja com autorização (o link do líder não pede tamanho). */
   compra_na_loja?: boolean
+  /** Migration 142: troca frequente — a fila CEU → Pedidos não mostra "antes do prazo". */
+  sem_alerta_prazo?: boolean
   created_at?: string
 
   // Relações

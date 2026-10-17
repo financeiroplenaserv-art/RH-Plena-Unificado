@@ -32,6 +32,8 @@ export interface ItemCeuApoio {
   prazo_uso_dias: number | null
   /** Migration 141: compra na loja com autorização (sem tamanho, sem alerta de tamanho). */
   compra_na_loja?: boolean
+  /** Migration 142: troca frequente (luva látex) — sem o selo "antes do prazo". */
+  sem_alerta_prazo?: boolean
 }
 
 export type FiltroLinhasCeu = 'abertas' | 'concluidas'
@@ -49,7 +51,7 @@ export async function carregarApoioCeu() {
     ),
     supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
     selecionarTudo<ItemCeuApoio>((de, ate) =>
-      supabase.from('itens').select('id, nome, tipo, estoque, prazo_uso_dias, compra_na_loja').order('nome').order('id').range(de, ate)
+      supabase.from('itens').select('id, nome, tipo, estoque, prazo_uso_dias, compra_na_loja, sem_alerta_prazo').order('nome').order('id').range(de, ate)
     ),
     selecionarTudo<CeuTamanhos>((de, ate) =>
       supabase
@@ -69,6 +71,7 @@ export async function carregarApoioCeu() {
       estoque: i.estoque == null ? null : Number(i.estoque),
       prazo_uso_dias: i.prazo_uso_dias == null ? null : Number(i.prazo_uso_dias),
       compra_na_loja: i.compra_na_loja === true,
+      sem_alerta_prazo: i.sem_alerta_prazo === true,
     })),
     tamanhos: rtam.data ?? [],
     contratos: (rcon.data as MatContrato[]) ?? [],

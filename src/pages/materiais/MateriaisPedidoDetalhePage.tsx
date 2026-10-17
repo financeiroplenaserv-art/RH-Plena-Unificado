@@ -527,15 +527,6 @@ export function MateriaisPedidoDetalhePage() {
           </p>
         )}
 
-        {itensKit.length > 0 && (
-          <DataTable
-            title={`Kit do mês${kitAuto ? ' — aprovado automaticamente' : ''}`}
-            count={itensKit.length}
-            minWidth={980}
-          >
-            {tabelaLinhas(itensKit, true)}
-          </DataTable>
-        )}
         {podeEditarLinhas && (
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setInclusao({ item: null, qtd: '1', motivo: '' })}>
@@ -554,6 +545,15 @@ export function MateriaisPedidoDetalhePage() {
             tabelaLinhas(itensExtra, false)
           )}
         </DataTable>
+        {itensKit.length > 0 && (
+          <DataTable
+            title={`Kit do mês${kitAuto ? ' — aprovado automaticamente' : ''}`}
+            count={itensKit.length}
+            minWidth={980}
+          >
+            {tabelaLinhas(itensKit, true)}
+          </DataTable>
+        )}
 
         {modo !== 'ler' && det.itens.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2">

@@ -50,6 +50,7 @@ export function CeuItemFormPage() {
     ultima_compra: string
     situacao: string
     compra_na_loja: boolean
+    sem_alerta_prazo: boolean
   }>({
     codigo: '',
     tipo: '',
@@ -66,6 +67,7 @@ export function CeuItemFormPage() {
     ultima_compra: '',
     situacao: 'A',
     compra_na_loja: false,
+    sem_alerta_prazo: false,
   })
 
   useEffect(() => {
@@ -92,6 +94,7 @@ export function CeuItemFormPage() {
           ultima_compra: item.ultima_compra || '',
           situacao: item.situacao || 'A',
           compra_na_loja: item.compra_na_loja === true,
+          sem_alerta_prazo: item.sem_alerta_prazo === true,
         })
       }
       setLoading(false)
@@ -335,6 +338,16 @@ export function CeuItemFormPage() {
                   <strong>Compra na loja com autorização</strong> — item sem estoque (ex.: calça social, blazer). O link do líder não pede
                   tamanho.
                 </span>
+              </label>
+
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={form.sem_alerta_prazo}
+                  onChange={(e) => setForm((f) => ({ ...f, sem_alerta_prazo: e.target.checked }))}
+                />
+                <span>Não avisar “antes do prazo” (item de troca mensal). O prazo de uso continua valendo nos relatórios.</span>
               </label>
 
               {/* Linha 6: CA + Validade do CA — só EPI */}

@@ -335,8 +335,14 @@ export function analisarTamanho(
 }
 
 /** Peça entregue há menos que o prazo de uso do item (alerta, não bloqueia). */
-export function entregaRecente(ultima: string | null, prazoUsoDias: number | null | undefined, hoje: string): boolean {
-  if (!ultima || !prazoUsoDias || prazoUsoDias <= 0) return false
+export function entregaRecente(
+  ultima: string | null,
+  prazoUsoDias: number | null | undefined,
+  hoje: string,
+  /** Item de troca frequente (itens.sem_alerta_prazo, migration 142): nunca avisa. */
+  semAlertaPrazo = false
+): boolean {
+  if (semAlertaPrazo || !ultima || !prazoUsoDias || prazoUsoDias <= 0) return false
   const dias = diasEntre(ultima, hoje)
   return dias >= 0 && dias < prazoUsoDias
 }

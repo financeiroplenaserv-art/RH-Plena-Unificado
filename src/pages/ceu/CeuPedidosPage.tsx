@@ -173,12 +173,13 @@ export function CeuPedidosPage() {
       colab,
       item,
       compraNaLoja: item?.compra_na_loja === true,
-      tamanhoCadastro: item?.compra_na_loja ? null : tam?.tamanhoCadastro ?? l.tamanho_cadastro,
+      // Compra na loja: só a medida do cadastro (discreta); sem alerta de divergência.
+      tamanhoCadastro: item?.compra_na_loja ? tam?.tamanhoCadastro ?? null : tam?.tamanhoCadastro ?? l.tamanho_cadastro,
       diverge: item?.compra_na_loja ? false : tam ? tam.diverge : l.alerta_tamanho,
       ultima,
       ultimaItemId: daPeca?.item_id ?? null,
       tamanhoUltima,
-      recente: entregaRecente(ultima, item?.prazo_uso_dias, hoje),
+      recente: entregaRecente(ultima, item?.prazo_uso_dias, hoje, item?.sem_alerta_prazo === true),
     }
   }
 
@@ -483,9 +484,7 @@ export function CeuPedidosPage() {
                               {l.tipo === 'cracha' ? (
                                 '—'
                               ) : a.compraNaLoja ? (
-                                <p className="text-sm font-medium" title="Sem estoque: o colaborador compra na loja com autorização">
-                                  Compra na loja (autorização)
-                                </p>
+                                a.tamanhoCadastro ? <p className="text-xs text-muted-foreground">cadastro: {a.tamanhoCadastro}</p> : null
                               ) : (
                                 <>
                                   <p className={a.diverge ? 'font-semibold text-red-700 dark:text-red-400' : ''}>Pedido: {l.tamanho ?? '—'}</p>

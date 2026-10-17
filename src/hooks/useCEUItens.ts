@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { ItemCEU } from '@/types/database'
 
-const COLUNAS_ITEM_CEU = 'id, codigo, nome, tipo, ca, validade, subgrupo, valor, fornecedor_id, estoque, estoque_minimo, prazo_uso_dias, unidade, ultima_compra, situacao, compra_na_loja, created_at'
+const COLUNAS_ITEM_CEU = 'id, codigo, nome, tipo, ca, validade, subgrupo, valor, fornecedor_id, estoque, estoque_minimo, prazo_uso_dias, unidade, ultima_compra, situacao, compra_na_loja, sem_alerta_prazo, created_at'
 
 export function useCEUItens() {
   const [itens, setItens] = useState<ItemCEU[]>([])
