@@ -319,9 +319,6 @@ export function MateriaisPedidoDetalhePage() {
                               <Link2 className="size-4" /> Ligar ao catálogo
                             </Button>
                           )}
-                          {!ehKit && !l.justificativa && (l.excecao_acima_kit || l.excecao_fora_kit) && (
-                            <p className="mt-1 text-xs text-muted-foreground">O líder não contou o motivo.</p>
-                          )}
                           {!ehKit && l.item_id && (() => {
                             const u = ultimaDoExtra(l)
                             if (!u) return null
