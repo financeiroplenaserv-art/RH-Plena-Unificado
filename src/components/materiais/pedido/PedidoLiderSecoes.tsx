@@ -869,8 +869,10 @@ export function SecaoUniformes({
   return (
     <div className="space-y-4">
       {doisGrupos && (
-        <div className="space-y-2">
-          <p className={cn('text-lg font-bold', TONS.epi.texto)}>Qual grupo?</p>
+        // Fica fixo logo abaixo do cabeçalho enquanto a pessoa rola: trocar de
+        // grupo nunca exige voltar ao topo (nem apaga o que já foi pedido).
+        <div className="sticky top-[92px] z-[9] -mx-4 space-y-1 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
+          <p className={cn('text-base font-bold', TONS.epi.texto)}>{grupo ? 'Grupo' : 'Qual grupo?'}</p>
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Grupo da equipe">
             {GRUPOS_EQUIPE.map((g) => (
               <button
@@ -879,7 +881,7 @@ export function SecaoUniformes({
                 role="radio"
                 aria-checked={grupo === g.id}
                 onClick={() => setGrupo(g.id)}
-                className={cn(BOTAO_GRANDE, 'min-h-16 text-lg', grupo === g.id ? TONS.epi.cheio : 'border-input bg-background')}
+                className={cn(BOTAO_GRANDE, 'min-h-14 text-base', grupo === g.id ? TONS.epi.cheio : 'border-input bg-background')}
               >
                 {g.rotulo}
               </button>
@@ -1017,13 +1019,34 @@ export function SecaoUniformes({
       {!precisaEscolherGrupo && <EscolherPessoa
         equipe={equipeDoGrupo(equipe, doisGrupos ? grupo : null)}
         jaEscolhidos={new Set(pessoas.map((p) => p.ref).filter((r): r is string => !!r))}
-        titulo={pessoas.length === 0 ? 'Para quem é o pedido?' : 'Mais alguém precisa?'}
+        titulo={
+          pessoas.length === 0
+            ? 'Para quem é o pedido?'
+            : doisGrupos && grupo
+              ? `Mais alguém de ${GRUPOS_EQUIPE.find((g) => g.id === grupo)?.rotulo}?`
+              : 'Mais alguém precisa?'
+        }
         tom="epi"
+        idFoco="escolher-pessoa-uniforme"
         onEscolher={(p) => {
           quadros.recolherValidas()
           setPessoas((ps) => [...ps, { chave: novaChave(), ref: p.ref, nome: p.nome }])
         }}
       />}
+      {doisGrupos && grupo && (
+        // Atalho grande para o OUTRO grupo, sempre abaixo das linhas já feitas.
+        <button
+          type="button"
+          onClick={() => {
+            setGrupo(grupo === 'portaria' ? 'limpeza' : 'portaria')
+            focarDepois('escolher-pessoa-uniforme')
+          }}
+          className={cn(BOTAO_GRANDE, 'min-h-16 w-full gap-2 border-2 border-dashed text-lg', TONS.epi.contorno)}
+        >
+          <Plus className="size-6" strokeWidth={3} aria-hidden />
+          {grupo === 'portaria' ? 'Pedir para Limpeza e encarregado' : 'Pedir para a Portaria'}
+        </button>
+      )}
     </div>
   )
 }

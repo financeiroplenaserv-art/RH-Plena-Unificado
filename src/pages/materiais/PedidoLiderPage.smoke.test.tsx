@@ -328,6 +328,27 @@ describe('PedidoLiderPage (tela pública do líder)', () => {
       expect(screen.getByRole('button', { name: 'Editar: Michelle A. · Camisa polo azul clara — ASG M — 1' })).toBeInTheDocument()
     })
 
+    it('uniforme: depois de um item pronto, o atalho leva ao outro grupo sem apagar o que já foi feito', async () => {
+      api.carregar.mockResolvedValue(dados())
+      renderizar()
+      await screen.findByText('Cloro')
+      irParaEtapa(/Uniformes e EPIs/)
+      fireEvent.click(screen.getByRole('radio', { name: 'Limpeza e encarregado' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Michelle A.' }))
+      fireEvent.click(screen.getByRole('button', { name: /Camisa polo azul clara — ASG/ }))
+      fireEvent.click(screen.getByRole('radio', { name: 'M' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Pronto' }))
+      // Atalho grande para o outro grupo, com a linha pronta ainda visível.
+      fireEvent.click(screen.getByRole('button', { name: 'Pedir para a Portaria' }))
+      expect(screen.getByRole('radio', { name: 'Portaria' })).toHaveAttribute('aria-checked', 'true')
+      expect(screen.getByRole('button', { name: 'João S.' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Michelle A.' })).not.toBeInTheDocument() // já está no pedido
+      expect(screen.getByRole('button', { name: 'Editar: Michelle A. · Camisa polo azul clara — ASG M — 1' })).toBeInTheDocument()
+      // E o atalho de volta.
+      fireEvent.click(screen.getByRole('button', { name: 'Pedir para Limpeza e encarregado' }))
+      expect(screen.getByRole('radio', { name: 'Limpeza e encarregado' })).toHaveAttribute('aria-checked', 'true')
+    })
+
     it('crachá: sem motivo não recolhe; com motivo vira "Crachá · Nome — motivo"', async () => {
       api.carregar.mockResolvedValue(dados())
       renderizar()
