@@ -2,19 +2,22 @@
 
 > Base: §10 do `docs/PLANO_MATERIAIS_FASE1.md` ("Fase 2 — compra e estoque"), liberada pela gestora em 17/10/2026, + o que já está no banco e no código (migrations 121–144, `src/lib/materiais/`, hooks `useMateriais*`, telas `src/pages/materiais/`, aba CEU → Pedidos), + o processo atual descrito em `docs/passo a passo de como fazemos hoje.docx` e as abas "Pedido e Estoque", "Pedido ao Fornecedor por Cliente", "Compra ao Fornecedor" e "Quantidade Entregue" da `docs/Pedido de material/Planilha completa de material eu mexendo.xlsx`.
 > Documento de planejamento: **nada foi alterado no código, no banco ou em produção.** As consultas ao banco foram só de leitura (17/10/2026).
-> As perguntas para a gestora estão na **seção 11**. Enquanto elas não forem respondidas, vale a recomendação de cada uma.
+> As 14 perguntas foram respondidas pela gestora em 17/10/2026 — decisões na **seção 11**. O que a gestora ainda precisa informar para começar (etapa 0) está na **seção 9**, com a planilha-modelo em `dados-locais/fase2_etapa0/etapa0_cadastro_para_gestora.xlsx`.
 
 ---
 
 ## 1. Resumo para a gestão
 
-- Hoje a Fase 1 termina quando o gestor **aprova** o pedido. A Fase 2 continua daí: o comprador vê **tudo o que foi aprovado no mês**, desconta **o que já tem no estoque** e o sistema monta o **pedido de cada fornecedor**, igual à aba "Pedido ao Fornecedor por Cliente" (itens nas linhas, contratos nas colunas, total), com o resumo "Compra ao Fornecedor".
-- Cada linha aprovada ganha um destino: **"fornecedor entrega no posto"** ou **"sai do estoque (o inspetor leva)"**. O sistema sugere (primeiro usa o que tem no estoque), o comprador confirma. O destino fica visível para o inspetor e, na Fase 3, para o líder.
-- O **estoque de materiais** passa a existir no CORH: entrou (compra, sobra, devolução), saiu (separado para um contrato), ajuste da contagem. O saldo é a soma desses movimentos — ninguém digita o saldo à mão. Uma vez por mês a mesa (ou quem a gestora indicar) **conta o estoque** e o sistema registra a diferença com motivo.
-- Quando o fornecedor entrega, a **mesa registra o que chegou** em cada contrato. Faltou algo, registra a quantidade menor e o motivo ("fornecedor sem estoque", "enviado no próximo mês"). O pedido fica **"Entregue"** ou **"Entregue parcial"**.
-- A **Beth** ganha, na aba CEU → Pedidos, o **pedido ao fornecedor de uniforme/EPI** do que ela não tem para entregar, no mesmo formato de planilha. O controle de estoque do CEU **não** muda nesta fase (recomendação — pergunta 9).
+- Hoje a Fase 1 termina quando o gestor **aprova** o pedido. A Fase 2 continua daí: **entre os dias 20 e 25** o comprador (gestor ou mesa) vê **tudo o que foi aprovado no mês — kit e extras juntos, numa compra só** —, desconta **o que já tem no estoque** e o sistema monta o **pedido de cada fornecedor**, igual à aba "Pedido ao Fornecedor por Cliente" (itens nas linhas, contratos nas colunas, total), com o resumo "Compra ao Fornecedor".
+- Para caber antes do dia 20: o líder pede até o dia 15, o **inspetor valida até o dia 17**, o **gestor aprova até o dia 19** e a **mesa conta o estoque até o dia 19**. O que não estiver aprovado quando a compra for enviada fica para o mês seguinte ou, se for urgente, vira **compra avulsa**.
+- Cada linha aprovada ganha um destino: **"fornecedor entrega no posto"** ou **"sai do estoque (o inspetor leva)"**. O sistema sugere (primeiro usa o que tem no estoque), o comprador confirma. Livro de Ocorrências, Protocolo de Correspondências e as Planilhas de Controle **nunca vão ao fornecedor**: são comprados e encapados no escritório e saem na separação.
+- O **estoque de materiais** passa a existir no CORH, **um estoque central só**: entrou (compra, sobra, devolução), saiu (separado para um contrato), ajuste da contagem. O saldo é a soma desses movimentos — ninguém digita o saldo à mão. Todo mês a **mesa conta o estoque** e o sistema registra a diferença com motivo.
+- Quando o fornecedor entrega, a **mesa registra o que chegou** em cada contrato. Faltou algo, registra a quantidade menor e o motivo. O pedido fica **"Entregue"** ou **"Entregue parcial"**; o que faltou não volta sozinho para a próxima compra.
+- Depois que a compra foi enviada, o pedido não muda; o que surgir é **compra avulsa**.
+- A **Beth** ganha, na aba CEU → Pedidos, a **lista de compra de uniforme/EPI** do que ela não tem para entregar, no mesmo formato de planilha. O estoque do CEU continua manual.
+- O **financeiro** passa a consultar as compras com valores (sem alterar).
 - Ficam para a Fase 3: o relatório de entrega único assinado pelo líder e o lançamento automático das entregas no CEU.
-- **Antes de começar** é preciso preencher a **rota (1, 2 ou 3) dos 64 contratos** — hoje todas estão vazias — e o fornecedor/preço dos 4 itens de portaria que não têm (pergunta 1 e seção 9).
+- **Antes de começar** a gestora precisa informar a **rota (1, 2 ou 3) dos 64 contratos** — hoje todas estão vazias — e o **fornecedor padrão das peças do CEU** (seção 9, planilha pronta para preencher).
 
 ---
 
@@ -28,7 +31,7 @@
 | Mescla de envios | `mat_registrar_envio` (143) mescla só antes de `aprovado`; depois cria pedido extra | — | Os estados novos ficam fora da mescla automaticamente (não estão na lista) — o envio do líder depois da compra vira pedido extra, como hoje depois da aprovação |
 | Rota | `mat_contratos.rota` (1/2/3) + `mat_pedidos.rota_override` | **as 64 rotas estão vazias** | Rota efetiva `coalesce(rota_override, rota)` separa o Excel e a lista de separação |
 | Fornecedores | `fornecedores` (cadastro único, 121) | 16 fornecedores | Fornecedor da compra |
-| Fornecedor padrão do item | `mat_itens.fornecedor_id` | 112 de 116 itens ativos têm (Antolimp 67, Contecom 16, Bralimpia 11, Loja das Bombas 6, Essex 5, Compra Avulsa 5, outros 2). Sem fornecedor: os 4 de portaria (Livro de Ocorrências, Protocolo de Correspondências, Planilhas de Controle de Acessos e de Veículos) | Sugestão do fornecedor de cada item na compra |
+| Fornecedor padrão do item | `mat_itens.fornecedor_id` | 112 de 116 itens ativos têm (Antolimp 67, Contecom 16, Bralimpia 11, Loja das Bombas 6, Essex 5, Compra Avulsa 5, outros 2). Sem fornecedor: os 4 de portaria (Livro de Ocorrências, Protocolo de Correspondências, Planilhas de Controle de Acessos e de Veículos) — **ficam sem fornecedor de propósito** (decisão 1: preparados no escritório) | Fornecedor padrão de cada item na compra; o comprador troca pontualmente numa compra (decisão 12) |
 | Preços com histórico | `mat_precos` (item, variação, **fornecedor**, preço, vigente desde) + `precoVigente()` em `src/lib/materiais/precos.ts` | 188 preços, todos com fornecedor; 4 itens sem preço; 15 linhas de outubro sem preço | Preço da compra = vigente na data da compra (snapshot) |
 | CEU — itens | `itens` (`estoque`, `estoque_minimo`, `fornecedor_id`, `valor` em centavos, `ultima_compra`, `compra_na_loja`) | **`estoque` = 0 e `fornecedor_id` vazio nos 130 itens**; ninguém mantém o saldo (entregas não baixam) | Só a lista de compra da Beth (seção 3.4); o saldo do CEU não muda nesta fase |
 | CEU — preços | `ceu_itens_precos` (134) | 153 linhas, 29 com fornecedor | Preço e fornecedor sugerido para a compra de uniforme/EPI |
@@ -56,12 +59,12 @@ grant select, insert, update, delete on public.<tabela> to service_role;
 
 ### 3.1 Funções de permissão novas (migration 145)
 
-Perfis conferidos em `PERMISSOES_PADRAO` (`src/lib/permissoes.ts`) e nas `pode_*` da 121. As listas abaixo são a **recomendação**; os nomes de quem compra e de quem conta dependem das perguntas 2 e 5.
+Perfis conferidos em `PERMISSOES_PADRAO` (`src/lib/permissoes.ts`) e nas `pode_*` da 121; quem compra (gestor e mesa), quem conta (mesa) e o acesso do financeiro (só consulta) foram confirmados pela gestora (decisões 2, 5 e 14).
 
-| Função | Perfis (recomendação) | Uso |
+| Função | Perfis | Uso |
 |---|---|---|
-| `pode_comprar_materiais()` | admin, adm, gestor, mesa | Definir destino das linhas, gerar/enviar/cancelar compra, compra de reposição do estoque |
-| `pode_movimentar_estoque_materiais()` | admin, adm, gestor, mesa, inspetoria | Registrar separação (saída), sobra e devolução; inspetoria só saída/devolução dos seus contratos não é distinguível no banco — ver risco 10.6 |
+| `pode_comprar_materiais()` | admin, adm, gestor, mesa | Definir destino das linhas, gerar/enviar/cancelar compra, compra avulsa, compra de reposição do estoque |
+| `pode_movimentar_estoque_materiais()` | admin, adm, gestor, mesa, inspetoria | Registrar separação (saída), sobra e devolução (a inspetoria registra a devolução que ela mesma trouxe — decisão 6); o banco não distingue "os contratos do inspetor" — ver risco 8.6 |
 | `pode_contar_estoque_materiais()` | admin, adm, gestor, mesa | Abrir, preencher e fechar a contagem mensal |
 | `pode_registrar_chegada_materiais()` | admin, adm, gestor, mesa | Registrar o que o fornecedor entregou (produtos) |
 | `pode_ver_compras_materiais()` | `pode_ver_materiais()` + financeiro | SELECT de compras e itens de compra (o financeiro confere a nota fiscal) |
@@ -89,7 +92,8 @@ Para a fila da Beth reaproveita-se `pode_atender_pedido_ceu()` (admin, adm, gest
 **`mat_estoque_contagem_itens`** — `contagem_id`, `item_id`, `variacao_id null`, `saldo_sistema numeric` (foto do saldo ao abrir), `quantidade_contada numeric null check (>= 0)`, `diferenca numeric generated always as (quantidade_contada - saldo_sistema) stored`, `motivo text` (obrigatório quando a diferença ≠ 0 — o check vale no fechamento, pela RPC). Único `(contagem_id, item_id, coalesce(variacao_id, zero-uuid))`.
 
 **RPCs da 145** (todas `SECURITY DEFINER`, `search_path = public`, `REVOKE ... FROM PUBLIC, anon`, `GRANT EXECUTE ... TO authenticated`):
-- `mat_registrar_movimento_estoque(p_tipo, p_item, p_variacao, p_quantidade, p_data, p_motivo, p_contrato)` — sobra, devolução, saída avulsa (com motivo). Recusa saída maior que o saldo? **Não** — só avisa (o estoque físico manda; o sistema registra e a contagem acerta). Ver pergunta 6.
+- `mat_registrar_movimento_estoque(p_tipo, p_item, p_variacao, p_quantidade, p_data, p_motivo, p_contrato)` — sobra, devolução, saída avulsa (com motivo). Sobra e devolução entram no estoque central com motivo (decisão 6). Saída maior que o saldo **não** é recusada — só avisa (o estoque físico manda; o sistema registra e a contagem acerta).
+- Itens **preparados no escritório** (`mat_itens.preparo_escritorio`, seção 3.3) não entram na contagem nem têm saldo.
 - `mat_estornar_movimento(p_movimento, p_motivo)` — cria o movimento inverso; recusa estornar um estorno ou um movimento de contagem fechada.
 - `mat_abrir_contagem(p_competencia, p_data)` — cria a contagem com a foto do saldo de todos os itens com saldo ≠ 0 ou com movimento nos últimos 6 meses; itens novos podem ser incluídos depois.
 - `mat_salvar_contagem(p_contagem, p_itens jsonb)` — grava as quantidades contadas (pode salvar várias vezes enquanto `aberta`).
@@ -98,15 +102,17 @@ Para a fila da Beth reaproveita-se `pode_atender_pedido_ceu()` (admin, adm, gest
 ### 3.3 Compra de materiais (migration 146)
 
 **`mat_compras`** — um pedido a um fornecedor ("o Excel que vai para a Antolimp").
-- `competencia date not null`, `fornecedor_id → fornecedores not null`, `numero text unique` (sequencial legível "COMP-2026-10-001", gerado na RPC), `tipo check in ('mensal','complementar','reposicao_estoque')`, `status check in ('rascunho','enviada','recebida_parcial','recebida','cancelada')`, `data_corte timestamptz` (até quando as linhas aprovadas entraram), `entrega_prevista date null`, `enviada_em/por`, `cancelada_em/por/motivo`, `observacao`, `criado_por`, `created_at`.
+- `competencia date not null`, `fornecedor_id → fornecedores not null`, `numero text unique` (sequencial legível "COMP-2026-10-001", gerado na RPC), `tipo check in ('mensal','avulsa','reposicao_estoque')` (decisão 8: o que surge depois da compra enviada é **compra avulsa**), `status check in ('rascunho','enviada','recebida_parcial','recebida','cancelada')`, `data_corte timestamptz` (até quando as linhas aprovadas entraram), `entrega_prevista date null`, `enviada_em/por`, `cancelada_em/por/motivo`, `observacao`, `criado_por`, `created_at`.
 - RLS: SELECT `pode_ver_compras_materiais()`; escrita só RPC.
 
 **`mat_compra_itens`** — uma linha por **item × variação × contrato** dentro da compra (é exatamente a célula do Excel).
 - `compra_id → mat_compras on delete cascade`, `item_id`, `variacao_id null`, `contrato_id → mat_contratos null` (**null = reposição do estoque**, coluna "Estoque" do Excel), `rota smallint null` (snapshot da rota efetiva na geração), `quantidade numeric(12,2) not null check (> 0)`, `preco_unitario numeric(12,2) null` (vigente na data da compra; null = item sem preço, ver 9.3), `qtd_recebida numeric null check (>= 0)`, `motivo_recebimento text` (obrigatório quando recebida < quantidade), `recebido_em date`, `recebido_por uuid`, `entrega_local check in ('posto','escritorio')` (posto quando há contrato; escritório na reposição).
 - Único `(compra_id, item_id, coalesce(variacao_id, zero), coalesce(contrato_id, zero))`.
 
+**Coluna nova em `mat_itens`**: `preparo_escritorio boolean not null default false` — item comprado e preparado (encapado) no escritório, que **nunca entra no pedido ao fornecedor** (decisão 1). A migration marca por id, com conferência de contagem = 4, os itens Livro de Ocorrências, Protocolo de Correspondências, Planilha de Controle de Acessos e Planilha de Controle de Veículos; editável no Catálogo. **Recomendação: sem controle de estoque para esses itens** — são poucos, feitos em lote conforme a necessidade e o custo de contá-los todo mês não se paga. Eles saem da compra, aparecem numa **"lista do escritório"** (total do mês por item, para saber quanto preparar) e na separação; marcar "Separado" registra a entrega sem movimento de estoque. Se um dia a gestora quiser saldo deles, basta desmarcar o flag: passam a ser itens de estoque comuns.
+
 **Colunas novas em `mat_pedido_itens`** (o "destino" de cada linha aprovada):
-- `atendimento text null check in ('fornecedor','estoque','nao_atendido')`.
+- `atendimento text null check in ('fornecedor','estoque','escritorio','nao_atendido')` (`escritorio` = item com `preparo_escritorio`; sugerido automaticamente e nunca vai a compra).
 - `qtd_estoque numeric null`, `qtd_compra numeric null` — a linha pode ser dividida (parte sai do estoque, parte vem do fornecedor); check: `coalesce(qtd_estoque,0) + coalesce(qtd_compra,0) <= qtd aprovada`.
 - `compra_item_id → mat_compra_itens null` (de qual célula de compra vem a parte do fornecedor).
 - `motivo_entrega text` (já existe `qtd_entregue`), `entregue_em date`, `entregue_por uuid`.
@@ -118,23 +124,24 @@ Para a fila da Beth reaproveita-se `pode_atender_pedido_ceu()` (admin, adm, gest
 - `aprovado` → `em_compra`: todas as linhas aprovadas com quantidade > 0 já têm destino (`atendimento` preenchido).
 - `em_compra` → `entregue`: todas as linhas com destino têm `qtd_entregue` = quantidade aprovada (fornecedor + estoque) ou estão `nao_atendido`.
 - `em_compra` → `entregue_parcial`: todas fechadas, mas alguma com `qtd_entregue` menor que a aprovada.
-- Pedido ainda em `em_validacao`/`validado` cujo **kit** já foi comprado (o kit é aprovado na hora — §13 da Fase 1): o status do pedido **não muda** (ele ainda é a fila do que depende do inspetor/gestor); as linhas do kit carregam o destino individualmente. Depende da pergunta 7.
+- **Kit e extras vão na mesma compra** (decisão 7): o kit é aprovado na hora (§13 da Fase 1), mas **nada é comprado antes da janela de compra (dias 20–25)** — a prévia só existe a partir do dia 20 (data configurável `materiais_config.dia_inicio_compra`, padrão 20, por `hojeBrasil()`; antes disso a tela mostra o que está aprovado, sem botão de gerar).
+- **Extra ainda não aprovado quando a compra é gerada** (pedido em `em_validacao`/`validado`): a tela avisa "N contratos com extras aguardando inspetor/gestor" e o comprador pode esperar até o dia 25. Ao gerar a compra, **o kit desses contratos vai** (o posto não fica sem o material de rotina por causa de um extra) e **o extra pendente fica de fora**. Se for aprovado depois, entra na **compra do mês seguinte** (a prévia lista também linhas aprovadas e sem destino de competências anteriores, com o selo "do mês anterior") ou, se for urgente, numa **compra avulsa**. O status desse pedido segue a fila do inspetor/gestor; as linhas do kit carregam o destino individualmente e o pedido só vira `em_compra` quando todas as linhas aprovadas tiverem destino.
 
 **RPCs da 146:**
-- `mat_previa_compra(p_competencia)` — **somente leitura**, devolve as linhas aprovadas e ainda sem destino do mês (com contrato, rota efetiva, item, variação, quantidade aprovada, fornecedor padrão do item, preço vigente, saldo do estoque). Agregação no servidor: evita o corte de 1.000 linhas do PostgREST e garante que tela e Excel leiam a mesma coisa. A distribuição sugerida (estoque × fornecedor) é lógica pura no front (`src/lib/materiais/compra.ts`, com testes).
+- `mat_previa_compra(p_competencia)` — **somente leitura**, devolve as linhas aprovadas e ainda sem destino da competência **e das anteriores** (com contrato, rota efetiva, item, variação, quantidade aprovada, fornecedor padrão do item, preço vigente, saldo do estoque). Agregação no servidor: evita o corte de 1.000 linhas do PostgREST e garante que tela e Excel leiam a mesma coisa. A distribuição sugerida (estoque × fornecedor) é lógica pura no front (`src/lib/materiais/compra.ts`, com testes).
 - `mat_definir_atendimento(p_linhas jsonb)` — grava o destino de cada linha (fornecedor/estoque/dividida/não atendido com motivo). Recusa linha não aprovada, de pedido cancelado, ou que já tem compra enviada.
 - `mat_gerar_compra(p_competencia, p_fornecedor, p_tipo, p_linhas jsonb)` — cria a compra em `rascunho` e as `mat_compra_itens` agregando as linhas com destino "fornecedor" daquele fornecedor; liga cada `mat_pedido_itens.compra_item_id`; grava o preço vigente na data. Para `reposicao_estoque`, as linhas vêm do comprador (item, variação, quantidade), sem contrato.
 - `mat_enviar_compra(p_compra)` — `rascunho` → `enviada` (congela as quantidades; o Excel daquela compra passa a ser sempre o mesmo). Recalcula o status dos pedidos ligados.
 - `mat_cancelar_compra(p_compra, p_motivo)` — só `rascunho` ou `enviada` sem nada recebido; desfaz os destinos das linhas (voltam para "sem destino").
 - `mat_registrar_chegada(p_compra, p_itens jsonb)` — mesa: por célula, a quantidade recebida e o motivo se menor. Entrega no posto: grava `qtd_recebida` na célula e distribui para `qtd_entregue` das linhas de pedido ligadas (uma célula pode juntar o kit e o extra do mesmo contrato — a distribuição preenche primeiro o kit, depois os extras, por ordem de criação); reposição: cria `entrada_compra` no estoque. Atualiza `mat_compras.status` e o status dos pedidos.
-- `mat_registrar_separacao(p_linhas jsonb)` — saída do estoque: para cada linha com destino "estoque", cria `saida_pedido` (negativo) e grava `qtd_entregue` (parte do estoque), `entregue_em/por`. Ver pergunta 4 (baixa na separação × na entrega).
+- `mat_registrar_separacao(p_linhas jsonb)` — saída do estoque: para cada linha com destino "estoque", cria `saida_pedido` (negativo) e grava `qtd_entregue` (parte do estoque), `entregue_em/por` — a baixa acontece aqui (decisão 4). Linhas com destino `escritorio` são marcadas entregues sem movimento de estoque.
 
 **RPCs da Fase 1 que precisam ser recriadas na 146** (a partir do `pg_get_functiondef` real, como na 135, e com backup):
 
 | RPC | Mudança |
 |---|---|
 | `ajustar_linha_kit_materiais` (135) | Recusar quando a linha já tem destino (`atendimento` não nulo) ou o pedido está em `em_compra`/`entregue`/`entregue_parcial` (a 135 aceita `aprovado` — hoje a lista é `em_validacao, validado, aprovado`) |
-| `incluir_linha_pedido_materiais` (139) | Em `em_compra` ou depois: recusar no pedido e orientar a criar pedido extra (ou aceitar e voltar o pedido para `validado`? — ver pergunta 8; recomendação: recusar) |
+| `incluir_linha_pedido_materiais` (139) | Em `em_compra` ou depois: recusar (decisão 8 — o pedido não muda depois da compra enviada) e orientar a criar pedido extra, que vai para uma compra avulsa |
 | `ligar_linha_catalogo_materiais` (139) | Recusar linha que já tem destino |
 | `aprovar_pedido_materiais` / `validar_pedido_materiais` (135) | Recusar linha com destino (só pode acontecer com o kit, que já sai aprovado) |
 | `preencher_pedido_pelo_kit` (135, linha 472) | A periodicidade olha pedidos `status_produtos = 'aprovado'` — passar a aceitar `aprovado, em_compra, entregue, entregue_parcial` |
@@ -145,14 +152,14 @@ Para a fila da Beth reaproveita-se `pode_atender_pedido_ceu()` (admin, adm, gest
 
 ### 3.4 Compra da Beth — uniforme e EPI (migration 147)
 
-Recomendação (pergunta 9): **a mesma compra, com outra origem**, sem mexer no saldo do CEU.
+Decisão 9: **a mesma compra, com outra origem**, sem mexer no saldo do CEU (o estoque do CEU continua manual).
 - `mat_compras.origem check in ('materiais','ceu') default 'materiais'`.
 - `mat_compra_itens.ceu_item_id → itens null` (check: exatamente um entre `item_id` e `ceu_item_id`), `colaborador_id` **não** é gravado na compra (o fornecedor recebe item × tamanho × quantidade; a pessoa fica no pedido).
 - `ceu_pedido_itens.compra_item_id → mat_compra_itens null` e `ceu_pedido_itens.qtd_recebida`/`recebido_em` (o que chegou para aquela linha).
 - RPCs: `ceu_gerar_compra(p_fornecedor, p_linhas jsonb)` e `ceu_registrar_chegada(p_compra, p_itens jsonb)` com `pode_atender_pedido_ceu()`. A chegada **não** altera `itens.estoque` (o saldo do CEU continua manual — decisão da Fase 1) e **não** marca a linha como atendida: a Beth continua atendendo pela tela como hoje.
 - Peças "compra na loja" (`itens.compra_na_loja`, 141: blazer, calça social, camisa social branca bordada) **não entram** na compra ao fornecedor — o colaborador compra com autorização; a tela as lista à parte.
 - Crachá não entra (é impresso na aba Crachás).
-- Fornecedor sugerido = o do último preço em `ceu_itens_precos` (29 com fornecedor) ou `itens.fornecedor_id` (hoje vazio nos 130 — cadastrar).
+- Fornecedor sugerido = `itens.fornecedor_id` (hoje vazio nos 130 — preenchido na etapa 0) ou, sem ele, o do último preço em `ceu_itens_precos` (24 das 98 peças ativas têm).
 
 ### 3.5 Migration 148 — permissões
 
@@ -166,12 +173,12 @@ Todas no `MateriaisShell` (abas novas), com componentes de `src/components/corh/
 
 | Rota | Tela | Quem usa |
 |---|---|---|
-| `/materiais/compras` (aba **Compras**) | **Preparar a compra do mês**: tabela de tudo o que foi aprovado e ainda não tem destino, agrupada por item; colunas aprovado, saldo do estoque, sugestão "do estoque" × "do fornecedor", fornecedor; o comprador confirma ou ajusta linha a linha (dividir, trocar fornecedor, não atender com motivo). Botão "Gerar pedidos aos fornecedores" (um rascunho por fornecedor). Abaixo, a lista de compras do mês com status | comprador (gestor, mesa); financeiro e inspetoria só leitura |
+| `/materiais/compras` (aba **Compras**) | **Preparar a compra do mês** (botão de gerar liberado do dia 20 ao 25; aviso dos contratos com extras pendentes e da data da última contagem): tabela de tudo o que foi aprovado e ainda não tem destino — kit e extras juntos, mais o que sobrou de meses anteriores —, agrupada por item; colunas aprovado, saldo do estoque, sugestão "do estoque" × "do fornecedor", fornecedor; o comprador confirma ou ajusta linha a linha (dividir, trocar fornecedor, não atender com motivo). Botão "Gerar pedidos aos fornecedores" (um rascunho por fornecedor). Abaixo, a lista de compras do mês com status | comprador (gestor, mesa); financeiro e inspetoria só leitura |
 | `/materiais/compras/:id` | Detalhe de uma compra: matriz itens × contratos (por rota), total por item e por contrato, valor; botões **Baixar Excel**, **Marcar como enviada**, **Cancelar**; depois de enviada, **Registrar chegada** | comprador; mesa registra a chegada; financeiro só leitura |
 | `/materiais/chegadas` (aba **Chegadas**) | Lista das compras enviadas aguardando entrega, por rota e data prevista; abre o registro por contrato (quantidade recebida, motivo se menor). Atalho "chegou tudo" por contrato | mesa (+ gestor) |
-| `/materiais/separacao` (aba **Separação**) | O que **sai do estoque**, por rota e contrato — lista para o inspetor levar; botão "Separado" registra a saída. Mostra o saldo antes/depois | mesa, inspetoria (+ gestor) |
-| `/materiais/estoque` (aba **Estoque**) | Saldo por item/variação, último movimento, histórico de movimentos com filtro; botões "Entrada de sobra", "Devolução", "Saída avulsa", "Estornar" (com motivo) | mesa, gestor; inspetoria só leitura (+ devolução, se a pergunta 6 confirmar) |
-| `/materiais/estoque/contagem` | Contagem do mês: abre, imprime a folha (itens na ordem do catálogo), digita as quantidades, motivo nas diferenças, fecha | quem conta (pergunta 5) |
+| `/materiais/separacao` (aba **Separação**) | O que **sai do estoque** e os **itens do escritório**, por rota e contrato — lista para o inspetor levar; botão "Separado" registra a saída (itens do escritório sem movimento de estoque). Mostra o saldo antes/depois. Inclui a "lista do escritório": total do mês de cada item preparado no escritório | mesa, inspetoria (+ gestor) |
+| `/materiais/estoque` (aba **Estoque**) | Saldo por item/variação, último movimento, histórico de movimentos com filtro; botões "Entrada de sobra", "Devolução", "Saída avulsa", "Estornar" (com motivo) | mesa, gestor; inspetoria só leitura + registrar a devolução que ela trouxe |
+| `/materiais/estoque/contagem` | Contagem do mês: abre, imprime a folha (itens na ordem do catálogo), digita as quantidades, motivo nas diferenças, fecha | mesa (+ gestor) — contar e fechar entre os dias 16 e 19 |
 | `/materiais/pedidos/:id` (existente) | Ganha as colunas **Destino** ("fornecedor — Antolimp, compra COMP-…", "estoque", "não atendido: motivo") e **Entregue**; selo do status novo. Ações de ajuste/inclusão somem quando a linha já tem destino | todos do módulo |
 | `/materiais/pedidos` (existente) | Status novos nos filtros e selos ("Em compra", "Entregue", "Entregue parcial") | todos |
 | `/ceu/pedidos` (existente) | Novo bloco **"Pedir ao fornecedor"** sobre o "falta comprar" que já existe: a Beth informa, se quiser, "tenho em mãos" por peça (não é gravado como estoque), escolhe o fornecedor e gera a compra; Excel no mesmo formato (peças × contratos); depois registra a chegada | dp2 (Beth), gestor |
@@ -202,48 +209,66 @@ ceu: {
 
 ## 5. Fluxo mensal passo a passo
 
-1. **Dias 1–15 — pedido do líder (Fase 1, sem mudança).** O kit sai aprovado na hora; os extras vão ao inspetor e ao gestor.
-2. **Até o dia ~15 — contagem do estoque** (pergunta 5). Quem conta abre a contagem, imprime a folha, conta a prateleira, digita, explica as diferenças e fecha. O saldo do sistema passa a ser o contado.
-3. **Dia do corte (pergunta 3; recomendação: dia 16, depois do fim da janela) — preparar a compra.** O comprador abre Materiais → Compras: o sistema lista tudo o que está aprovado e ainda sem destino, soma por item e mostra o saldo. Sugestão automática: **usa o estoque primeiro** (até o saldo), o resto vai para o fornecedor padrão do item. Itens que sempre saem do escritório (os de portaria, se a pergunta 1 confirmar) já vêm como "estoque". O comprador confirma ou ajusta.
-4. **Gerar os pedidos aos fornecedores.** Um rascunho por fornecedor. Abre o detalhe, confere a matriz, baixa o Excel, envia ao fornecedor (e-mail/WhatsApp — fora do sistema) e marca **"Enviada"**. A partir daqui as linhas não mudam e os pedidos passam para **"Em compra"**.
-5. **Separação do estoque.** A mesa/inspetoria abre Materiais → Separação, separa por rota e marca "Separado" — o saldo baixa e as linhas ficam como entregues pelo estoque.
-6. **Entrega.** O fornecedor entrega no posto (por rota); o inspetor leva o que saiu do estoque.
-7. **Registrar a chegada.** A mesa abre Materiais → Chegadas e registra, por contrato, o que o fornecedor entregou. Faltou: quantidade menor + motivo. O pedido vira **"Entregue"** ou **"Entregue parcial"**. O que não chegou: pergunta 10.
-8. **Depois do corte.** Extras aprovados depois do dia 16 e pedidos extras entram numa **compra complementar** (mesmo fluxo, `tipo = 'complementar'`) ou esperam o mês seguinte (pergunta 3).
-9. **Reposição do estoque.** Quando quiser, o comprador faz uma compra `reposicao_estoque` (itens sem contrato, entrega no escritório); a chegada vira entrada no estoque.
-10. **Beth (uniforme/EPI).** Depois de conferir a fila, ela vê "falta comprar", gera o pedido ao fornecedor, registra a chegada e continua atendendo e lançando no CEU como hoje.
+**Calendário do mês** (decisões 3 e 5; dias configuráveis em `materiais_config` — `dia_limite_validacao` 17, `dia_limite_aprovacao` 19, `dia_inicio_compra` 20, `dia_fim_compra` 25; `mat_salvar_config` passa a aceitar essas chaves na 146):
+
+| Dias | O quê | Quem |
+|---|---|---|
+| 1–15 | Líder faz o pedido (Fase 1, sem mudança). O kit sai aprovado na hora; os extras vão para o inspetor | líder |
+| 16–17 | Inspetor valida os extras (a fila já existe) | inspetoria |
+| 18–19 | Gestor aprova os extras no Painel | gestor |
+| 16–19 | Mesa conta o estoque e fecha a contagem (até o dia 19) | mesa |
+| 20–25 | Compra: destino de cada linha, pedido aos fornecedores, Excel, "Enviada" | gestor ou mesa |
+| depois do envio | Separação do estoque, entrega pelo fornecedor e pelo inspetor, registro da chegada | mesa, inspetoria |
+
+Os prazos dos dias 17 e 19 são **avisos, não travas** (mesmo desenho do "dia de aviso" da Fase 1): a partir do dia 18 a fila do inspetor e o Painel do gestor mostram em âmbar "faltam N dias para a compra"; no dia 20, em vermelho. Contagem fora do prazo também só gera aviso na tela Compras ("estoque contado há N dias").
+
+**Pedido não aprovado até a compra:** o comprador pode esperar até o dia 25. Quando a compra é gerada, entram o **kit de todos os contratos** e os **extras aprovados**; o extra ainda pendente fica de fora e, quando for aprovado, entra na compra do mês seguinte (a prévia traz o que sobrou dos meses anteriores, com selo) ou, se for urgente, numa **compra avulsa**. Contrato sem kit e só com extras pendentes: nada dele vai nessa compra.
+
+1. **Dias 1–19 — pedido, validação e aprovação** (Fase 1).
+2. **Até o dia 19 — contagem do estoque.** A mesa abre a contagem, imprime a folha, conta a prateleira, digita, explica as diferenças e fecha. O saldo do sistema passa a ser o contado.
+3. **Dias 20–25 — preparar a compra.** O comprador abre Materiais → Compras: o sistema lista tudo o que está aprovado e ainda sem destino (kit e extras juntos), soma por item e mostra o saldo. Sugestão automática: **usa o estoque primeiro** (até o saldo), o resto vai para o **fornecedor padrão do item** (o comprador pode trocar numa compra). Itens preparados no escritório já vêm como "escritório" e não entram em pedido a fornecedor. O comprador confirma ou ajusta.
+4. **Gerar os pedidos aos fornecedores.** Um rascunho por fornecedor. O comprador abre o detalhe, confere a matriz, baixa o Excel, envia ao fornecedor (e-mail/WhatsApp — fora do sistema) e marca **"Enviada"**. A partir daqui as linhas não mudam e os pedidos passam para **"Em compra"**.
+5. **Separação.** A mesa/inspetoria abre Materiais → Separação, separa por rota (o que sai do estoque e os itens do escritório) e marca "Separado" — o saldo baixa na hora (decisão 4) e as linhas ficam como entregues pelo estoque/escritório.
+6. **Entrega.** O fornecedor entrega no posto (por rota); o inspetor leva o que saiu do estoque e do escritório.
+7. **Registrar a chegada.** A mesa abre Materiais → Chegadas e registra, por contrato, o que o fornecedor entregou. Faltou: quantidade menor + motivo. O pedido vira **"Entregue"** ou **"Entregue parcial"**. O que faltou **não volta sozinho** para a próxima compra (decisão 10): se chegar depois, a mesa completa o registro na mesma compra; se não vier, o comprador decide entre compra avulsa e o mês seguinte.
+8. **Depois da compra enviada.** Nada muda no pedido (decisão 8). O que surgir — extra aprovado depois, pedido extra urgente, faltante que não veio — é **compra avulsa** (mesmo fluxo, `tipo = 'avulsa'`) ou espera a compra do mês seguinte.
+9. **Reposição do estoque.** Quando quiser, o comprador faz uma compra `reposicao_estoque` (itens sem contrato, entrega no escritório); a chegada vira entrada no estoque central.
+10. **Beth (uniforme/EPI).** Depois de conferir a fila, ela vê "falta comprar", gera a lista de compra ao fornecedor, registra a chegada e continua atendendo e lançando no CEU como hoje (estoque do CEU manual).
 
 ### 5.1 Diagrama do fluxo
 
 ```
- LÍDER (link)                 INSPETOR / GESTOR              COMPRADOR (mesa/gestor)
- ───────────                  ──────────────────             ───────────────────────
- envia pedido ──► kit: aprovado na hora ─────────────┐
-              └─► extras: em_validacao ► validado ► aprovado ┐
-                                                     │       │
-                                                     ▼       ▼
-                                   ┌──── PREPARAR COMPRA (aprovado − saldo) ────┐
-                                   │                                             │
-                        destino "estoque"                             destino "fornecedor"
-                                   │                                             │
-                                   ▼                                             ▼
-                      SEPARAÇÃO (saída do estoque)          COMPRA por fornecedor (rascunho)
-                      inspetor leva ao posto                   │ Excel → fornecedor
-                                   │                            ▼
-                                   │                       ENVIADA  ⇒ pedido "em_compra"
-                                   │                            │ fornecedor entrega no posto
-                                   │                            ▼
-                                   │                   CHEGADA registrada pela mesa
-                                   │                     (qtd recebida + motivo se menor)
-                                   └──────────────┬─────────────┘
-                                                  ▼
-                                    pedido "entregue" ou "entregue_parcial"
-                                                  │
-                                   (Fase 3: recibo único assinado pelo líder)
+ DIAS 1-15                 DIAS 16-19                        DIAS 20-25 (COMPRADOR: gestor/mesa)
+ ─────────                 ──────────                        ───────────────────────────────────
+ líder envia ──► kit: aprovado na hora ─────────────────────┐
+             └─► extras: inspetor (até 17) ► gestor (até 19) ┐
+                           mesa conta o estoque (até 19)     │
+                                                        ▼    ▼
+                    ┌──── PREPARAR COMPRA: kit + extras aprovados − saldo ────┐
+                    │      (extra pendente: mês seguinte ou compra avulsa)    │
+                    │                                                          │
+       destino "estoque" / "escritório"                          destino "fornecedor"
+                    │                                                          │
+                    ▼                                                          ▼
+       SEPARAÇÃO (baixa do estoque)                    COMPRA por fornecedor (rascunho)
+       inspetor leva ao posto                             │ Excel → fornecedor
+                    │                                     ▼
+                    │                                 ENVIADA ⇒ pedido "em_compra"
+                    │                                     │  (depois disso: só compra avulsa)
+                    │                                     │ fornecedor entrega no posto
+                    │                                     ▼
+                    │                          CHEGADA registrada pela mesa
+                    │                          (qtd recebida + motivo se menor)
+                    └───────────────┬─────────────────────┘
+                                    ▼
+                  pedido "entregue" ou "entregue_parcial"
+                                    │
+                   (Fase 3: recibo único assinado pelo líder)
 
- ESTOQUE:  + entrada_compra (reposição) + sobra + devolução
-           − saida_pedido (separação) − saída avulsa
-           ± ajuste_contagem (contagem mensal fechada)      saldo = soma dos movimentos
+ ESTOQUE CENTRAL (um só): + entrada_compra (reposição) + sobra + devolução
+                          − saida_pedido (separação) − saída avulsa
+                          ± ajuste_contagem (contagem mensal fechada)   saldo = soma dos movimentos
+ Itens do escritório (livro, protocolo, planilhas de controle): fora da compra e sem saldo.
 ```
 
 ---
@@ -264,10 +289,10 @@ Borrifador UN              |   4    |    3     | ... |            |    2    |  2
 ...
 Total                      |  83    |   12     | ... |            |         | 529
 ```
-- Linhas = itens do catálogo com o **nome padronizado e a unidade** (como na planilha: "Cloro 5L", "Disco preto 350 UN"); variação no nome ("Flanela Microfibra amarela"). Só itens com quantidade > 0 (a planilha atual listava os zerados — sugestão de limpeza, pergunta 11).
+- Linhas = itens do catálogo com o **nome padronizado e a unidade** (como na planilha: "Cloro 5L", "Disco preto 350 UN"); variação no nome ("Flanela Microfibra amarela"). Só itens com quantidade > 0 (a planilha atual listava os zerados — decisão 11).
 - Colunas = contratos com quantidade > 0, **agrupados por rota** (uma linha de cabeçalho "Rota 1 / Rota 2 / Rota 3" acima dos nomes; contratos sem rota no fim em "Sem rota"); coluna "Estoque" só quando há reposição; coluna "Total".
 - Nome do contrato = `mat_contratos.nome` (o nome curto, como na planilha).
-- Sem preço (o fornecedor tem a própria tabela) — pergunta 11.
+- Sem preço (o fornecedor tem a própria tabela) — decisão 11.
 
 **Aba 2 — "Compra ao Fornecedor"**: Item | Quantidade total (e, só na versão interna, Preço unitário e Valor), com "Total Geral".
 
@@ -283,14 +308,14 @@ Cada etapa deixa o sistema funcionando. Migrations aplicadas pela Management API
 
 | # | Entrega | Como testar | Tam. |
 |---|---|---|---|
-| 0 | **Dados antes de tudo**: rota dos 64 contratos (tela Contratos, gestor/mesa), fornecedor e preço dos 4 itens de portaria, fornecedor dos itens do CEU que a Beth compra. Sem código | Consulta: 0 contratos ativos sem rota; 0 itens ativos sem fornecedor | P |
+| 0 | **Etapa 0 — cadastro da gestora** (seção 9): planilha `dados-locais/fase2_etapa0/etapa0_cadastro_para_gestora.xlsx` preenchida → script grava as rotas (`definir_rota_contrato`) e o `itens.fornecedor_id` do CEU, com dry-run e backup. Sem código de tela | Consulta: 0 contratos ativos sem rota; peças do CEU com fornecedor = as preenchidas | P |
 | 1 | **Migration 145** — estoque (movimentos, view de saldo, contagens, `pode_*` novas, RPCs de movimento e contagem) + tipos em `src/types/materiais.ts`/`database.ts` | Teste de fumaça em transação desfeita (como na 135/144): INSERT direto como `authenticated` = permission denied; movimento com sinal errado recusado; saída sem motivo recusada; contagem fecha e gera os ajustes certos; fechar com linha sem quantidade recusado; estorno de estorno recusado; varredura `chr(65533)` nas funções | M |
 | 2 | Lógica pura `src/lib/materiais/estoque.ts` (saldo, diferença, ordem da folha) + telas **Estoque** e **Contagem** | Vitest; smoke das páginas; contagem real de teste com 3 itens | M |
-| **D1** | Deploy: estoque e contagem no ar — **a 1ª contagem real vira o saldo inicial** (não há saldo para importar: a planilha só tinha as linhas "Modelo" até 04/2026) | hash do bundle = `dist/` | — |
-| 3 | **Migration 146** — compras, colunas novas em `mat_pedido_itens`, CHECK de status, RPCs de compra/chegada/separação, recriação das RPCs da Fase 1 (tabela da 3.3) | Fumaça em transação desfeita: prévia lista só aprovadas sem destino; dividir linha acima do aprovado recusado; gerar compra liga as linhas; enviar congela; `ajustar_linha_kit` em linha com destino recusado; `incluir_linha` em pedido `em_compra` recusado; chegada parcial sem motivo recusada; chegada total → `entregue`; uma célula com kit + extra distribui certo; cancelar compra devolve as linhas; envio do líder depois de `em_compra` vira pedido extra; periodicidade do "preencher pelo kit" conta `em_compra`/`entregue` | G |
+| **D1** | Deploy: estoque e contagem no ar até 15/11 — **a 1ª contagem real (16 a 19/11) vira o saldo inicial** (não há saldo para importar: a planilha só tinha as linhas "Modelo" até 04/2026) | hash do bundle = `dist/` | — |
+| 3 | **Migration 146** — compras, `mat_itens.preparo_escritorio` (marca os 4 itens por id, conferência = 4), colunas novas em `mat_pedido_itens`, CHECK de status, chaves novas de `materiais_config`, RPCs de compra/chegada/separação, recriação das RPCs da Fase 1 (tabela da 3.3) | Fumaça em transação desfeita: prévia lista só aprovadas sem destino (inclusive de mês anterior); item do escritório nunca entra em compra; gerar compra antes do dia 20 recusado; dividir linha acima do aprovado recusado; gerar compra liga as linhas; enviar congela; `ajustar_linha_kit` em linha com destino recusado; `incluir_linha` em pedido `em_compra` recusado; chegada parcial sem motivo recusada; chegada total → `entregue`; uma célula com kit + extra distribui certo; cancelar compra devolve as linhas; envio do líder depois de `em_compra` vira pedido extra; periodicidade do "preencher pelo kit" conta `em_compra`/`entregue` | G |
 | 4 | Front dos estados novos (constante única, `media.ts`, `painel.ts`, `useMateriaisPedidos`, detalhe/lista) + lógica pura `compra.ts` (agregação, sugestão estoque-primeiro, divisão) e `excelCompra.ts` (matriz por rota, totais) | Vitest com o caso real de junho/2026 (compra Antolimp: 107 itens listados, 58 zerados, 529 unidades no total; total por contrato da aba); `npm test`, lint, build | M |
 | 5 | Telas **Compras** (preparar + detalhe + Excel), **Separação** e **Chegadas** | Mês de teste completo num contrato fictício: aprovado → destino → compra → Excel → enviada → separação → chegada parcial → entregue_parcial | G |
-| **D2** | Deploy: primeira compra real (novembro/2026) **em paralelo com a planilha** — o comprador confere o Excel do sistema contra a planilha antes de enviar | Totais por fornecedor batem com a planilha | — |
+| **D2** | Deploy: primeira compra real (20 a 25/11/2026) **em paralelo com a planilha** — o comprador confere o Excel do sistema contra a planilha antes de enviar | Totais por fornecedor batem com a planilha | — |
 | 6 | **Migration 147** — compra da Beth (origem `ceu`, `ceu_item_id`, `ceu_pedido_itens.compra_item_id`, RPCs) + bloco "Pedir ao fornecedor" na aba CEU → Pedidos | Fumaça: compra CEU não altera `itens.estoque`; "compra na loja" não entra; chegada não marca atendido | M |
 | 7 | **Migration 148** — permissões (sementes + `reset_permissoes_perfil` = 129 + linhas novas) + `PERMISSOES_PADRAO` + `PermissoesPage` + `permissoes.test.ts` | "Restaurar padrão" do financeiro mantém a aba Compras; dp1 não vê Compras | P |
 | 8 | Documentação: AGENTS.md §8 (145–148) e §11 (regras de compra/estoque), `docs/REGRAS_NEGOCIO.md`, guia de treinamento | — | P |
@@ -303,29 +328,33 @@ Cada etapa deixa o sistema funcionando. Migrations aplicadas pela Management API
 ## 8. Riscos e pontos de atenção
 
 1. **Rotas vazias.** Os 64 contratos estão sem rota. Sem rota, o Excel junta tudo em "Sem rota" e a separação não tem ordem. Bloqueio suave: a tela Compras avisa "N contratos sem rota" e não impede.
-2. **Estado misto no mesmo pedido.** O kit sai aprovado na hora e o extra espera o inspetor/gestor. O status do pedido é "a fila do que falta decidir" (Fase 1 §13). Por isso o destino e a entrega ficam **por linha**, e o status do pedido só vira `em_compra` quando todas as linhas aprovadas têm destino. Ver pergunta 7.
+2. **Estado misto no mesmo pedido.** O kit sai aprovado na hora e o extra espera o inspetor/gestor. O status do pedido é "a fila do que falta decidir" (Fase 1 §13). Por isso o destino e a entrega ficam **por linha**, e o status do pedido só vira `em_compra` quando todas as linhas aprovadas têm destino. Extra pendente na data da compra fica de fora sem segurar o kit (decisão 7).
 3. **Linhas que não podem ser compradas.** Texto livre não ligado ao catálogo (`item_id` nulo — hoje 0, mas o líder pode mandar "Não achei, enviar assim") e item sem preço (15 linhas de outubro). A prévia lista à parte: texto livre exige "Ligar ao catálogo" antes; sem preço vai para a compra com valor "—" e aviso.
 4. **Preço da compra ≠ preço do pedido.** O pedido guarda o preço do dia do envio; a compra, o do dia da compra. A tela mostra os dois quando diferem; o painel do gestor segue com o do pedido.
-5. **Preço por fornecedor.** `mat_precos` guarda o fornecedor, mas o preço vigente não depende dele (vale o mais recente do item). Se o comprador trocar o fornecedor de uma compra, o preço exibido pode ser de outro fornecedor — aviso na tela e "atualize o preço no Catálogo". Ver pergunta 11.
+5. **Preço por fornecedor.** `mat_precos` guarda o fornecedor, mas o preço vigente não depende dele (vale o mais recente do item). Se o comprador trocar o fornecedor de uma compra, o preço exibido pode ser de outro fornecedor — aviso na tela e "atualize o preço no Catálogo" (decisão 12: fornecedor padrão por item, troca pontual).
 6. **Quem mexe no estoque.** O banco não sabe "de qual inspetor" é cada contrato (não há vínculo inspetor × contrato). Se a inspetoria registrar saídas, ela poderá registrar de qualquer contrato. Aceitável (auditoria pelo `criado_por`).
 7. **Saldo negativo.** O sistema registra a saída mesmo sem saldo (o físico manda) e mostra o saldo negativo em vermelho; a contagem acerta. Bloquear criaria "não consigo registrar o que já saiu".
 8. **Contagem com movimento no meio.** Entre abrir e fechar a contagem pode haver separação; por isso o ajuste é calculado no **fechamento** (contado − saldo naquele instante), não na abertura.
 9. **Paginação.** Linhas do mês, movimentos e compras passam de 1.000 com o tempo: prévia agregada no servidor (RPC) e leituras com `selecionarTudo`.
 10. **Datas e fuso.** `data`, `recebido_em`, `entregue_em`, `entrega_prevista` são `date` (lidas com `parseDataLocal`, padrão `hojeBrasil()`); carimbos `timestamptz` exibidos com `formatarDataHora`. A competência da compra é a do pedido, não a do dia da compra.
 11. **Rota trocada depois do envio da compra.** A célula guarda a rota do momento do envio; o Excel enviado não muda. A tela avisa quando a rota efetiva atual difere.
-12. **CEU.** O saldo do CEU (`itens.estoque`) é manual, está zerado e não baixa com as entregas. A Fase 2 não o usa como verdade (recomendação) — senão o "falta comprar" vira "comprar tudo" ou "não comprar nada". Controlar o estoque do CEU de verdade é decisão separada (pergunta 9).
+12. **CEU.** O saldo do CEU (`itens.estoque`) é manual, está zerado e não baixa com as entregas. A Fase 2 não o usa como verdade (decisão 9) — senão o "falta comprar" vira "comprar tudo" ou "não comprar nada"; a Beth informa "tenho em mãos" na própria lista.
 13. **Acentos.** SQL com acento só por arquivo UTF-8 (incidente da 131); conferir `chr(65533)` nas funções depois de cada migration.
 14. **Falso sucesso.** Nenhuma escrita direta nas tabelas novas; cada RPC devolve o que mudou; a tela confere o retorno antes do toast.
 15. **Fase 3.** A baixa do estoque fica na separação (Fase 2). Na Fase 3 o recibo assinado só se liga a ela — não pode haver segunda baixa.
 
 ---
 
-## 9. Pendências de dados antes da implementação
+## 9. Etapa 0 — o que a gestora precisa informar para começar
 
-1. **Rota dos 64 contratos** (tela Contratos, gestor/mesa). Pela planilha de junho, as rotas são os **3 dias de entrega** (HANDOFF 09/10: "Rotas 1/2/3 = 3 dias de entrega").
-2. **Fornecedor e preço** dos 4 itens de portaria (Livro de Ocorrências, Protocolo de Correspondências, Planilha de Controle de Acessos, Planilha de Controle de Veículos) — ou a marca "sai sempre do estoque" (pergunta 1).
-3. **Fornecedor dos itens do CEU** que a Beth compra (hoje 0 de 130 com `fornecedor_id`; `ceu_itens_precos` tem 29 com fornecedor — Justo, Multi Stilo, Kaufmann).
-4. **Primeira contagem** do estoque de materiais (vira o saldo inicial).
+Nada de código começa antes disso. Está tudo numa planilha só, já com os contratos e as peças listados (sem dados pessoais): **`dados-locais/fase2_etapa0/etapa0_cadastro_para_gestora.xlsx`**. Basta preencher as colunas amarelas e devolver; o agente grava com prévia, backup e conferência (nada por palpite).
+
+1. **Rota de cada contrato** (aba "Contratos"): colocar 1, 2 ou 3 em cada um dos **64 contratos ativos** — hoje todos estão sem rota. A rota separa o Excel ao fornecedor e a lista de separação do inspetor. Para ajudar, a planilha mostra o departamento, se o contrato recebe limpeza, quantos itens tem no kit e se pediu em outubro.
+2. **O que cada rota significa** (aba "Rotas"): pela planilha de junho, as rotas são os 3 dias de entrega. Escrever o dia e/ou a região de cada uma (aparece no cabeçalho do Excel e na tela de chegadas).
+3. **Fornecedor padrão de cada peça do CEU que a Beth compra** (aba "Itens CEU", 98 peças ativas): hoje nenhuma tem fornecedor. A coluna "último fornecedor" mostra o que já está no histórico de preços (24 peças). As peças "compra na loja" (3) e crachá/cordinha podem ficar vazias. Fornecedor que não está na lista vai na aba "Fornecedores" (nome, CNPJ se souber, contato).
+4. **Quatro respostas curtas** (aba "Outras decisões"): data da primeira contagem do estoque (proposta: entre 16 e 19/11, antes da primeira compra de 20 a 25/11 — ela vira o saldo inicial); confirmar os prazos do inspetor (dia 17) e do gestor (dia 19); confirmar que os itens preparados no escritório são só Livro de Ocorrências, Protocolo de Correspondências, Planilha de Controle de Acessos e Planilha de Controle de Veículos.
+
+O que **não** precisa: preço e fornecedor desses 4 itens (decisão 1 — eles ficam fora da compra); fornecedor dos itens de materiais (112 de 116 já têm; os 4 que faltam são justamente os do escritório); saldo inicial do estoque (sai da primeira contagem).
 
 ---
 
@@ -333,54 +362,26 @@ Cada etapa deixa o sistema funcionando. Migrations aplicadas pela Management API
 
 - Relatório de entrega único por contrato assinado pelo líder e lançamento automático das entregas de uniforme/EPI no CEU (Fase 3).
 - Envio do pedido ao fornecedor por e-mail pelo sistema (o Excel é baixado e enviado pelo comprador).
-- Estoque por rota ou por inspetor (recomendação: estoque central único — pergunta 2).
-- Controle de estoque do CEU com baixa automática nas entregas.
-- Conferência da nota fiscal (financeiro só consulta a compra com valores).
+- Estoque por rota ou por inspetor (decisão 13: um estoque central só).
+- Controle de estoque do CEU com baixa automática nas entregas (decisão 9: continua manual).
+- Saldo dos itens preparados no escritório (decisão 1; basta desmarcar o flag se um dia quiser).
+- Conferência da nota fiscal (o financeiro só consulta a compra com valores).
 
 ---
 
-## 11. Perguntas para a gestora
+## 11. Decisões confirmadas pela gestora (17/10/2026)
 
-Cada pergunta tem a recomendação e o porquê. Respondendo "pode seguir a recomendação" em todas, o plano já está pronto para começar.
-
-1. **Livro de Ocorrências, Protocolo de Correspondências e as Planilhas de Controle (portaria) são comprados de fornecedor ou feitos/guardados no escritório?**
-   Recomendação: marcar esses itens como **"sai sempre do estoque"**. Porquê: são os únicos 4 itens sem fornecedor e sem preço; se forem impressos ou guardados no escritório, o sistema já os manda para a separação e eles nunca aparecem num pedido a fornecedor.
-
-2. **Quem é o comprador?** (quem olha o aprovado, desconta o estoque e faz o pedido aos fornecedores)
-   Recomendação: **gestor e mesa** (Elisangela e Maciel). Porquê: o Maciel já cadastra fornecedores e respondeu os preços; a gestora aprova. Se for outra pessoa/perfil, só muda a lista de quem pode.
-
-3. **A compra é uma vez por mês, com data de corte? Qual dia? O que fica para depois do corte?**
-   Recomendação: **uma compra principal por mês no dia 16** (o pedido do líder vai até o dia 15) e **compras complementares quando precisar** (extras aprovados depois e pedidos extras). Porquê: casa com a janela do pedido e com o histórico da planilha (compra mensal); a complementar evita que um extra urgente espere o mês seguinte. Se preferir quinzenal, o sistema é o mesmo — só muda o costume.
-
-4. **Quando o material sai do estoque, a baixa acontece na separação (quando sai da prateleira) ou quando o inspetor confirma que entregou no posto?**
-   Recomendação: **na separação**. Porquê: é o momento em que o material deixa de estar no escritório — a contagem do mês só bate assim. A confirmação da entrega no posto fica para o recibo assinado da Fase 3.
-
-5. **A contagem do estoque é obrigatória todo mês? Quem conta e até que dia?**
-   Recomendação: **obrigatória, feita pela mesa, até o dia 15** (antes da compra do dia 16). Porquê: a compra desconta o saldo; sem contagem recente, o sistema pode comprar a mais ou a menos. O sistema não trava a compra sem contagem, mas avisa.
-
-6. **O que fazer com sobra e devolução?** (material que voltou de um contrato, contrato encerrado, fornecedor que mandou a mais)
-   Recomendação: **entra no estoque central com o motivo**, registrada pela mesa; a inspetoria pode registrar a devolução que ela mesma trouxe. Porquê: é o que já se faz na prática (vira estoque e sai no próximo pedido) e fica rastreado.
-
-7. **O kit de um contrato pode ser comprado antes do inspetor e do gestor decidirem os extras desse mesmo contrato?**
-   Recomendação: **sim**. Porquê: o kit já sai aprovado na hora (decisão de 16/10). Se ele esperar os extras, um contrato com um extra pendente atrasa o material de rotina. O extra que for aprovado depois entra na compra complementar ou na do mês seguinte.
-
-8. **Depois que a compra foi enviada ao fornecedor, o inspetor/gestor ainda pode incluir ou ajustar itens naquele pedido?**
-   Recomendação: **não no mesmo pedido** — o que surgir depois vira **pedido extra** (que entra na compra complementar). Porquê: o Excel já foi para o fornecedor; mexer no pedido criaria diferença entre o que foi pedido e o que vai chegar. O botão "Adicionar item" e o "Ajustar" do kit somem quando a linha já tem destino.
-
-9. **A compra de uniforme e EPI da Beth entra nesta fase? E o estoque do CEU: o sistema passa a controlar ou continua manual?**
-   Recomendação: **entra a lista de compra da Beth no mesmo formato de Excel, e o estoque do CEU continua manual** (o sistema não soma nem baixa sozinho). Porquê: hoje o saldo do CEU está zerado nos 130 itens e as entregas não baixam o saldo; se o sistema passar a somar as chegadas sem baixar as entregas, o número fica errado em poucas semanas. Controlar o estoque do CEU de verdade pede a baixa automática das entregas — melhor junto com a Fase 3.
-
-10. **Quando o fornecedor entrega menos do que foi pedido, o que acontece com o que faltou?**
-   Recomendação: **a mesa registra a quantidade recebida e o motivo; o que faltou fica como "entregue parcial" e NÃO volta sozinho para a próxima compra** — o comprador decide incluir na complementar ou deixar para o mês seguinte. Porquê: muitas vezes o faltante chega dias depois na mesma compra (aí a mesa só completa o registro); voltar automaticamente geraria compra em dobro.
-
-11. **O Excel que vai ao fornecedor leva preço? E a lista mostra os itens zerados, como a planilha?**
-   Recomendação: **sem preço e só com os itens pedidos** na versão do fornecedor; uma versão interna "com valores" para o financeiro conferir a nota. Porquê: o fornecedor tem a própria tabela; os itens zerados deixam a planilha longa à toa (na de junho, mais da metade das linhas estava zerada).
-
-12. **O fornecedor é sempre o mesmo para cada item, ou um mesmo item pode vir de fornecedores diferentes conforme o contrato?** (ex.: os itens exclusivos da CNOOC)
-   Recomendação: **um fornecedor padrão por item** (como já está no catálogo), com a possibilidade de o comprador trocar o fornecedor de um item numa compra específica. Porquê: 112 dos 116 itens já têm fornecedor padrão; fornecedor por item × contrato multiplicaria o cadastro sem caso real conhecido. Se a CNOOC tiver fornecedor próprio, avise e o plano inclui.
-
-13. **O estoque de materiais é um só (escritório), ou cada rota/inspetor tem o seu?**
-   Recomendação: **um estoque central único**. Porquê: era assim na planilha (o "Estoque Atual" só nas linhas "Modelo", um por item por mês) e é o mais simples de contar. Estoque por inspetor exigiria transferências entre estoques e uma contagem por pessoa.
-
-14. **O financeiro precisa ver as compras com valores?**
-   Recomendação: **sim, só para consultar** (aba Compras, sem poder alterar). Porquê: é quem confere a nota fiscal do fornecedor contra o que foi pedido e o que chegou; hoje o financeiro não vê o módulo Materiais.
+1. **Livro de Ocorrências, Protocolo de Correspondências e Planilhas de Controle (portaria)**: "compramos e encapamos no escritório. Não precisa entrar na compra." → `mat_itens.preparo_escritorio`; nunca entram no pedido ao fornecedor; saem na separação; **sem controle de estoque** (recomendação do agente, seção 3.3), só uma "lista do escritório" com o total do mês.
+2. **Comprador = gestor e mesa.** `pode_comprar_materiais()` = admin, adm, gestor, mesa.
+3. **Compra entre os dias 20 e 25** de cada mês. Para caber: inspetor valida até o dia 17 e gestor aprova até o dia 19 (avisos, não travas). O que não estiver aprovado quando a compra for enviada vai para o mês seguinte ou para compra avulsa.
+4. **Baixa do estoque na separação** (quando sai da prateleira). A confirmação da entrega no posto fica com o recibo da Fase 3, sem segunda baixa.
+5. **Contagem mensal obrigatória, feita pela mesa.** Prazo revisto por causa da compra 20–25: **contar e fechar entre os dias 16 e 19**, para o saldo estar fresco no dia da compra. Sem contagem recente, a compra avisa, mas não trava.
+6. **Sobra e devolução entram no estoque central com motivo**, registradas pela mesa; a inspetoria registra a devolução que ela mesma trouxe.
+7. **"É comprado tudo junto"**: kit e extras do mês vão na **mesma compra**; o kit não é comprado antes da janela 20–25. Extra ainda não aprovado na data da compra fica de fora (o kit do contrato vai) e entra na compra do mês seguinte ou numa compra avulsa.
+8. **Depois de enviada, a compra e o pedido não mudam; o que surgir é "compra avulsa"** (`mat_compras.tipo = 'avulsa'`). "Adicionar item" e "Ajustar" somem quando a linha já tem destino.
+9. **Beth: lista de compra de uniforme/EPI no mesmo formato de Excel; o estoque do CEU continua manual** (a chegada não soma no `itens.estoque`).
+10. **Entrega menor que o pedido**: a mesa registra a quantidade recebida e o motivo; o pedido fica "entregue parcial"; o que faltou **não volta sozinho** para a próxima compra — o comprador decide.
+11. **Excel ao fornecedor sem preço e só com os itens pedidos**; versão interna "com valores" para o financeiro.
+12. **Um fornecedor padrão por item** (como já está no catálogo), com troca pontual pelo comprador numa compra específica.
+13. **Um estoque central só** (escritório).
+14. **Financeiro consulta as compras com valores, sem alterar** (aba Compras, `menu/rota.materiais_compras`).
