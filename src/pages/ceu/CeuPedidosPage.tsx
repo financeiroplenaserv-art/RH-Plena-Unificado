@@ -437,8 +437,8 @@ export function CeuPedidosPage() {
                         <TableHead className="w-64">Colaborador</TableHead>
                         <TableHead>Peça</TableHead>
                         <TableHead>Tamanho</TableHead>
-                        <TableHead>Última entrega</TableHead>
                         <TableHead>Penúltima entrega</TableHead>
+                        <TableHead>Última entrega</TableHead>
                         <TableHead className="text-right">Qtd.</TableHead>
                         <TableHead className="text-right">Saldo CEU</TableHead>
                         <TableHead>Situação</TableHead>
@@ -533,6 +533,10 @@ export function CeuPedidosPage() {
                                 </>
                               )}
                             </TableCell>
+                            {/* Ordem cronológica: penúltima antes da última (pedido da gestora, 18/10/2026). */}
+                            <TableCell className="tabular-nums">
+                              <UltimaEntregaCelula data={a.penultima} detalhe={a.detalhePenultima} />
+                            </TableCell>
                             <TableCell className="tabular-nums">
                               <UltimaEntregaCelula
                                 data={a.ultima}
@@ -540,9 +544,6 @@ export function CeuPedidosPage() {
                                 antesDoPrazo={a.recente}
                                 titleSelo="Dentro do prazo de uso da peça"
                               />
-                            </TableCell>
-                            <TableCell className="tabular-nums">
-                              <UltimaEntregaCelula data={a.penultima} detalhe={a.detalhePenultima} />
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {l.qtd_pedida}
