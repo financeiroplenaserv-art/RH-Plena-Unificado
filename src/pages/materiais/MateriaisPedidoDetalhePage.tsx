@@ -45,7 +45,11 @@ import { quantidadeComUnidade } from '@/lib/materiais/unidades'
 import { UltimaEntregaCelula } from '@/components/materiais/UltimaEntregaCelula'
 import { EscolherItemCatalogo, type ItemEscolhido } from '@/components/materiais/EscolherItemCatalogo'
 import { toast } from 'sonner'
-import type { MatComentario, MatPedidoItem } from '@/types/materiais'
+import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
+import { carregarCamposFase2, carregarComprasDasCelulas } from '@/hooks/useMateriaisCompras'
+import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
+import { aprovadoOuDepois } from '@/lib/materiais/pedidos'
+import type { MatCompra, MatComentario, MatPedidoItem } from '@/types/materiais'
 
 // Detalhe do pedido (docs/PLANO_MATERIAIS_FASE1.md §5.1): linhas pedido × kit
 // × validado × aprovado, origem de cada linha (envio original/complemento,
@@ -81,6 +85,10 @@ export function MateriaisPedidoDetalhePage() {
   // "Adicionar item" e "Ligar ao catálogo" (migration 139)
   const [inclusao, setInclusao] = useState<{ item: ItemEscolhido | null; qtd: string; motivo: string } | null>(null)
   const [ligacao, setLigacao] = useState<{ linha: MatPedidoItem; item: ItemEscolhido | null; motivo: string } | null>(null)
+  // Fase 2 (migration 147): destino na compra e entrega de cada linha — lidos à parte, de forma tolerante.
+  const [fase2, setFase2] = useState<Map<string, Partial<MatPedidoItem>>>(new Map())
+  const [comprasCelula, setComprasCelula] = useState<Map<string, { compraId: string; numero: string; fornecedorId: string; status: MatCompra['status'] }>>(new Map())
+  const forn = useMateriaisFornecedores()
 
   const { carregar } = det
   const { carregar: carregarCatalogo } = catalogo
@@ -93,8 +101,29 @@ export function MateriaisPedidoDetalhePage() {
     carregarCatalogo()
     carregarContratos()
   }, [carregarCatalogo, carregarContratos])
+  const { carregar: carregarForn } = forn
+  useEffect(() => {
+    carregarForn()
+  }, [carregarForn])
+  useEffect(() => {
+    let vivo = true
+    if (!det.pedido) return
+    carregarCamposFase2([det.pedido.id]).then(async (m) => {
+      if (!vivo) return
+      setFase2(m)
+      const celulas = [...m.values()].map((x) => x.compra_item_id).filter((x): x is string => !!x)
+      const c = await carregarComprasDasCelulas(celulas)
+      if (vivo) setComprasCelula(c)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [det.pedido, det.itens])
 
   const p = det.pedido
+  const nomeFornecedor = useMemo(() => new Map(forn.fornecedores.map((f) => [f.id, f.nome])), [forn.fornecedores])
+  const comFase2 = (l: MatPedidoItem): MatPedidoItem => ({ ...l, ...(fase2.get(l.id) ?? {}) })
+  const temDestino = (l: MatPedidoItem) => !!fase2.get(l.id)?.atendimento
   const contrato = p ? contratosHook.contratos.find((c) => c.id === p.contrato_id) ?? null : null
   const modo: Modo =
     p?.status_produtos === 'em_validacao' && nivel && podeValidarMateriais(nivel)
@@ -257,6 +286,44 @@ export function MateriaisPedidoDetalhePage() {
     return ok
   }
 
+  /** Destino da linha na compra (Fase 2) e o que já foi entregue. */
+  const celulaDestino = (l: MatPedidoItem) => {
+    if (!l.atendimento) return l.qtd_aprovada != null && Number(l.qtd_aprovada) > 0 ? <span className="text-muted-foreground">aguarda a compra</span> : '—'
+    const compra = l.compra_item_id ? comprasCelula.get(l.compra_item_id) : null
+    const entregue = l.qtd_entregue != null && (l.qtd_entregue_estoque != null || l.qtd_recebida_fornecedor != null)
+    return (
+      <div className="space-y-0.5">
+        {l.atendimento === 'nao_atendido' ? (
+          <p className="text-red-700 dark:text-red-300">não atendido: {l.motivo_nao_atendido}</p>
+        ) : l.atendimento === 'escritorio' ? (
+          <p>escritório (preparado aqui)</p>
+        ) : (
+          <>
+            {(l.qtd_compra ?? 0) > 0 && (
+              <p>
+                fornecedor — {compra ? `${nomeFornecedor.get(compra.fornecedorId) ?? 'fornecedor'}, ` : ''}
+                {compra ? (
+                  <Link className="text-primary underline" to={`/materiais/compras/${compra.compraId}`}>
+                    {compra.numero}
+                  </Link>
+                ) : null}{' '}
+                <span className="tabular-nums">({l.qtd_compra})</span>
+              </p>
+            )}
+            {(l.qtd_estoque ?? 0) > 0 && <p className="tabular-nums">estoque ({l.qtd_estoque})</p>}
+            {l.motivo_nao_atendido && <p className="text-muted-foreground">corte: {l.motivo_nao_atendido}</p>}
+          </>
+        )}
+        {entregue && (
+          <p className="font-medium tabular-nums">
+            entregue {l.qtd_entregue}
+            {l.motivo_entrega ? <span className="font-normal text-muted-foreground"> — {l.motivo_entrega}</span> : null}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   /** Tabela de linhas de produto (kit do mês ou pedido extra). */
   const tabelaLinhas = (linhas: MatPedidoItem[], ehKit: boolean) => {
     const colunaEdicao = modo !== 'ler' || (ehKit && podeAjustarKit)
@@ -272,6 +339,7 @@ export function MateriaisPedidoDetalhePage() {
                     <TableHead className="text-right">Aprovado</TableHead>
                     <TableHead>Última entrega</TableHead>
                     <TableHead className="text-right">Preço</TableHead>
+                    <TableHead>Destino / entregue</TableHead>
                     {colunaEdicao && <TableHead className="w-64">{modo === 'validar' ? 'Validação' : modo === 'aprovar' ? 'Ajuste' : 'Kit'}</TableHead>}
                     <TableHead className="w-10" />
                   </TableRow>
@@ -284,7 +352,7 @@ export function MateriaisPedidoDetalhePage() {
                     const coms = comentariosPorLinha.get(l.id) ?? []
                     const destacada = (!ehKit && exc.length > 0) || l.possivel_repeticao
                     const auto = kitAprovadoAutomatico(l)
-                    const editavel = modo !== 'ler' && !auto
+                    const editavel = modo !== 'ler' && !auto && !temDestino(l)
                     const original = l.item_original_id ? nomeItem.get(l.item_original_id)?.nome : null
                     return (
                       <TableRow key={l.id} className={`align-top hover:bg-accent/40 ${destacada ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
@@ -317,7 +385,7 @@ export function MateriaisPedidoDetalhePage() {
                               {l.incluido_em ? 'Motivo da inclusão' : 'Motivo do líder'}: “{l.justificativa}”
                             </p>
                           )}
-                          {!l.item_id && podeEditarLinhas && (
+                          {!l.item_id && podeEditarLinhas && !temDestino(l) && (
                             <Button variant="outline" size="sm" className="mt-1" onClick={() => setLigacao({ linha: l, item: null, motivo: '' })}>
                               <Link2 className="size-4" /> Ligar ao catálogo
                             </Button>
@@ -368,9 +436,10 @@ export function MateriaisPedidoDetalhePage() {
                           })()}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{l.preco_unitario != null ? mascaraMoeda(l.preco_unitario) : '—'}</TableCell>
+                        <TableCell className="text-xs">{celulaDestino(comFase2(l))}</TableCell>
                         {colunaEdicao && (
                           <TableCell className="space-y-1.5">
-                            {ehKit && podeAjustarKit && (auto || modo === 'ler') && (
+                            {ehKit && podeAjustarKit && !temDestino(l) && (auto || modo === 'ler') && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -462,7 +531,9 @@ export function MateriaisPedidoDetalhePage() {
         description={`${p.tipo === 'extra' ? 'Pedido extra' : 'Pedido mensal'} de ${rotuloCompetencia(p.competencia)}${
           contrato ? ` · ${nomeCurtoDepartamentoFuzzy(contratosHook.departamentos, contrato.departamento_id)}` : ''
         }`}
-      />
+      >
+        <CartasLiderBotoes competencia={p.competencia} contratoId={p.contrato_id} />
+      </PageHeader>
 
       <div className="space-y-4">
         <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 text-sm shadow-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -486,7 +557,7 @@ export function MateriaisPedidoDetalhePage() {
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Valor ({p.status_produtos === 'aprovado' ? 'aprovado' : 'pedido'})</p>
+            <p className="text-xs text-muted-foreground">Valor ({aprovadoOuDepois(p.status_produtos) ? 'aprovado' : 'pedido'})</p>
             <p className="mt-1 font-semibold tabular-nums">{mascaraMoeda(valorTotal)}</p>
             {itensKit.length > 0 && (
               <p className="text-xs text-muted-foreground tabular-nums">
@@ -535,7 +606,7 @@ export function MateriaisPedidoDetalhePage() {
             </Button>
           </div>
         )}
-        <DataTable title={itensKit.length > 0 ? 'Pedido extra' : 'Produtos'} count={itensExtra.length} minWidth={980}>
+        <DataTable title={itensKit.length > 0 ? 'Pedido extra' : 'Produtos'} count={itensExtra.length} minWidth={1120}>
           {itensExtra.length === 0 ? (
             <EmptyState
               icon={<PackageSearch className="size-6" />}
@@ -550,7 +621,7 @@ export function MateriaisPedidoDetalhePage() {
           <DataTable
             title={`Kit do mês${kitAuto ? ' — aprovado automaticamente' : ''}`}
             count={itensKit.length}
-            minWidth={980}
+            minWidth={1120}
           >
             {tabelaLinhas(itensKit, true)}
           </DataTable>

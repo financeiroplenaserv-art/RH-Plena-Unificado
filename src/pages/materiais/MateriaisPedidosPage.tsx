@@ -27,12 +27,13 @@ import { janelaPedido } from '@/lib/materiais/datas'
 import { qtdEfetiva, temExcecao } from '@/lib/materiais/filas'
 import { rotaEfetiva } from '@/lib/materiais/pedidos'
 import { competenciaDoMes } from '@/lib/materiais/painel'
+import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
 
 // Lista do mês (docs/PLANO_MATERIAIS_FASE1.md §5.1): todos os pedidos da
 // competência com o status das duas filas, valor e exceções.
 
 interface FiltroPedidos {
-  situacao: 'todos' | 'em_validacao' | 'validado' | 'ceu_aberto'
+  situacao: 'todos' | 'em_validacao' | 'validado' | 'aprovado' | 'em_compra' | 'entregue' | 'entregue_parcial' | 'ceu_aberto'
   contrato: string
 }
 const FILTRO_PADRAO: FiltroPedidos = { situacao: 'todos', contrato: 'todos' }
@@ -110,6 +111,7 @@ export function MateriaisPedidosPage() {
   return (
     <MateriaisShell>
       <PageHeader showBackButton={false} title="Pedidos do mês" description="Pedidos de produtos, uniformes, EPI e crachás de cada contrato.">
+        <CartasLiderBotoes competencia={competencia} />
         {podeExtra && (
           <Button onClick={() => setExtraAberto(true)}>
             <Plus className="size-4" /> Pedido extra
@@ -154,6 +156,10 @@ export function MateriaisPedidosPage() {
                 <option value="todos">Todos</option>
                 <option value="em_validacao">Produtos com o inspetor</option>
                 <option value="validado">Produtos aguardando o gestor</option>
+                <option value="aprovado">Aprovados (aguardando a compra)</option>
+                <option value="em_compra">Em compra</option>
+                <option value="entregue">Entregues</option>
+                <option value="entregue_parcial">Entregues parcialmente</option>
                 <option value="ceu_aberto">Uniforme/EPI em aberto</option>
               </select>
             </div>

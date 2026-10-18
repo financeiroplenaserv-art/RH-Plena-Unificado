@@ -38,6 +38,7 @@ import {
 } from '@/lib/materiais/compra'
 import { ROTULO_STATUS_COMPRA, ROTULO_TIPO_COMPRA } from './comprasRotulos'
 import { toast } from 'sonner'
+import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
 
 // Aba Compras (docs/PLANO_MATERIAIS_FASE2.md §4): "Preparar a compra do mês" —
 // tudo o que foi aprovado e ainda não tem destino (kit e extras juntos, mais o
@@ -235,7 +236,10 @@ export function MateriaisComprasPage() {
       <PageHeader
         title="Compras"
         description="Preparar a compra do mês (kit e extras aprovados, numa compra só) e acompanhar os pedidos aos fornecedores."
-      />
+      >
+        {/* A carta lê pedidos e catálogo (RLS do módulo): o financeiro, só com a aba Compras, não a gera. */}
+        {podeComprar && <CartasLiderBotoes competencia={competencia} />}
+      </PageHeader>
 
       <div className="space-y-4">
         <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">

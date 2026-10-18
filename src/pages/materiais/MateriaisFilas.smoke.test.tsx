@@ -37,6 +37,15 @@ const perfil: Perfil = {
 }
 
 vi.mock('@/hooks/useAuth', () => estabilizar({ useAuth: () => ({ user: perfil, loading: false }) }))
+// Fase 2: destino na compra (lido à parte no detalhe), fornecedores e carta ao líder.
+vi.mock('@/hooks/useMateriaisCompras', () => ({
+  carregarCamposFase2: vi.fn(async () => new Map()),
+  carregarComprasDasCelulas: vi.fn(async () => new Map()),
+}))
+vi.mock('@/hooks/useMateriaisFornecedores', () =>
+  estabilizar({ useMateriaisFornecedores: () => ({ fornecedores: [], loading: false, estruturaPendente: false, carregar: vi.fn(), salvar: vi.fn() }) })
+)
+vi.mock('@/hooks/useCartaLider', () => estabilizar({ useCartaLider: () => ({ gerando: false, montar: vi.fn(async () => []) }) }))
 
 const contrato = { id: 'c1', departamento_id: 'd1', nome: 'Abaeté', rota: 2, recebe_limpeza: true, ativo: true, observacao: null }
 const departamentos = [{ id: 'd1', nome: 'CONDOMINIO ABAETE', nome_curto: 'ABAETÉ', status: 'Ativo' }]
