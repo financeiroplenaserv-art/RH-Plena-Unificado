@@ -6,6 +6,7 @@ import { selecionarTudo } from '@/lib/materiais/paginar'
 import type { PayloadAtendimento } from '@/lib/materiais/filas'
 import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { chavePeca, separarTamanhoDoNome } from '@/lib/materiais/pecasCeu'
+import type { EntregaBruta } from '@/lib/materiais/entregasPeca'
 import type { CeuTamanhos } from '@/types/database'
 import type { CeuPedidoItem, MatContrato, MatPedido, MatPedidoEnvio } from '@/types/materiais'
 import { buscarPorIds, COLUNAS_CEU_PEDIDO, COLUNAS_ENVIO } from './useMateriaisPedidos'
@@ -88,10 +89,11 @@ export function useCeuPedidos() {
   const [itens, setItens] = useState<ItemCeuApoio[]>([])
   const [tamanhos, setTamanhos] = useState<Map<string, CeuTamanhos>>(new Map())
   /**
-   * colaborador|peça → última entrega da PEÇA (qualquer tamanho) e o item
-   * entregue (para mostrar o tamanho). Pediu a bota 39, recebeu a 38: vale a 38.
+   * colaborador|peça → entregas da PEÇA (qualquer tamanho), cruas. A tela agrupa
+   * por data e escolhe última/penúltima (src/lib/materiais/entregasPeca.ts).
+   * Pediu a bota 39, recebeu a 38: vale a 38.
    */
-  const [ultimasEntregas, setUltimasEntregas] = useState<Map<string, { data: string; item_id: string }>>(new Map())
+  const [ultimasEntregas, setUltimasEntregas] = useState<Map<string, EntregaBruta[]>>(new Map())
   /** item → chave da peça (agrupamento por nome base — src/lib/materiais/pecasCeu.ts). */
   const [pecaDoItem, setPecaDoItem] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(false)
@@ -161,9 +163,9 @@ export function useCeuPedidos() {
         supabase.from('mat_pedido_envios').select(COLUNAS_ENVIO).in('pedido_id', lote).order('id').range(de, ate)
       ),
       filtro === 'abertas'
-        ? buscarPorIds<{ colaborador_id: string; item_id: string; data_entrega: string }>(itemIds, (lote, de, ate) =>
+        ? buscarPorIds<{ colaborador_id: string; item_id: string; data_entrega: string; quantidade: number | null }>(itemIds, (lote, de, ate) =>
             // Um item pode ter mais de 1.000 entregas (ex.: luvas): buscarPorIds pagina dentro do lote
-            supabase.from('entregas').select('colaborador_id, item_id, data_entrega').in('item_id', lote).order('id').range(de, ate)
+            supabase.from('entregas').select('colaborador_id, item_id, data_entrega, quantidade').in('item_id', lote).order('id').range(de, ate)
           )
         : Promise.resolve({ data: [], error: null }),
       buscarPorIds<ColaboradorApoio>(faltantes, (lote, de, ate) =>
@@ -178,11 +180,13 @@ export function useCeuPedidos() {
     const erro = rp.error ?? re.error ?? ren.error ?? rcol.error
     if (erro) toast.error(mensagemErroMateriais(erro, 'carregar os dados dos pedidos'))
 
-    const ultimas = new Map<string, { data: string; item_id: string }>()
+    const ultimas = new Map<string, EntregaBruta[]>()
     for (const e of ren.data) {
       const k = `${e.colaborador_id}|${pecaPorItem.get(e.item_id) ?? e.item_id}`
-      const atual = ultimas.get(k)
-      if (!atual || e.data_entrega > atual.data) ultimas.set(k, { data: e.data_entrega, item_id: e.item_id })
+      const lista = ultimas.get(k)
+      const bruta = { item_id: e.item_id, data_entrega: e.data_entrega, quantidade: e.quantidade == null ? null : Number(e.quantidade) }
+      if (lista) lista.push(bruta)
+      else ultimas.set(k, [bruta])
     }
 
     setLinhas(lista)

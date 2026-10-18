@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Check, ClipboardList, IdCard, PackageCheck, ShoppingCart, UserCheck } from 'lucide-react'
 import { CeuShell } from './CeuShell'
@@ -26,6 +26,7 @@ import { formatarDataHora, hojeBrasil } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { UltimaEntregaCelula } from '@/components/materiais/UltimaEntregaCelula'
 import { tamanhoDoNomeItem } from '@/lib/ceu/tamanhosPuro'
+import { detalheEntrega, linhaCasaComPeca, opcoesPeca, ultimaEPenultima, type EntregaDoDia } from '@/lib/materiais/entregasPeca'
 import {
   analisarTamanho,
   entregaRecente,
@@ -50,8 +51,10 @@ import type { CeuPedidoItem } from '@/types/materiais'
 interface FiltroCeuPedidos {
   etapa: 'abertas' | EtapaCeu
   contrato: string
+  /** Texto da peça (vazio = todas); casa por "contém" com o nome base. */
+  peca: string
 }
-const FILTRO_PADRAO: FiltroCeuPedidos = { etapa: 'abertas', contrato: 'todos' }
+const FILTRO_PADRAO: FiltroCeuPedidos = { etapa: 'abertas', contrato: 'todos', peca: '' }
 
 const ROTULO_TIPO: Record<CeuPedidoItem['tipo'], string> = { uniforme: 'Uniforme', epi: 'EPI', cracha: 'Crachá' }
 
@@ -80,7 +83,9 @@ export function CeuPedidosPage() {
   const podeIdentificar = podeConferir || podeAtender
 
   const dados = useCeuPedidos()
-  const [filtro, setFiltro] = useFiltroPersistente<FiltroCeuPedidos>('ceu.pedidos.filtro', FILTRO_PADRAO)
+  const [filtroSalvo, setFiltro] = useFiltroPersistente<FiltroCeuPedidos>('ceu.pedidos.filtro', FILTRO_PADRAO)
+  // Filtro salvo antes de existir "Peça" não tem o campo.
+  const filtro = useMemo<FiltroCeuPedidos>(() => ({ ...FILTRO_PADRAO, ...filtroSalvo }), [filtroSalvo])
   const [rascunho, setRascunho] = useState<FiltroCeuPedidos>(filtro)
   const [escolhas, setEscolhas] = useState<Record<string, Escolha | null>>({})
   const [conferencia, setConferencia] = useState<Record<string, EdicaoConferencia>>({})
@@ -114,15 +119,20 @@ export function CeuPedidosPage() {
     return m
   }, [dados.contratos, dados.departamentos, ativos])
 
+  const nomeDoItem = useCallback((id: string) => itemPorId.get(id)?.nome, [itemPorId])
+  const pecasDisponiveis = useMemo(() => opcoesPeca(dados.linhas, nomeDoItem), [dados.linhas, nomeDoItem])
+
+  // Vale para as linhas exibidas e para as ações em lote (que usam só estas linhas).
   const linhasVisiveis = useMemo(
     () =>
       dados.linhas.filter((l) => {
         const p = pedidoPorId.get(l.pedido_id)
         if (filtro.contrato !== 'todos' && p?.contrato_id !== filtro.contrato) return false
+        if (!linhaCasaComPeca(l, filtro.peca, nomeDoItem)) return false
         if (filtro.etapa === 'abertas' || filtro.etapa === 'concluida') return true
         return etapaLinhaCeu(l.status) === filtro.etapa
       }),
-    [dados.linhas, pedidoPorId, filtro]
+    [dados.linhas, pedidoPorId, filtro, nomeDoItem]
   )
 
   const grupos = useMemo(() => {
@@ -164,11 +174,20 @@ export function CeuPedidosPage() {
     const item = l.item_id ? itemPorId.get(l.item_id) : undefined
     const tam = l.tipo === 'cracha' ? null : analisarTamanho(item?.nome ?? null, l.tamanho, colab ? dados.tamanhos.get(colab.id) : null)
     // Última entrega da PEÇA (qualquer tamanho) — pediu a bota 39, recebeu a 38.
-    const daPeca =
+    const entregasPeca =
       colab && l.item_id ? dados.ultimasEntregas.get(`${colab.id}|${dados.pecaDoItem.get(l.item_id) ?? l.item_id}`) : undefined
-    const ultima = daPeca?.data ?? l.ultima_entrega_em
-    const itemUltima = daPeca ? itemPorId.get(daPeca.item_id) : undefined
-    const tamanhoUltima = itemUltima ? tamanhoDoNomeItem(itemUltima.nome) : null
+    const { ultima: ultimaDia, penultima: penultimaDia } = ultimaEPenultima(entregasPeca ?? [])
+    const ultima = ultimaDia?.data ?? l.ultima_entrega_em
+    const detalheDoDia = (d: EntregaDoDia | null) =>
+      d
+        ? detalheEntrega(
+            d.quantidade,
+            d.itemIds.map((id) => {
+              const it = itemPorId.get(id)
+              return it ? tamanhoDoNomeItem(it.nome) : null
+            })
+          )
+        : null
     return {
       colab,
       item,
@@ -177,8 +196,10 @@ export function CeuPedidosPage() {
       tamanhoCadastro: item?.compra_na_loja ? tam?.tamanhoCadastro ?? null : tam?.tamanhoCadastro ?? l.tamanho_cadastro,
       diverge: item?.compra_na_loja ? false : tam ? tam.diverge : l.alerta_tamanho,
       ultima,
-      ultimaItemId: daPeca?.item_id ?? null,
-      tamanhoUltima,
+      ultimaItemId: ultimaDia?.itemIds[0] ?? null,
+      detalheUltima: detalheDoDia(ultimaDia),
+      penultima: penultimaDia?.data ?? null,
+      detalhePenultima: detalheDoDia(penultimaDia),
       recente: entregaRecente(ultima, item?.prazo_uso_dias, hoje, item?.sem_alerta_prazo === true),
     }
   }
@@ -259,7 +280,8 @@ export function CeuPedidosPage() {
     setRascunho(FILTRO_PADRAO)
     setFiltro(FILTRO_PADRAO)
   }
-  const filtrosAtivos = (filtro.etapa !== FILTRO_PADRAO.etapa ? 1 : 0) + (filtro.contrato !== FILTRO_PADRAO.contrato ? 1 : 0)
+  const filtrosAtivos =
+    (filtro.etapa !== FILTRO_PADRAO.etapa ? 1 : 0) + (filtro.contrato !== FILTRO_PADRAO.contrato ? 1 : 0) + (filtro.peca.trim() ? 1 : 0)
 
   return (
     <CeuShell>
@@ -294,7 +316,7 @@ export function CeuPedidosPage() {
                 <option value="concluida">Atendidas e canceladas</option>
               </select>
             </div>
-            <div className="space-y-1.5 lg:col-span-2">
+            <div className="space-y-1.5">
               <Label htmlFor="ceu-ped-contrato">Contrato</Label>
               <select
                 id="ceu-ped-contrato"
@@ -309,6 +331,22 @@ export function CeuPedidosPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ceu-ped-peca">Peça</Label>
+              <Input
+                id="ceu-ped-peca"
+                list="ceu-ped-pecas"
+                placeholder="Todas"
+                autoComplete="off"
+                value={rascunho.peca}
+                onChange={(e) => setRascunho((r) => ({ ...r, peca: e.target.value }))}
+              />
+              <datalist id="ceu-ped-pecas">
+                {pecasDisponiveis.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </div>
           </Filters>
 
@@ -356,7 +394,7 @@ export function CeuPedidosPage() {
               return (
                 <DataTable
                   key={pid}
-                  minWidth={1100}
+                  minWidth={1200}
                   count={linhas.length}
                   title={
                     <span className="flex flex-wrap items-center gap-2">
@@ -400,6 +438,7 @@ export function CeuPedidosPage() {
                         <TableHead>Peça</TableHead>
                         <TableHead>Tamanho</TableHead>
                         <TableHead>Última entrega</TableHead>
+                        <TableHead>Penúltima entrega</TableHead>
                         <TableHead className="text-right">Qtd.</TableHead>
                         <TableHead className="text-right">Saldo CEU</TableHead>
                         <TableHead>Situação</TableHead>
@@ -497,10 +536,13 @@ export function CeuPedidosPage() {
                             <TableCell className="tabular-nums">
                               <UltimaEntregaCelula
                                 data={a.ultima}
-                                detalhe={a.tamanhoUltima ? `tam. ${a.tamanhoUltima}` : null}
+                                detalhe={a.detalheUltima}
                                 antesDoPrazo={a.recente}
                                 titleSelo="Dentro do prazo de uso da peça"
                               />
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                              <UltimaEntregaCelula data={a.penultima} detalhe={a.detalhePenultima} />
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
                               {l.qtd_pedida}
