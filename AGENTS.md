@@ -610,3 +610,5 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 ---
 
 *Atualizado em: 2026-09-04*
+
+- **Materiais — Excel da compra com estilo e rota opcional (18/10/2026)**: `excelCompraArquivo.ts` usa `exceljs@4.4.0` (import dinâmico, chunk ~930 kB / 256 kB gzip carregado só ao baixar; o `@e965/xlsx` não grava estilos). Visual: título Plena, cabeçalho #0F6CBD, zebra, bordas, congelado, paisagem 1 página de largura. Na tela de detalhe da compra, "Agrupar contratos por rota" (padrão ligado, localStorage `corh:materiais:compra.agruparPorRota`) vale para a matriz e o Excel: desligado, contratos em ordem alfabética, sem cabeçalho/grupo de rota, rota só no nome da coluna ("Abaeté (R1)"); aba "Entrega" sem coluna Rota. Nada muda no banco.

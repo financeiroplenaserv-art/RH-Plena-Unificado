@@ -57,24 +57,26 @@ describe('montarMatrizCompra', () => {
 
 describe('abas do Excel', () => {
   const m = montarMatrizCompra(itens)
-  const cab = { fornecedor: 'Antolimp', competencia: '2026-10-01', numero: 'COMP-2026-10-001' }
+  const cab = { fornecedor: 'Antolimp', competencia: '2026-10-01', numero: 'COMP-2026-10-001', data: '18/10/2026' }
   it('Pedido por Cliente SEM preço: rotas em cima, contratos, Estoque e Total', () => {
     const aoa = aoaPedidoPorCliente(m, cab, false)
-    expect(aoa[1]).toEqual(['Mês', '10/2026'])
-    expect(aoa[4]).toEqual(['', 'Rota 1', '', 'Rota 3', 'Sem rota', '', ''])
-    expect(aoa[5]).toEqual(['Item', 'Abaeté', 'Back Art', 'Telex Sede', 'Zeta', 'Estoque', 'Total'])
-    expect(aoa[6]).toEqual(['Borrifador UN', 4, 3, null, null, 2, 9])
+    expect(aoa[0]).toEqual(['Plena Facilities — Pedido de materiais'])
+    expect(aoa[2]).toEqual(['Mês', '10/2026'])
+    expect(aoa[3]).toEqual(['Compra', 'COMP-2026-10-001 · 18/10/2026'])
+    expect(aoa[5]).toEqual(['', 'Rota 1', '', 'Rota 3', 'Sem rota', '', ''])
+    expect(aoa[6]).toEqual(['Item', 'Abaeté', 'Back Art', 'Telex Sede', 'Zeta', 'Estoque', 'Total'])
+    expect(aoa[7]).toEqual(['Borrifador UN', 4, 3, null, null, 2, 9])
     expect(aoa[aoa.length - 1]).toEqual(['Total', 10, 3, 3, 1, 2, 19])
     expect(JSON.stringify(aoa)).not.toContain('12.5')
   })
   it('versão interna com valores', () => {
     const aoa = aoaPedidoPorCliente(m, cab, true)
-    expect(aoa[5].slice(-2)).toEqual(['Preço unitário', 'Valor'])
-    expect(aoa[7]).toEqual(['Cloro 5L', 6, null, 3, null, null, 9, 12.5, 112.5])
+    expect(aoa[6].slice(-2)).toEqual(['Preço unitário', 'Valor'])
+    expect(aoa[8]).toEqual(['Cloro 5L', 6, null, 3, null, null, 9, 12.5, 112.5])
   })
   it('Compra ao Fornecedor e Entrega por Rota', () => {
     const c = aoaCompraAoFornecedor(m, cab, false)
-    expect(c[4]).toEqual(['Item', 'Quantidade'])
+    expect(c[5]).toEqual(['Item', 'Quantidade'])
     expect(c[c.length - 1]).toEqual(['Total Geral', 19])
     const e = aoaEntregaPorRota(m)
     expect(e[1]).toEqual(['Rota 1', 'Abaeté', 'Borrifador UN', 4])
@@ -82,7 +84,34 @@ describe('abas do Excel', () => {
   })
   it('sem reposição não há coluna Estoque', () => {
     const m2 = montarMatrizCompra(itens.filter((i) => i.contrato_id))
-    expect(aoaPedidoPorCliente(m2, cab, false)[5]).not.toContain('Estoque')
+    expect(aoaPedidoPorCliente(m2, cab, false)[6]).not.toContain('Estoque')
+  })
+})
+
+describe('sem agrupar por rota', () => {
+  const g = montarMatrizCompra(itens, true)
+  const n = montarMatrizCompra(itens, false)
+  const cab = { fornecedor: 'Antolimp', competencia: '2026-10-01', numero: 'COMP-2026-10-001' }
+  it('contratos em ordem alfabética, sem grupo Sem rota', () => {
+    expect(n.colunas.map((c) => c.nome)).toEqual(['Abaeté', 'Back Art', 'Telex Sede', 'Zeta'])
+    const aoa = aoaPedidoPorCliente(n, cab, false, false)
+    expect(aoa.some((l) => l.includes('Sem rota') || String(l[1]).startsWith('Rota'))).toBe(false)
+    expect(aoa[5]).toEqual(['Item', 'Abaeté (R1)', 'Back Art (R1)', 'Telex Sede (R3)', 'Zeta', 'Estoque', 'Total'])
+  })
+  it('totais iguais nos dois modos', () => {
+    expect(n.totalGeral).toBe(g.totalGeral)
+    expect(n.valorGeral).toBe(g.valorGeral)
+    expect(n.totalPorContrato).toEqual(g.totalPorContrato)
+    expect(n.linhas.map((l) => [l.descricao, l.total])).toEqual(g.linhas.map((l) => [l.descricao, l.total]))
+  })
+  it('ordem alfabética pt-BR mesmo com rotas diferentes', () => {
+    const x = montarMatrizCompra([cel({ contrato_id: 'a', contrato_nome: 'Zebra', rota: 1 }), cel({ contrato_id: 'b', contrato_nome: 'Ágata', rota: 4 })], false)
+    expect(x.colunas.map((c) => c.nome)).toEqual(['Ágata', 'Zebra'])
+  })
+  it('aba de entrega sem coluna Rota', () => {
+    const e = aoaEntregaPorRota(n, false)
+    expect(e[0]).toEqual(['Contrato', 'Item', 'Quantidade'])
+    expect(e[1]).toEqual(['Abaeté (R1)', 'Borrifador UN', 4])
   })
 })
 

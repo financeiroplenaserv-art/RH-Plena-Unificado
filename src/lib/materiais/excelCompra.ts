@@ -44,7 +44,13 @@ export function rotuloRota(rota: number | null): string {
   return rota ? `Rota ${rota}` : 'Sem rota'
 }
 
-export function montarMatrizCompra(itens: MatCompraItem[]): MatrizCompra {
+/** Título da coluna do contrato: agrupado, só o nome (a rota está no cabeçalho do grupo); senão leva a rota entre parênteses. */
+export function tituloColuna(c: ColunaContrato, agrupar: boolean): string {
+  return agrupar || !c.rota ? c.nome : `${c.nome} (R${c.rota})`
+}
+
+/** agrupar=true: contratos por rota (sem rota no fim); false: ordem alfabética pura. */
+export function montarMatrizCompra(itens: MatCompraItem[], agrupar = true): MatrizCompra {
   const colunasMap = new Map<string, ColunaContrato>()
   const linhasMap = new Map<string, LinhaMatriz>()
   const totalPorContrato: Record<string, number> = {}
@@ -84,8 +90,10 @@ export function montarMatrizCompra(itens: MatCompraItem[]): MatrizCompra {
     // o vigente na geração); se acontecer, vale o maior para não subestimar.
     if (c.preco_unitario != null) l.preco = Math.max(l.preco ?? 0, Number(c.preco_unitario))
   }
-  const colunas = [...colunasMap.values()].sort(
-    (a, b) => (a.rota ?? 99) - (b.rota ?? 99) || a.nome.localeCompare(b.nome, 'pt-BR')
+  const colunas = [...colunasMap.values()].sort((a, b) =>
+    agrupar
+      ? (a.rota ?? 99) - (b.rota ?? 99) || a.nome.localeCompare(b.nome, 'pt-BR')
+      : a.nome.localeCompare(b.nome, 'pt-BR') || (a.rota ?? 99) - (b.rota ?? 99)
   )
   const linhas = [...linhasMap.values()].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'))
   let valorGeral = 0
@@ -109,35 +117,47 @@ export function montarMatrizCompra(itens: MatCompraItem[]): MatrizCompra {
   }
 }
 
-type Celula = string | number | null
+export type Celula = string | number | null
 
 export interface CabecalhoExcel {
   fornecedor: string
   competencia: string // AAAA-MM-01
   numero: string
+  data?: string // data da compra já formatada (dd/mm/aaaa)
 }
+
+export const TITULO_EXCEL = 'Plena Facilities — Pedido de materiais'
+/** Linhas do bloco de identificação no topo de cada aba (título, 3 dados e uma em branco). */
+export const LINHAS_CABECALHO = 5
 
 const mesAno = (competencia: string) => `${competencia.slice(5, 7)}/${competencia.slice(0, 4)}`
 
-/** Aba "Pedido por Cliente": linha das rotas, linha dos contratos, itens e Total. */
-export function aoaPedidoPorCliente(m: MatrizCompra, cab: CabecalhoExcel, comValores: boolean): Celula[][] {
-  const aoa: Celula[][] = [
+function blocoCabecalho(cab: CabecalhoExcel): Celula[][] {
+  return [
+    [TITULO_EXCEL],
     ['Fornecedor', cab.fornecedor],
     ['Mês', mesAno(cab.competencia)],
-    ['Compra', cab.numero],
+    ['Compra', cab.data ? `${cab.numero} · ${cab.data}` : cab.numero],
     [],
   ]
+}
+
+/** Aba "Pedido por Cliente": (agrupado) linha das rotas, linha dos contratos, itens e Total. */
+export function aoaPedidoPorCliente(m: MatrizCompra, cab: CabecalhoExcel, comValores: boolean, agrupar = true): Celula[][] {
+  const aoa: Celula[][] = blocoCabecalho(cab)
   const extras = (m.temEstoque ? ['Estoque'] : []).concat(['Total'], comValores ? ['Preço unitário', 'Valor'] : [])
-  // Linha das rotas: o rótulo só na primeira coluna de cada rota.
-  const linhaRota: Celula[] = ['']
-  let rotaAnterior: string | null = null
-  for (const c of m.colunas) {
-    const r = rotuloRota(c.rota)
-    linhaRota.push(r === rotaAnterior ? '' : r)
-    rotaAnterior = r
+  if (agrupar) {
+    // Linha das rotas: o rótulo só na primeira coluna de cada rota (a mesclagem é feita no arquivo).
+    const linhaRota: Celula[] = ['']
+    let rotaAnterior: string | null = null
+    for (const c of m.colunas) {
+      const r = rotuloRota(c.rota)
+      linhaRota.push(r === rotaAnterior ? '' : r)
+      rotaAnterior = r
+    }
+    aoa.push(linhaRota.concat(extras.map(() => '')))
   }
-  aoa.push(linhaRota.concat(extras.map(() => '')))
-  aoa.push((['Item'] as Celula[]).concat(m.colunas.map((c) => c.nome), extras))
+  aoa.push((['Item'] as Celula[]).concat(m.colunas.map((c) => tituloColuna(c, agrupar)), extras))
   for (const l of m.linhas) {
     const linha: Celula[] = [l.descricao]
     for (const c of m.colunas) linha.push(l.porContrato[c.contratoId] ?? null)
@@ -158,10 +178,7 @@ export function aoaPedidoPorCliente(m: MatrizCompra, cab: CabecalhoExcel, comVal
 /** Aba "Compra ao Fornecedor": Item | Quantidade (+ preço e valor na versão interna) | Total Geral. */
 export function aoaCompraAoFornecedor(m: MatrizCompra, cab: CabecalhoExcel, comValores: boolean): Celula[][] {
   const aoa: Celula[][] = [
-    ['Fornecedor', cab.fornecedor],
-    ['Mês', mesAno(cab.competencia)],
-    ['Compra', cab.numero],
-    [],
+    ...blocoCabecalho(cab),
     comValores ? ['Item', 'Quantidade', 'Preço unitário', 'Valor'] : ['Item', 'Quantidade'],
   ]
   for (const l of m.linhas) aoa.push(comValores ? [l.descricao, l.total, l.preco, l.valor] : [l.descricao, l.total])
@@ -169,17 +186,24 @@ export function aoaCompraAoFornecedor(m: MatrizCompra, cab: CabecalhoExcel, comV
   return aoa
 }
 
-/** Aba "Entrega por Rota": rota → contrato → itens (para o fornecedor separar as caixas). */
-export function aoaEntregaPorRota(m: MatrizCompra): Celula[][] {
-  const aoa: Celula[][] = [['Rota', 'Contrato', 'Item', 'Quantidade']]
+/**
+ * Aba de entrega para o fornecedor separar as caixas. Agrupado: Rota | Contrato | Item | Quantidade.
+ * Não agrupado: Contrato | Item | Quantidade (rota só no nome, "Contrato (R1)").
+ */
+export function aoaEntregaPorRota(m: MatrizCompra, agrupar = true): Celula[][] {
+  const aoa: Celula[][] = agrupar ? [['Rota', 'Contrato', 'Item', 'Quantidade']] : [['Contrato', 'Item', 'Quantidade']]
   for (const c of m.colunas) {
     for (const l of m.linhas) {
       const q = l.porContrato[c.contratoId]
-      if (q) aoa.push([rotuloRota(c.rota), c.nome, l.descricao, q])
+      if (!q) continue
+      aoa.push(agrupar ? [rotuloRota(c.rota), c.nome, l.descricao, q] : [tituloColuna(c, false), l.descricao, q])
     }
   }
   if (m.temEstoque) {
-    for (const l of m.linhas) if (l.estoque) aoa.push(['Escritório', 'Estoque (reposição)', l.descricao, l.estoque])
+    for (const l of m.linhas) {
+      if (!l.estoque) continue
+      aoa.push(agrupar ? ['Escritório', 'Estoque (reposição)', l.descricao, l.estoque] : ['Estoque (reposição)', l.descricao, l.estoque])
+    }
   }
   return aoa
 }

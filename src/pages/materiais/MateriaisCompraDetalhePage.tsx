@@ -21,7 +21,7 @@ import { useCompraMaterial } from '@/hooks/useMateriaisCompras'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
 import { podeComprarMateriais, podeVerComprasMateriais } from '@/lib/permissoes'
 import { formatarData, formatarDataHora, mascaraMoeda } from '@/lib/utils'
-import { montarMatrizCompra, rotuloRota } from '@/lib/materiais/excelCompra'
+import { montarMatrizCompra, rotuloRota, tituloColuna } from '@/lib/materiais/excelCompra'
 import { baixarExcelCompra } from '@/lib/materiais/excelCompraArquivo'
 import { ROTULO_STATUS_COMPRA, ROTULO_TIPO_COMPRA } from './comprasRotulos'
 import { toast } from 'sonner'
@@ -31,6 +31,28 @@ import { toast } from 'sonner'
 // contrato. "Baixar Excel" (sem preço, para o fornecedor) e "Baixar com
 // valores" (interno — o financeiro confere a nota). "Marcar como enviada"
 // congela a compra; depois dela o pedido não muda (o que surgir é compra avulsa).
+
+const CHAVE_AGRUPAR = 'corh:materiais:compra.agruparPorRota'
+
+// Preferência por usuário/aparelho (localStorage; falha em silêncio). Ligada por padrão.
+function useAgruparPorRota(): [boolean, (v: boolean) => void] {
+  const [v, setV] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(CHAVE_AGRUPAR) !== '0'
+    } catch {
+      return true
+    }
+  })
+  const definir = (novo: boolean) => {
+    setV(novo)
+    try {
+      localStorage.setItem(CHAVE_AGRUPAR, novo ? '1' : '0')
+    } catch {
+      // sem armazenamento: vale só nesta visita
+    }
+  }
+  return [v, definir]
+}
 
 export function MateriaisCompraDetalhePage() {
   const { id = '' } = useParams()
@@ -43,6 +65,7 @@ export function MateriaisCompraDetalhePage() {
   const [envio, setEnvio] = useState<{ entrega: string } | null>(null)
   const [cancelamento, setCancelamento] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [agrupar, setAgrupar] = useAgruparPorRota()
 
   const { carregar } = det
   const { carregar: carregarForn } = forn
@@ -54,9 +77,10 @@ export function MateriaisCompraDetalhePage() {
   }, [carregarForn])
 
   const c = det.compra
-  const m = useMemo(() => montarMatrizCompra(det.itens), [det.itens])
+  const m = useMemo(() => montarMatrizCompra(det.itens, agrupar), [det.itens, agrupar])
   const fornecedor = c ? forn.fornecedores.find((f) => f.id === c.fornecedor_id)?.nome ?? 'Fornecedor' : ''
   const gruposRota = useMemo(() => {
+    if (!agrupar) return []
     const g: { rotulo: string; n: number }[] = []
     for (const col of m.colunas) {
       const r = rotuloRota(col.rota)
@@ -64,7 +88,7 @@ export function MateriaisCompraDetalhePage() {
       else g.push({ rotulo: r, n: 1 })
     }
     return g
-  }, [m.colunas])
+  }, [m.colunas, agrupar])
 
   if (det.estruturaPendente) {
     return (
@@ -90,9 +114,9 @@ export function MateriaisCompraDetalhePage() {
     )
   }
 
-  const baixar = (comValores: boolean) => {
+  const baixar = async (comValores: boolean) => {
     try {
-      baixarExcelCompra(c, det.itens, fornecedor, comValores)
+      await baixarExcelCompra(c, det.itens, fornecedor, comValores, agrupar)
     } catch (e) {
       toast.error(`Não foi possível gerar o Excel: ${e instanceof Error ? e.message : 'erro desconhecido'}`)
     }
@@ -184,28 +208,41 @@ export function MateriaisCompraDetalhePage() {
           {c.observacao && <p className="text-muted-foreground sm:col-span-2 lg:col-span-4">Observação: {c.observacao}</p>}
         </section>
 
-        <DataTable title="Pedido por cliente (itens × contratos, por rota)" count={m.linhas.length} minWidth={Math.max(720, 320 + m.colunas.length * 90)}>
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4 accent-[#0F6CBD]"
+            checked={agrupar}
+            onChange={(e) => setAgrupar(e.target.checked)}
+          />
+          Agrupar contratos por rota
+          <span className="text-xs text-muted-foreground">(vale para a tela e para o Excel)</span>
+        </label>
+
+        <DataTable title={agrupar ? 'Pedido por cliente (itens × contratos, por rota)' : 'Pedido por cliente (itens × contratos)'} count={m.linhas.length} minWidth={Math.max(720, 320 + m.colunas.length * 90)}>
           {m.linhas.length === 0 ? (
             <EmptyState icon={<PackageSearch className="size-6" />} title="Compra sem itens" description="Esta compra não tem células." />
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead />
-                  {gruposRota.map((g, i) => (
-                    <TableHead key={i} colSpan={g.n} className="border-l border-border text-center">
-                      {g.rotulo}
-                    </TableHead>
-                  ))}
-                  {m.temEstoque && <TableHead />}
-                  <TableHead />
-                  {podeVerValores && <TableHead colSpan={2} />}
-                </TableRow>
+                {agrupar && (
+                  <TableRow>
+                    <TableHead />
+                    {gruposRota.map((g, i) => (
+                      <TableHead key={i} colSpan={g.n} className="border-l border-border text-center">
+                        {g.rotulo}
+                      </TableHead>
+                    ))}
+                    {m.temEstoque && <TableHead />}
+                    <TableHead />
+                    {podeVerValores && <TableHead colSpan={2} />}
+                  </TableRow>
+                )}
                 <TableRow>
                   <TableHead>Item</TableHead>
                   {m.colunas.map((col) => (
                     <TableHead key={col.contratoId} className="text-right">
-                      {col.nome}
+                      {tituloColuna(col, agrupar)}
                     </TableHead>
                   ))}
                   {m.temEstoque && <TableHead className="text-right">Estoque</TableHead>}
