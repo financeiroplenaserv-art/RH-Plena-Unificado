@@ -68,6 +68,8 @@ const XLSX = ((XLSXns as unknown as { default?: typeof XLSXns }).default ?? XLSX
 const APLICAR = process.argv.includes('--aplicar')
 const OFFLINE = process.argv.includes('--offline')
 const ACEITAR_QTD_COM_UNIDADE = process.argv.includes('--aceitar-qtd-com-unidade')
+/** Só exporta nao_precisa_outubro.json (respostas "Não precisa"/0 por item) e sai, sem reescrever revisões nem aplicar.sql. */
+const SO_NAO_PRECISA = process.argv.includes('--so-nao-precisa')
 const PLANILHA = 'docs/PEDIDO DE MATERIAIS POR CLIENTE.xlsx'
 const DIR = 'dados-locais/importacao_pedidos_outubro_2026-10-17'
 const DIR_REF = `${DIR}/ref`
@@ -308,6 +310,7 @@ function main() {
   const unifs: LinhaUnif[] = []
   const pends: Pend[] = []
   const resumos: Resumo[] = []
+  const naoPrecisaLista: { contrato_id: string; contrato: string; envio: number; coluna: string; valor: string; item_id: string | null; variacao_id: string | null }[] = []
   const mapaColunas = new Map<string, { n: number; contratos: Set<string>; sugestao: string; motivo: string }>()
   let qtdComUnidadeResolvivel = 0
   const envios: { contrato: Contrato; aba: string; n: number; carimbo: string; carimboIso: string; responsavel: string; observacao: string | null; entrada: Record<string, unknown>; refParaColab: Map<string, string>; ctx: ContextoPedido }[] = []
@@ -390,6 +393,7 @@ function main() {
         // Texto efetivo: a decisão da gestora para esta resposta pode recortar/limpar o texto original.
         const vEf = ov?.texto ?? v
         if (ehNaoPrecisa(vEf)) {
+          naoPrecisaLista.push({ contrato_id: contrato.id, contrato: contrato.nome, envio: nEnvio, coluna: c.titulo, valor: vEf, item_id: casou.alvo?.item.id ?? null, variacao_id: casou.alvo?.variacao?.id ?? null })
           // Item do kit com "Não precisa" = linha zerada (o líder tirou do mês), como no link.
           if (casou.alvo && kitContrato.some((k) => k.item_id === casou.alvo!.item.id)) {
             const alvoV = kitContrato.find((k) => k.item_id === casou.alvo!.item.id)!.variacao_id
@@ -612,6 +616,11 @@ function main() {
     })
   }
 
+  if (SO_NAO_PRECISA) {
+    fs.writeFileSync(`${DIR}/nao_precisa_outubro.json`, JSON.stringify(naoPrecisaLista, null, 1), 'utf8')
+    console.log(`nao_precisa_outubro.json: ${naoPrecisaLista.length} respostas (${naoPrecisaLista.filter((x) => x.item_id).length} com item resolvido)`)
+    return
+  }
   // ---- o que seria apagado (6 pedidos de teste) ----
   // Os pedidos de teste de outubro JÁ FORAM APAGADOS (17/10/2026): este script não apaga mais nada.
   // Segurança: o --aplicar só roda com o banco SEM pedidos de outubro (senão pode ser pedido real de líder).
