@@ -23,17 +23,23 @@ const sql = `-- Completa o Kit Mensal nos pedidos de OUTUBRO/2026 importados (de
 --  * kit efetivo do contrato: itens/variações ATIVOS com quantidade > 0; variação "oculta para o líder" vira o item
 --    sem variação e linhas do mesmo item somam (como visaoDoLider); itens com periodicidade > 1 mês só entram se não
 --    houve consumo/aprovação nos meses anteriores da janela (mesma condição de preencher_pedido_pelo_kit);
---  * item do kit SEM linha de kit no pedido -> linha parte='kit' (qtd_kit = qtd do kit; aprovada na hora quando
---    kit_aprovacao_automatica está ligada, como no link); se o líder escreveu "Não precisa"/0 para a pergunta que
+--  * DECISÃO DA GESTORA (18/10): em outubro o kit completado NÃO entra aprovado automaticamente — o líder não o
+--    confirmou no formulário antigo. Linha nova: parte='kit', aprovado_automatico=false, qtd_validada = qtd (já
+--    "validada" pelo escritório, não passa pelo inspetor), qtd_aprovada NULL (aguarda o GESTOR). As linhas de kit
+--    antigas (auto-aprovadas) não são tocadas. Compras só leva linha com qtd_aprovada > 0.
+--  * item do kit SEM linha de kit no pedido -> linha parte='kit' (qtd_kit = qtd do kit); se o líder escreveu "Não precisa"/0 para a pergunta que
 --    corresponde ao item (tabela _np abaixo, vinda do mapa de colunas), a linha entra com quantidade 0;
 --  * item do kit que o líder pediu como linha EXTRA (sem decisão do inspetor/gestor, sem destino de compra): a linha
---    vira kit (até a qtd do kit) e o excedente, se houver, fica como extra; extra já validada/ajustada = não mexe;
+--    vira kit (até a qtd do kit) e o excedente, se houver, fica como extra — a quantidade do líder continua
+--    aguardando o INSPETOR (qtd_validada segue nula); extra já validada/ajustada = não mexe;
 --  * pedidos sem_necessidade, com destino de compra (atendimento/compra_item_id) ou fora de rascunho/validação/
 --    aprovado/"só uniforme" não são tocados; contrato com kit e SEM pedido de outubro não ganha pedido;
 --  * marca de origem: um envio 'complemento' por pedido com user_agent 'completar-kit-2026-10-18' e
 --    seu_nome 'Escritório — kit completado na importação (decisão da gestora 18/10)';
---  * pedido que só tinha uniforme/EPI/crachá (status_produtos nao_se_aplica) passa a 'aprovado' (ou 'validado' se a
---    aprovação automática do kit estiver desligada), igual preencher_pedido_pelo_kit. Os demais mantêm o status.
+--  * status do pedido: tem linha ainda com o inspetor (qtd_validada nula) -> fica/vai 'em_validacao'; senão -> 'validado'
+--    (aguarda o gestor). Pedido 'aprovado' ou 'nao_se_aplica' (só uniforme) que ganha linhas -> 'validado'.
+--    "Aprovar tudo/com ajustes/selecionados" (aprovar_pedido_materiais) preenche qtd_aprovada = qtd_validada das linhas
+--    não automáticas; "Ajustar" (ajustar_linha_kit_materiais) só mexe em qtd_validada enquanto não há aprovação.
 --  * IDEMPOTENTE: item que já tem linha de kit (inclusive a zerada) é pulado; rodar de novo não insere nada.
 -- Preço: mat_preco_vigente(item, variação, 18/10/2026) — variação prevalece sobre item (mesma regra do corrigir_precos.sql).
 
@@ -107,7 +113,6 @@ update _plano set acao = case
 -- 4) Execução
 do $exec$
 declare
-  v_auto boolean := public.mat_kit_aprovacao_automatica();
   v_zero constant uuid := '00000000-0000-0000-0000-000000000000';
   r record; v_env uuid; v_seq smallint; l public.mat_pedido_itens%rowtype; v_dest numeric; v_qtd numeric;
 begin
@@ -127,7 +132,7 @@ begin
     insert into public.mat_pedido_itens (pedido_id, envio_id, item_id, variacao_id, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada,
                                          preco_unitario, parte, aprovado_automatico)
     values (r.pedido_id, (select envio_id from _env where pedido_id = r.pedido_id), r.item_id, r.variacao_id, r.qtd_kit, v_qtd, v_qtd,
-            case when v_auto then v_qtd end, public.mat_preco_vigente(r.item_id, r.variacao_id, date '2026-10-18'), 'kit', v_auto);
+            null, public.mat_preco_vigente(r.item_id, r.variacao_id, date '2026-10-18'), 'kit', false);
   end loop;
 
   -- 4b) extras do líder que viram kit (até a qtd do kit); o excedente continua extra
@@ -135,14 +140,12 @@ begin
     select * into l from public.mat_pedido_itens where id = r.extra_convertivel_id;
     if l.qtd_pedida <= r.qtd_kit then
       update public.mat_pedido_itens
-         set parte = 'kit', qtd_kit = r.qtd_kit, qtd_validada = l.qtd_pedida,
-             qtd_aprovada = case when v_auto then l.qtd_pedida end, aprovado_automatico = v_auto,
+         set parte = 'kit', qtd_kit = r.qtd_kit, aprovado_automatico = false,
              excecao_acima_kit = false, excecao_fora_kit = false
        where id = l.id;
     else
       update public.mat_pedido_itens
-         set parte = 'kit', qtd_kit = r.qtd_kit, qtd_pedida = r.qtd_kit, qtd_validada = r.qtd_kit,
-             qtd_aprovada = case when v_auto then r.qtd_kit end, aprovado_automatico = v_auto,
+         set parte = 'kit', qtd_kit = r.qtd_kit, qtd_pedida = r.qtd_kit, aprovado_automatico = false,
              excecao_acima_kit = false, excecao_fora_kit = false
        where id = l.id;
       insert into public.mat_pedido_itens (pedido_id, envio_id, item_id, variacao_id, qtd_kit, qtd_pedida, preco_unitario, justificativa,
@@ -152,12 +155,13 @@ begin
     end if;
   end loop;
 
-  -- 4c) pedido que só tinha uniforme/EPI/crachá passa a ter produtos: aprovado (kit automático) ou validado
+  -- 4c) status dos pedidos que receberam/alteraram linhas: ainda há linha com o inspetor -> em_validacao; senão validado
   update public.mat_pedidos p
-     set status_produtos = case when v_auto then 'aprovado' else 'validado' end
-   where p.status_produtos = 'nao_se_aplica' and p.competencia = date '2026-10-01'
-     and exists (select 1 from _env e where e.pedido_id = p.id)
-     and exists (select 1 from public.mat_pedido_itens i where i.pedido_id = p.id);
+     set status_produtos = case
+           when exists (select 1 from public.mat_pedido_itens i where i.pedido_id = p.id and i.qtd_validada is null and i.qtd_pedida > 0)
+             then 'em_validacao'
+           else 'validado' end
+   where p.competencia = date '2026-10-01' and exists (select 1 from _env e where e.pedido_id = p.id);
 end
 $exec$;
 
@@ -184,11 +188,58 @@ const corpo = sql.slice(0, sql.indexOf(marca))
 const consulta = sql.slice(sql.indexOf('select pe.contrato')).replace(/;\s*$/, '')
 const itemNome = "(select nome from public.mat_itens where id = item_id)"
 const teste = `${corpo}create temp table _conf on commit drop as ${consulta};
+create temp table _fluxo (passo text, info jsonb) on commit drop;
+do $f$
+declare
+  v_g constant uuid := '6e49ec30-f2f4-45fd-af7b-b1f26dfbdba4'; -- gestor (só no teste desfeito)
+  ped_v uuid; ped_e uuid; l uuid; q numeric; n_prev integer;
+begin
+  perform set_config('request.jwt.claim.sub', v_g::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_g, 'role', 'authenticated')::text, true);
+
+  -- A) pedido que ficou 'validado' direto (sem nada com o inspetor): Ajustar -> Aprovar tudo -> Compras
+  select p.id into ped_v from public.mat_pedidos p
+   where p.competencia = date '2026-10-01' and p.status_produtos = 'validado' and exists (select 1 from _env e where e.pedido_id = p.id)
+   order by p.created_at limit 1;
+  if ped_v is not null then
+    select i.id, i.qtd_validada into l, q from public.mat_pedido_itens i
+     where i.pedido_id = ped_v and i.parte = 'kit' and not i.aprovado_automatico and i.qtd_validada > 0 order by i.created_at limit 1;
+    insert into _fluxo values ('A0 antes', jsonb_build_object('pedido', ped_v, 'status', 'validado',
+      'linhas_novas_sem_aprovacao', (select count(*) from public.mat_pedido_itens where pedido_id = ped_v and qtd_aprovada is null)));
+    perform public.ajustar_linha_kit_materiais(l, greatest(q - 1, 0), 'teste desfeito');
+    insert into _fluxo values ('A1 ajustar', jsonb_build_object('linha', l, 'qtd_validada', (select qtd_validada from public.mat_pedido_itens where id = l),
+      'qtd_aprovada', (select qtd_aprovada from public.mat_pedido_itens where id = l)));
+    perform public.aprovar_pedido_materiais(ped_v, '[]'::jsonb);
+    select jsonb_array_length(coalesce((public.mat_previa_compra(date '2026-10-01') -> 'linhas'), '[]'::jsonb)) into n_prev;
+    insert into _fluxo values ('A2 aprovar', jsonb_build_object('status', (select status_produtos from public.mat_pedidos where id = ped_v),
+      'linha_ajustada_aprovada', (select qtd_aprovada from public.mat_pedido_itens where id = l),
+      'sem_aprovacao_restante', (select count(*) from public.mat_pedido_itens where pedido_id = ped_v and qtd_aprovada is null),
+      'linhas_do_pedido_na_previa', (select count(*) from jsonb_array_elements(public.mat_previa_compra(date '2026-10-01') -> 'linhas') x where x->>'pedido_id' = ped_v::text),
+      'previa_total', n_prev));
+  end if;
+
+  -- B) pedido em_validacao: inspetor valida (linhas novas ficam como estão) -> gestor aprova
+  select p.id into ped_e from public.mat_pedidos p
+   where p.competencia = date '2026-10-01' and p.status_produtos = 'em_validacao' and exists (select 1 from _env e where e.pedido_id = p.id)
+   order by p.created_at limit 1;
+  if ped_e is not null then
+    perform public.validar_pedido_materiais(ped_e, '[]'::jsonb);
+    insert into _fluxo values ('B1 validar', jsonb_build_object('status', (select status_produtos from public.mat_pedidos where id = ped_e),
+      'novas_com_aprovacao', (select count(*) from public.mat_pedido_itens i join public.mat_pedido_envios e on e.id = i.envio_id
+                               where i.pedido_id = ped_e and e.user_agent = 'completar-kit-2026-10-18' and i.qtd_aprovada is not null)));
+    perform public.aprovar_pedido_materiais(ped_e, '[]'::jsonb);
+    insert into _fluxo values ('B2 aprovar', jsonb_build_object('status', (select status_produtos from public.mat_pedidos where id = ped_e),
+      'sem_aprovacao_restante', (select count(*) from public.mat_pedido_itens where pedido_id = ped_e and qtd_aprovada is null),
+      'novas_aprovadas', (select count(*) from public.mat_pedido_itens i join public.mat_pedido_envios e on e.id = i.envio_id
+                           where i.pedido_id = ped_e and e.user_agent = 'completar-kit-2026-10-18' and i.qtd_aprovada is not null)));
+  end if;
+end $f$;
 do $t$
 declare r text;
 begin
   select jsonb_build_object(
     'conf', (select jsonb_agg(to_jsonb(c)) from _conf c),
+    'fluxo', (select jsonb_agg(jsonb_build_object('passo', passo, 'info', info)) from _fluxo),
     'extra_com_decisao', (select jsonb_agg(jsonb_build_object('contrato', contrato, 'item', ${itemNome}, 'n_extra', n_extra)) from _plano where acao = 'extra_com_decisao'),
     'convertidas', (select jsonb_agg(jsonb_build_object('contrato', contrato, 'item', ${itemNome}, 'qtd_kit', qtd_kit)) from _plano where acao = 'converter_extra'),
     'pedidos_nao_tocados', (select jsonb_agg(jsonb_build_object('contrato', c.nome, 'status', p.status_produtos, 'sem_necessidade', p.sem_necessidade,
