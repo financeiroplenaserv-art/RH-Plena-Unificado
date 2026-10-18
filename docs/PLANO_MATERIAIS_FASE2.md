@@ -396,3 +396,13 @@ Backups feitos ANTES, por SELECT, em `dados-locais/fase2_etapa0/backup_2026-10-1
 14. **Financeiro consulta as compras com valores, sem alterar** (aba Compras, `menu/rota.materiais_compras`).
 15. **Etapa 0 (respostas na planilha, 17/10/2026)**: são **4 rotas** — a rota 4 é só CBO MACAÉ; a rota é "o conjunto de departamentos entregues no mesmo dia", o dia de cada rota ainda não está definido; o **gestor aprova até o dia 20** (não 19); primeira contagem entre 16 e 19/11; inspetor até o dia 17; lista dos 4 itens do escritório confirmada.
 16. **Pendências da etapa 0 (17/10/2026)**: os 6 casamentos aproximados estão corretos; os 4 TELEX vão na rota 3; criar o contrato de pedido de CIDADE DE LEIRIA (rota 1, sem kit); ADRIANA, ESCRITÓRIO PLENA, FLAMBOYANT, MONTREAL, SOLAR DAS OLIVEIRAS e TECH na rota 3; "Avulso" × "Compra Avulsa": "pode apagar um" — fica o que tem mais referências (Compra Avulsa).
+
+---
+
+## 12. Ajustes da gestora durante a implementação (17/10/2026) e marcos
+
+1. **Rotina real do fornecedor**: "quando enviamos o pedido para o fornecedor, ele mesmo já separa e entrega ponto a ponto". O Excel por fornecedor com contratos nas colunas (agrupados por rota) É a lista de entrega. **A tela de Separação pela mesa vale só para o que sai do nosso estoque** (em outubro, praticamente nada) e foi rebaixada para o **Marco C** — a RPC `mat_registrar_separacao` já está na 147. Chegadas continuam (por contrato, inclusive parcial) no Marco B.
+2. **Compra nunca é automática**: nenhum job/cron gera ou envia compra no dia 20; quem gera e envia é a mesa ou o gestor, clicando (`pode_comprar_materiais()`). Antes do dia de início só há aviso.
+3. **Carta ao líder (obrigatória para outubro, Marco A)**: um PDF por contrato com o que o líder pediu, o que vai ser enviado e a justificativa de cada item não atendido/parcial (motivos já gravados no pedido e na fila da Beth), "Em análise" no que ainda não foi decidido, 1 página A4 sempre que possível (senão contrato no topo + "página X de Y"), bloco "Recebido e conferido por (líder) / Data" para a assinatura digital externa, pessoas só "Primeiro N.", sem preço/CPF/matrícula. Vai no malote (PDF único) e para assinatura (zip com um PDF por contrato). O "resumo do mês" do link público NÃO mostra a carta por enquanto (motivos são texto livre interno numa página pública — exige texto revisado e redeploy da Edge Function).
+
+**Marcos:** **A** (até 20/10) — migrations 146 e 147, aba Compras, Excel ao fornecedor, carta ao líder; **B** (até ~25/10) — Chegadas (registro do que o fornecedor entregou por contrato/célula, parcial com motivo); **C** (novembro) — Estoque, Contagem, Separação, compra da Beth (148) e permissões finas (149).
