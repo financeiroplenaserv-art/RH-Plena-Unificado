@@ -43,3 +43,8 @@ Continuação de `docs/HANDOFF_17-10-2026.md`. Plano: `docs/PLANO_MATERIAIS_FASE
 - Migrations **146** e **147** aplicadas via `executar-arquivo-sql-management-api.ps1`. Conferência: `preparo_escritorio` = 4, 18 linhas `materiais_compras` em `permissoes_perfil`, 0 funções com chr(65533), status dos pedidos inalterados (35 em_validacao, 1 aprovado, 22 nao_se_aplica — o 22º é o pedido do Quincas criado pelos lançamentos do inspetor Augusto).
 - `materiais-fase2` mesclada na `main` por fast-forward (`2eee762`) e publicada em produção — bundle `index-K0Gblvbs.js` conferido. Férias segue oculto.
 - Próximo: Marco B (tela Chegadas). A gestora faz a compra de outubro entre 21 e 25/10 em paralelo com a planilha antiga.
+
+## Ajustes de 18/10/2026 (manhã)
+- Contrato **ESCRITÓRIO PLENA** (departamento ADM PLENA, 0 ativos — fica para os faltistas sem posto): decisão da gestora, opção A → `departamentos_equipe_extra` = **PLENA EA FACILITIES** (`a5dcc143-…`, 16 ativos), mesmo recurso do Telex/DuoConnect. Backup em `dados-locais/backup_escritorio_equipe_2026-10-18.json`. PLENA TECH ADMINISTRATIVO (13 ativos) NÃO foi incluído — perguntar se o escritório também atende a equipe Tech.
+- Rótulo do status de uniforme/EPI do pedido `enviado` trocado de "A identificar" para "Com o inspetor" (commit 79d3f72; entra no próximo deploy).
+- O pedido do Escritório (Erica Rochinha, 09/10) só tem 2 Fibras LT verde; papéis, saco de lixo 40L e descartáveis ficaram na lista "a decidir depois" da importação.
