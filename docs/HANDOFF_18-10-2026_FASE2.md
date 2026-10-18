@@ -65,3 +65,11 @@ Continuação de `docs/HANDOFF_17-10-2026.md`. Plano: `docs/PLANO_MATERIAIS_FASE
 **Próximo (Marco B, antes de 25/10):** tela **Chegadas** (RPC pronta e testada na 147). Depois Marco C (novembro): Estoque, Contagem, Separação (só para o que sai do estoque — o fornecedor entrega ponto a ponto), compra da Beth (148), permissões finas (149).
 
 **Pendências da gestora:** retorno do visual do Excel; rota obrigatória ou não (operacional); preço dos itens de portaria (Protocolo, Livro, Planilha de Acessos — hoje sem preço); dia de entrega de cada rota; LUVA LÁTEX VERDE marcada sem selo; itens "a decidir depois" da importação (sacos de lixo, papéis, Perfex, descartáveis, cabos de mop; Jorge Luiz EXG do Miraflores; uniforme M do London); Cidade de Leiria (gerar QR quando for usar); 36 uniformes + 1 crachá para a Beth conferir. **Férias: backfill de `ferias_solicitacoes.departamento_id` obrigatório antes de liberar.**
+
+## Fim do dia 18/10/2026 (tarde) — últimos itens
+- **CEU → Pedidos** (fila da Beth), publicado em produção (bundle `index-DOxVouYB.js`, commit da troca de colunas logo após `770f788`):
+  - nova coluna **"Penúltima entrega"**, ANTES da "Última entrega" (ordem cronológica, pedido da gestora); as duas mostram data + quantidade + tamanho. Entregas da mesma pessoa e da mesma PEÇA (qualquer tamanho) no mesmo dia contam como UMA, com quantidade somada — última e penúltima são sempre datas diferentes (motivo: peças com direito a 2 por período). Selo "antes do prazo" só na Última. Lógica pura em `src/lib/materiais/entregasPeca.ts` (+ testes).
+  - novo filtro **"Peça"** (texto com sugestões das peças da fila + "Crachá"; "contém", sem acento/maiúscula; rascunho + Aplicar, `useFiltroPersistente`, `FiltrosAtivosBadge`); as ações em lote agem só sobre o filtrado.
+- Testes: 1107 passando (82 arquivos) na última bateria completa; lint/tsc/build ok.
+- GitHub: tudo enviado (`main` = `origin/main`). O login do Git Credential Manager expira com frequência nesta máquina; quando o push der timeout, pedir à gestora para rodar `git push origin main` no terminal do VS Code.
+- **Nada pendente de deploy.** Próximo agente: começar pelo **Marco B (tela Chegadas)** antes de 25/10 e acompanhar a compra de outubro (20–25/10) — ver a seção "Estado ao fim de 18/10/2026" acima e a lista de pendências da gestora.
