@@ -20,7 +20,9 @@ export const ROTULO_STATUS_PRODUTOS: Record<StatusProdutos, { texto: string; var
 
 export const ROTULO_STATUS_CEU: Record<StatusCeuPedido, { texto: string; variante: Variante }> = {
   nao_se_aplica: { texto: 'Sem uniforme/EPI', variante: 'neutral' },
-  enviado: { texto: 'A identificar', variante: 'warning' },
+  // 'enviado' = o líder mandou e ninguém conferiu ainda: as linhas já nascem
+  // identificadas (pessoa da equipe) e aguardam a conferência da inspetoria.
+  enviado: { texto: 'Com o inspetor', variante: 'warning' },
   em_identificacao: { texto: 'Em conferência', variante: 'warning' },
   conferido: { texto: 'Conferido', variante: 'info' },
   em_atendimento: { texto: 'Em atendimento', variante: 'info' },
