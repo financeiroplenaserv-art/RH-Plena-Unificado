@@ -68,6 +68,7 @@ import {
   MateriaisSemPedidoPage,
   MateriaisComprasPage,
   MateriaisCompraDetalhePage,
+  MateriaisChegadasPage,
   CeuPedidosPage,
   QuadroColaboradoresPage,
   AdicionaisContratosPage,
@@ -461,6 +462,23 @@ function App() {
                     }
                   >
                     <MateriaisComprasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/chegadas"
+                element={
+                  // Marco B: mesma entrada da aba Compras (o financeiro só consulta)
+                  <ProtectedRoute
+                    user={user}
+                    permissao={{ recurso: 'rota', acao: 'materiais' }}
+                    fallback={
+                      <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais_compras' }}>
+                        <MateriaisChegadasPage />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <MateriaisChegadasPage />
                   </ProtectedRoute>
                 }
               />

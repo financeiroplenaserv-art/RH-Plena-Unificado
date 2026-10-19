@@ -143,6 +143,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'materiais', acao: 'pedido_extra', label: 'Lançar pedido extra', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'reabrir_pedido', label: 'Reabrir link fora do prazo', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'comprar', label: 'Preparar e enviar a compra ao fornecedor', grupo: 'Materiais' },
+  { recurso: 'materiais', acao: 'registrar_chegada', label: 'Registrar chegada e remanejamento feito', grupo: 'Materiais' },
   { recurso: 'materiais', acao: 'ver_compras', label: 'Consultar as compras (com valores)', grupo: 'Materiais' },
 
   // Férias

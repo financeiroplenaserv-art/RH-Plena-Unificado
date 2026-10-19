@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Perfil } from '@/types/database'
 import type { MatCompra, MatCompraItem } from '@/types/materiais'
 import { normalizarPrevia } from '@/lib/materiais/compra'
+import { normalizarChegadas } from '@/lib/materiais/chegadas'
 
 // Smoke das telas da Fase 2 (Compras e detalhe da compra) e dos botões da
 // carta ao líder. Hooks mockados — nada vai ao banco.
@@ -53,6 +54,11 @@ const previa = normalizarPrevia({
   ],
   pendentes: [{ pedido_id: 'p9', contrato_id: 'c9', contrato_nome: 'Vila de Cascais', status_pedido: 'em_validacao', linhas_pendentes: 3 }],
   escritorio: [{ item_id: 'livro', item_nome: 'Livro de Ocorrências', unidade: 'UN', total_aprovado: 1, total_pendente: 2, separado: 0, contratos: 1 }],
+  contratos: [
+    { id: 'c1', nome: 'Abaeté', rota: 1 },
+    { id: 'c2', nome: 'Telex Sede', rota: 3 },
+    { id: 'c7', nome: 'Back Art', rota: 2 },
+  ],
   contratos_sem_rota: 0,
   ultima_contagem: null,
   dia_inicio_compra: 20,
@@ -71,7 +77,42 @@ const celula = (p: Partial<MatCompraItem>): MatCompraItem => ({
   qtd_recebida: null, motivo_recebimento: null, recebido_em: null, entrega_local: 'posto', ...p,
 })
 
+const compraEnviada: MatCompra = { ...compra, id: 'comp2', numero: 'COMP-2026-10-002', status: 'enviada', antes_da_janela: false }
+const dadosChegadas = normalizarChegadas({
+  competencia: '2026-10-01',
+  hoje: '2026-10-22',
+  remanejamentos: [
+    {
+      linha_id: 'r1', pedido_id: 'p2', competencia: '2026-10-01', contrato_id: 'c2', contrato_nome: 'Telex Sede', rota: 3,
+      origem_id: 'c7', origem_nome: 'Back Art', item_id: 'cloro', variacao_id: null, item_nome: 'Cloro 5L', variacao_rotulo: null,
+      unidade: 'GL', qtd_remanejada: 2, qtd_entregue_remanejada: null, remanejamento_obs: 'sobrou', motivo_entrega: null,
+      confirmado_em: null, status_pedido: 'em_compra', compras: ['comp1', 'comp2'],
+    },
+  ],
+  pedidos: [{ pedido_id: 'p1', contrato_id: 'c1', contrato_nome: 'Abaeté', tipo: 'mensal', implantacao: false, status_produtos: 'em_compra' }],
+})
+const registrarChegada = vi.fn(async () => true)
+const confirmarRemanejamento = vi.fn(async () => true)
+// Funções estáveis (como as do hook real, com useCallback): senão a página recarrega a cada render.
+const carregarChegadas = vi.fn()
+const carregarItens = vi.fn(async () => [
+  celula({ id: 'x1', compra_id: 'comp2' }),
+  celula({ id: 'x2', compra_id: 'comp2', contrato_id: 'c2', contrato_nome: 'Telex Sede', rota: 3, quantidade: 2 }),
+])
+
 vi.mock('@/hooks/useMateriaisCompras', () => ({
+  carregarDadosChegadas: vi.fn(async () => dadosChegadas),
+  desfazerDestinoLinha: vi.fn(async () => true),
+  useChegadasMateriais: () => ({
+    compras: [compraEnviada],
+    dados: dadosChegadas,
+    loading: false,
+    estruturaPendente: false,
+    carregar: carregarChegadas,
+    carregarItens,
+    registrarChegada,
+    confirmarRemanejamento,
+  }),
   useMateriaisCompras: () => ({ previa, compras: [compra], loading: false, estruturaPendente: estado.pendente, carregar: vi.fn(), gerar }),
   useCompraMaterial: () => ({
     compra,
@@ -87,12 +128,80 @@ vi.mock('@/hooks/useCartaLider', () => ({ useCartaLider: () => ({ gerando: false
 
 import { MateriaisComprasPage } from './MateriaisComprasPage'
 import { MateriaisCompraDetalhePage } from './MateriaisCompraDetalhePage'
+import { MateriaisChegadasPage } from './MateriaisChegadasPage'
 
 describe('Compras (Fase 2) — smoke', () => {
   beforeEach(() => {
     estado.nivel = 'gestor'
     estado.pendente = false
     gerar.mockClear()
+    registrarChegada.mockClear()
+    confirmarRemanejamento.mockClear()
+  })
+
+  it('remanejado de outro posto: exige a origem e vai no payload, fora do fornecedor', async () => {
+    render(
+      <MemoryRouter>
+        <MateriaisComprasPage />
+      </MemoryRouter>
+    )
+    fireEvent.click(screen.getByText('Cloro 5L'))
+    fireEvent.change(screen.getByLabelText('Do fornecedor — Abaeté'), { target: { value: '0' } })
+    fireEvent.change(screen.getByLabelText('Remanejado de outro posto — Abaeté'), { target: { value: '4' } })
+    expect(screen.getByText(/escolha de qual posto vem/)).toBeTruthy()
+    const origem = screen.getByLabelText('Remanejado de qual posto — Abaeté') as HTMLSelectElement
+    expect(Array.from(origem.options).map((o) => o.textContent)).not.toContain('Abaeté (rota 1)')
+    fireEvent.change(origem, { target: { value: 'c7' } })
+    fireEvent.click(screen.getByText('Gerar pedidos aos fornecedores'))
+    expect(screen.getByText(/1 linha\(s\) remanejada\(s\) de outro posto/)).toBeTruthy()
+    fireEvent.click(screen.getByText('Gerar rascunhos'))
+    await vi.waitFor(() => expect(gerar).toHaveBeenCalledTimes(1))
+    const payload = (gerar.mock.calls as unknown as unknown[][])[0][2] as Record<string, unknown>[]
+    expect(payload).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'l1', qtd_compra: 0, qtd_remanejada: 4, remanejado_de_contrato_id: 'c7', fornecedor_id: null })])
+    )
+  })
+
+  it('Chegadas: mesa registra "chegou tudo" por contrato e confirma o remanejamento', async () => {
+    estado.nivel = 'mesa'
+    render(
+      <MemoryRouter initialEntries={['/materiais/chegadas?mes=2026-10&compra=comp2']}>
+        <Routes>
+          <Route path="/materiais/chegadas" element={<MateriaisChegadasPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await vi.waitFor(() => expect(screen.getAllByText('Chegou tudo').length).toBe(2))
+    expect(screen.getByText('Remanejamentos entre postos')).toBeTruthy()
+    expect(screen.getByText('Back Art')).toBeTruthy()
+    // chegou menos sem motivo: avisa e não grava
+    fireEvent.change(screen.getByLabelText('Chegou — Cloro 5L — Telex Sede'), { target: { value: '1' } })
+    expect(screen.getByText(/Chegou menos: informe o motivo/)).toBeTruthy()
+    fireEvent.click(screen.getAllByText('Salvar chegada')[1])
+    expect(registrarChegada).not.toHaveBeenCalled()
+    fireEvent.click(screen.getAllByText('Chegou tudo')[0])
+    await vi.waitFor(() => expect(registrarChegada).toHaveBeenCalledTimes(1))
+    expect((registrarChegada.mock.calls as unknown as unknown[][])[0][1]).toEqual([{ id: 'x1', qtd_recebida: 4, motivo: null }])
+    await vi.waitFor(() => expect((screen.getByText('Remanejamento feito') as HTMLButtonElement).closest('button')?.disabled).toBe(false))
+    fireEvent.click(screen.getByText('Remanejamento feito'))
+    await vi.waitFor(() => expect(confirmarRemanejamento).toHaveBeenCalledTimes(1))
+    expect((confirmarRemanejamento.mock.calls as unknown as unknown[][])[0][0]).toEqual([{ id: 'r1', qtd: 2, motivo: null }])
+  })
+
+  it('Chegadas: financeiro só consulta (sem campos nem botões)', async () => {
+    estado.nivel = 'financeiro'
+    render(
+      <MemoryRouter initialEntries={['/materiais/chegadas?mes=2026-09&compra=comp2']}>
+        <Routes>
+          <Route path="/materiais/chegadas" element={<MateriaisChegadasPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await vi.waitFor(() => expect(screen.getAllByText('Telex Sede').length).toBeGreaterThan(0))
+    expect(screen.queryByText('Chegou tudo')).toBeNull()
+    expect(screen.queryByText('Remanejamento feito')).toBeNull()
+    // o mês vem da URL (link "Registrar chegada" do detalhe da compra)
+    expect((document.getElementById('chegadas-mes') as HTMLInputElement).value).toBe('2026-09')
   })
 
   it('comprador vê a prévia agrupada, os avisos (sem trava) e gera os rascunhos', async () => {

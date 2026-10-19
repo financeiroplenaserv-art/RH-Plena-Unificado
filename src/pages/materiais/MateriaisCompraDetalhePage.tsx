@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { Ban, Download, FileSpreadsheet, PackageSearch, Send } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowRightLeft, Ban, Download, FileSpreadsheet, PackageOpen, PackageSearch, Send } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
 import { EmptyState } from '@/components/corh/EmptyState'
@@ -17,12 +17,14 @@ import { Selo } from '@/components/materiais/filas'
 import { rotuloCompetencia } from '@/components/materiais/rotulosFilas'
 import { MateriaisShell } from './MateriaisShell'
 import { useAuth } from '@/hooks/useAuth'
-import { useCompraMaterial } from '@/hooks/useMateriaisCompras'
+import { carregarDadosChegadas, useCompraMaterial } from '@/hooks/useMateriaisCompras'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
-import { podeComprarMateriais, podeVerComprasMateriais } from '@/lib/permissoes'
+import { podeComprarMateriais, podeRegistrarChegadaMateriais, podeVerComprasMateriais } from '@/lib/permissoes'
 import { formatarData, formatarDataHora, mascaraMoeda } from '@/lib/utils'
 import { montarMatrizCompra, rotuloRota, tituloColuna } from '@/lib/materiais/excelCompra'
 import { baixarExcelCompra } from '@/lib/materiais/excelCompraArquivo'
+import { descricaoRemanejamento, remanejamentosDaCompra, type RemanejamentoChegada } from '@/lib/materiais/chegadas'
+import { quantidadeComUnidade } from '@/lib/materiais/unidades'
 import { ROTULO_STATUS_COMPRA, ROTULO_TIPO_COMPRA } from './comprasRotulos'
 import { toast } from 'sonner'
 
@@ -66,6 +68,9 @@ export function MateriaisCompraDetalhePage() {
   const [cancelamento, setCancelamento] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [agrupar, setAgrupar] = useAgruparPorRota()
+  const podeRegistrarChegada = nivel ? podeRegistrarChegadaMateriais(nivel) : false
+  // Migration 151: remanejamentos da mesma geração (visão interna — nunca vão ao Excel do fornecedor).
+  const [remanejamentos, setRemanejamentos] = useState<RemanejamentoChegada[]>([])
 
   const { carregar } = det
   const { carregar: carregarForn } = forn
@@ -77,6 +82,17 @@ export function MateriaisCompraDetalhePage() {
   }, [carregarForn])
 
   const c = det.compra
+  const competenciaCompra = c?.competencia ?? null
+  useEffect(() => {
+    let vivo = true
+    if (!competenciaCompra || !id) return
+    carregarDadosChegadas(competenciaCompra).then((d) => {
+      if (vivo) setRemanejamentos(d ? remanejamentosDaCompra(d.remanejamentos, id) : [])
+    })
+    return () => {
+      vivo = false
+    }
+  }, [competenciaCompra, id])
   const m = useMemo(() => montarMatrizCompra(det.itens, agrupar), [det.itens, agrupar])
   const fornecedor = c ? forn.fornecedores.find((f) => f.id === c.fornecedor_id)?.nome ?? 'Fornecedor' : ''
   const gruposRota = useMemo(() => {
@@ -116,7 +132,7 @@ export function MateriaisCompraDetalhePage() {
 
   const baixar = async (comValores: boolean) => {
     try {
-      await baixarExcelCompra(c, det.itens, fornecedor, comValores, agrupar)
+      await baixarExcelCompra(c, det.itens, fornecedor, comValores, agrupar, comValores ? remanejamentos : [])
     } catch (e) {
       toast.error(`Não foi possível gerar o Excel: ${e instanceof Error ? e.message : 'erro desconhecido'}`)
     }
@@ -161,6 +177,13 @@ export function MateriaisCompraDetalhePage() {
             <Button onClick={() => setEnvio({ entrega: c.entrega_prevista ?? '' })} disabled={det.itens.length === 0}>
               <Send className="size-4" /> Marcar como enviada
             </Button>
+          )}
+          {(c.status === 'enviada' || c.status === 'recebida_parcial' || c.status === 'recebida') && (
+            <Link to={`/materiais/chegadas?mes=${c.competencia.slice(0, 7)}&compra=${c.id}`}>
+              <Button variant={podeRegistrarChegada && c.status !== 'recebida' ? 'primary' : 'outline'}>
+                <PackageOpen className="size-4" /> {podeRegistrarChegada ? 'Registrar chegada' : 'Ver chegadas'}
+              </Button>
+            </Link>
           )}
           {podeCancelar && (
             <Button variant="outline" onClick={() => setCancelamento('')}>
@@ -295,6 +318,44 @@ export function MateriaisCompraDetalhePage() {
           )}
         </DataTable>
       </div>
+
+      {remanejamentos.length > 0 && (
+        <div className="mt-4">
+          <DataTable title="Remanejados de outro posto nesta geração (não vão ao fornecedor)" count={remanejamentos.length} minWidth={720}>
+            <p className="flex items-start gap-2 px-4 pb-2 text-sm text-muted-foreground">
+              <ArrowRightLeft className="mt-0.5 size-4 shrink-0" /> Para a equipe saber o que levar de onde. Não sai no Excel do fornecedor; a
+              confirmação do “remanejamento feito” é na aba Chegadas.
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Levar de</TableHead>
+                  <TableHead>Para</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="text-right">Quantidade</TableHead>
+                  <TableHead>Situação</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {remanejamentos.map((r) => (
+                  <TableRow key={r.linha_id} className="hover:bg-accent/40">
+                    <TableCell>{r.origem_nome ?? '—'}</TableCell>
+                    <TableCell>{r.contrato_nome}</TableCell>
+                    <TableCell>
+                      {descricaoRemanejamento(r)}
+                      {r.remanejamento_obs && <span className="block text-[11px] text-muted-foreground">{r.remanejamento_obs}</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{quantidadeComUnidade(r.qtd_remanejada, r.unidade)}</TableCell>
+                    <TableCell>
+                      {r.qtd_entregue_remanejada != null ? <Selo tom="verde">feito ({r.qtd_entregue_remanejada})</Selo> : <Selo>a levar</Selo>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </DataTable>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!envio}

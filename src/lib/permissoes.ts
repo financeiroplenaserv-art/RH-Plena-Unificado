@@ -132,6 +132,10 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     // = quem vê o módulo + financeiro (que entra só na aba Compras —
     // menu/rota.materiais_compras). Nada é gerado sozinho: o comprador clica.
     comprar: ['gestor', 'mesa'],
+    // Marco B (tela Chegadas): registrar o que o fornecedor entregou e confirmar o
+    // "remanejamento feito" (migration 151). Banco: pode_registrar_chegada_materiais()
+    // = admin, adm, gestor, mesa. O financeiro só consulta.
+    registrar_chegada: ['gestor', 'mesa'],
     ver_compras: ['gestor', 'mesa', 'inspetoria', 'financeiro'],
   },
   ferias: {
@@ -373,6 +377,9 @@ export const podeReabrirPedidoMateriais = (p: NivelAcesso) => temPermissaoComPad
 
 /** Preparar, gerar, enviar e cancelar a compra do mês ao fornecedor (Fase 2) */
 export const podeComprarMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'comprar')
+
+/** Registrar a chegada do fornecedor e confirmar o remanejamento (tela Chegadas — Marco B) */
+export const podeRegistrarChegadaMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'registrar_chegada')
 
 /** Consultar as compras (o financeiro confere com valores, sem alterar) */
 export const podeVerComprasMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'ver_compras')
