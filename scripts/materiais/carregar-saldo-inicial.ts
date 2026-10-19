@@ -79,7 +79,7 @@ function lerLinhas(arquivo: string): string[][] {
     const ws = wb.Sheets[wb.SheetNames[0]]
     return (XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) as unknown[][]).map((l) => l.map((c) => String(c ?? '')))
   }
-  const texto = fs.readFileSync(arquivo, 'utf8').replace(/^﻿/, '')
+  const texto = fs.readFileSync(arquivo, 'utf8').replace(new RegExp('^' + String.fromCharCode(0xfeff)), '')
   const primeira = texto.split(/\r?\n/)[0] ?? ''
   const sep = primeira.includes(';') ? ';' : ','
   return texto
