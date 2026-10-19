@@ -9,6 +9,7 @@ import { Button } from '@/components/corh/Button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { EstruturaPendente } from '@/components/materiais/EstruturaPendente'
@@ -38,7 +39,7 @@ import {
   type EdicaoLinha,
 } from '@/lib/materiais/filas'
 import { rotaEfetiva } from '@/lib/materiais/pedidos'
-import { antesDoPrazo, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
+import { antesDoPrazo, historicoEntregasDoItem, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
 import { avisosItemParaContrato, inclusaoReabrePedido, podeEditarLinhasDoPedido, validarInclusao } from '@/lib/materiais/inclusaoPedido'
 import { nomesExclusivos } from '@/lib/materiais/cadastro'
 import { quantidadeComUnidade } from '@/lib/materiais/unidades'
@@ -79,6 +80,7 @@ export function MateriaisPedidoDetalhePage() {
   const [comentarioGeral, setComentarioGeral] = useState('')
   const [comentarioLinha, setComentarioLinha] = useState<{ linha: MatPedidoItem; texto: string } | null>(null)
   const [devolucao, setDevolucao] = useState<string | null>(null)
+  const [historico, setHistorico] = useState<{ itemId: string; nome: string } | null>(null)
   const [confirmar, setConfirmar] = useState<'validar' | 'aprovar_tudo' | 'aprovar_ajustes' | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [ajuste, setAjuste] = useState<{ linha: MatPedidoItem; edicao: EdicaoKit } | null>(null)
@@ -462,6 +464,7 @@ export function MateriaisPedidoDetalhePage() {
                                 data={u?.ult?.data}
                                 detalhe={u?.ult ? quantidadeComUnidade(u.ult.quantidade, un) : null}
                                 antesDoPrazo={u?.antes}
+                                onVerHistorico={() => setHistorico({ itemId: l.item_id as string, nome: nomeItem.get(l.item_id as string)?.nome ?? 'Item' })}
                               />
                             )
                           })()}
@@ -924,6 +927,47 @@ export function MateriaisPedidoDetalhePage() {
           </div>
         )}
       </ConfirmDialog>
+
+      <Dialog open={historico != null} onOpenChange={(a) => !a && setHistorico(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Histórico de entregas</DialogTitle>
+            <DialogDescription>
+              {historico?.nome} — tudo o que este contrato recebeu antes de {p ? rotuloCompetencia(p.competencia) : ''} (planilhas antigas e pedidos aprovados).
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            if (!historico || !p) return null
+            const linhas = historicoEntregasDoItem(historico.itemId, det.entregasAnteriores, det.vinculos, p.competencia)
+            const un = nomeItem.get(historico.itemId)?.unidade_pedido
+            if (linhas.length === 0) return <p className="text-sm text-muted-foreground">Nenhuma entrega registrada.</p>
+            const total = Math.round(linhas.reduce((t, h) => t + h.quantidade, 0) * 100) / 100
+            return (
+              <div className="max-h-[60vh] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mês</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {linhas.map((h) => (
+                      <TableRow key={h.data} className="hover:bg-accent/40">
+                        <TableCell className="tabular-nums">{rotuloCompetencia(h.data)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{quantidadeComUnidade(h.quantidade, un)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+                  {linhas.length} {linhas.length === 1 ? 'mês' : 'meses'} · total {quantidadeComUnidade(total, un)}
+                </p>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={devolucao != null}

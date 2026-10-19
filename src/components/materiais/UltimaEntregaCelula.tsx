@@ -14,6 +14,7 @@ export function UltimaEntregaCelula({
   detalhe,
   antesDoPrazo = false,
   titleSelo = 'A última entrega foi há menos tempo que o prazo do item',
+  onVerHistorico,
 }: {
   /** AAAA-MM-DD; vazio = sem histórico. */
   data: string | null | undefined
@@ -21,11 +22,24 @@ export function UltimaEntregaCelula({
   detalhe?: string | null
   antesDoPrazo?: boolean
   titleSelo?: string
+  /** Quando informado, a data vira link que abre o histórico completo. */
+  onVerHistorico?: () => void
 }) {
   if (!data) return <span className="text-muted-foreground">—</span>
   return (
     <div className="space-y-0.5 tabular-nums">
-      <p>{formatarData(data)}</p>
+      {onVerHistorico ? (
+        <button
+          type="button"
+          onClick={onVerHistorico}
+          className="text-primary underline-offset-2 hover:underline"
+          title="Ver todas as entregas deste item ao contrato"
+        >
+          {formatarData(data)}
+        </button>
+      ) : (
+        <p>{formatarData(data)}</p>
+      )}
       {detalhe && <p className="text-[11px] text-muted-foreground">{detalhe}</p>}
       {antesDoPrazo && <Selo tom="ambar" title={titleSelo}>antes do prazo</Selo>}
     </div>

@@ -23,6 +23,29 @@ export interface UltimaEntrega {
 }
 
 /**
+ * Histórico completo de entregas do item ao contrato, estritamente ANTES de
+ * `antesDe`, da mais recente para a mais antiga — uma linha por competência,
+ * somando o que entrou nela (variações, linhas repetidas e itens substituídos).
+ */
+export function historicoEntregasDoItem(
+  itemId: string,
+  fatos: FatoEntrega[],
+  vinculos: VinculoSubstituicao[],
+  antesDe: string
+): UltimaEntrega[] {
+  const mapa = mapaSubstituicoes(vinculos)
+  const porData = new Map<string, number>()
+  for (const f of fatos) {
+    if (!(f.quantidade > 0) || f.competencia >= antesDe) continue
+    if (f.item_id !== itemId && resolverSubstituto(f.item_id, null, mapa).item_id !== itemId) continue
+    porData.set(f.competencia, (porData.get(f.competencia) ?? 0) + f.quantidade)
+  }
+  return [...porData.entries()]
+    .sort((x, y) => (x[0] < y[0] ? 1 : x[0] > y[0] ? -1 : 0))
+    .map(([data, q]) => ({ data, quantidade: Math.round(q * 100) / 100 }))
+}
+
+/**
  * Última entrega do item ao contrato, estritamente ANTES de `antesDe`
  * (competência do pedido em análise). A quantidade soma tudo que entrou na
  * mesma competência (variações, linhas repetidas e itens substituídos).
@@ -33,20 +56,7 @@ export function ultimaEntregaDoItem(
   vinculos: VinculoSubstituicao[],
   antesDe: string
 ): UltimaEntrega | null {
-  const mapa = mapaSubstituicoes(vinculos)
-  let data: string | null = null
-  let quantidade = 0
-  for (const f of fatos) {
-    if (!(f.quantidade > 0) || f.competencia >= antesDe) continue
-    if (f.item_id !== itemId && resolverSubstituto(f.item_id, null, mapa).item_id !== itemId) continue
-    if (data == null || f.competencia > data) {
-      data = f.competencia
-      quantidade = f.quantidade
-    } else if (f.competencia === data) {
-      quantidade += f.quantidade
-    }
-  }
-  return data ? { data, quantidade: Math.round(quantidade * 100) / 100 } : null
+  return historicoEntregasDoItem(itemId, fatos, vinculos, antesDe)[0] ?? null
 }
 
 /**

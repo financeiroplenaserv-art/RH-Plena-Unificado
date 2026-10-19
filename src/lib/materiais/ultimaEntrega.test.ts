@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { antesDoPrazo, ultimaEntregaDoItem, type FatoEntrega } from './ultimaEntrega'
+import { antesDoPrazo, historicoEntregasDoItem, ultimaEntregaDoItem, type FatoEntrega } from './ultimaEntrega'
 
 const fatos: FatoEntrega[] = [
   { item_id: 'A', competencia: '2026-05-01', quantidade: 2 },
@@ -22,6 +22,22 @@ describe('ultimaEntregaDoItem', () => {
   it('o item novo herda a última entrega do que ele substituiu', () => {
     const v = [{ item_id: 'B', variacao_id: null, substituido_por_id: 'A', substituido_por_variacao_id: null }]
     expect(ultimaEntregaDoItem('A', fatos, v, '2026-10-01')).toEqual({ data: '2026-08-01', quantidade: 5 })
+  })
+})
+
+describe('historicoEntregasDoItem', () => {
+  it('lista todas as competências, da mais recente para a mais antiga, somando cada uma', () => {
+    expect(historicoEntregasDoItem('A', fatos, [], '2026-10-01')).toEqual([
+      { data: '2026-07-01', quantidade: 4 },
+      { data: '2026-05-01', quantidade: 2 },
+    ])
+  })
+  it('inclui o histórico do item substituído', () => {
+    const v = [{ item_id: 'B', variacao_id: null, substituido_por_id: 'A', substituido_por_variacao_id: null }]
+    expect(historicoEntregasDoItem('A', fatos, v, '2026-10-01').map((h) => h.data)).toEqual(['2026-08-01', '2026-07-01', '2026-05-01'])
+  })
+  it('sem entrega devolve lista vazia', () => {
+    expect(historicoEntregasDoItem('Z', fatos, [], '2026-10-01')).toEqual([])
   })
 })
 
