@@ -1,5 +1,7 @@
 import type { Workbook, Worksheet, Borders } from 'exceljs'
 import type { MatCompra, MatCompraItem } from '@/types/materiais'
+import type { RemanejamentoChegada } from './chegadas'
+import { descricaoItemCompra } from './compra'
 import { formatarDataDeTimestamp } from '@/lib/utils'
 import {
   aoaCompraAoFornecedor,
@@ -17,6 +19,14 @@ import {
 // Gera e baixa o .xlsx da compra, com o visual da planilha (lógica da matriz em
 // excelCompra.ts). Usa o exceljs (o @e965/xlsx não grava estilos), carregado por
 // import dinâmico só na hora de baixar — não pesa no bundle inicial.
+//
+// TRAVADO (decisão da gestora, 19/10/2026): todas as abas saem PROTEGIDAS contra
+// edição — o fornecedor lê, seleciona, copia e imprime (a proteção de planilha do
+// Excel não bloqueia a impressão nem a configuração de página), mas não altera
+// quantidades. SEM SENHA de propósito: a planilha é gerada no navegador, então
+// qualquer senha ficaria visível no código publicado (bundle) e não protegeria
+// nada a mais; o objetivo é evitar alteração por engano. Quem precisar mexer
+// (escritório) usa "Revisar → Desproteger planilha", sem senha.
 
 const AZUL = 'FF0F6CBD'
 const AZUL_CLARO = 'FFDCEBF8'
@@ -158,12 +168,54 @@ function gruposDeRota(m: MatrizCompra): { de: number; ate: number }[] {
   return g
 }
 
+/** Opções da proteção (sem senha): selecionar e copiar sim; editar, inserir e apagar não. */
+export const OPCOES_PROTECAO = {
+  selectLockedCells: true,
+  selectUnlockedCells: true,
+  formatCells: false,
+  formatColumns: false,
+  formatRows: false,
+  insertColumns: false,
+  insertRows: false,
+  insertHyperlinks: false,
+  deleteColumns: false,
+  deleteRows: false,
+  sort: false,
+  autoFilter: false,
+  pivotTables: false,
+  objects: false,
+  scenarios: false,
+} as const
+
+/** Aba interna "Remanejados" (só no Excel COM VALORES — nunca no do fornecedor). */
+export function aoaRemanejados(cab: CabecalhoExcel, linhas: RemanejamentoChegada[]): Celula[][] {
+  const topo: Celula[][] = [
+    ['Remanejados de outro posto (não vão ao fornecedor)'],
+    ['Fornecedor', cab.fornecedor],
+    ['Mês', `${cab.competencia.slice(5, 7)}/${cab.competencia.slice(0, 4)}`],
+    ['Compra', cab.numero],
+  ]
+  while (topo.length < LINHAS_CABECALHO) topo.push([])
+  const corpo: Celula[][] = [['Levar de', 'Para', 'Item', 'Quantidade', 'Situação', 'Observação']]
+  for (const r of [...linhas].sort((a, b) => (a.origem_nome ?? '').localeCompare(b.origem_nome ?? '', 'pt-BR') || a.contrato_nome.localeCompare(b.contrato_nome, 'pt-BR')))
+    corpo.push([
+      r.origem_nome ?? '—',
+      r.contrato_nome,
+      descricaoItemCompra(r.item_nome, r.variacao_rotulo),
+      r.qtd_remanejada,
+      r.qtd_entregue_remanejada != null ? `feito (${r.qtd_entregue_remanejada})` : 'a levar',
+      r.remanejamento_obs ?? '',
+    ])
+  return [...topo, ...corpo]
+}
+
 /** Monta o workbook estilizado (separado do download para poder ser testado). */
 export async function montarWorkbookCompra(
   m: MatrizCompra,
   cab: CabecalhoExcel,
   comValores: boolean,
-  agrupar: boolean
+  agrupar: boolean,
+  remanejados: RemanejamentoChegada[] = []
 ): Promise<Workbook> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
@@ -194,6 +246,18 @@ export async function montarWorkbookCompra(
   const ws3 = wb.addWorksheet('Entrega')
   const aoa3: Celula[][] = [...aoa1.slice(0, LINHAS_CABECALHO), ...aoaEntregaPorRota(m, agrupar)]
   montarAba(ws3, aoa3, { linhaCab: LINHAS_CABECALHO, primeiraNumerica: agrupar ? 3 : 2, semTotal: true })
+
+  // Visão interna: o fornecedor nunca recebe o remanejado (só no Excel com valores).
+  if (comValores && remanejados.length > 0) {
+    const ws4 = wb.addWorksheet('Remanejados')
+    montarAba(ws4, aoaRemanejados(cab, remanejados), { linhaCab: LINHAS_CABECALHO, primeiraNumerica: 3, semTotal: true })
+    // As colunas depois da quantidade são texto.
+    for (let i = LINHAS_CABECALHO + 2; i <= ws4.rowCount; i++)
+      for (const c of [5, 6]) ws4.getCell(i, c).alignment = { vertical: 'middle', wrapText: true }
+  }
+
+  // Travado contra edição (sem senha — ver o comentário do topo).
+  for (const ws of wb.worksheets) await ws.protect('', { ...OPCOES_PROTECAO })
   return wb
 }
 
@@ -202,7 +266,8 @@ export async function baixarExcelCompra(
   itens: MatCompraItem[],
   fornecedorNome: string,
   comValores: boolean,
-  agrupar = true
+  agrupar = true,
+  remanejados: RemanejamentoChegada[] = []
 ): Promise<void> {
   const m = montarMatrizCompra(itens, agrupar)
   const cab: CabecalhoExcel = {
@@ -211,7 +276,7 @@ export async function baixarExcelCompra(
     numero: compra.numero,
     data: compra.created_at ? formatarDataDeTimestamp(compra.created_at) : undefined,
   }
-  const wb = await montarWorkbookCompra(m, cab, comValores, agrupar)
+  const wb = await montarWorkbookCompra(m, cab, comValores, agrupar, comValores ? remanejados : [])
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)

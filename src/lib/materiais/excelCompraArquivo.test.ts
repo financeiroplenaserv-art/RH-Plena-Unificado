@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { MatCompraItem } from '@/types/materiais'
 import { montarMatrizCompra } from './excelCompra'
-import { montarWorkbookCompra } from './excelCompraArquivo'
+import { aoaRemanejados, montarWorkbookCompra } from './excelCompraArquivo'
+import type { RemanejamentoChegada } from './chegadas'
+
+/** O exceljs grava ws.sheetProtection, mas a tipagem não expõe a propriedade. */
+const prot = (ws: unknown) => (ws as { sheetProtection?: Record<string, unknown> }).sheetProtection
 
 const cel = (p: Partial<MatCompraItem>): MatCompraItem =>
   ({
@@ -49,5 +53,40 @@ describe('montarWorkbookCompra', () => {
     const ws = wb.getWorksheet('Por Cliente')!
     expect(ws.getCell(6, 1).value).toBe('Item')
     expect(ws.getCell(6, 3).value).toBe('Telex (R3)')
+  })
+
+  it('TODAS as abas saem protegidas contra edição (sem senha), também depois de gravar e reabrir', async () => {
+    const wb = await montarWorkbookCompra(montarMatrizCompra(itens, true), cab, false, true)
+    for (const ws of wb.worksheets) {
+      expect(prot(ws)).toMatchObject({ sheet: true, selectLockedCells: true, formatCells: false, insertRows: false, deleteRows: false })
+      expect(prot(ws)).not.toHaveProperty('hashValue')
+    }
+    const ExcelJS = (await import('exceljs')).default
+    const lido = new ExcelJS.Workbook()
+    await lido.xlsx.load(await wb.xlsx.writeBuffer())
+    expect(lido.worksheets.length).toBe(3)
+    for (const ws of lido.worksheets) expect(prot(ws)?.sheet).toBe(true)
+  })
+})
+
+const rem = {
+  linha_id: 'l1', pedido_id: 'p', competencia: '2026-10-01', contrato_id: 'b', contrato_nome: 'Back Art', rota: 2,
+  origem_id: 'a', origem_nome: 'Abaeté', item_id: 'cloro', variacao_id: null, item_nome: 'Cloro 5L', variacao_rotulo: null,
+  unidade: 'GL', qtd_remanejada: 3, qtd_entregue_remanejada: null, remanejamento_obs: 'sobrou', motivo_entrega: null,
+  confirmado_em: null, status_pedido: 'em_compra', compras: ['c'],
+} as RemanejamentoChegada
+
+describe('remanejado de outro posto no Excel', () => {
+  it('o Excel do FORNECEDOR nunca tem a aba Remanejados', async () => {
+    const wb = await montarWorkbookCompra(montarMatrizCompra(itens, true), cab, false, true, [rem])
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Por Cliente', 'Compra', 'Entrega'])
+  })
+  it('o Excel interno (com valores) lista o que levar de onde, também protegido', async () => {
+    const wb = await montarWorkbookCompra(montarMatrizCompra(itens, true), cab, true, true, [rem])
+    const ws = wb.getWorksheet('Remanejados')!
+    expect(prot(ws)?.sheet).toBe(true)
+    const aoa = aoaRemanejados(cab, [rem])
+    expect(aoa[5]).toEqual(['Levar de', 'Para', 'Item', 'Quantidade', 'Situação', 'Observação'])
+    expect(aoa[6]).toEqual(['Abaeté', 'Back Art', 'Cloro 5L', 3, 'a levar', 'sobrou'])
   })
 })
