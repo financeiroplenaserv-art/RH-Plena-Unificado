@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Check, CornerUpLeft, Link2, MessageSquare, PackageSearch, Plus, SlidersHorizontal } from 'lucide-react'
+import { Check, CornerUpLeft, Link2, MessageSquare, PackageSearch, Plus, SlidersHorizontal, Undo2 } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { DataTable } from '@/components/corh/DataTable'
 import { EmptyState } from '@/components/corh/EmptyState'
@@ -20,8 +20,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useMateriaisCatalogo } from '@/hooks/useMateriaisCatalogo'
 import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
 import { usePedidoMaterial } from '@/hooks/useMateriaisPedidos'
-import { podeAprovarMateriais, podeValidarMateriais } from '@/lib/permissoes'
-import { formatarDataHora, hojeBrasil, mascaraMoeda } from '@/lib/utils'
+import { podeAprovarMateriais, podeComprarMateriais, podeValidarMateriais } from '@/lib/permissoes'
+import { formatarData, formatarDataHora, hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import {
   ehLinhaKit,
@@ -46,7 +46,7 @@ import { UltimaEntregaCelula } from '@/components/materiais/UltimaEntregaCelula'
 import { EscolherItemCatalogo, type ItemEscolhido } from '@/components/materiais/EscolherItemCatalogo'
 import { toast } from 'sonner'
 import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
-import { carregarCamposFase2, carregarComprasDasCelulas } from '@/hooks/useMateriaisCompras'
+import { carregarCamposFase2, carregarComprasDasCelulas, desfazerDestinoLinha } from '@/hooks/useMateriaisCompras'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
 import { aprovadoOuDepois } from '@/lib/materiais/pedidos'
 import type { MatCompra, MatComentario, MatPedidoItem } from '@/types/materiais'
@@ -87,6 +87,8 @@ export function MateriaisPedidoDetalhePage() {
   const [ligacao, setLigacao] = useState<{ linha: MatPedidoItem; item: ItemEscolhido | null; motivo: string } | null>(null)
   // Fase 2 (migration 147): destino na compra e entrega de cada linha — lidos à parte, de forma tolerante.
   const [fase2, setFase2] = useState<Map<string, Partial<MatPedidoItem>>>(new Map())
+  // Migration 151: desfazer o destino de linha sem compra (antes de qualquer entrega).
+  const [desfazer, setDesfazer] = useState<{ linha: MatPedidoItem; motivo: string } | null>(null)
   const [comprasCelula, setComprasCelula] = useState<Map<string, { compraId: string; numero: string; fornecedorId: string; status: MatCompra['status'] }>>(new Map())
   const forn = useMateriaisFornecedores()
 
@@ -286,11 +288,23 @@ export function MateriaisPedidoDetalhePage() {
     return ok
   }
 
+  /** Linha com destino SEM compra e sem entrega: o comprador pode desfazer (migration 151). */
+  const podeDesfazerDestino = (l: MatPedidoItem) =>
+    !!nivel &&
+    podeComprarMateriais(nivel) &&
+    !!l.atendimento &&
+    !l.compra_item_id &&
+    l.qtd_entregue == null &&
+    l.qtd_entregue_estoque == null &&
+    l.qtd_entregue_remanejada == null
+  const nomeContrato = (cid: string | null | undefined) => (cid ? (contratosHook.contratos.find((c) => c.id === cid)?.nome ?? 'outro posto') : 'outro posto')
+
   /** Destino da linha na compra (Fase 2) e o que já foi entregue. */
   const celulaDestino = (l: MatPedidoItem) => {
     if (!l.atendimento) return l.qtd_aprovada != null && Number(l.qtd_aprovada) > 0 ? <span className="text-muted-foreground">aguarda a compra</span> : '—'
     const compra = l.compra_item_id ? comprasCelula.get(l.compra_item_id) : null
-    const entregue = l.qtd_entregue != null && (l.qtd_entregue_estoque != null || l.qtd_recebida_fornecedor != null)
+    const entregue =
+      l.qtd_entregue != null && (l.qtd_entregue_estoque != null || l.qtd_recebida_fornecedor != null || l.qtd_entregue_remanejada != null)
     return (
       <div className="space-y-0.5">
         {l.atendimento === 'nao_atendido' ? (
@@ -311,6 +325,18 @@ export function MateriaisPedidoDetalhePage() {
               </p>
             )}
             {(l.qtd_estoque ?? 0) > 0 && <p className="tabular-nums">estoque ({l.qtd_estoque})</p>}
+            {(l.qtd_remanejada ?? 0) > 0 && (
+              <p className="tabular-nums" title={l.remanejamento_obs ?? undefined}>
+                remanejado de {nomeContrato(l.remanejado_de_contrato_id)} ({l.qtd_remanejada}){' '}
+                {l.qtd_entregue_remanejada != null ? (
+                  <Selo tom="verde">feito</Selo>
+                ) : (
+                  <Link className="text-primary underline" to="/materiais/chegadas">
+                    a levar
+                  </Link>
+                )}
+              </p>
+            )}
             {l.motivo_nao_atendido && <p className="text-muted-foreground">corte: {l.motivo_nao_atendido}</p>}
           </>
         )}
@@ -319,6 +345,11 @@ export function MateriaisPedidoDetalhePage() {
             entregue {l.qtd_entregue}
             {l.motivo_entrega ? <span className="font-normal text-muted-foreground"> — {l.motivo_entrega}</span> : null}
           </p>
+        )}
+        {podeDesfazerDestino(l) && (
+          <button type="button" className="flex items-center gap-1 text-[11px] text-primary underline" onClick={() => setDesfazer({ linha: l, motivo: '' })}>
+            <Undo2 className="size-3" /> desfazer destino
+          </button>
         )}
       </div>
     )
@@ -528,7 +559,7 @@ export function MateriaisPedidoDetalhePage() {
       <PageHeader
         title={contrato?.nome ?? 'Pedido'}
         backTo="/materiais/pedidos"
-        description={`${p.tipo === 'extra' ? 'Pedido extra' : 'Pedido mensal'} de ${rotuloCompetencia(p.competencia)}${
+        description={`${p.implantacao ? 'Implantação de contrato' : p.tipo === 'extra' ? 'Pedido extra' : 'Pedido mensal'} de ${rotuloCompetencia(p.competencia)}${
           contrato ? ` · ${nomeCurtoDepartamentoFuzzy(contratosHook.departamentos, contrato.departamento_id)}` : ''
         }`}
       >
@@ -541,6 +572,11 @@ export function MateriaisPedidoDetalhePage() {
             <p className="text-xs text-muted-foreground">Produtos</p>
             <div className="mt-1 flex flex-wrap items-center gap-1">
               <StatusProdutosBadge status={p.status_produtos} />
+              {p.implantacao && (
+                <Selo tom="roxo" title="Enxoval inicial do posto que vai começar — fora da média de consumo e do limite mensal">
+                  Implantação{p.implantacao_inicio ? ` · início ${formatarData(p.implantacao_inicio)}` : ''}
+                </Selo>
+              )}
               {excecoes > 0 && <Selo>{excecoes} com exceção</Selo>}
             </div>
           </div>
@@ -903,6 +939,39 @@ export function MateriaisPedidoDetalhePage() {
         <div className="space-y-1.5">
           <Label htmlFor="ped-devolucao">O que precisa ser corrigido</Label>
           <Textarea id="ped-devolucao" rows={3} value={devolucao ?? ''} onChange={(e) => setDevolucao(e.target.value)} maxLength={1000} />
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!desfazer}
+        onOpenChange={(a) => !a && setDesfazer(null)}
+        icon={<Undo2 className="size-6 text-primary" />}
+        iconClassName="bg-sky-50"
+        title="Desfazer o destino desta linha?"
+        description={
+          desfazer
+            ? `${descrever(desfazer.linha)} volta para “Preparar a compra” (aba Compras), sem destino. Só vale para linha que não está numa compra ao fornecedor e ainda não teve entrega registrada.`
+            : ''
+        }
+        confirmLabel="Desfazer destino"
+        confirmDisabled={!desfazer?.motivo.trim()}
+        onConfirm={async () => {
+          if (!desfazer) return
+          if (await desfazerDestinoLinha(desfazer.linha.id, desfazer.motivo.trim())) {
+            setDesfazer(null)
+            await carregar(id)
+          }
+        }}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="ped-desfazer">Motivo (obrigatório)</Label>
+          <Textarea
+            id="ped-desfazer"
+            rows={2}
+            maxLength={300}
+            value={desfazer?.motivo ?? ''}
+            onChange={(e) => setDesfazer((d) => (d ? { ...d, motivo: e.target.value } : d))}
+          />
         </div>
       </ConfirmDialog>
 

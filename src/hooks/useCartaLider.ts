@@ -58,7 +58,8 @@ export function useCartaLider() {
         carregarCamposFase2(ids),
         selecionarTudo<ItemNome>((de, ate) => supabase.from('mat_itens').select('id, nome, unidade_pedido, nome_lider').order('id').range(de, ate)),
         selecionarTudo<VarNome>((de, ate) => supabase.from('mat_item_variacoes').select('id, rotulo, oculta_lider').order('id').range(de, ate)),
-        supabase.from('mat_contratos').select('id, nome').in('id', [...new Set(pedidos.map((p) => p.contrato_id))]),
+        // Todos os contratos: o remanejado (migration 151) cita o posto de origem pelo nome.
+        supabase.from('mat_contratos').select('id, nome').limit(1000),
       ])
       const erro = ri.error ?? re.error ?? rc.error ?? rit.error ?? rv.error ?? rct.error
       if (erro) throw erro
@@ -118,6 +119,7 @@ export function useCartaLider() {
               descricao: (l) => descricao(l.item_id, l.variacao_id),
               unidade: (l) => (l.item_id ? (itemPorId.get(l.item_id)?.unidade_pedido ?? null) : null),
               original: (l) => (l.item_original_id ? descricao(l.item_original_id, l.variacao_original_id ?? null) : null),
+              origemRemanejado: (l) => (l.remanejado_de_contrato_id ? (contratoNome.get(l.remanejado_de_contrato_id) ?? null) : null),
             }),
             ceu: linhasCartaCeu(ceuDoContrato, {
               peca: (l) => (l.item_id && pecaNome.get(l.item_id) ? separarTamanhoDoNome(pecaNome.get(l.item_id)!).base : 'Peça'),

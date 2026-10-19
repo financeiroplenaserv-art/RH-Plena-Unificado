@@ -197,3 +197,26 @@ describe('zipSimples', () => {
     expect(v.getUint16(fim + 10, true)).toBe(2)
   })
 })
+
+describe('remanejado de outro posto na carta (migration 151)', () => {
+  const comOrigem = { ...nomes, origemRemanejado: () => 'ABAETÉ' }
+  it('linha toda remanejada: "3 bombonas 5L (remanejado do posto ABAETÉ)"', () => {
+    const [l] = linhasCartaProdutos(
+      [linha({ atendimento: 'remanejado', qtd_remanejada: 3, remanejado_de_contrato_id: 'a', remanejamento_obs: 'sobrou no Abaeté' })],
+      comOrigem
+    )
+    expect(l).toMatchObject({ vamosEnviar: '3 bombonas 5L (remanejado do posto ABAETÉ)', situacao: 'atendido', observacao: 'sobrou no Abaeté' })
+  })
+  it('dividida: parte do fornecedor e parte remanejada', () => {
+    const [l] = linhasCartaProdutos(
+      [linha({ qtd_pedida: 5, qtd_validada: 5, qtd_aprovada: 5, atendimento: 'fornecedor', qtd_compra: 3, qtd_remanejada: 2, remanejado_de_contrato_id: 'a' })],
+      comOrigem
+    )
+    expect(l.vamosEnviar).toBe('5 bombonas 5L (2 remanejadas do posto ABAETÉ)')
+  })
+  it('só conta como entregue depois do "remanejamento feito"', () => {
+    const base = { atendimento: 'fornecedor' as const, qtd_compra: 1, qtd_recebida_fornecedor: 1, qtd_remanejada: 2, remanejado_de_contrato_id: 'a' }
+    expect(quantidadeFinalProduto(linha({ ...base, qtd_entregue: 1 }))).toBe(3)
+    expect(quantidadeFinalProduto(linha({ ...base, qtd_entregue_remanejada: 1, qtd_entregue: 2 }))).toBe(2)
+  })
+})

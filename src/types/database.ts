@@ -1010,6 +1010,10 @@ export type Database = {
         Returns: Record<string, unknown>
       }
       mat_registrar_separacao: { Args: { p_linhas: Record<string, unknown>[]; p_data?: string | null }; Returns: Record<string, unknown> }
+      // Migration 151: remanejado de outro posto (confirmação na tela Chegadas) e leitura da tela
+      mat_confirmar_remanejamento: { Args: { p_linhas: Record<string, unknown>[]; p_data?: string | null }; Returns: Record<string, unknown> }
+      mat_desfazer_destino_linha: { Args: { p_linha: string; p_motivo: string }; Returns: Record<string, unknown> }
+      mat_chegadas: { Args: { p_competencia: string }; Returns: Record<string, unknown> }
       mat_contratos_sem_pedido: {
         Args: { p_competencia: string }
         Returns: {

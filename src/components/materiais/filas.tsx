@@ -27,13 +27,15 @@ export function SeletorMes({ id, valor, onChange, rotulo = 'Mês' }: { id: strin
 }
 
 /** Selo pequeno para destaques de linha (exceção, repetição, divergência). */
-export function Selo({ children, tom = 'ambar', title }: { children: React.ReactNode; tom?: 'ambar' | 'vermelho' | 'azul' | 'cinza' | 'verde'; title?: string }) {
+export function Selo({ children, tom = 'ambar', title }: { children: React.ReactNode; tom?: 'ambar' | 'vermelho' | 'azul' | 'cinza' | 'verde' | 'roxo'; title?: string }) {
   const cores = {
     ambar: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-800',
     vermelho: 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-800',
     azul: 'bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-200 dark:ring-sky-800',
     cinza: 'bg-muted text-muted-foreground ring-border',
     verde: 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-800',
+    // Implantação de contrato / remanejado (migration 151)
+    roxo: 'bg-violet-50 text-violet-800 ring-violet-200 dark:bg-violet-950/40 dark:text-violet-200 dark:ring-violet-800',
   }
   return (
     <span title={title} className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${cores[tom]}`}>

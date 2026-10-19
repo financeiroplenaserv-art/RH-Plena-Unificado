@@ -224,6 +224,13 @@ export interface MatPedido {
   criado_por: string | null
   /** Migration 140: o posto respondeu pelo link que não precisa de nada este mês (envio vazio). */
   sem_necessidade?: boolean
+  /**
+   * Migration 151: pedido extra de IMPLANTAÇÃO de contrato (enxoval inicial do
+   * posto que vai começar). Fluxo normal; fora da média de consumo e do limite.
+   */
+  implantacao?: boolean
+  /** Data prevista de início do contrato (opcional). */
+  implantacao_inicio?: string | null
   created_at?: string
 }
 
@@ -291,10 +298,17 @@ export interface MatPedidoItem {
   qtd_recebida_fornecedor?: number | null
   motivo_entrega?: string | null
   entregue_em?: string | null
+  // ---- Migration 151: parte levada de OUTRO posto (posto → posto, sem estoque nem compra).
+  qtd_remanejada?: number | null
+  remanejado_de_contrato_id?: string | null
+  remanejamento_obs?: string | null
+  /** Confirmada como levada ("remanejamento feito", tela Chegadas). */
+  qtd_entregue_remanejada?: number | null
+  remanejado_confirmado_em?: string | null
 }
 
-/** Destino da linha aprovada na compra (migration 147). */
-export type AtendimentoLinha = 'fornecedor' | 'estoque' | 'escritorio' | 'nao_atendido'
+/** Destino da linha aprovada na compra (migration 147; 'remanejado' desde a 151). */
+export type AtendimentoLinha = 'fornecedor' | 'estoque' | 'escritorio' | 'nao_atendido' | 'remanejado'
 
 export type TipoCompraMaterial = 'mensal' | 'avulsa' | 'reposicao_estoque'
 export type StatusCompraMaterial = 'rascunho' | 'enviada' | 'recebida_parcial' | 'recebida' | 'cancelada'
@@ -317,6 +331,8 @@ export interface MatCompra {
   observacao: string | null
   criado_por: string | null
   created_at: string
+  /** Migration 150: gerações (lote_compra) de que a compra participou. */
+  lotes?: string[]
 }
 
 /** Célula da compra: item × variação × contrato (NULL = reposição do estoque). Snapshots de nome/rota. */

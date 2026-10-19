@@ -192,3 +192,37 @@ describe('normalizarPrevia', () => {
     expect(p.dia_inicio_compra).toBe(20)
   })
 })
+
+describe('destino remanejado (migration 151)', () => {
+  const d = (p: Partial<import('./compra').DestinoLinha>) => ({ qtdEstoque: 0, qtdCompra: 0, fornecedorId: null, naoAtender: false, motivo: '', ...p })
+
+  it('nunca é sugerido: a sugestão só usa estoque e fornecedor', () => {
+    const s = sugerirDestinos([l({})])
+    expect(s.l1.qtdRemanejada ?? 0).toBe(0)
+  })
+  it('linha toda remanejada = "remanejado"; com fornecedor = "dividida"', () => {
+    expect(tipoDestino(l({}), d({ qtdRemanejada: 4, remanejadoDe: 'c2' }))).toBe('remanejado')
+    expect(tipoDestino(l({}), d({ qtdRemanejada: 1, remanejadoDe: 'c2', qtdCompra: 3, fornecedorId: 'f' }))).toBe('dividida')
+  })
+  it('exige o posto de origem, diferente do próprio, e conta na soma do aprovado', () => {
+    expect(erroDestino(l({}), d({ qtdRemanejada: 4 }))).toMatch(/de qual posto/)
+    expect(erroDestino(l({}), d({ qtdRemanejada: 4, remanejadoDe: 'c1' }))).toMatch(/próprio posto/)
+    expect(erroDestino(l({}), d({ qtdRemanejada: 3, remanejadoDe: 'c2', qtdCompra: 2, fornecedorId: 'f' }))).toMatch(/Passa do aprovado/)
+    expect(erroDestino(l({}), d({ qtdRemanejada: 2, remanejadoDe: 'c2' }))).toMatch(/motivo/)
+    expect(erroDestino(l({}), d({ qtdRemanejada: 4, remanejadoDe: 'c2' }))).toBeNull()
+  })
+  it('vai no payload com a origem e a observação; não entra no resumo do fornecedor', () => {
+    const linhas = [l({})]
+    const destinos = { l1: d({ qtdRemanejada: 1, remanejadoDe: 'c2', obsRemanejamento: ' sobrou ', qtdCompra: 3, fornecedorId: 'antolimp' }) }
+    const { payload, erros } = montarPayloadCompra(linhas, destinos)
+    expect(erros).toEqual([])
+    expect(payload[0]).toMatchObject({ id: 'l1', qtd_compra: 3, qtd_remanejada: 1, remanejado_de_contrato_id: 'c2', remanejamento_obs: 'sobrou' })
+    expect(resumoPorFornecedor(linhas, destinos)[0].quantidade).toBe(3)
+    expect(agruparPorItem(linhas, destinos)[0]).toMatchObject({ totalCompra: 3, totalRemanejado: 1 })
+  })
+  it('normalizarPrevia lê a lista de contratos e o selo de implantação', () => {
+    const p = normalizarPrevia({ linhas: [{ ...base, implantacao: true }], contratos: [{ id: 'c2', nome: 'Back Art', rota: '2' }] })
+    expect(p.contratos).toEqual([{ id: 'c2', nome: 'Back Art', rota: 2 }])
+    expect(p.linhas[0].implantacao).toBe(true)
+  })
+})

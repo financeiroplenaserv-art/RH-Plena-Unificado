@@ -58,9 +58,11 @@ export function quantidadeFinalProduto(l: MatPedidoItem): number | null {
     const partesEstoque = l.atendimento === 'escritorio' || (l.qtd_estoque ?? 0) > 0
     const estoqueRegistrado = !partesEstoque || l.qtd_entregue_estoque != null
     const fornecedorRegistrado = (l.qtd_compra ?? 0) === 0 || l.qtd_recebida_fornecedor != null
-    if (estoqueRegistrado && fornecedorRegistrado && l.qtd_entregue != null) return Number(l.qtd_entregue)
+    // Migration 151: a parte remanejada de outro posto só conta como entregue depois de confirmada.
+    const remanejadoRegistrado = (l.qtd_remanejada ?? 0) === 0 || l.qtd_entregue_remanejada != null
+    if (estoqueRegistrado && fornecedorRegistrado && remanejadoRegistrado && l.qtd_entregue != null) return Number(l.qtd_entregue)
     if (l.atendimento === 'escritorio') return Number(l.qtd_aprovada)
-    return Number(l.qtd_estoque ?? 0) + Number(l.qtd_compra ?? 0)
+    return Number(l.qtd_estoque ?? 0) + Number(l.qtd_compra ?? 0) + Number(l.qtd_remanejada ?? 0)
   }
   return Number(l.qtd_aprovada)
 }
@@ -71,6 +73,22 @@ export interface NomesProduto {
   unidade: (l: MatPedidoItem) => string | null
   /** Nome do item original quando o inspetor/gestor trocou o item. */
   original?: (l: MatPedidoItem) => string | null
+  /** Nome do posto de onde vem o remanejado (migration 151). */
+  origemRemanejado?: (l: MatPedidoItem) => string | null
+}
+
+/**
+ * Texto de "Vamos enviar" quando parte (ou tudo) vem de outro posto (decisão da
+ * gestora, 19/10/2026): "3 unidades (remanejado do posto ABAETÉ)" ou, dividida,
+ * "5 unidades (2 remanejadas do posto ABAETÉ)".
+ */
+export function textoVamosEnviar(final: number, unidade: string | null, l: MatPedidoItem, origem: string | null): string {
+  const base = quantidadeComUnidade(final, unidade)
+  const rem = Number(l.qtd_entregue_remanejada ?? l.qtd_remanejada ?? 0)
+  if (!(rem > 0) || final === 0) return base
+  const posto = origem ? `do posto ${origem}` : 'de outro posto'
+  if (rem >= final) return `${base} (remanejado ${posto})`
+  return `${base} (${rem} ${rem === 1 ? 'remanejada' : 'remanejadas'} ${posto})`
 }
 
 /** Linhas de produto (kit e pedido a mais). Linha que o líder tirou e ninguém pôs de volta não aparece. */
@@ -97,12 +115,14 @@ export function linhasCartaProdutos(linhas: MatPedidoItem[], nomes: NomesProduto
       Number(l.qtd_aprovada) !== pedida ? l.motivo_ajuste : null,
       l.motivo_nao_atendido,
       l.motivo_entrega,
+      (l.qtd_remanejada ?? 0) > 0 ? l.remanejamento_obs : null,
     ])
     let observacao = motivos
     if (incluido) observacao = juntar(['Incluído pelo escritório', motivos])
     else if (!observacao && situacao !== 'atendido') observacao = 'Ajustado pelo escritório'
     else if (!observacao && final > pedida) observacao = 'Enviaremos a mais'
-    out.push({ secao, descricao, pediu, vamosEnviar: quantidadeComUnidade(final, un), observacao, situacao })
+    const origem = (l.qtd_remanejada ?? 0) > 0 && nomes.origemRemanejado ? nomes.origemRemanejado(l) : null
+    out.push({ secao, descricao, pediu, vamosEnviar: textoVamosEnviar(final, un, l, origem), observacao, situacao })
   }
   return out
 }

@@ -32,6 +32,7 @@ import {
   resumoPorFornecedor,
   sugerirDestinos,
   tipoDestino,
+  totalDestino,
   type DestinoLinha,
   type GrupoItemCompra,
   type LinhaPrevia,
@@ -101,6 +102,19 @@ export function MateriaisComprasPage() {
     return m
   }, [linhas, destinos, selecionadas])
 
+  const contratosOrigem = previa?.contratos ?? []
+  const remanejados = useMemo(() => {
+    let linhasR = 0
+    let qtd = 0
+    for (const l of linhas) {
+      const q = destinos[l.linha_id]?.qtdRemanejada ?? 0
+      if (!selecionadas.has(l.linha_id) || q <= 0 || destinos[l.linha_id]?.naoAtender) continue
+      linhasR++
+      qtd += q
+    }
+    return { linhas: linhasR, qtd }
+  }, [linhas, destinos, selecionadas])
+
   const extrasPendentes = previa?.pendentes.length ?? 0
   const aviso = previa ? avisoJanelaCompra(previa.hoje, competencia, previa.dia_inicio_compra, previa.dia_limite_aprovacao, extrasPendentes) : null
   const diasContagem = previa ? diasDesdeContagem(previa.ultima_contagem, previa.hoje) : null
@@ -167,6 +181,7 @@ export function MateriaisComprasPage() {
           <div className="mt-0.5 flex flex-wrap gap-1">
             <Selo tom={l.parte === 'kit' ? 'verde' : 'azul'}>{l.parte === 'kit' ? 'kit' : 'extra'}</Selo>
             {l.pedido_tipo === 'extra' && <Selo tom="cinza">pedido extra</Selo>}
+            {l.implantacao && <Selo tom="roxo">implantação</Selo>}
             {doMesAnterior(l, competencia) && <Selo tom="ambar">do mês anterior ({rotuloCompetencia(l.competencia)})</Selo>}
           </div>
           {erro && <p className="mt-1 text-xs font-medium text-red-600">{erro}</p>}
@@ -201,7 +216,55 @@ export function MateriaisComprasPage() {
             />
           )}
         </TableCell>
+        <TableCell className="text-right">
+          {t === 'escritorio' || t === 'texto_livre' || !podeComprar ? (
+            <span className="tabular-nums">{t === 'escritorio' ? '—' : (d?.qtdRemanejada ?? 0)}</span>
+          ) : (
+            <Input
+              aria-label={`Remanejado de outro posto — ${l.contrato_nome}`}
+              inputMode="decimal"
+              className="h-8 w-20 text-right tabular-nums"
+              disabled={d?.naoAtender}
+              value={String(d?.qtdRemanejada ?? 0)}
+              onChange={(e) => editar(l.linha_id, { qtdRemanejada: num(e.target.value) })}
+            />
+          )}
+        </TableCell>
         <TableCell colSpan={2} className="space-y-1">
+          {(d?.qtdRemanejada ?? 0) > 0 && !d?.naoAtender && (
+            <div className="space-y-1 rounded-lg border border-violet-200 bg-violet-50/60 p-2 dark:border-violet-900 dark:bg-violet-950/30">
+              {podeComprar ? (
+                <>
+                  <select
+                    aria-label={`Remanejado de qual posto — ${l.contrato_nome}`}
+                    className={CLASSE_SELECT}
+                    value={d?.remanejadoDe ?? ''}
+                    onChange={(e) => editar(l.linha_id, { remanejadoDe: e.target.value || null })}
+                  >
+                    <option value="">De qual posto vem?</option>
+                    {contratosOrigem
+                      .filter((c) => c.id !== l.contrato_id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
+                          {c.rota ? ` (rota ${c.rota})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                  <Input
+                    aria-label={`Observação do remanejamento — ${l.contrato_nome}`}
+                    placeholder="Observação do remanejamento (opcional)"
+                    className="h-8 text-xs"
+                    maxLength={200}
+                    value={d?.obsRemanejamento ?? ''}
+                    onChange={(e) => editar(l.linha_id, { obsRemanejamento: e.target.value })}
+                  />
+                </>
+              ) : (
+                <p className="text-xs">remanejado de {contratosOrigem.find((c) => c.id === d?.remanejadoDe)?.nome ?? 'outro posto'}</p>
+              )}
+            </div>
+          )}
           {podeComprar && t !== 'escritorio' && (
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -212,7 +275,7 @@ export function MateriaisComprasPage() {
               Não atender
             </label>
           )}
-          {podeComprar && (d?.naoAtender || (d && d.qtdEstoque + d.qtdCompra < l.qtd_aprovada) || t === 'texto_livre') && (
+          {podeComprar && (d?.naoAtender || (d && totalDestino(d) < l.qtd_aprovada) || t === 'texto_livre') && (
             <Input
               aria-label={`Motivo — ${l.contrato_nome}`}
               placeholder="Motivo (vai na carta ao líder)"
@@ -290,7 +353,7 @@ export function MateriaisComprasPage() {
               </section>
             )}
 
-            <DataTable title="Preparar a compra — aprovado e ainda sem destino" count={grupos.length} minWidth={980}>
+            <DataTable title="Preparar a compra — aprovado e ainda sem destino" count={grupos.length} minWidth={1080}>
               {grupos.length === 0 ? (
                 <EmptyState
                   icon={<PackageSearch className="size-6" />}
@@ -306,6 +369,9 @@ export function MateriaisComprasPage() {
                       <TableHead className="text-right">Aprovado</TableHead>
                       <TableHead className="text-right">Do estoque</TableHead>
                       <TableHead className="text-right">Do fornecedor</TableHead>
+                      <TableHead className="text-right" title="Levado de outro posto: não é comprado nem sai do estoque">
+                        Remanejado
+                      </TableHead>
                       <TableHead>Fornecedor</TableHead>
                       <TableHead className="text-right">Preço</TableHead>
                     </TableRow>
@@ -372,6 +438,7 @@ export function MateriaisComprasPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-right tabular-nums">{g.preparoEscritorio ? '—' : g.totalCompra}</TableCell>
+                            <TableCell className="text-right tabular-nums">{g.preparoEscritorio ? '—' : g.totalRemanejado || ''}</TableCell>
                             <TableCell>
                               {g.preparoEscritorio || g.textoLivre ? (
                                 '—'
@@ -520,8 +587,16 @@ export function MateriaisComprasPage() {
                 </span>
               </li>
             ))}
-            {resumo.length === 0 && <li className="text-muted-foreground">Nenhuma linha vai a fornecedor (só estoque, escritório ou não atendidas).</li>}
+            {resumo.length === 0 && (
+              <li className="text-muted-foreground">Nenhuma linha vai a fornecedor (só estoque, escritório, remanejado ou não atendidas).</li>
+            )}
           </ul>
+          {remanejados.linhas > 0 && (
+            <p className="rounded-lg bg-violet-50 p-2 text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+              {remanejados.linhas} linha(s) remanejada(s) de outro posto ({remanejados.qtd} un): não vão ao fornecedor nem saem do estoque.
+              Confirme o “remanejamento feito” na aba Chegadas quando o produto for levado.
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="compra-tipo">Tipo</Label>
             <select id="compra-tipo" className={CLASSE_SELECT} value={tipo} onChange={(e) => setTipo(e.target.value as 'mensal' | 'avulsa')}>

@@ -12,6 +12,8 @@ export interface LinhaPrevia {
   linha_id: string
   pedido_id: string
   pedido_tipo: 'mensal' | 'extra'
+  /** Migration 151: pedido de implantação de contrato (selo; compra normal). */
+  implantacao?: boolean
   competencia: string
   status_pedido: string
   contrato_id: string
@@ -54,10 +56,18 @@ export interface ItemEscritorioPrevia {
   contratos: number
 }
 
+/** Contrato ativo (seletor "remanejado de qual posto" — migration 151). */
+export interface ContratoPrevia {
+  id: string
+  nome: string
+  rota: number | null
+}
+
 export interface PreviaCompra {
   competencia: string
   hoje: string
   linhas: LinhaPrevia[]
+  contratos: ContratoPrevia[]
   pendentes: PendenciaPrevia[]
   escritorio: ItemEscritorioPrevia[]
   contratos_sem_rota: number
@@ -81,6 +91,7 @@ export function normalizarPrevia(bruto: unknown): PreviaCompra {
     rota: (numOuNulo(l.rota) as RotaMaterial | null) ?? null,
     ordem: numOuNulo(l.ordem),
     preparo_escritorio: l.preparo_escritorio === true,
+    implantacao: l.implantacao === true,
     qtd_aprovada: num(l.qtd_aprovada),
     preco_pedido: numOuNulo(l.preco_pedido),
     preco_vigente: numOuNulo(l.preco_vigente),
@@ -90,6 +101,7 @@ export function normalizarPrevia(bruto: unknown): PreviaCompra {
     competencia: String(b.competencia ?? ''),
     hoje: String(b.hoje ?? ''),
     linhas,
+    contratos: ((b.contratos as ContratoPrevia[]) ?? []).map((c) => ({ id: String(c.id), nome: String(c.nome ?? ''), rota: numOuNulo(c.rota) })),
     pendentes: ((b.pendentes as PendenciaPrevia[]) ?? []).map((p) => ({ ...p, linhas_pendentes: num(p.linhas_pendentes) })),
     escritorio: ((b.escritorio as ItemEscritorioPrevia[]) ?? []).map((e) => ({
       ...e,
@@ -129,17 +141,39 @@ export interface DestinoLinha {
   fornecedorId: string | null
   naoAtender: boolean
   motivo: string
+  /**
+   * Migration 151 (decisão da gestora, 19/10/2026): parte levada de OUTRO
+   * posto — não é comprada nem sai do estoque central. Nunca sugerida: só
+   * quando o comprador escolhe.
+   */
+  qtdRemanejada?: number
+  remanejadoDe?: string | null
+  obsRemanejamento?: string
 }
 
-export type TipoDestino = 'fornecedor' | 'estoque' | 'dividida' | 'escritorio' | 'nao_atendido' | 'texto_livre'
+export type TipoDestino =
+  | 'fornecedor'
+  | 'estoque'
+  | 'remanejado'
+  | 'dividida'
+  | 'escritorio'
+  | 'nao_atendido'
+  | 'texto_livre'
+
+const rem = (d: DestinoLinha | undefined) => d?.qtdRemanejada ?? 0
+
+/** Soma do que a linha vai receber (estoque + fornecedor + remanejado). */
+export const totalDestino = (d: DestinoLinha | undefined) => (d ? d.qtdEstoque + d.qtdCompra + rem(d) : 0)
 
 export function tipoDestino(l: Pick<LinhaPrevia, 'item_id' | 'preparo_escritorio'>, d: DestinoLinha | undefined): TipoDestino {
   if (d?.naoAtender) return 'nao_atendido'
   if (!l.item_id) return 'texto_livre'
   if (l.preparo_escritorio) return 'escritorio'
   if (!d) return 'fornecedor'
-  if (d.qtdEstoque + d.qtdCompra === 0) return 'nao_atendido'
-  if (d.qtdEstoque > 0 && d.qtdCompra > 0) return 'dividida'
+  if (totalDestino(d) === 0) return 'nao_atendido'
+  const partes = [d.qtdEstoque > 0, d.qtdCompra > 0, rem(d) > 0].filter(Boolean).length
+  if (partes > 1) return 'dividida'
+  if (rem(d) > 0) return 'remanejado'
   return d.qtdEstoque > 0 ? 'estoque' : 'fornecedor'
 }
 
@@ -193,11 +227,13 @@ export function erroDestino(l: LinhaPrevia, d: DestinoLinha | undefined): string
   if (t === 'texto_livre') return 'Texto livre: ligue ao catálogo no pedido ou marque "Não atender".'
   if (t === 'nao_atendido') return motivo ? null : 'Informe o motivo de não atender.'
   if (t === 'escritorio' || !d) return null
-  if (d.qtdEstoque < 0 || d.qtdCompra < 0) return 'Quantidade negativa.'
-  const soma = d.qtdEstoque + d.qtdCompra
+  if (d.qtdEstoque < 0 || d.qtdCompra < 0 || rem(d) < 0) return 'Quantidade negativa.'
+  const soma = totalDestino(d)
   if (soma > l.qtd_aprovada) return `Passa do aprovado (${l.qtd_aprovada}).`
   if (soma < l.qtd_aprovada && !motivo) return 'Atendendo menos que o aprovado: informe o motivo.'
   if (d.qtdCompra > 0 && !d.fornecedorId) return 'Escolha o fornecedor.'
+  if (rem(d) > 0 && !d.remanejadoDe) return 'Remanejado: escolha de qual posto vem.'
+  if (rem(d) > 0 && d.remanejadoDe === l.contrato_id) return 'Remanejado: o posto de origem não pode ser o próprio posto.'
   return null
 }
 
@@ -208,6 +244,9 @@ export interface PayloadLinhaCompra {
   fornecedor_id?: string | null
   nao_atender?: boolean
   motivo?: string | null
+  qtd_remanejada?: number
+  remanejado_de_contrato_id?: string | null
+  remanejamento_obs?: string | null
 }
 
 /**
@@ -240,6 +279,13 @@ export function montarPayloadCompra(
         qtd_compra: d?.qtdCompra ?? 0,
         fornecedor_id: (d?.qtdCompra ?? 0) > 0 ? d?.fornecedorId ?? null : null,
         motivo,
+        ...(rem(d) > 0
+          ? {
+              qtd_remanejada: rem(d),
+              remanejado_de_contrato_id: d?.remanejadoDe ?? null,
+              remanejamento_obs: d?.obsRemanejamento?.trim() || null,
+            }
+          : {}),
       })
   }
   return { payload, erros }
@@ -261,6 +307,8 @@ export interface GrupoItemCompra {
   totalAprovado: number
   totalEstoque: number
   totalCompra: number
+  /** Migration 151: levado de outro posto. */
+  totalRemanejado: number
   linhas: LinhaPrevia[]
 }
 
@@ -285,6 +333,7 @@ export function agruparPorItem(linhas: LinhaPrevia[], destinos: Record<string, D
         totalAprovado: 0,
         totalEstoque: 0,
         totalCompra: 0,
+        totalRemanejado: 0,
         linhas: [],
       }
       grupos.set(chave, g)
@@ -297,6 +346,7 @@ export function agruparPorItem(linhas: LinhaPrevia[], destinos: Record<string, D
     if (d && t !== 'nao_atendido') {
       g.totalEstoque += d.qtdEstoque
       g.totalCompra += d.qtdCompra
+      g.totalRemanejado += rem(d)
     }
   }
   const lista = [...grupos.values()]
