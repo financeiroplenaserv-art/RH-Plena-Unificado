@@ -339,3 +339,49 @@ describe('kit confirmável + pedido extra (migration 135)', () => {
     })
   })
 })
+
+describe('implantação de contrato (migration 151)', () => {
+  const base = {
+    contratos: [{ id: 'novo', nome: 'Contrato Novo', ativo: true }],
+    kits: [{ contrato_id: 'novo', item_id: 'det', variacao_id: null, quantidade: 2 }],
+    precos: [{ item_id: 'det', variacao_id: null, preco: 20, vigente_desde: '2026-01-01' }],
+    historico: [],
+    hoje: '2026-10-09',
+  }
+  const item = (pedido: string, qtd: number) => ({
+    pedido_id: pedido, item_id: 'det', variacao_id: null, qtd_pedida: qtd, qtd_validada: qtd, qtd_aprovada: qtd,
+    preco_unitario: 20, excecao_acima_kit: false, excecao_validade: false, excecao_fora_kit: false,
+  })
+
+  it('o painel mostra a implantação SEPARADA: fora do valor comparado ao limite, mas aprovável', () => {
+    const [l] = montarPainel({
+      ...base,
+      pedidosAnteriores: [],
+      itensAnteriores: [],
+      pedidosDoMes: [
+        { id: 'm', contrato_id: 'novo', tipo: 'mensal', status_produtos: 'aprovado', preenchido_pelo_escritorio: false },
+        { id: 'imp', contrato_id: 'novo', tipo: 'extra', status_produtos: 'validado', preenchido_pelo_escritorio: false, implantacao: true },
+      ],
+      itensDoMes: [item('m', 2), item('imp', 50)],
+    })
+    expect(l).toMatchObject({ valorPedido: 40, valorImplantacao: 1000, limite: 40, excedeu: false, aprovavel: true, pedidoImplantacaoIds: ['imp'] })
+    expect(l.pedidoIds).toContain('imp')
+  })
+
+  it('a média de consumo ignora pedidos de implantação dos meses anteriores', () => {
+    const [l] = montarPainel({
+      ...base,
+      pedidosDoMes: [],
+      itensDoMes: [],
+      pedidosAnteriores: [
+        { id: 'a1', contrato_id: 'novo', competencia: '2026-09-01', status_produtos: 'entregue', implantacao: true },
+        { id: 'a2', contrato_id: 'novo', competencia: '2026-08-01', status_produtos: 'aprovado' },
+      ],
+      itensAnteriores: [
+        { pedido_id: 'a1', item_id: 'det', variacao_id: null, qtd_aprovada: 60 },
+        { pedido_id: 'a2', item_id: 'det', variacao_id: null, qtd_aprovada: 6 },
+      ],
+    })
+    expect(l.media6).toBe(20) // só os 6 de agosto × R$ 20 ÷ 6 meses; os 60 da implantação ficam de fora
+  })
+})

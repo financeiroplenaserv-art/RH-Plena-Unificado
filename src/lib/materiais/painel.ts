@@ -26,6 +26,13 @@ export interface LinhaPainel {
   valorExtras: number
   /** Linhas de pedido extra ainda não aprovadas (com o inspetor ou aguardando o gestor). */
   extrasPendentes: number
+  /**
+   * Migration 151: valor dos pedidos de IMPLANTAÇÃO de contrato do mês — mostrado à
+   * parte; NÃO entra em valorPedido (comparação com o limite) nem na média.
+   */
+  valorImplantacao: number
+  /** Pedidos de implantação do mês (também estão em pedidoIds, para aprovar). */
+  pedidoImplantacaoIds: string[]
   /** Limite que vale: o manual do gestor (migration 138) ou, sem ele, o calculado pelo kit. */
   limite: number
   /** O limite que vale foi definido pelo gestor. */
@@ -48,7 +55,8 @@ export interface LinhaPainel {
 
 export interface EntradaPainel {
   contratos: (Pick<MatContrato, 'id' | 'nome' | 'ativo'> & Partial<Pick<MatContrato, 'limite_mensal'>>)[]
-  pedidosDoMes: Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'>[]
+  pedidosDoMes: (Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'> &
+    Partial<Pick<MatPedido, 'implantacao'>>)[]
   itensDoMes: (Pick<
     MatPedidoItem,
     'pedido_id' | 'item_id' | 'variacao_id' | 'qtd_pedida' | 'qtd_validada' | 'qtd_aprovada' | 'preco_unitario'
@@ -59,7 +67,7 @@ export interface EntradaPainel {
   /** Histórico das planilhas, por contrato. */
   historico: (ConsumoMes & { contrato_id: string })[]
   /** Pedidos aprovados dos 12 meses anteriores e suas linhas (média CORH). */
-  pedidosAnteriores: { id: string; contrato_id: string; competencia: string; status_produtos: string }[]
+  pedidosAnteriores: { id: string; contrato_id: string; competencia: string; status_produtos: string; implantacao?: boolean | null }[]
   itensAnteriores: { pedido_id: string; item_id: string | null; variacao_id: string | null; qtd_aprovada: number | null }[]
   hoje: string
   /**
@@ -95,6 +103,7 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
       const pedidos = pedidosPorContrato.get(c.id) ?? []
       let valor = 0
       let valorKit = 0
+      let valorImplantacao = 0
       let semPreco = 0
       let excecoes = 0
       let extrasPendentes = 0
@@ -108,6 +117,7 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
                 ? precoVigente(e.precos, l.item_id, l.variacao_id, e.hoje)
                 : null
           if (preco == null) semPreco++
+          else if (p.implantacao) valorImplantacao += qtdEfetiva(l) * preco
           else {
             valor += qtdEfetiva(l) * preco
             if (ehLinhaKit(l)) valorKit += qtdEfetiva(l) * preco
@@ -138,6 +148,8 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
         valorKit: arredondar(valorKit),
         valorExtras: arredondar(valorPedido - arredondar(valorKit)),
         extrasPendentes,
+        valorImplantacao: arredondar(valorImplantacao),
+        pedidoImplantacaoIds: pedidos.filter((p) => p.implantacao).map((p) => p.id),
         limite,
         limiteManual: lim.manual,
         limiteCalculado: lim.calculado,

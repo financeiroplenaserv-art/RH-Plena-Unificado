@@ -97,6 +97,11 @@ export function MateriaisValidacaoPage() {
                           {c ? nomeCurtoDepartamentoFuzzy(contratosHook.departamentos, c.departamento_id) : ''}
                           {p.tipo === 'extra' ? ' · extra' : ''}
                         </p>
+                        {p.implantacao && (
+                          <span className="mt-0.5 inline-block">
+                            <Selo tom="roxo">Implantação</Selo>
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{rotuloCompetencia(p.competencia)}</TableCell>
                       <TableCell>

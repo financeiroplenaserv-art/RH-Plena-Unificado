@@ -230,6 +230,11 @@ export function MateriaisPainelPage() {
                         <div className="mt-0.5 flex flex-wrap gap-1">
                           {l.excedeu && <Selo tom="vermelho">acima do limite</Selo>}
                           {l.preenchidoPeloEscritorio && <Selo tom="cinza">preenchido pelo escritório</Selo>}
+                          {l.pedidoImplantacaoIds.length > 0 && (
+                            <Selo tom="roxo" title="Pedido de implantação de contrato: abertura do posto, fora da média e do limite">
+                              Implantação
+                            </Selo>
+                          )}
                           {l.extrasPendentes > 0 && (
                             <Selo tom="azul">
                               {l.extrasPendentes} extra{l.extrasPendentes === 1 ? '' : 's'} pendente{l.extrasPendentes === 1 ? '' : 's'}
@@ -255,6 +260,11 @@ export function MateriaisPainelPage() {
                         {l.valorKit > 0 && (
                           <span className="block text-xs font-normal text-muted-foreground">
                             kit {mascaraMoeda(l.valorKit)} · extra {mascaraMoeda(l.valorExtras)}
+                          </span>
+                        )}
+                        {l.valorImplantacao > 0 && (
+                          <span className="block text-xs font-normal text-violet-700 dark:text-violet-300">
+                            + implantação {mascaraMoeda(l.valorImplantacao)} (fora do limite)
                           </span>
                         )}
                       </TableCell>

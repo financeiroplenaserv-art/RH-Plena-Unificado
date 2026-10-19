@@ -211,7 +211,12 @@ export function MateriaisPedidosPage() {
                           </Link>
                           <div className="mt-0.5 flex flex-wrap gap-1 text-xs text-muted-foreground">
                             {c && <span>{nomeCurtoDepartamentoFuzzy(contratosHook.departamentos, c.departamento_id)}</span>}
-                            {p.tipo === 'extra' && <Selo tom="azul">extra</Selo>}
+                            {p.tipo === 'extra' && !p.implantacao && <Selo tom="azul">extra</Selo>}
+                            {p.implantacao && (
+                              <Selo tom="roxo" title="Implantação de contrato — fora da média de consumo e do limite">
+                                Implantação
+                              </Selo>
+                            )}
                             {p.preenchido_pelo_escritorio && <Selo tom="cinza">preenchido pelo escritório</Selo>}
                           </div>
                         </TableCell>

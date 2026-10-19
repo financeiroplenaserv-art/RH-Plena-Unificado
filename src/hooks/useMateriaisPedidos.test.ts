@@ -7,6 +7,7 @@ type Resp = { data: unknown; error: { code?: string; message?: string } | null }
 const respostas: Record<string, Resp> = {}
 const rpcs: Record<string, Resp> = {}
 const chamadas: string[] = []
+const inseridos: Record<string, unknown[]> = {}
 
 vi.mock('@/lib/supabase', () => {
   const builder = (tabela: string) => {
@@ -14,7 +15,7 @@ vi.mock('@/lib/supabase', () => {
     const b: Record<string, unknown> = {}
     const fim = () => Promise.resolve(respostas[`${tabela}.${op}`] ?? { data: [], error: null })
     for (const m of ['eq', 'in', 'order', 'limit', 'gte', 'lt', 'range', 'not', 'maybeSingle']) b[m] = () => b
-    b.insert = () => ((op = 'insert'), chamadas.push(`${tabela}.insert`), b)
+    b.insert = (dados: unknown) => ((op = 'insert'), chamadas.push(`${tabela}.insert`), (inseridos[tabela] = [...(inseridos[tabela] ?? []), dados]), b)
     b.update = () => ((op = 'update'), b)
     b.delete = () => ((op = 'delete'), chamadas.push(`${tabela}.delete`), b)
     b.select = () => b
@@ -76,6 +77,23 @@ describe('filas de Materiais — anti-falso-sucesso', () => {
     expect(id).toBeNull()
     expect(chamadas).toContain('mat_pedidos.delete')
     expect(chamadas).not.toContain('rpc.enviar_pedido_interno')
+  })
+
+  it('pedido de implantação de contrato grava a marca e a data de início (migration 151)', async () => {
+    delete inseridos.mat_pedidos
+    respostas['mat_pedidos.insert'] = { data: [{ id: 'p2' }], error: null }
+    respostas['mat_pedido_itens.insert'] = { data: [{ id: 'l1' }], error: null }
+    const linha = { item_id: 'i1', variacao_id: null, descricao_livre: null, qtd_kit: null, qtd_pedida: 20, preco_unitario: 10, justificativa: null, excecao_acima_kit: false, excecao_validade: false, excecao_fora_kit: true }
+    const id = await criarPedidoExtra({
+      contratoId: 'c1', competencia: '2026-10-19', observacao: 'Implantação de contrato', implantacao: true,
+      implantacaoInicio: '2026-11-03', userId: 'u1', produtos: [linha], ceu: [],
+    })
+    expect(id).toBe('p2')
+    expect(inseridos.mat_pedidos?.[0]).toMatchObject({ tipo: 'extra', implantacao: true, implantacao_inicio: '2026-11-03' })
+    // Pedido extra comum não manda as colunas da 151 (funciona antes da migration)
+    delete inseridos.mat_pedidos
+    await criarPedidoExtra({ contratoId: 'c1', competencia: '2026-10-19', observacao: 'urgência', userId: 'u1', produtos: [linha], ceu: [] })
+    expect(inseridos.mat_pedidos?.[0]).not.toHaveProperty('implantacao')
   })
 
   it('aprovação em lote que não aprovou nada avisa em vez de comemorar', async () => {

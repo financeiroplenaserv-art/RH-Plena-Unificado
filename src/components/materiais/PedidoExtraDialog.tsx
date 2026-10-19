@@ -68,6 +68,9 @@ export function PedidoExtraDialog({ open, onOpenChange, userId, onCriado }: Pedi
   const [produtos, setProdutos] = useState<LinhaProduto[]>([])
   const [ceu, setCeu] = useState<LinhaCeu[]>([])
   const [salvando, setSalvando] = useState(false)
+  // Migration 151 (decisão da gestora, 19/10/2026): enxoval inicial de um contrato que vai começar.
+  const [implantacao, setImplantacao] = useState(false)
+  const [inicio, setInicio] = useState('')
 
   const { carregar: carregarCatalogo } = catalogo
   useEffect(() => {
@@ -104,6 +107,8 @@ export function PedidoExtraDialog({ open, onOpenChange, userId, onCriado }: Pedi
     setMotivo('')
     setProdutos([])
     setCeu([])
+    setImplantacao(false)
+    setInicio('')
   }
 
   const fechar = (aberto: boolean) => {
@@ -117,7 +122,7 @@ export function PedidoExtraDialog({ open, onOpenChange, userId, onCriado }: Pedi
 
   const enviar = async () => {
     if (!contrato) return toast.error('Escolha o contrato')
-    if (!motivo.trim()) return toast.error('Informe o motivo do pedido extra')
+    if (!motivo.trim() && !implantacao) return toast.error('Informe o motivo do pedido extra')
     const linhasProdutos: LinhaProdutoExtra[] = []
     for (const [i, l] of produtos.entries()) {
       const qtd = Number(l.qtd.replace(',', '.'))
@@ -173,7 +178,9 @@ export function PedidoExtraDialog({ open, onOpenChange, userId, onCriado }: Pedi
     const id = await criarPedidoExtra({
       contratoId: contrato.id,
       competencia: hoje,
-      observacao: motivo.trim(),
+      observacao: motivo.trim() || (implantacao ? 'Implantação de contrato' : ''),
+      implantacao,
+      implantacaoInicio: implantacao && inicio ? inicio : null,
       userId,
       produtos: linhasProdutos,
       ceu: linhasCeu,
@@ -217,6 +224,30 @@ export function PedidoExtraDialog({ open, onOpenChange, userId, onCriado }: Pedi
               <Label htmlFor="extra-motivo">Motivo do pedido extra</Label>
               <Textarea id="extra-motivo" rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} />
             </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/30">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4"
+                checked={implantacao}
+                onChange={(e) => setImplantacao(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Implantação de contrato</span>
+                <span className="block text-xs text-muted-foreground">
+                  Enxoval inicial (material e uniforme/EPI/crachá da equipe nova) de um contrato que vai começar. Segue a validação e a
+                  aprovação normais e entra na compra, mas não conta na média de consumo nem no limite mensal do contrato.
+                </span>
+              </span>
+            </label>
+            {implantacao && (
+              <div className="w-48 space-y-1.5 pl-6">
+                <Label htmlFor="extra-inicio">Início previsto (opcional)</Label>
+                <Input id="extra-inicio" type="date" className="tabular-nums" value={inicio} onChange={(e) => setInicio(e.target.value)} />
+              </div>
+            )}
           </div>
 
           <section className="space-y-2">

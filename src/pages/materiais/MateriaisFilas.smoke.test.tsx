@@ -108,7 +108,7 @@ vi.mock('@/hooks/useMateriaisPedidos', () => estabilizar({
       {
         contratoId: 'c1', nome: 'Abaeté', pedidoIds: ['p1'], pedidoMensalId: 'p1', status: ['validado'], valorPedido: 80, limite: 40,
         media6: 35, media12: 30, excedeu: true, diferenca: 40, percentual: 2, preenchidoPeloEscritorio: false, excecoes: 1, aprovavel: true, semPreco: 0,
-        valorKit: 0, valorExtras: 80, extrasPendentes: 1,
+        valorKit: 0, valorExtras: 80, extrasPendentes: 1, valorImplantacao: 350, pedidoImplantacaoIds: ['imp1'],
       },
     ],
     loading: false,
@@ -243,6 +243,9 @@ describe('Filas de Materiais — smoke test', () => {
     expect(screen.getByText('acima do limite')).toBeTruthy()
     expect(screen.getByText('200%')).toBeTruthy()
     expect(screen.getByText('Ajustar item a item')).toBeTruthy()
+    // Implantação de contrato (migration 151): selo e valor à parte, fora do limite
+    expect(screen.getByText('Implantação')).toBeTruthy()
+    expect(screen.getByText(/implantação R\$\s?350,00 \(fora do limite\)/)).toBeTruthy()
   })
 
   it('Sem pedido: ações conforme o perfil e aviso de quem só pediu uniforme', () => {

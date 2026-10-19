@@ -31,7 +31,7 @@ import type {
 // autor (pedido extra) e comentários — sempre com .select('id').
 
 export const COLUNAS_PEDIDO =
-  'id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, rota_override, rota_override_motivo, rota_override_por, responsavel_nome, observacao, termos_aceitos, status_produtos, status_ceu, enviado_em, reaberto_por, reaberto_em, criado_por, created_at, sem_necessidade'
+  'id, contrato_id, competencia, tipo, origem, preenchido_pelo_escritorio, rota_override, rota_override_motivo, rota_override_por, responsavel_nome, observacao, termos_aceitos, status_produtos, status_ceu, enviado_em, reaberto_por, reaberto_em, criado_por, created_at, sem_necessidade, implantacao, implantacao_inicio'
 export const COLUNAS_ITEM_PEDIDO =
   'id, pedido_id, envio_id, possivel_repeticao, repete_linha_id, decisao_repeticao, item_id, variacao_id, descricao_livre, qtd_kit, qtd_pedida, qtd_validada, qtd_aprovada, qtd_entregue, preco_unitario, justificativa, excecao_acima_kit, excecao_validade, excecao_fora_kit, ultima_entrega_em, motivo_ajuste, ajustado_por, ajustado_em, created_at, parte, aprovado_automatico, item_original_id, variacao_original_id, incluido_por, incluido_em, ligado_por, ligado_em'
 /** Sem qtd_atendida/motivo_atendimento (migration 124) — funciona antes e depois dela. */
@@ -376,7 +376,7 @@ export function useMateriaisPainel() {
       supabase.from('mat_contratos').select('id, nome, ativo, limite_mensal').order('nome'),
       supabase
         .from('mat_pedidos')
-        .select('id, contrato_id, tipo, status_produtos, preenchido_pelo_escritorio')
+        .select('id, contrato_id, tipo, status_produtos, preenchido_pelo_escritorio, implantacao')
         .eq('competencia', comp),
       selecionarTudo<Pick<MatKitItem, 'contrato_id' | 'item_id' | 'variacao_id' | 'quantidade'>>((de, ate) =>
         supabase.from('mat_kit_itens').select('contrato_id, item_id, variacao_id, quantidade').order('id').range(de, ate)
@@ -395,7 +395,7 @@ export function useMateriaisPainel() {
       selecionarTudo<Pick<MatPedido, 'id' | 'contrato_id' | 'competencia' | 'status_produtos'>>((de, ate) =>
         supabase
           .from('mat_pedidos')
-          .select('id, contrato_id, competencia, status_produtos')
+          .select('id, contrato_id, competencia, status_produtos, implantacao')
           .in('status_produtos', [...STATUS_APROVADO_OU_DEPOIS])
           .gte('competencia', desde)
           .lt('competencia', comp)
@@ -412,8 +412,10 @@ export function useMateriaisPainel() {
       return
     }
     setEstruturaPendente(false)
-    const pedidosDoMes = (rp.data ?? []) as Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'>[]
-    const anteriores = (ra.data ?? []) as { id: string; contrato_id: string; competencia: string; status_produtos: string }[]
+    const pedidosDoMes = (rp.data ?? []) as (Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'> &
+      Pick<MatPedido, 'implantacao'>)[]
+    // Migration 151: pedidos de implantação de contrato não entram na média (consumoDePedidosAprovados).
+    const anteriores = (ra.data ?? []) as { id: string; contrato_id: string; competencia: string; status_produtos: string; implantacao?: boolean }[]
     const [ri, rant] = await Promise.all([
       buscarPorIds<MatPedidoItem>(pedidosDoMes.map((p) => p.id), (lote, de, ate) =>
         supabase.from('mat_pedido_itens').select(COLUNAS_ITEM_PEDIDO).in('pedido_id', lote).order('id').range(de, ate)
@@ -570,6 +572,9 @@ export async function criarPedidoExtra(dados: {
   contratoId: string
   competencia: string
   observacao: string | null
+  /** Migration 151: pedido de implantação de contrato (com a data prevista de início, opcional). */
+  implantacao?: boolean
+  implantacaoInicio?: string | null
   userId: string
   produtos: LinhaProdutoExtra[]
   ceu: LinhaCeuExtra[]
@@ -589,6 +594,8 @@ export async function criarPedidoExtra(dados: {
       status_ceu: 'nao_se_aplica',
       observacao: dados.observacao,
       criado_por: dados.userId,
+      // Só manda as colunas da 151 quando marcado (pedido extra comum funciona sem a migration).
+      ...(dados.implantacao ? { implantacao: true, implantacao_inicio: dados.implantacaoInicio ?? null } : {}),
     })
     .select('id')
   if (!escritaMateriaisOk(rp, 'criar o pedido extra')) return null
@@ -633,7 +640,7 @@ export async function criarPedidoExtra(dados: {
     await desfazer()
     return null
   }
-  toast.success('Pedido extra enviado')
+  toast.success(dados.implantacao ? 'Pedido de implantação enviado' : 'Pedido extra enviado')
   return pedidoId
 }
 

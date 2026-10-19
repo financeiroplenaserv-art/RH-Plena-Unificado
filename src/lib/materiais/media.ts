@@ -80,13 +80,16 @@ export function mediasReferencia(consumos: ConsumoMes[], precos: PrecoHistorico[
   return { media6: mediaConsumo(consumos, precos, hoje, 6), media12: mediaConsumo(consumos, precos, hoje, 12) }
 }
 
-/** Consumo vindo dos pedidos aprovados ou já em compra/entregues (soma de qtd_aprovada por mês/item). */
+/**
+ * Consumo vindo dos pedidos aprovados ou já em compra/entregues (soma de qtd_aprovada por mês/item).
+ * Pedido de IMPLANTAÇÃO de contrato (migration 151) fica de fora: é custo de início, não consumo.
+ */
 export function consumoDePedidosAprovados(
-  pedidos: { id: string; competencia: string; status_produtos: string }[],
+  pedidos: { id: string; competencia: string; status_produtos: string; implantacao?: boolean | null }[],
   itens: { pedido_id: string; item_id: string | null; variacao_id: string | null; qtd_aprovada: number | null }[]
 ): ConsumoMes[] {
   const comp = new Map(
-    pedidos.filter((p) => aprovadoOuDepois(p.status_produtos)).map((p) => [p.id, competenciaDe(p.competencia)])
+    pedidos.filter((p) => aprovadoOuDepois(p.status_produtos) && !p.implantacao).map((p) => [p.id, competenciaDe(p.competencia)])
   )
   const acum = new Map<string, ConsumoMes>()
   for (const i of itens) {
