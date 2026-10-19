@@ -80,3 +80,39 @@ Continuação de `docs/HANDOFF_17-10-2026.md`. Plano: `docs/PLANO_MATERIAIS_FASE
 - **Decisões da gestora lançadas** (`dados-locais/importacao_pedidos_outubro_2026-10-17/aplicar_decisoes_2026-10-19.sql`, user_agent `decisoes-gestora-2026-10-19`, backup `dados-locais/backup_decisoes_2026-10-19/`): 12 complementos, 14 linhas de material (extra, com preço) e 16 de uniforme/EPI. Os 6 marcados "Não aprovado" pela gestora significam "o INSPETOR confirma se procede" (não são recusas): lançados em `aplicar_a_confirmar_2026-10-19.sql` (user_agent `a-confirmar-inspetor-2026-10-19`) como extra com justificativa "A CONFIRMAR PELO INSPETOR — ..." — Macedo (Becker floral 1, álcool 1), CNOOC (escova de mão 1, esponja Scotch Brite 1), Enseada (borrifador 3), Matizes (escova p/ vaso 1). Mauro Araujo Silva (equipe Enseada) marcado fora_da_equipe na Vila de Cascais.
 - **Vila de Cascais — duplicatas das 2 respostas (14/10 e 15/10) apagadas** a pedido da gestora: 7 linhas de material idênticas + 1 calça social (José Carlos) da resposta de 15/10, e o borrifador de 4 (vale o de 6). Backups `dados-locais/backup_cascais_duplicados_2026-10-19.json` e `..._borrifador_...`. Ficaram os itens que só existiam na 2ª resposta.
 - Ainda pendente com a gestora: ajuste do kit (Forever, Novas Cores, Igreja Metodista, Vila de Cascais), itens sem catálogo, discos/vassouras/flanelas/ceras sem variação, texto livre, uniformes sem nome/tamanho, Jorge Luiz EXG e uniforme M do London.
+
+## 19/10/2026 (tarde) — branch `materiais-fase2b`: remanejado, Excel travado, Chegadas, implantação, saldo inicial
+Branch `materiais-fase2b` criada a partir da `main` `7cb5583`. **Nada aplicado no banco nem publicado.** Regras completas no AGENTS.md (§8 migration 151; §11 os 5 bullets novos de 19/10).
+
+**O que entrou**
+- **Migration 151** (`supabase/migrations/151_materiais_remanejado_implantacao.sql`): destino `remanejado` (posto → posto, fora da compra e do estoque central), confirmação "remanejamento feito", leitura `mat_chegadas`, `mat_desfazer_destino_linha`, e `mat_pedidos.implantacao`/`implantacao_inicio`. Recriadas do `pg_get_functiondef` real de 19/10: `mat_previa_compra`, `mat_gerar_compras` (lote da 150 mantido), `mat_cancelar_compra`, `mat_registrar_chegada`, `mat_registrar_separacao`, `mat_linha_planejada`, `mat_linha_entrega_fechada`, guarda da 147. Testada em transação desfeita (aplicada 2× + `scripts/materiais/testes-fase2/151_testes.sql` → TUDO OK). Backup em `dados-locais/backup_materiais_151_2026-10-19/`.
+- **Compras**: coluna "Remanejado" + "De qual posto vem?" + observação; aviso no diálogo de gerar. **Detalhe da compra**: tabela "Remanejados de outro posto nesta geração" e botão "Registrar chegada". **Excel**: todas as abas protegidas (sem senha); aba "Remanejados" só no Excel com valores.
+- **Aba Chegadas** (`/materiais/chegadas`): por compra enviada → por contrato, "Chegou tudo" / "Salvar chegada" (menor com motivo, maior recusado) e status dos pedidos; "Remanejamentos entre postos" com "Remanejamento feito". Ação nova `materiais.registrar_chegada` (gestor, mesa).
+- **Carta ao líder**: "Vamos enviar: 3 bombonas 5L (remanejado do posto ABAETÉ)".
+- **Implantação de contrato**: caixa no Pedido extra (+ início previsto); selo "Implantação" em Pedidos, detalhe, Validação, Painel, Compras e Chegadas; fora da média e do limite (valor à parte no Painel).
+- **Saldo inicial**: `scripts/materiais/carregar-saldo-inicial.ts` pronto (dry-run testado contra produção com lista fictícia de 4 linhas: 3 casadas, 1 pendência, contagem de 137 itens, transação desfeita — conferido: 0 contagens e 0 movimentos no banco depois).
+- Checks: lint ok, `npx tsc -b` ok, `npm test` 84 arquivos / 1135 testes ok, `npm run build` ok.
+
+**Ordem para aplicar (coordenador)**
+1. Conferir se alguém recriou depois de 19/10 13h alguma das funções acima (comparar com `dados-locais/backup_materiais_151_2026-10-19/funcoes/`).
+2. `powershell -NoProfile -File scripts/lib/executar-arquivo-sql-management-api.ps1 -Arquivo supabase/migrations/151_materiais_remanejado_implantacao.sql` (arquivo UTF-8 — nunca inline).
+3. Conferir: `select count(*) from pg_constraint where conname in ('mat_pedido_itens_remanejado_ck','mat_pedidos_implantacao_ck')` = 2; nenhuma função `mat_*` com `chr(65533)` (o próprio arquivo aborta se houver); `select status_produtos, count(*) from mat_pedidos group by 1` igual ao de antes.
+4. Opcional: rodar `151_testes.sql` de novo (sempre com rollback — montagem no README da pasta).
+5. Merge `materiais-fase2b` → `main` e deploy pelo checklist da §10 (Férias segue `false`). **O frontend NÃO pode ir ao ar antes da 151** (lê `mat_pedidos.implantacao`).
+
+**Decisões técnicas a confirmar com a gestora**
+1. Parte remanejada só conta como entregue depois do "Remanejamento feito" na aba Chegadas (a tela de Separação é do Marco C); levar menos exige motivo (vai para a carta).
+2. Excel protegido SEM senha (senha no navegador ficaria pública; a proteção evita alteração por engano). O escritório desprotege em Revisar → Desproteger planilha.
+3. A aba Chegadas usa a mesma entrada da aba Compras (sem semente nova em `permissoes_perfil`); quem grava = gestor e mesa.
+4. Implantação: `tipo` continua "extra" (fluxo e RPCs iguais); a última entrega dos itens conta a implantação; o pedido aparece no Painel no mesmo contrato, com o valor à parte.
+5. Saldo inicial gravado como a CONTAGEM de outubro (movimentos `ajuste_contagem`, motivo "saldo inicial (contagem de outubro)"); item fora da lista = 0; a contagem de outubro fica fechada (a próxima é a de 16–19/11).
+6. "Desfazer destino" (novo) só para linha sem compra e sem entrega — antes, uma geração que não criou compra (só estoque/escritório/remanejado) não tinha como ser desfeita.
+
+**Como rodar o saldo inicial quando a lista chegar**
+1. Salvar a lista como CSV (`item;variacao;quantidade`) ou Excel (1ª aba, cabeçalho na 1ª linha). O nome do item tem que ser o do Catálogo (ou o "nome para o líder", ou um nome antigo cadastrado); a variação, o rótulo exato.
+2. Dry-run: `npx tsx --tsconfig tsconfig.scripts.json scripts/materiais/carregar-saldo-inicial.ts --arquivo=<caminho>` → ler `dados-locais/saldo_inicial_<data>/relatorio.txt` e `pendencias.csv`; corrigir os nomes na lista e repetir até zerar as pendências (ou decidir com a gestora deixá-las de fora).
+3. Conferir o `--perfil` (padrão = perfil gestor `6e49ec30-…`; é quem aparece como autor da contagem) e aplicar: `... --arquivo=<caminho> --aplicar` (backup automático em `backup_antes/`).
+
+**Observações**
+- Em produção já existe a compra **COMP-2026-10-001 em rascunho** (1 fornecedor, 1 célula) e 5 linhas `escritorio` — gerada pela gestora; a 151 não mexe nela.
+- Os testes antigos `147_testes.sql`/`147_testes_cancelamento_envio.sql` falham hoje por dado (a fixture espera pedido de outubro "aprovado", que não existe mais) — igual sem a 151. A 151 tem teste próprio cobrindo gerar → enviar → chegada → confirmar → entregue, cancelar e desfazer.
