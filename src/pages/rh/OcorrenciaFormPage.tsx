@@ -114,20 +114,28 @@ export function OcorrenciaFormPage() {
         open={confirmacaoTransferencia}
         onOpenChange={setConfirmacaoTransferencia}
         icon={<ArrowRightLeft className="h-5 w-5" />}
+        iconClassName="bg-blue-100 text-blue-600"
         title="Confirmar transferência"
         description={
-          <span className="block space-y-2">
-            <span className="block">O cadastro de</span>
-            <strong className="block break-words text-slate-800">
-              {colabSelecionado?.nome_completo}
-            </strong>
-            <span className="block">
-              passará a apontar para o posto{' '}
-              <strong className="break-words text-slate-800">{nomeCurtoDestino}</strong>.
+          <span className="block space-y-3">
+            <span className="block rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-1.5 text-left">
+              <span className="block">
+                <span className="text-slate-400">Colaborador: </span>
+                <strong className="break-words text-slate-800">{colabSelecionado?.nome_completo}</strong>
+              </span>
+              <span className="block">
+                <span className="text-slate-400">De: </span>
+                <span className="break-words text-slate-700">{postoAtualTexto || 'não identificado'}</span>
+              </span>
+              <span className="block">
+                <span className="text-slate-400">Para: </span>
+                <strong className="break-words text-slate-800">{nomeCurtoDestino}</strong>
+              </span>
             </span>
-            <span className="block">
-              Avise o DP para atualizar a Alterdata no mesmo dia — caso contrário, o sync diário
-              pode voltar o posto antigo até a Alterdata ser atualizada.
+            <span className="block text-xs text-slate-500">
+              O cadastro passará a apontar para o novo posto. Avise o DP para atualizar a
+              Alterdata no mesmo dia — caso contrário, o sync diário pode voltar o posto
+              antigo até a Alterdata ser atualizada.
             </span>
           </span>
         }
