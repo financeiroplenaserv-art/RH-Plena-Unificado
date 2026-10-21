@@ -166,3 +166,11 @@ Com os comentários em mãos, seguir o passo "1º" da seção "19/10/2026 (fim)"
 3. **Lista atualizada de fornecedores do Maciel** (35 itens com fornecedor antigo).
 4. **Resposta: a COMP-2026-10-001 é teste?** (se for, cancelar pela tela).
 5. Decidir quando publicar (deploy) a caixa de histórico já commitada (`3a7d267`).
+
+## 21/10/2026 — comentários dos inspetores APLICADOS
+A gestora mandou prints do painel de comentários (34 comentários, 14 a 17/10). Transcrição, backups e script em `dados-locais/comentarios_drive_2026-10-21/` (`comentarios_transcritos.json`, `backup_linhas_A.json`, `backup_cracha_D.json`, `aplicar_comentarios_2026-10-21.sql`). Gravado em produção com `user_agent` `comentarios-inspetores-2026-10-21` e conferido:
+- **Quantidade trocada "como se o líder tivesse pedido" (decisão da gestora)**: CNOOC Detergente Neutro 2→1; CBO NITERÓI Neutralizador Floral 3→1; CARVALHO NETO Cloro 2→1; MÉRITO Limpa Alumínio 4→1 e Use Pronto 3→1. **Linhas apagadas** ("desconsiderar"): SPLÊNDIDO Pincel; CBO NITERÓI Becker Floral (8) e Vulcan Lavanda (3); MÉRITO Borrifador (4) e Kit LT (1).
+- **Lançados (complemento via `mat_registrar_envio`)**: ITAGUAÍ discos 350 mm branco/verde/preto ×2; MÉRITO Cera 5L preta ×1, Vassoura Especial Gari ×1 e EPI por pessoa (avental, máscara = respirador c/ válvula, luva PVC M, nitrílica M/M/G — Ana Bela, Cristiane Cardoso, Paulo Roberto M. Theodoro); PRIDE disco verde **400 mm** ×1 (líder escreveu 410); CBO MACAÉ luva látex Casiane M ×3, Carlos Alexandre G ×3.
+- **Crachá do Dagno (Abaeté) apagado da fila** — entregue em 14/10.
+- **Ficam como estão até decidirem**: ABAETÉ Neutralizador Floral extra 2 (pergunta do Maciel); LA RESERVE Becker Floral extra 1 ("Kit Mensal", mas o kit tem Talco). SUMMER BAY (comentário na resposta de setembro) ignorado — só outubro.
+- **Compra avulsa × fornecedor**: a gestora vai dizer quais itens são de compra avulsa (ex.: Abaeté lábio da catadeira ×3 e espanador de teto de melhor qualidade). Aguardar antes de gerar a compra desses itens.
