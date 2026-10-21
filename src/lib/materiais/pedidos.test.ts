@@ -190,7 +190,7 @@ describe('aliases, rota e tamanhos', () => {
     expect(lerRota('1')).toBe(1)
     expect(lerRota('')).toBeNull()
     expect(lerRota('5')).toBeNull()
-    expect(lerRota('0')).toBeNull()
+    expect(lerRota('0')).toBe(0) // migration 154: rota 0 = Depósito Plena (o select vazio continua sem rota)
     expect(lerRota(null)).toBeNull()
     expect(rotaEfetiva({ rota_override: 4 }, { rota: 3 })).toBe(4)
   })

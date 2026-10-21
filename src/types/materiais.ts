@@ -2,7 +2,8 @@
 
 export type CategoriaMaterial = 'limpeza' | 'portaria' | 'descartaveis' | 'acessorios' | 'piscina'
 /** Rota de entrega (dia de entrega). 4 rotas desde a migration 145 (17/10/2026) — a 4 é só CBO MACAÉ. */
-export type RotaMaterial = 1 | 2 | 3 | 4
+export type RotaMaterial = 0 | 1 | 2 | 3 | 4
+// Rota 0 = "Depósito Plena" (migration 154): contrato que não recebe em rota; a Plena leva do depósito.
 
 export interface MatItem {
   id: string
@@ -343,6 +344,8 @@ export interface MatCompra {
   created_at: string
   /** Migration 150: gerações (lote_compra) de que a compra participou. */
   lotes?: string[]
+  /** Migration 154 (snapshot do fornecedor): entrega tudo no depósito da Plena; os inspetores separam por posto. */
+  entrega_deposito?: boolean
 }
 
 /** Célula da compra: item × variação × contrato (NULL = reposição do estoque). Snapshots de nome/rota. */

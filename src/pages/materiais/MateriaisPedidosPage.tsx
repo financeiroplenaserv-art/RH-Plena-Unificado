@@ -25,7 +25,7 @@ import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { janelaPedido } from '@/lib/materiais/datas'
 import { qtdEfetiva, temExcecao } from '@/lib/materiais/filas'
-import { rotaEfetiva } from '@/lib/materiais/pedidos'
+import { rotaEfetiva, textoRota } from '@/lib/materiais/pedidos'
 import { competenciaDoMes } from '@/lib/materiais/painel'
 import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
 
@@ -221,7 +221,7 @@ export function MateriaisPedidosPage() {
                           </div>
                         </TableCell>
                         <TableCell className="tabular-nums">
-                          {rota ?? '—'}
+                          {textoRota(rota)}
                           {p.rota_override && (
                             <span className="ml-1">
                               <Selo tom="azul" title={p.rota_override_motivo ?? undefined}>

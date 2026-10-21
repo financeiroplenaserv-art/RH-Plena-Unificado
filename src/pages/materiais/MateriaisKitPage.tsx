@@ -24,6 +24,7 @@ import { podeEditarKitMateriais, podeEditarKitUniforme, podeSolicitarAlteracaoKi
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { avisoItemExclusivo, jaNoKit, lerNumero, montarLinhasKit, type LinhaKit } from '@/lib/materiais/cadastro'
 import { mediasReferencia } from '@/lib/materiais/media'
+import { textoRota } from '@/lib/materiais/pedidos'
 import { limiteContrato, limiteEfetivo } from '@/lib/materiais/precos'
 import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
 
@@ -210,7 +211,7 @@ export function MateriaisKitPage() {
             {contrato && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Departamento: {nomeCurtoDepartamentoFuzzy(contratosHook.departamentos, contrato.departamento_id) || '—'}
-                {contrato.rota ? ` · Rota ${contrato.rota}` : ''}
+                {contrato.rota != null ? ` · ${textoRota(contrato.rota)}` : ''}
                 {!contrato.recebe_limpeza ? ' · não recebe limpeza' : ''}
               </p>
             )}

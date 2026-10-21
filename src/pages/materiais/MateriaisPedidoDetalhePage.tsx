@@ -38,7 +38,7 @@ import {
   type EdicaoKit,
   type EdicaoLinha,
 } from '@/lib/materiais/filas'
-import { rotaEfetiva } from '@/lib/materiais/pedidos'
+import { rotaEfetiva, textoRota } from '@/lib/materiais/pedidos'
 import { antesDoPrazo, historicoEntregasDoItem, ultimaEntregaDoItem } from '@/lib/materiais/ultimaEntrega'
 import { avisosItemParaContrato, inclusaoReabrePedido, podeEditarLinhasDoPedido, validarInclusao } from '@/lib/materiais/inclusaoPedido'
 import { nomesExclusivos } from '@/lib/materiais/cadastro'
@@ -592,7 +592,7 @@ export function MateriaisPedidoDetalhePage() {
           <div>
             <p className="text-xs text-muted-foreground">Rota</p>
             <p className="mt-1 tabular-nums">
-              {rota ?? '—'} {p.rota_override && <Selo tom="azul" title={p.rota_override_motivo ?? undefined}>rota do dia</Selo>}
+              {textoRota(rota)} {p.rota_override && <Selo tom="azul" title={p.rota_override_motivo ?? undefined}>rota do dia</Selo>}
             </p>
           </div>
           <div>

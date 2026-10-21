@@ -416,6 +416,8 @@ export interface Fornecedor {
   contato?: string | null
   observacao?: string | null
   ativo?: boolean
+  /** Migration 154: entrega tudo no depósito da Plena (Excel só com o total por item). */
+  entrega_deposito?: boolean
   created_at?: string
 }
 
@@ -1028,6 +1030,10 @@ export type Database = {
       mat_confirmar_remanejamento: { Args: { p_linhas: Record<string, unknown>[]; p_data?: string | null }; Returns: Record<string, unknown> }
       mat_desfazer_destino_linha: { Args: { p_linha: string; p_motivo: string }; Returns: Record<string, unknown> }
       mat_chegadas: { Args: { p_competencia: string }; Returns: Record<string, unknown> }
+      // Migration 154 (fornecedor que entrega no depósito Plena)
+      mat_separacao_deposito: { Args: { p_competencia: string }; Returns: Record<string, unknown> }
+      mat_levar_do_deposito: { Args: { p_competencia: string }; Returns: Record<string, unknown> }
+      mat_registrar_separacao_deposito: { Args: { p_linhas: Record<string, unknown>[]; p_data?: string | null }; Returns: Record<string, unknown> }
       mat_contratos_sem_pedido: {
         Args: { p_competencia: string }
         Returns: {

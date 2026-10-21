@@ -120,11 +120,11 @@ describe('Páginas Materiais — smoke test', () => {
     expect(screen.queryByText('Revogado')).toBeNull()
   })
 
-  it('Contratos: rota 4 aparece no seletor e não some (migration 145)', () => {
+  it('Contratos: rota 4 e Depósito Plena (0) aparecem no seletor e não somem (migrations 145 e 154)', () => {
     renderizar(<MateriaisContratosPage />)
     const sel = screen.getByLabelText('Rota de Telex Sede') as HTMLSelectElement
     expect(sel.value).toBe('4')
-    expect(Array.from(sel.options).map((o) => o.value)).toEqual(['', '1', '2', '3', '4'])
+    expect(Array.from(sel.options).map((o) => o.value)).toEqual(['', '1', '2', '3', '4', '0']) // 0 = Depósito Plena (migration 154)
     const filtro = screen.getByLabelText('Rota') as HTMLSelectElement
     expect(Array.from(filtro.options).map((o) => o.value)).toContain('4')
   })

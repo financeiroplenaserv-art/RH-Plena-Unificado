@@ -1,10 +1,12 @@
 import type { Workbook, Worksheet, Borders } from 'exceljs'
 import type { MatCompra, MatCompraItem } from '@/types/materiais'
 import type { RemanejamentoChegada } from './chegadas'
+import { aoaLevarDoDeposito, aoaListaSeparacao, levarDoDeposito, type LinhaLevarDoDeposito, type LinhaSeparacao } from './deposito'
 import { descricaoItemCompra } from './compra'
 import { formatarDataDeTimestamp } from '@/lib/utils'
 import {
   aoaCompraAoFornecedor,
+  aoaCompraDeposito,
   aoaEntregaPorRota,
   aoaPedidoPorCliente,
   LINHAS_CABECALHO,
@@ -74,7 +76,8 @@ function montarAba(ws: Worksheet, aoa: Celula[][], op: OpcoesAba) {
   t.font = { name: 'Calibri', size: 15, bold: true, color: { argb: AZUL } }
   t.alignment = { vertical: 'middle' }
   ws.getRow(1).height = 26
-  for (let i = 2; i <= 4; i++) {
+  for (let i = 2; i <= LINHAS_CABECALHO; i++) {
+    if (aoa[i - 1]?.[0] == null || aoa[i - 1][0] === '') continue
     ws.getCell(i, 1).font = { bold: true, color: { argb: 'FF475569' } }
     ws.getCell(i, 2).font = { bold: true }
     ws.getCell(i, 2).alignment = { horizontal: 'left' }
@@ -209,36 +212,49 @@ export function aoaRemanejados(cab: CabecalhoExcel, linhas: RemanejamentoChegada
   return [...topo, ...corpo]
 }
 
+/** Opções do Excel conforme o fornecedor (migration 154). */
+export interface OpcoesExcelDeposito {
+  /** Fornecedor que entrega no depósito da Plena: o arquivo ao fornecedor sai só com o total por item. */
+  deposito?: boolean
+  /** Compra da Antolimp (fornecedor de rota): células das compras de depósito, para a aba "Levar do depósito". */
+  levar?: LinhaLevarDoDeposito[]
+}
+
 /** Monta o workbook estilizado (separado do download para poder ser testado). */
 export async function montarWorkbookCompra(
   m: MatrizCompra,
   cab: CabecalhoExcel,
   comValores: boolean,
   agrupar: boolean,
-  remanejados: RemanejamentoChegada[] = []
+  remanejados: RemanejamentoChegada[] = [],
+  opcoes: OpcoesExcelDeposito = {}
 ): Promise<Workbook> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Plena Facilities'
   wb.created = new Date()
 
+  // 154: fornecedor de depósito — o arquivo AO FORNECEDOR sai só com o total por item (sem colunas por
+  // contrato: quem separa por posto são os inspetores da Plena); a versão interna com valores mantém tudo.
+  const soTotal = opcoes.deposito === true && !comValores
   const aoa1 = aoaPedidoPorCliente(m, cab, comValores, agrupar)
-  const ws1 = wb.addWorksheet('Por Cliente')
+  const ws1 = soTotal ? null : wb.addWorksheet('Por Cliente')
   const colTotal = m.colunas.length + (m.temEstoque ? 1 : 0) + 1 // 0-based: Item=0, contratos, [Estoque], Total
   const colPreco = colTotal + 1
-  montarAba(ws1, aoa1, {
-    linhaCab: LINHAS_CABECALHO + (agrupar ? 1 : 0),
-    linhaRota: agrupar ? LINHAS_CABECALHO : undefined,
-    gruposRota: agrupar ? gruposDeRota(m) : undefined,
-    primeiraNumerica: 1,
-    colunaTotal: colTotal,
-    colunasMoeda: comValores ? [colPreco, colPreco + 1] : [],
-  })
+  if (ws1)
+    montarAba(ws1, aoa1, {
+      linhaCab: LINHAS_CABECALHO + (agrupar ? 1 : 0),
+      linhaRota: agrupar ? LINHAS_CABECALHO : undefined,
+      gruposRota: agrupar ? gruposDeRota(m) : undefined,
+      primeiraNumerica: 1,
+      colunaTotal: colTotal,
+      colunasMoeda: comValores ? [colPreco, colPreco + 1] : [],
+    })
 
   const ws2 = wb.addWorksheet('Compra')
   // 152: com múltiplo de compra entra a coluna de texto "Embalagem" logo depois da quantidade.
   const desloc = m.temMultiplo ? 1 : 0
-  const aoa2 = aoaCompraAoFornecedor(m, cab, comValores)
+  const aoa2 = opcoes.deposito ? aoaCompraDeposito(m, cab, comValores) : aoaCompraAoFornecedor(m, cab, comValores)
   montarAba(ws2, aoa2, {
     linhaCab: LINHAS_CABECALHO,
     primeiraNumerica: 1,
@@ -255,9 +271,23 @@ export async function montarWorkbookCompra(
     ws2.getColumn(3).width = Math.min(Math.max(...aoa2.slice(LINHAS_CABECALHO).map((l) => String(l[2] ?? '').length), 14) + 3, 40)
   }
 
-  const ws3 = wb.addWorksheet('Entrega')
-  const aoa3: Celula[][] = [...aoa1.slice(0, LINHAS_CABECALHO), ...aoaEntregaPorRota(m, agrupar)]
-  montarAba(ws3, aoa3, { linhaCab: LINHAS_CABECALHO, primeiraNumerica: agrupar ? 3 : 2, semTotal: true })
+  if (!soTotal) {
+    const ws3 = wb.addWorksheet('Entrega')
+    const aoa3: Celula[][] = [...aoa1.slice(0, LINHAS_CABECALHO), ...aoaEntregaPorRota(m, agrupar)]
+    montarAba(ws3, aoa3, { linhaCab: LINHAS_CABECALHO, primeiraNumerica: agrupar ? 3 : 2, semTotal: true })
+  }
+
+  // 154: compra da Antolimp — o que ela pega no depósito Plena (compras de Essex/Compra Avulsa da mesma
+  // competência) e leva junto na rota. Postos de "Depósito Plena" ficam de fora (a Plena leva).
+  const levar = opcoes.deposito ? [] : levarDoDeposito(opcoes.levar ?? [])
+  if (levar.length > 0) {
+    const ws5 = wb.addWorksheet('Levar do depósito')
+    const aoa5 = aoaLevarDoDeposito(levar, cab, agrupar)
+    montarAba(ws5, aoa5, { linhaCab: LINHAS_CABECALHO, primeiraNumerica: agrupar ? 3 : 2, semTotal: true })
+    // A última coluna ("Sai de") é texto.
+    const colOrigem = agrupar ? 5 : 4
+    for (let i = LINHAS_CABECALHO + 1; i <= ws5.rowCount; i++) ws5.getCell(i, colOrigem).alignment = { vertical: 'middle', wrapText: true }
+  }
 
   // Visão interna: o fornecedor nunca recebe o remanejado (só no Excel com valores).
   if (comValores && remanejados.length > 0) {
@@ -279,7 +309,8 @@ export async function baixarExcelCompra(
   fornecedorNome: string,
   comValores: boolean,
   agrupar = true,
-  remanejados: RemanejamentoChegada[] = []
+  remanejados: RemanejamentoChegada[] = [],
+  opcoes: OpcoesExcelDeposito = {}
 ): Promise<void> {
   const m = montarMatrizCompra(itens, agrupar)
   const cab: CabecalhoExcel = {
@@ -288,13 +319,34 @@ export async function baixarExcelCompra(
     numero: compra.numero,
     data: compra.created_at ? formatarDataDeTimestamp(compra.created_at) : undefined,
   }
-  const wb = await montarWorkbookCompra(m, cab, comValores, agrupar, comValores ? remanejados : [])
+  const wb = await montarWorkbookCompra(m, cab, comValores, agrupar, comValores ? remanejados : [], opcoes)
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = nomeArquivoCompra(fornecedorNome, compra, comValores)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** Lista de separação no depósito (inspetores) em Excel para imprimir — migration 154. */
+export async function baixarExcelSeparacao(linhas: LinhaSeparacao[], competencia: string): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'Plena Facilities'
+  wb.created = new Date()
+  const ws = wb.addWorksheet('Separação')
+  montarAba(ws, aoaListaSeparacao(linhas, competencia), { linhaCab: LINHAS_CABECALHO, primeiraNumerica: 3, semTotal: true })
+  await ws.protect('', { ...OPCOES_PROTECAO })
+  const buf = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `Separacao_deposito_${competencia.slice(5, 7)}-${competencia.slice(0, 4)}.xlsx`
   document.body.appendChild(a)
   a.click()
   a.remove()

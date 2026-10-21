@@ -6,6 +6,13 @@ import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import { normalizarPrevia, type PayloadLinhaCompra, type PayloadReposicao, type PreviaCompra } from '@/lib/materiais/compra'
 import { normalizarChegadas, type DadosChegadas, type PayloadChegada, type PayloadRemanejamento } from '@/lib/materiais/chegadas'
+import {
+  normalizarLevarDoDeposito,
+  normalizarSeparacao,
+  type DadosSeparacao,
+  type LinhaLevarDoDeposito,
+  type PayloadSeparacao,
+} from '@/lib/materiais/deposito'
 import { buscarPorIds } from './useMateriaisPedidos'
 import type { MatCompra, MatCompraItem, MatPedidoItem } from '@/types/materiais'
 
@@ -29,6 +36,20 @@ export const COLUNAS_ITEM_PEDIDO_REMANEJADO =
   'qtd_remanejada, remanejado_de_contrato_id, remanejamento_obs, qtd_entregue_remanejada, remanejado_confirmado_em'
 
 type Erro = { code?: string; message?: string } | null
+
+/**
+ * Migration 154: acrescenta o snapshot entrega_deposito às compras lidas. Coluna lida à parte
+ * (a tela funciona antes da migration: sem a coluna o flag fica indefinido = não é de depósito).
+ */
+export async function anexarEntregaDeposito<T extends { id: string }>(compras: T[]): Promise<(T & { entrega_deposito?: boolean })[]> {
+  if (compras.length === 0) return compras
+  const r = await buscarPorIds<{ id: string; entrega_deposito: boolean }>(compras.map((c) => c.id), (lote, de, ate) =>
+    supabase.from('mat_compras').select('id, entrega_deposito').in('id', lote).order('id').range(de, ate)
+  )
+  if (r.error) return compras
+  const flags = new Map(r.data.map((x) => [x.id, x.entrega_deposito === true]))
+  return compras.map((c) => ({ ...c, entrega_deposito: flags.get(c.id) ?? false }))
+}
 
 const numerarCelula = (c: MatCompraItem): MatCompraItem => ({
   ...c,
@@ -153,7 +174,7 @@ export function useMateriaisCompras() {
     }
     setEstruturaPendente(false)
     setPrevia(comPrevia ? normalizarPrevia(rp.data) : null)
-    setCompras((rc.data as MatCompra[]) ?? [])
+    setCompras(await anexarEntregaDeposito((rc.data as MatCompra[]) ?? []))
     setLoading(false)
   }, [])
 
@@ -208,7 +229,8 @@ export function useCompraMaterial() {
       return
     }
     setEstruturaPendente(false)
-    setCompra((rc.data as MatCompra | null) ?? null)
+    const base = (rc.data as MatCompra | null) ?? null
+    setCompra(base ? (await anexarEntregaDeposito([base]))[0] : null)
     const ri = await lerCelulasCompra(id)
     if (ri.error) toast.error(mensagemErroMateriais(ri.error, 'carregar os itens da compra'))
     setItens((ri.data ?? []).map(numerarCelula))
@@ -279,7 +301,7 @@ export function useChegadasMateriais() {
       return
     }
     setEstruturaPendente(false)
-    setCompras((rc.data as MatCompra[]) ?? [])
+    setCompras(await anexarEntregaDeposito((rc.data as MatCompra[]) ?? []))
     setDados(d)
     setLoading(false)
   }, [])
@@ -328,4 +350,60 @@ export function useChegadasMateriais() {
   }, [])
 
   return { compras, dados, loading, estruturaPendente, carregar, carregarItens, registrarChegada, confirmarRemanejamento }
+}
+
+/**
+ * O que a Antolimp pega no depósito (migration 154): células por posto das compras de fornecedor de
+ * depósito da competência. Sem a migration devolve vazio (o Excel sai sem a aba "Levar do depósito").
+ */
+export async function carregarLevarDoDeposito(competencia: string): Promise<LinhaLevarDoDeposito[]> {
+  const { data, error } = await supabase.rpc('mat_levar_do_deposito', { p_competencia: competenciaDe(competencia) })
+  if (error) {
+    if (!estruturaAusente(error)) toast.error(mensagemErroMateriais(error, 'carregar o que sai do depósito'))
+    return []
+  }
+  return normalizarLevarDoDeposito(data)
+}
+
+/** Aba Separação (inspetores): o que chegou dos fornecedores de depósito, por posto, e a confirmação da separação. */
+export function useSeparacaoDeposito() {
+  const [dados, setDados] = useState<DadosSeparacao | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [estruturaPendente, setEstruturaPendente] = useState(false)
+
+  const carregar = useCallback(async (competencia: string) => {
+    setLoading(true)
+    const { data, error } = await supabase.rpc('mat_separacao_deposito', { p_competencia: competenciaDe(competencia) })
+    if (error) {
+      if (estruturaAusente(error)) setEstruturaPendente(true)
+      else toast.error(mensagemErroMateriais(error, 'carregar a separação no depósito'))
+      setLoading(false)
+      return
+    }
+    setEstruturaPendente(false)
+    setDados(normalizarSeparacao(data))
+    setLoading(false)
+  }, [])
+
+  /** Registra a separação (a RPC confere perfil, chegada e quantidades; sem linha gravada = erro). */
+  const registrar = useCallback(async (linhas: PayloadSeparacao[], data: string | null) => {
+    if (linhas.length === 0) {
+      toast.info('Nada novo para registrar neste posto.')
+      return false
+    }
+    const { data: r, error } = await supabase.rpc('mat_registrar_separacao_deposito', {
+      p_linhas: linhas as unknown as Record<string, unknown>[],
+      p_data: data,
+    })
+    if (!rpcOk(error, 'registrar a separação')) return false
+    const res = (r ?? {}) as { linhas?: number }
+    if (!res.linhas) {
+      toast.error('Nenhuma linha foi gravada — confira e tente de novo.')
+      return false
+    }
+    toast.success(`Separação registrada (${res.linhas} item(ns)) — entregue ao posto`)
+    return true
+  }, [])
+
+  return { dados, loading, estruturaPendente, carregar, registrar }
 }

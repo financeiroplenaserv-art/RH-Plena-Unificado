@@ -11,7 +11,10 @@ import type { Fornecedor } from '@/types/database'
 
 const COLUNAS = 'id, nome, cnpj, telefone, email, contato, observacao, ativo, created_at'
 
-export type FornecedorInput = Pick<Fornecedor, 'nome' | 'cnpj' | 'telefone' | 'email' | 'contato' | 'observacao' | 'ativo'>
+export type FornecedorInput = Pick<Fornecedor, 'nome' | 'cnpj' | 'telefone' | 'email' | 'contato' | 'observacao' | 'ativo'> & {
+  /** Migration 154: entrega tudo no depósito da Plena. Só enviado quando definido. */
+  entrega_deposito?: boolean
+}
 
 export function useMateriaisFornecedores() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([])
@@ -20,13 +23,15 @@ export function useMateriaisFornecedores() {
 
   const carregar = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase.from('fornecedores').select(COLUNAS).order('nome')
+    // Migration 154: a coluna entrega_deposito é lida com fallback (sem a migration a tela segue igual).
+    let { data, error } = await supabase.from('fornecedores').select((COLUNAS + ', entrega_deposito') as '*').order('nome')
+    if (error && estruturaAusente(error, true)) ({ data, error } = await supabase.from('fornecedores').select(COLUNAS).order('nome'))
     if (error) {
       if (estruturaAusente(error, true)) setEstruturaPendente(true)
       else toast.error(mensagemErroMateriais(error, 'carregar os fornecedores'))
     } else {
       setEstruturaPendente(false)
-      setFornecedores((data as Fornecedor[]) ?? [])
+      setFornecedores((data as unknown as Fornecedor[]) ?? [])
     }
     setLoading(false)
   }, [])

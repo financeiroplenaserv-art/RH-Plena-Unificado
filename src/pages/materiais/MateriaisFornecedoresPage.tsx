@@ -41,9 +41,10 @@ interface FormFornecedor {
   contato: string
   observacao: string
   ativo: boolean
+  entregaDeposito: boolean
 }
 
-const FORM_VAZIO: FormFornecedor = { id: null, nome: '', cnpj: '', telefone: '', email: '', contato: '', observacao: '', ativo: true }
+const FORM_VAZIO: FormFornecedor = { id: null, nome: '', cnpj: '', telefone: '', email: '', contato: '', observacao: '', ativo: true, entregaDeposito: false }
 
 export function MateriaisFornecedoresPage() {
   const { user } = useAuth()
@@ -89,9 +90,13 @@ export function MateriaisFornecedoresPage() {
             contato: f.contato ?? '',
             observacao: f.observacao ?? '',
             ativo: f.ativo !== false,
+            entregaDeposito: f.entrega_deposito === true,
           }
         : FORM_VAZIO
     )
+
+  // Migration 154: sem a coluna (lida só depois da migration) a caixa fica escondida e nada é enviado.
+  const suportaDeposito = fornecedores.some((f) => f.entrega_deposito !== undefined)
 
   const duplicado = form ? nomeDuplicado(form.nome, fornecedores, form.id) : false
 
@@ -107,6 +112,7 @@ export function MateriaisFornecedoresPage() {
         contato: form.contato.trim() || null,
         observacao: form.observacao.trim() || null,
         ativo: form.ativo,
+        ...(suportaDeposito ? { entrega_deposito: form.entregaDeposito } : {}),
       },
       form.id
     )
@@ -183,6 +189,7 @@ export function MateriaisFornecedoresPage() {
                     <TableHead>Telefone</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead>Situação</TableHead>
+                    {suportaDeposito && <TableHead>Entrega</TableHead>}
                     {podeEditar && <TableHead className="w-12" />}
                   </TableRow>
                 </TableHeader>
@@ -199,6 +206,11 @@ export function MateriaisFornecedoresPage() {
                           {f.ativo !== false ? 'Ativo' : 'Inativo'}
                         </StatusBadge>
                       </TableCell>
+                      {suportaDeposito && (
+                        <TableCell className="text-sm">
+                          {f.entrega_deposito ? <StatusBadge variant="info">No depósito Plena</StatusBadge> : <span className="text-muted-foreground">No posto (rota)</span>}
+                        </TableCell>
+                      )}
                       {podeEditar && (
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => abrir(f)} aria-label={`Editar ${f.nome}`}>
@@ -257,6 +269,22 @@ export function MateriaisFornecedoresPage() {
                 <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} />
                 Fornecedor ativo
               </label>
+              {suportaDeposito && (
+                <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={form.entregaDeposito}
+                    onChange={(e) => setForm({ ...form, entregaDeposito: e.target.checked })}
+                  />
+                  <span>
+                    Entrega tudo no depósito da Plena
+                    <span className="block text-xs text-muted-foreground">
+                      O pedido a este fornecedor sai só com o total por item; os inspetores separam por posto e a Antolimp leva na rota.
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           )}
           <DialogFooter>

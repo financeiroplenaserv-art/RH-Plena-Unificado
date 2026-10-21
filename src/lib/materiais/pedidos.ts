@@ -17,10 +17,30 @@ export const aprovadoOuDepois = (s: string | null | undefined): boolean =>
  */
 export const ROTAS_MATERIAIS: readonly RotaMaterial[] = [1, 2, 3, 4]
 
+/**
+ * Rota 0 = "Depósito Plena" (migration 154): contrato que não recebe em rota — a Plena
+ * leva do depósito. Entra na lista dos seletores depois das rotas de entrega.
+ */
+export const ROTA_DEPOSITO_PLENA = 0 as const
+export const ROTAS_SELECIONAVEIS: readonly RotaMaterial[] = [...ROTAS_MATERIAIS, ROTA_DEPOSITO_PLENA]
+
+/** "Rota 2", "Depósito Plena" ou "—" (sem rota) — texto único para toda tela do módulo. */
+export function textoRota(rota: number | null | undefined): string {
+  if (rota === ROTA_DEPOSITO_PLENA) return 'Depósito Plena'
+  return rota == null ? '—' : `Rota ${rota}`
+}
+
+/** Ordem de exibição: rotas 1 a 4, depois Depósito Plena, depois sem rota. */
+export function ordemRota(rota: number | null | undefined): number {
+  if (rota == null) return 99
+  return rota === ROTA_DEPOSITO_PLENA ? 50 : rota
+}
+
 /** Lê o valor de um <select> de rota ('' ou desconhecido = sem rota). */
 export function lerRota(valor: string | null | undefined): RotaMaterial | null {
+  if (valor == null || String(valor).trim() === '') return null
   const n = Number(valor)
-  return (ROTAS_MATERIAIS as readonly number[]).includes(n) ? (n as RotaMaterial) : null
+  return (ROTAS_SELECIONAVEIS as readonly number[]).includes(n) ? (n as RotaMaterial) : null
 }
 
 /** Rota efetiva do pedido: a do dia (override da mesa) ou a padrão do contrato. */

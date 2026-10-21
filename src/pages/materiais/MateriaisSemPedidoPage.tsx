@@ -22,6 +22,7 @@ import { podePreencherPeloKitMateriais, podeReabrirPedidoMateriais } from '@/lib
 import { hojeBrasil } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { janelaPedido } from '@/lib/materiais/datas'
+import { textoRota } from '@/lib/materiais/pedidos'
 
 // "Contratos que ainda não pediram" (docs/PLANO_MATERIAIS_FASE1.md §6). Nada é
 // gerado automaticamente: o aviso começa no dia configurado (materiais_config,
@@ -127,7 +128,7 @@ export function MateriaisSemPedidoPage() {
                           </p>
                           {c.pedido_id && <Selo tom="azul">já pediu uniforme/EPI — faltam os produtos</Selo>}
                         </TableCell>
-                        <TableCell className="tabular-nums">{c.rota ?? '—'}</TableCell>
+                        <TableCell className="tabular-nums">{textoRota(c.rota)}</TableCell>
                         <TableCell className="text-sm">{c.ultimo_responsavel ?? '—'}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">

@@ -30,6 +30,7 @@ import {
   podeGerenciarLinksMateriais,
   podeVerSemPedidoMateriais,
   podeComprarMateriais,
+  podeSepararDepositoMateriais,
   podeVerComprasMateriais,
   podePreencherPeloKitMateriais,
   podeValidarMateriais,
@@ -403,6 +404,11 @@ describe('Permissões do módulo Materiais (migrations 121 a 123)', () => {
     for (const p of ['inspetoria', 'financeiro', 'dp1', 'dp2', 'dp3', 'rh', 'visualizador'] as const) expect(podeComprarMateriais(p)).toBe(false)
     for (const p of ['gestor', 'mesa', 'inspetoria', 'financeiro'] as const) expect(podeVerComprasMateriais(p)).toBe(true)
     for (const p of ['dp1', 'dp3', 'rh', 'visualizador'] as const) expect(podeVerComprasMateriais(p)).toBe(false)
+  })
+
+  it('Depósito Plena (154): separam gestor, mesa e inspetoria (espelho de pode_movimentar_estoque_materiais); financeiro não', () => {
+    for (const p of ['gestor', 'mesa', 'inspetoria', 'admin', 'adm'] as const) expect(podeSepararDepositoMateriais(p)).toBe(true)
+    for (const p of ['financeiro', 'dp1', 'dp2', 'dp3', 'rh', 'visualizador'] as const) expect(podeSepararDepositoMateriais(p)).toBe(false)
   })
 
   it('linha dinâmica concedida pela tela Permissões prevalece sobre o padrão', () => {

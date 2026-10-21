@@ -1,5 +1,6 @@
 import type { RotaMaterial } from '@/types/materiais'
 import { arredondarMultiplo, fatorValido, textoEmbalagem } from './multiploCompra'
+import { ordemRota } from './pedidos'
 
 // Preparar a compra do mês (Fase 2 — docs/PLANO_MATERIAIS_FASE2.md §3.3/§5).
 // Lógica pura: a prévia vem agregada do servidor (RPC mat_previa_compra) e
@@ -191,8 +192,8 @@ function ordemConsumo(a: LinhaPrevia, b: LinhaPrevia): number {
   const pa = a.parte === 'kit' ? 0 : 1
   const pb = b.parte === 'kit' ? 0 : 1
   if (pa !== pb) return pa - pb
-  const ra = a.rota ?? 9
-  const rb = b.rota ?? 9
+  const ra = ordemRota(a.rota)
+  const rb = ordemRota(b.rota)
   if (ra !== rb) return ra - rb
   const c = a.contrato_nome.localeCompare(b.contrato_nome, 'pt-BR')
   if (c !== 0) return c

@@ -1,5 +1,6 @@
 import type { MatCompraItem, RotaMaterial, StatusProdutos } from '@/types/materiais'
 import { descricaoItemCompra } from './compra'
+import { ordemRota } from './pedidos'
 
 // Tela Chegadas (Marco B da Fase 2 — docs/PLANO_MATERIAIS_FASE2.md §4/§5 passo 7).
 // A mesa registra, por contrato, o que o fornecedor entregou (padrão = o que foi
@@ -57,8 +58,8 @@ export function agruparCelulasPorContrato(itens: MatCompraItem[]): GrupoContrato
     const ea = a.contratoId == null ? 1 : 0
     const eb = b.contratoId == null ? 1 : 0
     if (ea !== eb) return ea - eb
-    const ra = a.rota ?? 9
-    const rb = b.rota ?? 9
+    const ra = ordemRota(a.rota)
+    const rb = ordemRota(b.rota)
     return ra - rb || a.contratoNome.localeCompare(b.contratoNome, 'pt-BR')
   })
 }

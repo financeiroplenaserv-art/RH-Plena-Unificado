@@ -1,6 +1,7 @@
 import type { MatCompra, MatCompraItem } from '@/types/materiais'
 import { chaveItemCompra, descricaoItemCompra } from './compra'
 import { fatorValido, textoEmbalagem } from './multiploCompra'
+import { ordemRota, ROTA_DEPOSITO_PLENA } from './pedidos'
 
 // Excel ao fornecedor (docs/PLANO_MATERIAIS_FASE2.md §6) — reproduz as abas
 // "Pedido ao Fornecedor por Cliente" e "Compra ao Fornecedor" da planilha:
@@ -51,12 +52,14 @@ export interface MatrizCompra {
 const r2 = (n: number) => Math.round(n * 100) / 100
 
 export function rotuloRota(rota: number | null): string {
+  if (rota === ROTA_DEPOSITO_PLENA) return 'Depósito Plena'
   return rota ? `Rota ${rota}` : 'Sem rota'
 }
 
 /** Título da coluna do contrato: agrupado, só o nome (a rota está no cabeçalho do grupo); senão leva a rota entre parênteses. */
 export function tituloColuna(c: ColunaContrato, agrupar: boolean): string {
-  return agrupar || !c.rota ? c.nome : `${c.nome} (R${c.rota})`
+  if (agrupar || c.rota == null) return c.nome
+  return c.rota === ROTA_DEPOSITO_PLENA ? `${c.nome} (Depósito)` : `${c.nome} (R${c.rota})`
 }
 
 /** agrupar=true: contratos por rota (sem rota no fim); false: ordem alfabética pura. */
@@ -108,8 +111,8 @@ export function montarMatrizCompra(itens: MatCompraItem[], agrupar = true): Matr
   }
   const colunas = [...colunasMap.values()].sort((a, b) =>
     agrupar
-      ? (a.rota ?? 99) - (b.rota ?? 99) || a.nome.localeCompare(b.nome, 'pt-BR')
-      : a.nome.localeCompare(b.nome, 'pt-BR') || (a.rota ?? 99) - (b.rota ?? 99)
+      ? ordemRota(a.rota) - ordemRota(b.rota) || a.nome.localeCompare(b.nome, 'pt-BR')
+      : a.nome.localeCompare(b.nome, 'pt-BR') || ordemRota(a.rota) - ordemRota(b.rota)
   )
   const linhas = [...linhasMap.values()].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'))
   let valorGeral = 0
@@ -213,6 +216,21 @@ export function aoaCompraAoFornecedor(m: MatrizCompra, cab: CabecalhoExcel, comV
   for (const l of m.linhas)
     aoa.push(([l.descricao, l.total] as Celula[]).concat(emb ? [embalagemDaLinha(l)] : [], comValores ? [l.preco, l.valor] : []))
   aoa.push((['Total Geral', m.totalGeral] as Celula[]).concat(emb ? [null] : [], comValores ? [null, m.valorGeral] : []))
+  return aoa
+}
+
+/** Texto fixo do Excel de fornecedor que entrega no depósito da Plena (migration 154). */
+export const TEXTO_ENTREGA_DEPOSITO = 'Entregar no depósito Plena'
+
+/**
+ * Excel AO FORNECEDOR de depósito: só o TOTAL por item (sem colunas por contrato — quem
+ * separa por posto são os inspetores da Plena) + "Entregar no depósito Plena". Mesma
+ * tabela da aba "Compra" e a linha de entrega no lugar da linha em branco do cabeçalho.
+ * Mantém o cabeçalho de LINHAS_CABECALHO linhas para o estilo/ancoragem do arquivo.
+ */
+export function aoaCompraDeposito(m: MatrizCompra, cab: CabecalhoExcel, comValores: boolean): Celula[][] {
+  const aoa = aoaCompraAoFornecedor(m, cab, comValores)
+  aoa[LINHAS_CABECALHO - 1] = ['Entrega', TEXTO_ENTREGA_DEPOSITO]
   return aoa
 }
 

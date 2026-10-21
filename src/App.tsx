@@ -69,6 +69,7 @@ import {
   MateriaisComprasPage,
   MateriaisCompraDetalhePage,
   MateriaisChegadasPage,
+  MateriaisSeparacaoPage,
   CeuPedidosPage,
   QuadroColaboradoresPage,
   AdicionaisContratosPage,
@@ -479,6 +480,23 @@ function App() {
                     }
                   >
                     <MateriaisChegadasPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/materiais/separacao"
+                element={
+                  // Migration 154: mesma entrada das abas Compras e Chegadas (inspetoria separa; financeiro só consulta)
+                  <ProtectedRoute
+                    user={user}
+                    permissao={{ recurso: 'rota', acao: 'materiais' }}
+                    fallback={
+                      <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'materiais_compras' }}>
+                        <MateriaisSeparacaoPage />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <MateriaisSeparacaoPage />
                   </ProtectedRoute>
                 }
               />

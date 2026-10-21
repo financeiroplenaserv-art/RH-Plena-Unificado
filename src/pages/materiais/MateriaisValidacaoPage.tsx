@@ -14,7 +14,7 @@ import { useMateriaisContratos } from '@/hooks/useMateriaisContratos'
 import { useMateriaisPedidos } from '@/hooks/useMateriaisPedidos'
 import { formatarDataHora } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
-import { rotaEfetiva } from '@/lib/materiais/pedidos'
+import { ordemRota, rotaEfetiva, textoRota } from '@/lib/materiais/pedidos'
 import { temExcecao } from '@/lib/materiais/filas'
 
 // Fila do inspetor (docs/PLANO_MATERIAIS_FASE1.md §5.1): só pedidos com
@@ -49,7 +49,7 @@ export function MateriaisValidacaoPage() {
             outros: doPedido.filter((l) => !l.item_id).length,
           }
         })
-        .sort((a, b) => (a.rota ?? 9) - (b.rota ?? 9) || (a.c?.nome ?? '').localeCompare(b.c?.nome ?? '', 'pt-BR')),
+        .sort((a, b) => ordemRota(a.rota) - ordemRota(b.rota) || (a.c?.nome ?? '').localeCompare(b.c?.nome ?? '', 'pt-BR')),
     [pedidos, itens, contratoPorId]
   )
 
@@ -88,7 +88,7 @@ export function MateriaisValidacaoPage() {
                 <TableBody>
                   {linhas.map(({ p, c, rota, excecoes, repeticoes, outros }) => (
                     <TableRow key={p.id} className="hover:bg-accent/40">
-                      <TableCell className="tabular-nums">{rota ?? '—'}</TableCell>
+                      <TableCell className="tabular-nums">{textoRota(rota)}</TableCell>
                       <TableCell>
                         <Link to={`/materiais/pedidos/${p.id}`} className="font-medium text-primary hover:underline">
                           {c?.nome ?? 'Contrato'}

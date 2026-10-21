@@ -41,6 +41,7 @@ import {
 } from '@/lib/materiais/compra'
 import { ROTULO_STATUS_COMPRA, ROTULO_TIPO_COMPRA } from './comprasRotulos'
 import { rotuloMultiplo } from '@/lib/materiais/multiploCompra'
+import { textoRota } from '@/lib/materiais/pedidos'
 import { toast } from 'sonner'
 import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
 
@@ -91,6 +92,7 @@ export function MateriaisComprasPage() {
   const linhas = useMemo(() => previa?.linhas ?? [], [previa])
   const grupos = useMemo(() => agruparPorItem(linhas, destinos), [linhas, destinos])
   const nomeForn = useMemo(() => new Map(forn.fornecedores.map((f) => [f.id, f.nome])), [forn.fornecedores])
+  const fornDeposito = useMemo(() => new Set(forn.fornecedores.filter((f) => f.entrega_deposito).map((f) => f.id)), [forn.fornecedores])
   const fornAtivos = useMemo(() => forn.fornecedores.filter((f) => f.ativo !== false), [forn.fornecedores])
   const selecionadas = useMemo(() => {
     const s = new Set<string>()
@@ -197,7 +199,7 @@ export function MateriaisComprasPage() {
           </div>
           {erro && <p className="mt-1 text-xs font-medium text-red-600">{erro}</p>}
         </TableCell>
-        <TableCell className="text-sm tabular-nums">{l.rota ?? '—'}</TableCell>
+        <TableCell className="text-sm tabular-nums">{textoRota(l.rota)}</TableCell>
         <TableCell className="text-right tabular-nums">{l.qtd_aprovada}</TableCell>
         <TableCell className="text-right">
           {t === 'escritorio' || t === 'texto_livre' || !podeComprar ? (
@@ -258,7 +260,7 @@ export function MateriaisComprasPage() {
                       .map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.nome}
-                          {c.rota ? ` (rota ${c.rota})` : ''}
+                          {c.rota != null ? ` (${textoRota(c.rota).toLowerCase()})` : ''}
                         </option>
                       ))}
                   </select>
@@ -491,6 +493,7 @@ export function MateriaisComprasPage() {
                                     <option key={f.id} value={f.id}>
                                       {f.nome}
                                       {f.id === g.fornecedorPadraoId ? ' (padrão)' : ''}
+                                      {f.entrega_deposito ? ' — entrega no depósito' : ''}
                                     </option>
                                   ))}
                                 </select>
@@ -617,7 +620,10 @@ export function MateriaisComprasPage() {
           <ul className="space-y-1">
             {resumo.map((r) => (
               <li key={r.fornecedorId} className="flex justify-between gap-2 tabular-nums">
-                <span>{nomeForn.get(r.fornecedorId) ?? 'Fornecedor'}</span>
+                <span>
+                  {nomeForn.get(r.fornecedorId) ?? 'Fornecedor'}
+                  {fornDeposito.has(r.fornecedorId) && <span className="block text-xs text-muted-foreground">entrega no depósito Plena — o Excel sai só com o total por item</span>}
+                </span>
                 <span>
                   {r.itens} item(ns) · {r.quantidade} un · {mascaraMoeda(r.valor)}
                   {r.semPreco > 0 ? ` (+${r.semPreco} sem preço)` : ''}

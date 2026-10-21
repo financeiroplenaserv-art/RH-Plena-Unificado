@@ -17,13 +17,14 @@ import { Selo } from '@/components/materiais/filas'
 import { rotuloCompetencia } from '@/components/materiais/rotulosFilas'
 import { MateriaisShell } from './MateriaisShell'
 import { useAuth } from '@/hooks/useAuth'
-import { carregarDadosChegadas, useCompraMaterial } from '@/hooks/useMateriaisCompras'
+import { carregarDadosChegadas, carregarLevarDoDeposito, useCompraMaterial } from '@/hooks/useMateriaisCompras'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
 import { podeComprarMateriais, podeRegistrarChegadaMateriais, podeVerComprasMateriais } from '@/lib/permissoes'
 import { formatarData, formatarDataHora, mascaraMoeda } from '@/lib/utils'
 import { embalagemDaLinha, montarMatrizCompra, rotuloRota, tituloColuna } from '@/lib/materiais/excelCompra'
 import { baixarExcelCompra } from '@/lib/materiais/excelCompraArquivo'
 import { descricaoRemanejamento, remanejamentosDaCompra, type RemanejamentoChegada } from '@/lib/materiais/chegadas'
+import { compraEntregaNoDeposito } from '@/lib/materiais/deposito'
 import { quantidadeComUnidade } from '@/lib/materiais/unidades'
 import { ROTULO_STATUS_COMPRA, ROTULO_TIPO_COMPRA } from './comprasRotulos'
 import { toast } from 'sonner'
@@ -94,7 +95,10 @@ export function MateriaisCompraDetalhePage() {
     }
   }, [competenciaCompra, id])
   const m = useMemo(() => montarMatrizCompra(det.itens, agrupar), [det.itens, agrupar])
-  const fornecedor = c ? forn.fornecedores.find((f) => f.id === c.fornecedor_id)?.nome ?? 'Fornecedor' : ''
+  const fornecedorObj = c ? forn.fornecedores.find((f) => f.id === c.fornecedor_id) : undefined
+  const fornecedor = c ? fornecedorObj?.nome ?? 'Fornecedor' : ''
+  // Migration 154: fornecedor que entrega tudo no depósito da Plena (Excel só com o total por item).
+  const deposito = compraEntregaNoDeposito(c, fornecedorObj)
   const gruposRota = useMemo(() => {
     if (!agrupar) return []
     const g: { rotulo: string; n: number }[] = []
@@ -132,7 +136,9 @@ export function MateriaisCompraDetalhePage() {
 
   const baixar = async (comValores: boolean) => {
     try {
-      await baixarExcelCompra(c, det.itens, fornecedor, comValores, agrupar, comValores ? remanejamentos : [])
+      // Compra de fornecedor de rota (Antolimp): a aba "Levar do depósito" traz o que ela pega no depósito Plena.
+      const levar = deposito ? [] : await carregarLevarDoDeposito(c.competencia)
+      await baixarExcelCompra(c, det.itens, fornecedor, comValores, agrupar, comValores ? remanejamentos : [], { deposito, levar })
     } catch (e) {
       toast.error(`Não foi possível gerar o Excel: ${e instanceof Error ? e.message : 'erro desconhecido'}`)
     }
@@ -200,6 +206,7 @@ export function MateriaisCompraDetalhePage() {
             <div className="mt-1 flex flex-wrap gap-1">
               <StatusBadge variant={status.variante}>{status.texto}</StatusBadge>
               {c.antes_da_janela && <Selo tom="ambar">gerada antes do dia da compra</Selo>}
+              {deposito && <Selo tom="roxo">entrega no depósito Plena</Selo>}
             </div>
           </div>
           <div>
@@ -225,6 +232,13 @@ export function MateriaisCompraDetalhePage() {
             <p className="text-muted-foreground sm:col-span-2 lg:col-span-4">
               Rascunho: confira a matriz, baixe o Excel e envie ao fornecedor (e-mail/WhatsApp). Depois marque como enviada — a partir daí a
               compra e os pedidos não mudam mais; o que surgir vira compra avulsa.
+            </p>
+          )}
+          {deposito && (
+            <p className="text-muted-foreground sm:col-span-2 lg:col-span-4">
+              Este fornecedor entrega tudo no depósito da Plena. O Excel ao fornecedor sai só com o <strong>total por item</strong>; a matriz abaixo
+              (o que é de cada posto) é interna. Quando chegar, registre o total em <Link className="text-primary underline" to={`/materiais/chegadas?mes=${c.competencia.slice(0, 7)}&compra=${c.id}`}>Chegadas</Link> e os inspetores separam por posto em{' '}
+              <Link className="text-primary underline" to={`/materiais/separacao?mes=${c.competencia.slice(0, 7)}`}>Separação</Link>.
             </p>
           )}
           {c.cancelada_motivo && <p className="text-red-700 sm:col-span-2 lg:col-span-4">Cancelada: {c.cancelada_motivo}</p>}

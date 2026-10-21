@@ -136,6 +136,9 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     // "remanejamento feito" (migration 151). Banco: pode_registrar_chegada_materiais()
     // = admin, adm, gestor, mesa. O financeiro só consulta.
     registrar_chegada: ['gestor', 'mesa'],
+    // Migration 154: separar no depósito da Plena o que chegou dos fornecedores de depósito (aba
+    // Separação). Banco: pode_movimentar_estoque_materiais() = admin, adm, gestor, mesa, inspetoria.
+    separar_deposito: ['gestor', 'mesa', 'inspetoria'],
     ver_compras: ['gestor', 'mesa', 'inspetoria', 'financeiro'],
   },
   ferias: {
@@ -380,6 +383,9 @@ export const podeComprarMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p,
 
 /** Registrar a chegada do fornecedor e confirmar o remanejamento (tela Chegadas — Marco B) */
 export const podeRegistrarChegadaMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'registrar_chegada')
+
+/** Separar por posto, no depósito da Plena, o que chegou dos fornecedores de depósito (migration 154) */
+export const podeSepararDepositoMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'separar_deposito')
 
 /** Consultar as compras (o financeiro confere com valores, sem alterar) */
 export const podeVerComprasMateriais = (p: NivelAcesso) => temPermissaoComPadrao(p, 'materiais', 'ver_compras')

@@ -26,7 +26,7 @@ import { podeAprovarMateriais, podeEditarCatalogoMateriais, podeEditarRotaMateri
 import { departamentosSelecionaveis, nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { nomeDuplicado } from '@/lib/materiais/cadastro'
 import { normalizarTexto } from '@/lib/materiais/normalizar'
-import { lerRota, ROTAS_MATERIAIS } from '@/lib/materiais/pedidos'
+import { lerRota, ROTAS_SELECIONAVEIS, textoRota } from '@/lib/materiais/pedidos'
 import { mascaraMoeda } from '@/lib/utils'
 import type { MatContrato } from '@/types/materiais'
 
@@ -201,9 +201,9 @@ export function MateriaisContratosPage() {
               <Label htmlFor="ctr-rota">Rota</Label>
               <select id="ctr-rota" className={CLASSE_SELECT} value={rascunho.rota} onChange={(e) => setRascunho((r) => ({ ...r, rota: e.target.value }))}>
                 <option value="todas">Todas</option>
-                {ROTAS_MATERIAIS.map((r) => (
+                {ROTAS_SELECIONAVEIS.map((r) => (
                   <option key={r} value={String(r)}>
-                    Rota {r}
+                    {textoRota(r)}
                   </option>
                 ))}
                 <option value="sem">Sem rota</option>
@@ -257,20 +257,20 @@ export function MateriaisContratosPage() {
                       <TableCell>
                         {podeRota ? (
                           <select
-                            className={`${CLASSE_SELECT} h-8 w-28`}
+                            className={`${CLASSE_SELECT} h-8 w-36`}
                             value={c.rota == null ? '' : String(c.rota)}
                             onChange={(e) => trocarRota(c, e.target.value)}
                             aria-label={`Rota de ${c.nome}`}
                           >
                             <option value="">Sem rota</option>
-                            {ROTAS_MATERIAIS.map((r) => (
+                            {ROTAS_SELECIONAVEIS.map((r) => (
                               <option key={r} value={String(r)}>
-                                Rota {r}
+                                {textoRota(r)}
                               </option>
                             ))}
                           </select>
-                        ) : c.rota ? (
-                          `Rota ${c.rota}`
+                        ) : c.rota != null ? (
+                          textoRota(c.rota)
                         ) : (
                           '—'
                         )}
@@ -383,9 +383,9 @@ export function MateriaisContratosPage() {
                 <Label htmlFor="ctr-form-rota">Rota padrão</Label>
                 <select id="ctr-form-rota" className={CLASSE_SELECT} value={form.rota} onChange={(e) => setForm({ ...form, rota: e.target.value })}>
                   <option value="">Sem rota</option>
-                  {ROTAS_MATERIAIS.map((r) => (
+                  {ROTAS_SELECIONAVEIS.map((r) => (
                     <option key={r} value={String(r)}>
-                      Rota {r}
+                      {textoRota(r)}
                     </option>
                   ))}
                 </select>

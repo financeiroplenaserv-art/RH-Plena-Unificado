@@ -230,3 +230,30 @@ commit;
 - Migration `153_materiais_orcamento_ceu.sql` + `scripts/materiais/testes-fase2/153_testes.sql` (aplicada 2x em transação desfeita = TUDO OK). Aplicar por arquivo UTF-8 (`scripts/lib/executar-arquivo-sql-management-api.ps1`), antes ou depois do deploy.
 - Dados NÃO aplicados: `dados-locais/orcamentos_2026-10-21/` (`mapa_contratos.csv`, `dados_orcamentos_153.sql`). 57 exatos, 2 sugeridos (CBO Niterói, Ida Scarsell), Telex/Duoconnect ambíguos, MB LOFTS sem par; ABAETÉ mantém o limite manual de 2000 até a gestora decidir. Equipamentos fora do limite de material (decisão da gestora). Testado em transação desfeita após a 153.
 - Ordem para publicar: aplicar a 153; rodar os dados (com OK da gestora); merge na main; deploy.
+
+## 21/10/2026 — fornecedor que entrega no depósito Plena (branch `materiais-deposito`, migration 154 NÃO aplicada)
+
+Branch criada de `materiais-multiplo` (ff5dc0f). **Nada aplicado no banco nem publicado.** Regras completas no AGENTS.md (§8 migration 154; §11 "fornecedor que entrega no depósito da Plena").
+
+**Contexto (planilha `Pedido_Antolimp_e_Separacao_Oper_...xlsx`, confirmado pela gestora):** Antolimp entrega posto a posto na rota; Essex/RZK e Compra Avulsa entregam tudo no depósito, os inspetores separam por contrato e a Antolimp leva junto; alguns contratos (Montreal, Orleans, 3 Telex de lojas) não recebem em rota — a Plena leva. Rotas 1 a 4 (4 = só CBO MACAÉ).
+
+**O que entrou**
+- **Migration 154** (`supabase/migrations/154_materiais_entrega_deposito.sql`): `fornecedores.entrega_deposito`; snapshot `mat_compras.entrega_deposito` (rascunho + envio); **rota 0 = "Depósito Plena"** (CHECKs 0..4 + `definir_rota_*`; as RPCs de compra/chegada leem a rota como número e não mudaram); `mat_pedido_itens.via_deposito/qtd_separada/separado_em/separado_por`; chegada de depósito não conta como entregue; RPC `mat_registrar_separacao_deposito`; leituras `mat_separacao_deposito` e `mat_levar_do_deposito`. Funções recriadas do `pg_get_functiondef` real de 21/10 (backup em `dados-locais/backup_materiais_154_2026-10-21/`, conferido igual ao de 152).
+- **Testes em transação desfeita**: migration aplicada 2× + `scripts/materiais/testes-fase2/154_testes.sql` -> **TUDO OK** (constraints de rota; rota 0 pela RPC e recusa de 5; snapshot do flag no rascunho e depois do envio; `via_deposito` só nas linhas de depósito; "levar do depósito" lê o rascunho; separar antes de chegar recusado; financeiro sem permissão; chegada no depósito deixa `qtd_entregue` vazio e a linha aberta; compra comum inalterada; inspetoria separa — menos sem motivo e mais que o recebido recusados; reduzir a chegada abaixo do separado recusado; UPDATE direto de `qtd_separada` não altera). Conferido depois: banco sem as colunas (rollback). Dados sugeridos também testados em transação desfeita.
+- **Telas**: Fornecedores (caixa + coluna "Entrega"); Compras (aviso "entrega no depósito" por fornecedor); detalhe da compra (selo + texto + Excel conforme o tipo); **Chegadas** (compra de depósito pede o total por item); **nova aba Separação** (`/materiais/separacao`); seletores/rótulos de rota mostram "Depósito Plena" em Contratos, Pedidos, Validação, Sem pedido, Kit, Compras, Chegadas.
+- **Excel**: fornecedor de depósito = só total por item + "Entregar no depósito Plena" (aba Compra); versão interna com valores mantém a matriz; Antolimp ganha aba "Levar do depósito"; lista de separação em Excel. Todos protegidos (sem senha).
+- Permissão nova `materiais.separar_deposito` (gestor, mesa, inspetoria; espelha `pode_movimentar_estoque_materiais`) no `PERMISSOES_PADRAO` e na tela Permissões.
+- Checks: `npm run lint` ok, `npx tsc -b` ok, `npm test` ok, `npm run build` ok (números no relatório final).
+
+**Ordem para aplicar (coordenador)**
+1. Conferir se alguém recriou depois de 21/10 alguma função listada (comparar com `dados-locais/backup_materiais_154_2026-10-21/funcoes/`).
+2. `powershell -NoProfile -File scripts/lib/executar-arquivo-sql-management-api.ps1 -Arquivo supabase/migrations/154_materiais_entrega_deposito.sql` (arquivo UTF-8). O arquivo aborta sozinho se houver `chr(65533)` ou faltar coluna/RPC.
+3. Com o OK da gestora: `dados-locais/deposito_2026-10-21/dados_iniciais_154.sql` (marca Essex e Compra Avulsa; rota 0 em MONTREAL, ORLEANS e os 3 TELEX de lojas — por id, com conferência de contagem).
+4. Merge na `main` e deploy pelo checklist da §10 (Férias segue `false`).
+
+**Decisões a confirmar com a gestora**
+1. **Separada = entregue.** Hoje a linha de depósito vira "entregue" quando o inspetor a marca separada; não há confirmação de que a Antolimp levou na rota nem de que a Plena levou aos contratos de "Depósito Plena". Se quiser um 2º passo ("levada"), é acréscimo pequeno (coluna + botão).
+2. **Divisão do total da chegada**: ao informar "chegou 6 de 9", a falta recai nos últimos postos (postos por rota e nome primeiro, reposição do estoque por último). O inspetor pode corrigir na Separação (separa menos, com motivo).
+3. **Sobra no depósito** (separou menos do que chegou) não entra no estoque central.
+4. **Datas de entrega por rota** (1º, 2º, 3º dia útil, com exceções) não foram implementadas.
+5. Marcar Essex e Compra Avulsa como "entrega no depósito" vale para TODA compra futura a eles (o snapshot é na criação do rascunho e no envio).

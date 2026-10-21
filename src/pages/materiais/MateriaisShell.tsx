@@ -1,4 +1,4 @@
-import { BarChart3, PackageOpen, BookOpen, ClipboardCheck, ClipboardList, FileSignature, Inbox, PackageCheck, ShoppingCart, Timer, Truck } from 'lucide-react'
+import { BarChart3, ListChecks, PackageOpen, BookOpen, ClipboardCheck, ClipboardList, FileSignature, Inbox, PackageCheck, ShoppingCart, Timer, Truck } from 'lucide-react'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import type { ModuleTab } from '@/components/layout/ModuleShell'
 import { useAuth } from '@/hooks/useAuth'
@@ -27,6 +27,9 @@ const TAB_COMPRAS: ModuleTab = { path: '/materiais/compras', label: 'Compras', i
 // (quem registra: materiais.registrar_chegada — mesa e gestor; os demais só consultam).
 const TAB_CHEGADAS: ModuleTab = { path: '/materiais/chegadas', label: 'Chegadas', icon: PackageOpen }
 
+// Migration 154: separação por posto, no depósito da Plena, do que chegou dos fornecedores de depósito.
+const TAB_SEPARACAO: ModuleTab = { path: '/materiais/separacao', label: 'Separação', icon: ListChecks }
+
 const TABS_CADASTRO: ModuleTab[] = [
   { path: '/materiais/contratos', label: 'Contratos', icon: FileSignature },
   TAB_KIT,
@@ -45,7 +48,7 @@ export function MateriaisShell({ children }: { children: React.ReactNode }) {
   if (!user || !moduloInteiro) {
     const avulsas = user
       ? [
-          ...(verificarPermissao(user.nivel_acesso, 'rota', 'materiais_compras') ? [TAB_COMPRAS, TAB_CHEGADAS] : []),
+          ...(verificarPermissao(user.nivel_acesso, 'rota', 'materiais_compras') ? [TAB_COMPRAS, TAB_CHEGADAS, TAB_SEPARACAO] : []),
           ...(verificarPermissao(user.nivel_acesso, 'rota', 'materiais_kit') ? [TAB_KIT] : []),
           ...(verificarPermissao(user.nivel_acesso, 'rota', 'materiais_fornecedores') ? [TAB_FORNECEDORES] : []),
         ]
@@ -58,7 +61,7 @@ export function MateriaisShell({ children }: { children: React.ReactNode }) {
     ...(podeValidarMateriais(n) ? [TAB_VALIDACAO] : []),
     ...(podeAprovarMateriais(n) ? [TAB_PAINEL] : []),
     ...(podeVerSemPedidoMateriais(n) ? [TAB_SEM_PEDIDO] : []),
-    ...(podeComprarMateriais(n) || podeVerComprasMateriais(n) ? [TAB_COMPRAS, TAB_CHEGADAS] : []),
+    ...(podeComprarMateriais(n) || podeVerComprasMateriais(n) ? [TAB_COMPRAS, TAB_CHEGADAS, TAB_SEPARACAO] : []),
     ...TABS_CADASTRO,
   ]
   return <ModuleShell tabs={tabs}>{children}</ModuleShell>

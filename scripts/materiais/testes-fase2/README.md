@@ -16,5 +16,6 @@ powershell -NoProfile -File scripts/lib/executar-arquivo-sql-management-api.ps1 
 - `152_testes.sql` — múltiplo de compra: monte com a 152 duas vezes (testa a idempotência) e os testes:
   `{ echo "begin;"; cat $M/152_materiais_multiplo_compra.sql $M/152_materiais_multiplo_compra.sql $T/152_testes.sql; echo "select 'TUDO OK' as resultado;"; echo "rollback;"; } > /tmp/t152.sql`
   (usa 2 pedidos de outubro em `em_validacao`; o gestor os aprova dentro da transação).
+- `154_testes.sql` — depósito Plena (rota 0, snapshot do fornecedor, chegada no depósito, separação por inspetoria): monte com a 154 duas vezes e os testes (mesmo molde da 152). Usa 1 pedido de outubro em `em_validacao`, um fornecedor "Compra Avulsa" e um "Antolimp", e os perfis de inspetoria e financeiro por consulta.
 - Resultado esperado: `[{"resultado":"TUDO OK"}]`. Qualquer `FALHOU ...` aborta a transação.
 - Os testes usam os ids reais de perfis (gestor, mesa, inspetoria, financeiro, dp1, adm) e os pedidos de outubro/2026; depois de aplicadas as migrations, rodá-los de novo também é seguro (rollback).

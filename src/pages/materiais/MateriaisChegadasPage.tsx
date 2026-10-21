@@ -19,6 +19,16 @@ import { useAuth } from '@/hooks/useAuth'
 import { useChegadasMateriais } from '@/hooks/useMateriaisCompras'
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
 import { podeRegistrarChegadaMateriais } from '@/lib/permissoes'
+import { textoRota } from '@/lib/materiais/pedidos'
+import {
+  agruparChegadaPorItem,
+  compraEntregaNoDeposito,
+  edicaoInicialItemDeposito,
+  erroChegadaItemDeposito,
+  itemDepositoPendente,
+  montarPayloadChegadaDeposito,
+  type EdicaoDeposito,
+} from '@/lib/materiais/deposito'
 import { formatarData, hojeBrasil } from '@/lib/utils'
 import { competenciaDoMes } from '@/lib/materiais/painel'
 import { descricaoItemCompra } from '@/lib/materiais/compra'
@@ -68,6 +78,8 @@ export function MateriaisChegadasPage() {
   const [carregandoItens, setCarregandoItens] = useState(false)
   const [edicoes, setEdicoes] = useState<Record<string, EdicaoChegada>>({})
   const [edRem, setEdRem] = useState<Record<string, EdicaoChegada>>({})
+  // Migration 154: fornecedor de depósito — a mesa informa o TOTAL que chegou de cada item.
+  const [edDep, setEdDep] = useState<Record<string, EdicaoDeposito>>({})
   const [salvando, setSalvando] = useState<string | null>(null)
 
   const { carregar, carregarItens } = ch
@@ -87,6 +99,7 @@ export function MateriaisChegadasPage() {
     setCarregandoItens(true)
     setItens(await carregarItens(compraId))
     setEdicoes({})
+    setEdDep({})
     setCarregandoItens(false)
   }, [carregarItens, compraId])
   useEffect(() => {
@@ -96,6 +109,8 @@ export function MateriaisChegadasPage() {
   const compraSel = ch.compras.find((c) => c.id === compraId) ?? null
   const nomeForn = useMemo(() => new Map(forn.fornecedores.map((f) => [f.id, f.nome])), [forn.fornecedores])
   const grupos = useMemo(() => agruparCelulasPorContrato(itens), [itens])
+  const deposito = compraEntregaNoDeposito(compraSel, forn.fornecedores.find((f) => f.id === compraSel?.fornecedor_id))
+  const itensDeposito = useMemo(() => agruparChegadaPorItem(itens), [itens])
   const statusPorContrato = useMemo(() => {
     const m = new Map<string, { status: StatusProdutos; implantacao: boolean }[]>()
     for (const p of ch.dados?.pedidos ?? []) m.set(p.contrato_id, [...(m.get(p.contrato_id) ?? []), { status: p.status_produtos, implantacao: p.implantacao }])
@@ -118,6 +133,16 @@ export function MateriaisChegadasPage() {
   const salvarGrupo = async (celulas: MatCompraItem[], chegouTudo: boolean, chave: string) => {
     if (!compraSel) return
     const { payload, erros } = montarPayloadChegada(celulas, edicoes, chegouTudo)
+    if (erros.length) return toast.error(`${erros.length} item(ns) com pendência — veja os avisos em vermelho.`)
+    setSalvando(chave)
+    const ok = await ch.registrarChegada(compraSel.id, payload, dataChegada || null)
+    setSalvando(null)
+    if (ok) await recarregarTudo()
+  }
+
+  const salvarDeposito = async (chegouTudo: boolean, chave: string) => {
+    if (!compraSel) return
+    const { payload, erros } = montarPayloadChegadaDeposito(itensDeposito, edDep, chegouTudo)
     if (erros.length) return toast.error(`${erros.length} item(ns) com pendência — veja os avisos em vermelho.`)
     setSalvando(chave)
     const ok = await ch.registrarChegada(compraSel.id, payload, dataChegada || null)
@@ -206,7 +231,111 @@ export function MateriaisChegadasPage() {
               </p>
             )}
 
-            {compraSel && (
+            {compraSel && deposito && (
+              <DataTable
+                title={`Compra ${compraSel.numero} — ${nomeForn.get(compraSel.fornecedor_id) ?? 'Fornecedor'} (entrega no depósito Plena)`}
+                count={itensDeposito.length}
+                minWidth={760}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge variant={ROTULO_STATUS_COMPRA[compraSel.status].variante}>{ROTULO_STATUS_COMPRA[compraSel.status].texto}</StatusBadge>
+                    <Selo tom="roxo">entrega no depósito Plena</Selo>
+                    <span className="text-muted-foreground">Informe o total que chegou de cada item. Depois os inspetores separam por posto em</span>
+                    <Link className="text-primary underline" to={`/materiais/separacao?mes=${mes}`}>
+                      Separação
+                    </Link>
+                    <span className="text-muted-foreground">— só então o pedido do posto conta como entregue.</span>
+                  </div>
+                  {podeRegistrar && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={salvando != null || itensDeposito.every((i) => i.recebido === i.comprado)}
+                        onClick={() => salvarDeposito(true, 'dep-tudo')}
+                      >
+                        <CheckCheck className="size-4" /> {salvando === 'dep-tudo' ? 'Gravando…' : 'Chegou tudo no depósito'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={salvando != null || !itensDeposito.some((i) => itemDepositoPendente(i, edDep[i.chave]))}
+                        onClick={() => salvarDeposito(false, 'dep-sal')}
+                      >
+                        <Save className="size-4" /> {salvando === 'dep-sal' ? 'Gravando…' : 'Salvar chegada'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {carregandoItens ? (
+                  <LoadingScreen className="h-32" />
+                ) : itensDeposito.length === 0 ? (
+                  <EmptyState icon={<PackageSearch className="size-6" />} title="Compra sem itens" description="Esta compra não tem células." />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">Comprado</TableHead>
+                        <TableHead className="text-right">Chegou no depósito</TableHead>
+                        <TableHead>Motivo (se chegou menos)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {itensDeposito.map((it) => {
+                        const e = edDep[it.chave] ?? edicaoInicialItemDeposito(it)
+                        const erro = edDep[it.chave] ? erroChegadaItemDeposito(it, e) : null
+                        const menor = Number(e.qtd.replace(',', '.')) < it.comprado
+                        const postos = it.celulas.filter((c) => c.contrato_id != null)
+                        return (
+                          <TableRow key={it.chave} className="align-top hover:bg-accent/40">
+                            <TableCell className="text-sm">
+                              {it.descricao}
+                              <span className="block text-[11px] text-muted-foreground">
+                                {postos.length} posto(s)
+                                {it.celulas.some((c) => c.contrato_id == null) ? ' + reposição do estoque' : ''}
+                                {it.registrado && it.recebido != null ? `· registrado ${it.recebido}` : ''}
+                              </span>
+                              {erro && <p className="mt-1 text-xs font-medium text-red-600">{erro}</p>}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">{quantidadeComUnidade(it.comprado, it.unidade)}</TableCell>
+                            <TableCell className="text-right">
+                              {podeRegistrar ? (
+                                <Input
+                                  aria-label={`Chegou no depósito — ${it.descricao}`}
+                                  inputMode="decimal"
+                                  className="ml-auto h-8 w-20 text-right tabular-nums"
+                                  value={e.qtd}
+                                  onChange={(ev) => setEdDep((x) => ({ ...x, [it.chave]: { ...e, qtd: ev.target.value } }))}
+                                />
+                              ) : (
+                                <span className="tabular-nums">{it.recebido ?? '—'}</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {podeRegistrar && menor ? (
+                                <Input
+                                  aria-label={`Motivo — ${it.descricao}`}
+                                  placeholder="Ex.: faltou no fornecedor"
+                                  className="h-8 text-xs"
+                                  maxLength={200}
+                                  value={e.motivo}
+                                  onChange={(ev) => setEdDep((x) => ({ ...x, [it.chave]: { ...e, motivo: ev.target.value } }))}
+                                />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">{it.celulas.find((c) => c.motivo_recebimento)?.motivo_recebimento ?? ''}</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            )}
+
+            {compraSel && !deposito && (
               <DataTable
                 title={`Compra ${compraSel.numero} — ${nomeForn.get(compraSel.fornecedor_id) ?? 'Fornecedor'}`}
                 count={grupos.length}
@@ -243,7 +372,7 @@ export function MateriaisChegadasPage() {
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="font-semibold">{g.contratoNome}</span>
-                                  {g.rota && <Selo tom="cinza">rota {g.rota}</Selo>}
+                                  {g.rota != null && <Selo tom="cinza">{textoRota(g.rota).toLowerCase()}</Selo>}
                                   {g.registrado ? <Selo tom="verde">chegada registrada</Selo> : <Selo>aguardando</Selo>}
                                   {statusContrato(g.contratoId)}
                                 </div>
@@ -369,7 +498,7 @@ export function MateriaisChegadasPage() {
                                 {r.contrato_nome}
                               </Link>
                               <div className="mt-0.5 flex flex-wrap gap-1">
-                                {r.rota && <Selo tom="cinza">rota {r.rota}</Selo>}
+                                {r.rota != null && <Selo tom="cinza">{textoRota(r.rota).toLowerCase()}</Selo>}
                                 {r.competencia < competencia && <Selo>de {rotuloCompetencia(r.competencia)}</Selo>}
                                 <StatusProdutosBadge status={r.status_pedido} />
                               </div>
