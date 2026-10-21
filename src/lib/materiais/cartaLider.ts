@@ -190,6 +190,43 @@ export function montarCarta(d: {
   }
 }
 
+const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+// Lotes feitos pelo escritório (importação, complemento, decisões da gestora...).
+const USER_AGENT_ESCRITORIO = /^(importado-planilha|completar-kit|decisoes-gestora|comentarios-inspetores|a-confirmar-inspetor)/
+
+/** Nome digitado por alguém do posto? Falso para vazio, "Escritório ..." e "Importado ...". */
+export function nomeEhDoPosto(nome: string | null | undefined): boolean {
+  const n = semAcento(nome ?? '')
+  if (!n) return false
+  return !/^(escritorio|importado)\b/.test(n)
+}
+
+/**
+ * Nome do líder para a saudação: o `seu_nome` do envio MAIS RECENTE feito por uma pessoa do
+ * posto (ignora envios do escritório/importação, por nome ou por user_agent de lote). Sem envio
+ * válido, cai no responsável do pedido, com a mesma regra. Sem nome válido: null.
+ */
+export function nomeDoLiderNosEnvios(
+  envios: { seu_nome: string | null; user_agent?: string | null; enviado_em?: string }[],
+  responsavelPedido?: string | null
+): string | null {
+  for (let i = envios.length - 1; i >= 0; i--) {
+    const e = envios[i]
+    if (e.user_agent && USER_AGENT_ESCRITORIO.test(semAcento(e.user_agent))) continue
+    if (nomeEhDoPosto(e.seu_nome)) return e.seu_nome!.trim()
+  }
+  return nomeEhDoPosto(responsavelPedido) ? responsavelPedido!.trim() : null
+}
+
+/** Saudação da carta: "Olá, Ana S." ou, sem nome do líder, "Olá, equipe do ABAETÉ." */
+export function saudacaoCarta(carta: { responsavel: string | null; contratoNome: string }): string {
+  const nome = carta.responsavel?.trim()
+  if (nome) return `Olá, ${nome}${nome.endsWith('.') ? '' : '.'}` // "Ana S." já termina em ponto
+  const contrato = carta.contratoNome?.trim()
+  return contrato ? `Olá, equipe do ${contrato}.` : 'Olá.'
+}
+
 /** "outubro de 2026" */
 export function mesPorExtenso(competencia: string): string {
   return `${nomeMes(competencia)} de ${competencia.slice(0, 4)}`

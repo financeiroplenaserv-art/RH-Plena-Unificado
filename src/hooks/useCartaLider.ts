@@ -6,7 +6,7 @@ import { mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import { nomeExibicaoItem } from '@/lib/materiais/buscaItens'
 import { nomesCurtos, separarTamanhoDoNome } from '@/lib/materiais/pecasCeu'
-import { linhasCartaCeu, linhasCartaProdutos, montarCarta, type CartaLider } from '@/lib/materiais/cartaLider'
+import { linhasCartaCeu, linhasCartaProdutos, montarCarta, nomeDoLiderNosEnvios, type CartaLider } from '@/lib/materiais/cartaLider'
 import { buscarPorIds, COLUNAS_CEU_PEDIDO, COLUNAS_ENVIO, COLUNAS_ITEM_PEDIDO, COLUNAS_PEDIDO, numerarItem } from './useMateriaisPedidos'
 import { carregarCamposFase2 } from './useMateriaisCompras'
 import type { CeuPedidoItem, MatPedido, MatPedidoEnvio, MatPedidoItem } from '@/types/materiais'
@@ -101,7 +101,7 @@ export function useCartaLider() {
         const ceuDoContrato = ceu.filter((l) => pids.has(l.pedido_id))
         if (doContrato.length === 0 && ceuDoContrato.length === 0) continue
         const envios = re.data.filter((e) => pids.has(e.pedido_id)).sort((a, b) => a.enviado_em.localeCompare(b.enviado_em))
-        const responsavelBruto = envios[envios.length - 1]?.seu_nome ?? peds[0].responsavel_nome ?? null
+        const responsavelBruto = nomeDoLiderNosEnvios(envios, peds[0].responsavel_nome)
 
         // Pessoas: "Primeiro N." com desambiguação na lista do contrato (o líder entra junto).
         const nomesCompletos = [...new Set(ceuDoContrato.map((l) => (l.colaborador_id && colabNome.get(l.colaborador_id)) || l.nome_digitado || 'Colaborador'))]

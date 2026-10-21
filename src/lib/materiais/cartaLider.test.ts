@@ -6,10 +6,43 @@ import {
   linhasCartaProdutos,
   montarCarta,
   nomeArquivoCarta,
+  nomeDoLiderNosEnvios,
   nomesUnicos,
   quantidadeFinalProduto,
+  saudacaoCarta,
 } from './cartaLider'
 import { crc32, montarZip } from './zipSimples'
+
+describe('nome do líder e saudação da carta', () => {
+  const env = (seu_nome: string | null, user_agent: string | null = null) => ({ seu_nome, user_agent })
+  it('caso Abaeté: só envios do escritório -> null -> "equipe do ABAETÉ"', () => {
+    const envios = [
+      env('Importado da planilha', 'importado-planilha-2026-10-17'),
+      env('Escritório — kit completado na importação (decisão da gestora 18/10)', 'completar-kit-2026-10-18'),
+      env('Escritório — decisões da gestora 19/10', 'decisoes-gestora-2026-10-19'),
+    ]
+    const nome = nomeDoLiderNosEnvios(envios, 'Escritório D.')
+    expect(nome).toBeNull()
+    expect(saudacaoCarta({ responsavel: nome, contratoNome: 'ABAETÉ' })).toBe('Olá, equipe do ABAETÉ.')
+  })
+  it('líder real seguido de complemento do escritório: vale o líder', () => {
+    const envios = [env('Maria Souza', 'Mozilla/5.0'), env('Escritorio - comentários', 'comentarios-inspetores-2026-10-21')]
+    expect(nomeDoLiderNosEnvios(envios)).toBe('Maria Souza')
+  })
+  it('ignora lote do escritório pelo user_agent mesmo com nome comum', () => {
+    expect(nomeDoLiderNosEnvios([env('Fulano', 'a-confirmar-inspetor-2026-10-19')])).toBeNull()
+  })
+  it('só líder / líder mais recente', () => {
+    expect(nomeDoLiderNosEnvios([env('Ana Silva'), env('Bia Costa')])).toBe('Bia Costa')
+  })
+  it('nome vazio cai no responsável do pedido, se válido', () => {
+    expect(nomeDoLiderNosEnvios([env('  ')], 'Carlos Dias')).toBe('Carlos Dias')
+    expect(nomeDoLiderNosEnvios([env(null)], '')).toBeNull()
+  })
+  it('saudação com nome mantém o formato antigo', () => {
+    expect(saudacaoCarta({ responsavel: 'Ana S.', contratoNome: 'X' })).toBe('Olá, Ana S.')
+  })
+})
 
 const linha = (p: Partial<MatPedidoItem>): MatPedidoItem => ({
   id: 'l',

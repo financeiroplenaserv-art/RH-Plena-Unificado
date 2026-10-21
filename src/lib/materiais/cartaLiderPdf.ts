@@ -5,6 +5,7 @@ import {
   mesPorExtenso,
   nomeArquivoCarta,
   nomesUnicos,
+  saudacaoCarta,
   ROTULO_SECAO_CARTA,
   type CartaLider,
   type SecaoCarta,
@@ -92,7 +93,7 @@ function desenharCarta(doc: DocComTabela, autoTable: AutoTable, carta: CartaLide
 
   doc.setTextColor(30)
   doc.setFontSize(10)
-  const ola = carta.responsavel ? `Olá, ${carta.responsavel}.` : 'Olá.'
+  const ola = saudacaoCarta(carta)
   const intro = doc.splitTextToSize(
     t(`${ola} Este é o retorno do pedido do posto em ${mesPorExtenso(carta.competencia)}: o que você pediu e o que vamos enviar. Quando algo não puder ser enviado como foi pedido, a observação explica o motivo.`),
     largura - 2 * MARGEM
