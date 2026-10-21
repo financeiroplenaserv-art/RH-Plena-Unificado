@@ -216,3 +216,8 @@ DO $$ BEGIN
 END $$;
 commit;
 ```
+
+### 21/10 — respostas da gestora ao múltiplo de compra
+- **Pendente (ela vai consultar):** o arredondamento pela compra inteira do fornecedor (3 + 2 = 1 kit) e se o fornecedor abre o kit para entregar posto a posto. Hoje a 152 arredonda pela compra do fornecedor; mudar depois é ajuste pequeno.
+- **Confirmados:** Lustro sai do estoque, com a mesa enchendo os frascos; embalagem vale para o item inteiro (nenhum item tem embalagem por cor); "a mais p/ estoque" vai ao fornecedor do item na compra; preço por unidade no Excel; valores iniciais (Flanela branca kit 100, RZK 101 caixa 4, Lustro bombona 5L c/ 5 fracionado).
+- **Dazzle Home 5L = Detergente Neutro 5L** (Alklin/Essex, mesma empresa): NÃO foi criado item novo. Gravado em produção em 21/10 (backup em `dados-locais/comentarios_drive_2026-10-21/backup_detergente_neutro.json`): o nome virou "Detergente Neutro Dazzle Home 5L", o `nome_lider` ficou "Detergente Neutro 5L" e entraram 5 aliases (dazzle home etc.). Preço NÃO mudou: o catálogo (R$ 44,76 desde 06/2026) é mais recente que a NF 54.391 (10/2025, R$ 48,38). Fator = 1 (vendem a bombona avulsa).
