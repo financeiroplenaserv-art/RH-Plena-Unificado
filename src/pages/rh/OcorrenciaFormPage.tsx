@@ -139,7 +139,7 @@ export function OcorrenciaFormPage() {
             </span>
           </span>
         }
-        confirmLabel="Salvar e atualizar cadastro"
+        confirmLabel="Salvar e atualizar"
         secondaryLabel="Salvar sem atualizar"
         onConfirm={confirmarTransferencia}
         onSecondary={salvarSemAtualizarCadastro}
