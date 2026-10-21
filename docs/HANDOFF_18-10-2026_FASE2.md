@@ -257,3 +257,38 @@ Branch criada de `materiais-multiplo` (ff5dc0f). **Nada aplicado no banco nem pu
 3. **Sobra no depósito** (separou menos do que chegou) não entra no estoque central.
 4. **Datas de entrega por rota** (1º, 2º, 3º dia útil, com exceções) não foram implementadas.
 5. Marcar Essex e Compra Avulsa como "entrega no depósito" vale para TODA compra futura a eles (o snapshot é na criação do rascunho e no envio).
+
+## 21/10/2026 (fim) — RESUMO DO DIA E PENDÊNCIAS — LEIA ISTO PRIMEIRO
+**Branch com tudo:** `materiais-multiplo` (inclui a 152, a carta corrigida, a 153 e a 154; `materiais-orcamento-ceu` e `materiais-deposito` já foram juntadas nela por fast-forward). Tudo commitado; 1.200 testes passando. **Nada disso foi publicado.** A `main` tem só o commit `3a7d267` (caixa "Histórico de entregas") ainda não publicado.
+
+**Feito em produção (banco) hoje — todos conferidos:**
+- Comentários dos inspetores aplicados (seção acima) e crachá do Dagno removido da fila.
+- Dazzle Home 5L = Detergente Neutro (renomeado, `nome_lider` mantido, 5 aliases; preço NÃO mudou).
+- COMP-2026-10-001 já estava cancelada; teste do fluxo da gestora no Abaeté (COMP-002 a 005) DESFEITO e apagado — banco igual ao de antes (status: aprovado 1, em_validacao 35, nao_se_aplica 19, validado 3; 29 movimentos de estoque).
+- **Migration 152 + dados iniciais** (Flanela branca kit 100, RZK 101 caixa 4, Lustro bombona 5L c/ 5 fracionado).
+- **Migration 153 + `dados_orcamentos_153.sql`** (63 contratos com limite uniforme/EPI/crachá, 46 com limite de material, ABAETÉ 1851,54 — o 2000 era teste e não deixou rastro; crachá R$ 6 sem / R$ 8 com cordinha).
+- **13 preços Antolimp** (vigentes desde 01/10) em `mat_precos` — `dados-locais/precos_antolimp_2026-10-21/aplicar_13_precos_antolimp.sql`.
+
+**NÃO aplicado ainda:** migration **154** (depósito Plena) e `dados-locais/deposito_2026-10-21/dados_iniciais_154.sql`. **O frontend da branch exige a 154 aplicada ANTES do deploy** (sem ela a aba Separação mostra "Módulo em preparação" e a rota "Depósito Plena" não grava). Os dados iniciais da 154 dependem da confirmação da gestora (item 17 abaixo).
+
+**Ordem para o deploy de hoje (gestora autorizou deploy em 21/10, depois de outro agente mexer em outro módulo):**
+1. `git push origin materiais-multiplo materiais-deposito` — em 21/10 o GitHub pediu login de novo (credencial expirada); o agente não consegue autenticar.
+2. Aplicar a 154: `powershell -NoProfile -File scripts/lib/executar-arquivo-sql-management-api.ps1 -Arquivo supabase/migrations/154_materiais_entrega_deposito.sql` (o modo automático barra o agente — a gestora roda no terminal). Conferir: coluna `fornecedores.entrega_deposito`, 0 chr(65533), status dos pedidos igual.
+3. Merge de `materiais-multiplo` na `main` (junto com o que o outro agente fizer no outro módulo — resolver conflitos em AGENTS.md/handoff se houver) e deploy pelo checklist do AGENTS §10 (branch main limpa; `MODULO_FERIAS_LIBERADO = false`; conferir o hash do bundle depois).
+4. Só com o OK da gestora nos 5 pontos do item 17: `dados_iniciais_154.sql`.
+
+**PENDÊNCIAS (todas precisam ser resolvidas — lista viva também na memória `pendencias-gestora`):**
+1. Lista atualizada de fornecedores do Maciel — 35 itens com fornecedor padrão antigo (Contecom 16, Bralimpia 11, Loja das Bombas 6, Spartan 1, Espaço Limpeza 1). Corrigir ANTES de gerar/enviar a compra de outubro (prazo 25/10).
+2. Quais itens são compra avulsa × fornecedor (ex.: Abaeté — lábio da catadeira ×3, espanador de teto "de melhor qualidade").
+3. Múltiplo de compra: arredondar pela compra inteira do fornecedor (3 + 2 = 1 kit) e o fornecedor abrir o kit para entregar posto a posto — a gestora vai consultar.
+4. Abaeté — Neutralizador Floral extra ×2: necessidade real (Maciel × Patrícia). Atenção: o pedido do Abaeté voltou para "em validação".
+5. La Reserve — Becker Floral extra ×1 ("Kit Mensal" pelo inspetor, mas o kit tem Becker Talco).
+6. Preço dos itens de portaria (Livro de Ocorrências, Protocolo, Planilhas de Controle) — sem preço, o gasto de material fica menor no Painel.
+7. Preços Antolimp: decidir os 6 itens com fornecedor padrão antigo (Kit LT, Vulcan Floral 5L, Kit Limpa Vidros, Disco verde 400, Rodo 1 m, Limpol 500 mL — linhas ATENÇÃO em `atualizar_precos_antolimp.sql`); conferir embalagem dos sacos de lixo 40/60/100/240L e do papel higiênico c/12; confirmar os casamentos sugeridos (Sabão Surf, Mazocresol Uso Geral, balde espremedor completo, palha de aço grossa, espremedor Bettanin, cabo de mop 1,40); itens sem valor (Caneca, Pincel, Vaselina) e sem item no catálogo (Becker Pine 5L, Saco de lixo 20L).
+8. Depósito Plena (154) — confirmar: (a) entregue ao posto quando o inspetor marca "separado" (sem passo "levado na rota"); (b) falta na chegada cai nos últimos postos e o inspetor corrige; (c) sobra no depósito não vai ao estoque central; (d) datas das rotas (1º/2º/3º dia útil, com exceções) só documentadas; (e) MONTREAL (hoje rota 3) e ORLEANS (hoje rota 1) + 3 TELEX de lojas passam a "Depósito Plena"; Essex e Compra Avulsa = entrega no depósito.
+9. Números do Maciel para Estoque/Contagem/Separação (Marco C; contagem 16–19/11).
+10. Planilhas de pedido de julho, agosto e setembro/2026 (histórico de consumo para em junho).
+11. QR codes dos contratos (incl. LEIRIA) antes de 01/11.
+12. Preço atual do Detergente Neutro Dazzle Home (Essex), se mudou (catálogo R$ 44,76 desde 06/2026).
+13. Antigas: visual do Excel, rota é necessária?, dia de entrega das rotas, LUVA LÁTEX VERDE.
+14. Férias: backfill de `ferias_solicitacoes.departamento_id` antes de liberar o módulo.
