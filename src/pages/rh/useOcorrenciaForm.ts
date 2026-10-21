@@ -3,12 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { gerarPDFOcorrencia } from '@/lib/pdf'
-import { hojeBrasil } from '@/lib/utils'
+import { hojeBrasil, formatarData } from '@/lib/utils'
 import type { Ocorrencia, Colaborador } from '@/types/database'
 import {
   TIPOS_OCORRENCIA,
+  TIPO_TRANSFERENCIA,
   exigeDocumento,
+  preencherOrigemDestino,
 } from '@/lib/ocorrencias/tiposOcorrencia'
+import { nomeCurtoDepartamentoFuzzy, type DepartamentoFuzzy } from '@/lib/departamentos'
+import { montarPayloadAviso } from '@/lib/ocorrencias/avisoTransferencia'
+import { avisarTransferencia } from '@/services/avisoTransferenciaApi'
 
 export interface FormularioOcorrencia {
   colaborador_id: string
@@ -49,6 +54,10 @@ export function useOcorrenciaForm() {
   const [loading, setLoading] = useState(false)
   const [loadingOcorrencia, setLoadingOcorrencia] = useState(isEdicao)
 
+  const [departamentos, setDepartamentos] = useState<DepartamentoFuzzy[]>([])
+  const [postoDestinoId, setPostoDestinoId] = useState('')
+  const [confirmacaoTransferencia, setConfirmacaoTransferencia] = useState(false)
+
   const [form, setForm] = useState<FormularioOcorrencia>({
     colaborador_id: colaboradorId || '',
     macro_grupo: '',
@@ -75,6 +84,29 @@ export function useOcorrenciaForm() {
     ? TIPOS_OCORRENCIA.filter((t) => t.macroGrupo === form.macro_grupo)
     : []
 
+  const isTransferencia = !isEdicao && form.tipo_penalidade === TIPO_TRANSFERENCIA
+
+  // Lista completa (sem filtro de nome_curto) — padrão de resolução fuzzy.
+  useEffect(() => {
+    if (!isTransferencia || departamentos.length > 0) return
+    supabase
+      .from('departamentos')
+      .select('id, nome, nome_curto, empresa_id, status')
+      .then(({ data }) => setDepartamentos((data as DepartamentoFuzzy[]) || []))
+  }, [isTransferencia, departamentos.length])
+
+  const postoAtualTexto = colabSelecionado
+    ? nomeCurtoDepartamentoFuzzy(
+        departamentos,
+        colabSelecionado.departamento_id,
+        colabSelecionado.departamento,
+        colabSelecionado.empresa_id
+      )
+    : ''
+
+  const nomeCurtoDestino =
+    departamentos.find((d) => d.id === postoDestinoId)?.nome_curto?.trim() || ''
+
   const carregarEmpresa = useCallback(async (empresaId: string | null) => {
     if (!empresaId) return
     const { data } = await supabase
@@ -88,7 +120,7 @@ export function useOcorrenciaForm() {
   const carregarColaborador = useCallback(async (colabId: string) => {
     const { data } = await supabase
       .from('colaboradores')
-      .select('id, nome_completo, matricula, cargo, empresa_id')
+      .select('id, nome_completo, matricula, cargo, empresa_id, departamento_id, departamento')
       .eq('id', colabId)
       .single()
     if (data) {
@@ -151,11 +183,13 @@ export function useOcorrenciaForm() {
 
   const handleColaboradorChange = (colab: Colaborador | null) => {
     setColabSelecionado(colab)
+    setPostoDestinoId('')
     setForm((prev) => ({ ...prev, colaborador_id: colab?.id || '' }))
     carregarEmpresa(colab?.empresa_id || null)
   }
 
   const handleMacroGrupoChange = (macroGrupo: string) => {
+    setPostoDestinoId('')
     setForm((prev) => ({
       ...prev,
       macro_grupo: macroGrupo,
@@ -168,6 +202,7 @@ export function useOcorrenciaForm() {
   }
 
   const handleTipoPenalidadeChange = (tipo: string) => {
+    setPostoDestinoId('')
     const modelo = TIPOS_OCORRENCIA.find((t) => t.tipo === tipo)
     if (modelo) {
       const nomeEmpresa = empresaSelecionada?.nome || '[EMPRESA]'
@@ -193,6 +228,10 @@ export function useOcorrenciaForm() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
+  const handleGravidadeChange = (gravidade: string) => {
+    setForm((prev) => ({ ...prev, gravidade }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.colaborador_id) {
@@ -216,6 +255,41 @@ export function useOcorrenciaForm() {
       return
     }
 
+    if (isTransferencia) {
+      if (!postoDestinoId) {
+        toast.error('Selecione o posto de destino')
+        return
+      }
+      if (colabSelecionado?.departamento_id === postoDestinoId) {
+        toast.error('O posto de destino é o mesmo do cadastro atual')
+        return
+      }
+      const descricaoPreenchida = preencherOrigemDestino(
+        form.descricao,
+        postoAtualTexto,
+        nomeCurtoDestino
+      )
+      if (descricaoPreenchida !== form.descricao) {
+        setForm((prev) => ({ ...prev, descricao: descricaoPreenchida }))
+      }
+      setConfirmacaoTransferencia(true)
+      return
+    }
+
+    await salvar(false)
+  }
+
+  const confirmarTransferencia = async () => {
+    setConfirmacaoTransferencia(false)
+    await salvar(true)
+  }
+
+  const salvarSemAtualizarCadastro = async () => {
+    setConfirmacaoTransferencia(false)
+    await salvar(false)
+  }
+
+  const salvar = async (atualizarCadastro: boolean) => {
     setLoading(true)
 
     const precisaDocumento = exigeDocumento(form.tipo_penalidade)
@@ -256,7 +330,44 @@ export function useOcorrenciaForm() {
     if (error) {
       toast.error(isEdicao ? 'Erro ao salvar alterações: ' + error.message : 'Erro ao registrar: ' + error.message)
     } else {
-      toast.success(isEdicao ? 'Ocorrência atualizada com sucesso.' : (precisaDocumento ? 'Ocorrência registrada como PENDENTE. Anexe documentos comprobatórios para ativar.' : 'Ocorrência registrada como ATIVA.'))
+      let cadastroAtualizado = false
+      if (atualizarCadastro && colabSelecionado && postoDestinoId) {
+        const { data: atualizado, error: erroCadastro } = await supabase
+          .from('colaboradores')
+          .update({ departamento_id: postoDestinoId })
+          .eq('id', colabSelecionado.id)
+          .select('id')
+        if (erroCadastro || !atualizado || atualizado.length === 0) {
+          toast.warning('Ocorrência salva, mas o cadastro não foi atualizado para o novo posto. Atualize na ficha do colaborador.')
+        } else {
+          cadastroAtualizado = true
+        }
+      }
+      toast.success(
+        (isEdicao ? 'Ocorrência atualizada com sucesso.' : (precisaDocumento ? 'Ocorrência registrada como PENDENTE. Anexe documentos comprobatórios para ativar.' : 'Ocorrência registrada como ATIVA.')) +
+        (cadastroAtualizado ? ` Cadastro atualizado para o posto ${nomeCurtoDestino}.` : '')
+      )
+      if (isTransferencia && data) {
+        try {
+          await avisarTransferencia(
+            montarPayloadAviso({
+              colaboradorNome: colabSelecionado?.nome_completo || '',
+              matricula: colabSelecionado?.matricula || '',
+              postoOrigem: postoAtualTexto,
+              postoDestino: nomeCurtoDestino,
+              dataTransferencia: formatarData(form.data_ocorrencia),
+              gravidade: form.gravidade,
+              descricao: form.descricao,
+              atualizouCadastro: cadastroAtualizado,
+              ocorrenciaId: (data as Ocorrencia).id,
+            })
+          )
+          toast.success('Aviso enviado por e-mail ao DP e à mesa.')
+        } catch (erroAviso) {
+          console.error('Falha ao enviar aviso de transferência:', erroAviso)
+          toast.warning('Ocorrência salva, mas o aviso por e-mail falhou. Avise o DP e a mesa manualmente.')
+        }
+      }
       if (colabSelecionado && data) {
         // Falha no PDF não pode travar a tela nem impedir a navegação —
         // a ocorrência já está salva e o PDF pode ser gerado depois.
@@ -280,10 +391,20 @@ export function useOcorrenciaForm() {
     loading,
     loadingOcorrencia,
     tiposFiltrados,
+    isTransferencia,
+    postoAtualTexto,
+    nomeCurtoDestino,
+    postoDestinoId,
+    confirmacaoTransferencia,
+    setPostoDestinoId,
+    setConfirmacaoTransferencia,
     handleColaboradorChange,
     handleMacroGrupoChange,
     handleTipoPenalidadeChange,
+    handleGravidadeChange,
     handleChange,
     handleSubmit,
+    confirmarTransferencia,
+    salvarSemAtualizarCadastro,
   }
 }

@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Loader2, Save } from 'lucide-react'
+import { ArrowRightLeft, Loader2, Save } from 'lucide-react'
 import { MACRO_GRUPOS } from '@/lib/ocorrencias/tiposOcorrencia'
 import { RhShell } from './RhShell'
 import { useOcorrenciaForm } from './useOcorrenciaForm'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { FormHeader } from '@/components/ocorrencias/ocorrencia-form/FormHeader'
 import { ColaboradorSection } from '@/components/ocorrencias/ocorrencia-form/ColaboradorSection'
 import { MacroGrupoSection } from '@/components/ocorrencias/ocorrencia-form/MacroGrupoSection'
@@ -24,11 +25,20 @@ export function OcorrenciaFormPage() {
     loading,
     loadingOcorrencia,
     tiposFiltrados,
+    postoAtualTexto,
+    nomeCurtoDestino,
+    postoDestinoId,
+    confirmacaoTransferencia,
+    setPostoDestinoId,
+    setConfirmacaoTransferencia,
     handleColaboradorChange,
     handleMacroGrupoChange,
     handleTipoPenalidadeChange,
+    handleGravidadeChange,
     handleChange,
     handleSubmit,
+    confirmarTransferencia,
+    salvarSemAtualizarCadastro,
   } = useOcorrenciaForm()
 
   return (
@@ -56,6 +66,11 @@ export function OcorrenciaFormPage() {
             form={form}
             tiposFiltrados={tiposFiltrados}
             onTipoChange={handleTipoPenalidadeChange}
+            isEdicao={isEdicao}
+            onGravidadeChange={handleGravidadeChange}
+            postoAtualTexto={postoAtualTexto}
+            postoDestinoId={postoDestinoId}
+            onPostoDestinoChange={setPostoDestinoId}
           />
           <TituloSection value={form.titulo} onChange={handleChange} />
           <DadosOcorridoSection
@@ -94,6 +109,33 @@ export function OcorrenciaFormPage() {
           </div>
         </form>
       )}
+
+      <ConfirmDialog
+        open={confirmacaoTransferencia}
+        onOpenChange={setConfirmacaoTransferencia}
+        icon={<ArrowRightLeft className="h-5 w-5" />}
+        title="Confirmar transferência"
+        description={
+          <span className="block space-y-2">
+            <span className="block">O cadastro de</span>
+            <strong className="block break-words text-slate-800">
+              {colabSelecionado?.nome_completo}
+            </strong>
+            <span className="block">
+              passará a apontar para o posto{' '}
+              <strong className="break-words text-slate-800">{nomeCurtoDestino}</strong>.
+            </span>
+            <span className="block">
+              Avise o DP para atualizar a Alterdata no mesmo dia — caso contrário, o sync diário
+              pode voltar o posto antigo até a Alterdata ser atualizada.
+            </span>
+          </span>
+        }
+        confirmLabel="Salvar e atualizar cadastro"
+        secondaryLabel="Salvar sem atualizar"
+        onConfirm={confirmarTransferencia}
+        onSecondary={salvarSemAtualizarCadastro}
+      />
     </RhShell>
   )
 }

@@ -7,6 +7,8 @@ export interface TipoOcorrencia {
   texto: string
 }
 
+export const TIPO_TRANSFERENCIA = 'Transferência de Setor'
+
 export const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
   {
     macroGrupo: '1. Jornada e Ponto',
@@ -370,12 +372,12 @@ export const TIPOS_OCORRENCIA: TipoOcorrencia[] = [
   },
   {
     macroGrupo: '8. Administrativas',
-    tipo: 'Transferência de Setor',
+    tipo: TIPO_TRANSFERENCIA,
     gravidade: 'Leve',
     baseLegal: 'Art. 468 a 471 CLT — alteração contratual.',
     exigeAnexo: false,
     texto:
-      '[EMPRESA] — CNPJ: [CNPJ]\n\nO(A) colaborador(a) será transferido(a) do setor [SETOR ORIGEM] para o setor [SETOR DESTINO], a partir de ___/___/_____.\n\nConforme Art. 468 a 471 da CLT, a transferência observa as necessidades do serviço e os interesses do colaborador. Não haverá prejuízo salarial ou de função.',
+      '[EMPRESA] — CNPJ: [CNPJ]\n\nO(A) colaborador(a) será transferido(a) do posto [SETOR ORIGEM] para o posto [SETOR DESTINO], conforme os dados abaixo:\n\nData da transferência: ___/___/_____\nMotivo: [necessidade do serviço / recusa de adaptação no posto anterior / pedido do colaborador / outro]\nNovo horário de trabalho: [HORÁRIO ou "conforme escala do posto"]\nA quem procurar no novo posto: [NOME DO ENCARREGADO/LÍDER]\n\nConforme Art. 468 a 471 da CLT, a transferência observa as necessidades do serviço e os interesses do colaborador. Não haverá prejuízo salarial ou de função.',
   },
   {
     macroGrupo: '8. Administrativas',
@@ -490,4 +492,19 @@ export const TIPOS_SEM_ASSINATURA_OBRIGATORIA = [
 
 export function exigeDocumentoAssinado(tipo: string): boolean {
   return exigeDocumento(tipo) && !TIPOS_SEM_ASSINATURA_OBRIGATORIA.includes(tipo)
+}
+
+export const GRAVIDADES_SELECIONAVEIS = ['Leve', 'Moderada', 'Grave']
+
+// A transferência nem sempre é leve (pode nascer de recusa no posto, por
+// exemplo) — só nesse tipo a gravidade é escolhida no lançamento.
+export function permiteEscolherGravidade(tipo: string): boolean {
+  return tipo === TIPO_TRANSFERENCIA
+}
+
+// Nome vazio mantém o placeholder, para o operador preencher à mão.
+export function preencherOrigemDestino(descricao: string, origem: string, destino: string): string {
+  return descricao
+    .replaceAll('[SETOR ORIGEM]', origem || '[SETOR ORIGEM]')
+    .replaceAll('[SETOR DESTINO]', destino || '[SETOR DESTINO]')
 }
