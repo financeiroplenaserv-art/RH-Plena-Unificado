@@ -422,7 +422,7 @@ npx vitest
 - Local: `supabase/functions/aviso-transferencia/index.ts` (ver a regra "Ocorrências — transferência com mudança de posto" na seção 11).
 - Envia **e-mail para a mesa e o DP** (perfis `mesa`, `dp1`, `dp2` — e-mails lidos de `perfis.email` com service role) sempre que uma carta de transferência é emitida, com o lembrete de atualizar a lotação na Alterdata no mesmo dia. Chamada pelo `useOcorrenciaForm.salvar` (best-effort: falha vira toast amarelo, nunca bloqueia a gravação).
 - **Exige JWT de usuário** (`auth.getUser()` + perfil em `PERFIS_EMISSORES` = quem pode criar ocorrência). **CORS obrigatório** (mesmo padrão do `suporte`; lista opcional `ALLOWED_ORIGINS`). Rate limit 5/min por usuário.
-- Secrets: `RESEND_API_KEY` — **a mesma da function `suporte`, nenhuma secret nova**.
+- Secrets: `RESEND_API_KEY` — **a mesma da function `suporte`, nenhuma secret nova**. Remetente `CORH <corh@plenafacilities.com.br>` (domínio `plenafacilities.com.br` verificado no Resend em 21/10/2026 — registros DKIM/SPF na zona DNS da HostGator, Plano M → cPanel → Editor de Zona; o remetente de testes `onboarding@resend.dev` só entrega para o dono da conta, por isso a verificação era obrigatória).
 - Deploy (CLI bloqueado nesta máquina):
   ```bash
   powershell scripts/lib/implantar-edge-function.ps1 -Slug aviso-transferencia -Arquivo supabase/functions/aviso-transferencia/index.ts -VerifyJwt 1

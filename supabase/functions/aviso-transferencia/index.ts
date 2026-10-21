@@ -14,7 +14,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 
-const EMAIL_REMETENTE = 'CORH <onboarding@resend.dev>'
+const EMAIL_REMETENTE = 'CORH <corh@plenafacilities.com.br>'
 const PERFIS_DESTINATARIOS = ['mesa', 'dp1', 'dp2']
 const PERFIS_EMISSORES = [
   'admin',
