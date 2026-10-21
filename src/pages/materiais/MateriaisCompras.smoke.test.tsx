@@ -162,6 +162,22 @@ describe('Compras (Fase 2) — smoke', () => {
     )
   })
 
+  it('a mais para o estoque (152): mostra o total ao fornecedor e vai em p_reposicao', async () => {
+    render(
+      <MemoryRouter>
+        <MateriaisComprasPage />
+      </MemoryRouter>
+    )
+    fireEvent.change(screen.getByLabelText('A mais para o estoque — Cloro 5L'), { target: { value: '10' } })
+    expect(screen.getByText('+ 10 a mais p/ estoque')).toBeTruthy()
+    expect(screen.getByText('compra 16')).toBeTruthy()
+    fireEvent.click(screen.getByText('Gerar pedidos aos fornecedores'))
+    fireEvent.click(screen.getByText('Gerar rascunhos'))
+    await vi.waitFor(() => expect(gerar).toHaveBeenCalledTimes(1))
+    const reposicao = (gerar.mock.calls as unknown as unknown[][])[0][4]
+    expect(reposicao).toEqual([{ item_id: 'cloro', variacao_id: null, fornecedor_id: 'antolimp', quantidade: 10 }])
+  })
+
   it('Chegadas: mesa registra "chegou tudo" por contrato e confirma o remanejamento', async () => {
     estado.nivel = 'mesa'
     render(

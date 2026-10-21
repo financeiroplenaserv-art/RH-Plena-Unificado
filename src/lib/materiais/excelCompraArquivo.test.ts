@@ -90,3 +90,19 @@ describe('remanejado de outro posto no Excel', () => {
     expect(aoa[6]).toEqual(['Abaeté', 'Back Art', 'Cloro 5L', 3, 'a levar', 'sobrou'])
   })
 })
+
+describe('múltiplo de compra no arquivo (migration 152)', () => {
+  it('coluna Embalagem em texto na aba Compra, moeda deslocada e proteção mantida', async () => {
+    const comKit = [
+      cel({ item_id: 'fl', item_nome: 'Flanela branca', quantidade: 3, preco_unitario: 1.8, fator_compra: 100, unidade_compra: 'kit' }),
+      cel({ item_id: 'fl', item_nome: 'Flanela branca', quantidade: 97, preco_unitario: 1.8, contrato_id: null, contrato_nome: null, rota: null, entrega_local: 'escritorio', fator_compra: 100, unidade_compra: 'kit', qtd_arredondamento: 97 }),
+    ]
+    const wb = await montarWorkbookCompra(montarMatrizCompra(comKit, true), cab, true, true)
+    const ws = wb.getWorksheet('Compra')!
+    expect(ws.getCell(6, 3).value).toBe('Embalagem (como comprar)')
+    expect(ws.getCell(7, 3).value).toBe('1 kit c/ 100')
+    expect(ws.getCell(7, 3).alignment).toMatchObject({ horizontal: 'left' })
+    expect(ws.getCell(7, 4).numFmt).toContain('R$')
+    expect(prot(ws)?.sheet).toBe(true)
+  })
+})

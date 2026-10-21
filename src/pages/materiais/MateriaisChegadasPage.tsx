@@ -280,6 +280,13 @@ export function MateriaisChegadasPage() {
                                       {c.recebido_em ? ` em ${formatarData(c.recebido_em)}` : ''}
                                     </span>
                                   )}
+                                  {((c.qtd_fracionar ?? 0) > 0 || (c.qtd_arredondamento ?? 0) > 0) && (
+                                    <span className="block text-[11px] text-muted-foreground tabular-nums">
+                                      {(c.qtd_fracionar ?? 0) > 0 ? `${c.qtd_fracionar} para os postos (a mesa separa)` : ''}
+                                      {(c.qtd_fracionar ?? 0) > 0 && (c.qtd_arredondamento ?? 0) > 0 ? ' · ' : ''}
+                                      {(c.qtd_arredondamento ?? 0) > 0 ? `${c.qtd_arredondamento} sobra do múltiplo de compra` : ''}
+                                    </span>
+                                  )}
                                   {erro && <p className="mt-1 text-xs font-medium text-red-600">{erro}</p>}
                                 </TableCell>
                                 <TableCell className="text-right tabular-nums">{quantidadeComUnidade(c.quantidade, c.unidade)}</TableCell>

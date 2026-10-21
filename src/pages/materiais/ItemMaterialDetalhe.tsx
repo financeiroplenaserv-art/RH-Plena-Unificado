@@ -14,6 +14,8 @@ import { formatarData, formatarDataDeTimestamp, hojeBrasil, mascaraMoeda } from 
 import type { Fornecedor } from '@/types/database'
 import type { MatItem, MatItemVariacao } from '@/types/materiais'
 import { nomeExibicaoItem } from '@/lib/materiais/buscaItens'
+import { arredondarMultiplo, erroMultiploItem, textoEmbalagem } from '@/lib/materiais/multiploCompra'
+import { quantidadeComUnidade } from '@/lib/materiais/unidades'
 
 interface Props {
   item: MatItem | null
@@ -172,6 +174,8 @@ export function ItemMaterialDetalhe({ item, onFechar, podeEditar, catalogo, forn
         </section>
 
         <VisaoLiderSecao item={item} podeEditar={podeEditar} catalogo={catalogo} variacoes={doItem} />
+
+        <CompraItemSecao key={item.id} item={item} podeEditar={podeEditar} catalogo={catalogo} />
 
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">Preços</h3>
@@ -409,6 +413,116 @@ function VisaoLiderSecao({
           ))}
         </ul>
       )}
+    </section>
+  )
+}
+
+/**
+ * Como o fornecedor vende o item (migration 152): unidade de compra, quantas
+ * unidades do pedido vêm nela e "fracionado no escritório". A compra do mês
+ * arredonda para cima ao múltiplo e a sobra vai para o estoque.
+ */
+function CompraItemSecao({
+  item,
+  podeEditar,
+  catalogo,
+}: {
+  item: MatItem
+  podeEditar: boolean
+  catalogo: ReturnType<typeof useMateriaisCatalogo>
+}) {
+  const { carregar, salvarMultiploCompra } = catalogo
+  const [unidade, setUnidade] = useState(item.unidade_compra ?? '')
+  const [fator, setFator] = useState(String(item.fator_compra ?? 1))
+  const [fracionado, setFracionado] = useState(!!item.fracionado_escritorio)
+  const [salvando, setSalvando] = useState(false)
+  const erro = erroMultiploItem({ fator, unidadeCompra: unidade, fracionado, preparoEscritorio: item.preparo_escritorio })
+  const nFator = Number(fator.replace(',', '.'))
+  const mudou =
+    unidade.trim() !== (item.unidade_compra ?? '').trim() || nFator !== (item.fator_compra ?? 1) || fracionado !== !!item.fracionado_escritorio
+  const unidadePedido = item.unidade_pedido || 'unidade'
+  // Exemplo com 3 unidades pedidas (o caso da flanela que a gestora citou).
+  const ex = !erro && nFator > 1 ? arredondarMultiplo(3, nFator) : null
+
+  const salvar = async () => {
+    if (erro) return
+    setSalvando(true)
+    const ok = await salvarMultiploCompra(item.id, {
+      unidade_compra: unidade.trim() || null,
+      fator_compra: nFator,
+      fracionado_escritorio: fracionado,
+    })
+    setSalvando(false)
+    if (ok) carregar()
+  }
+
+  if (item.preparo_escritorio) {
+    return (
+      <section className="space-y-1">
+        <h3 className="text-sm font-semibold">Compra ao fornecedor</h3>
+        <p className="text-sm text-muted-foreground">Item preparado no escritório: não vai ao fornecedor.</p>
+      </section>
+    )
+  }
+
+  if (!podeEditar) {
+    const f = item.fator_compra ?? 1
+    return (
+      <section className="space-y-1">
+        <h3 className="text-sm font-semibold">Compra ao fornecedor</h3>
+        <p className="text-sm text-muted-foreground">
+          {f > 1
+            ? `Comprado em ${item.unidade_compra} com ${quantidadeComUnidade(f, unidadePedido)}; a compra arredonda para cima e a sobra vai para o estoque.`
+            : 'Comprado na mesma unidade do pedido.'}
+          {item.fracionado_escritorio ? ' Fracionado no escritório: o fornecedor entrega no escritório e a mesa separa para os postos.' : ''}
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold">Compra ao fornecedor</h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="item-unidade-compra">Como o fornecedor vende</Label>
+          <Input
+            id="item-unidade-compra"
+            value={unidade}
+            maxLength={40}
+            onChange={(e) => setUnidade(e.target.value)}
+            placeholder="ex.: kit, caixa, bombona 5L"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="item-fator-compra">Quantas unidades do pedido ({unidadePedido}) vêm nela</Label>
+          <Input
+            id="item-fator-compra"
+            inputMode="numeric"
+            className="tabular-nums"
+            value={fator}
+            onChange={(e) => setFator(e.target.value)}
+          />
+        </div>
+      </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1" checked={fracionado} onChange={(e) => setFracionado(e.target.checked)} />
+        <span>
+          Fracionado no escritório
+          <span className="block text-xs text-muted-foreground">
+            O fornecedor entrega no escritório e a mesa separa para os postos (ex.: Lustro — compra bombona 5L, os postos recebem frascos de 1L).
+          </span>
+        </span>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        1 = vende na mesma unidade do pedido (nada muda). Com mais de 1, a compra do mês arredonda para cima e o que sobrar vai para o estoque.
+        {ex &&
+          ` Ex.: pediram ${quantidadeComUnidade(3, unidadePedido)} → compra ${textoEmbalagem(ex.total, nFator, unidade)}, ${ex.sobra} para o estoque.`}
+      </p>
+      {erro && <p className="text-xs text-red-600">{erro}</p>}
+      <Button variant="outline" size="sm" onClick={salvar} loading={salvando} disabled={!mudou || !!erro}>
+        Salvar compra do item
+      </Button>
     </section>
   )
 }

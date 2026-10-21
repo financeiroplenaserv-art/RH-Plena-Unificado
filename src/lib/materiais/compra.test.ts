@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   agruparPorItem,
   avisoJanelaCompra,
+  compraDoGrupo,
+  montarPayloadReposicao,
   descricaoItemCompra,
   diasDesdeContagem,
   doMesAnterior,
@@ -163,7 +165,7 @@ describe('agruparPorItem e resumoPorFornecedor', () => {
   it('resumo por fornecedor com valor e itens sem preço', () => {
     const linhas = [l({}), l({ linha_id: 'l2', item_id: 'i2', preco_vigente: null, qtd_aprovada: 1 })]
     const r = resumoPorFornecedor(linhas, sugerirDestinos(linhas))
-    expect(r).toEqual([{ fornecedorId: 'antolimp', itens: 2, quantidade: 5, valor: 48, semPreco: 1 }])
+    expect(r).toEqual([{ fornecedorId: 'antolimp', itens: 2, quantidade: 5, valor: 48, semPreco: 1, sobra: 0 }])
   })
 })
 
@@ -224,5 +226,56 @@ describe('destino remanejado (migration 151)', () => {
     const p = normalizarPrevia({ linhas: [{ ...base, implantacao: true }], contratos: [{ id: 'c2', nome: 'Back Art', rota: '2' }] })
     expect(p.contratos).toEqual([{ id: 'c2', nome: 'Back Art', rota: 2 }])
     expect(p.linhas[0].implantacao).toBe(true)
+  })
+})
+
+describe('múltiplo de compra (migration 152)', () => {
+  const flanela = (p: Partial<LinhaPrevia>) =>
+    l({ item_id: 'fl', item_nome: 'Flanela branca de algodão', unidade: 'unidade', fator_compra: 100, unidade_compra: 'kit', preco_vigente: 1.8, ...p })
+
+  it('normaliza a prévia: fator inválido ou ausente vale 1', () => {
+    const p = normalizarPrevia({ linhas: [{ ...base, fator_compra: '100', unidade_compra: ' kit ' }, { ...base, linha_id: 'x', fator_compra: null }, { ...base, linha_id: 'y', fator_compra: 0 }] })
+    expect(p.linhas.map((x) => x.fator_compra)).toEqual([100, 1, 1])
+    expect(p.linhas[0].unidade_compra).toBe('kit')
+    expect(p.linhas[1].fracionado_escritorio).toBe(false)
+  })
+
+  it('3 flanelas pedidas → 1 kit de 100, 97 para o estoque', () => {
+    const linhas = [flanela({ qtd_aprovada: 3 })]
+    const [g] = agruparPorItem(linhas, sugerirDestinos(linhas))
+    expect(g).toMatchObject({ fatorCompra: 100, unidadeCompra: 'kit', totalCompra: 3 })
+    expect(compraDoGrupo(g)).toEqual({ postos: 3, aMais: 0, total: 100, sobra: 97, embalagem: '1 kit c/ 100' })
+    // a mais para o estoque entra antes do arredondamento
+    expect(compraDoGrupo(g, 100)).toMatchObject({ total: 200, sobra: 97, embalagem: '2 kits c/ 100' })
+  })
+
+  it('fator 1: nada muda (sem sobra, sem texto de embalagem)', () => {
+    const linhas = [l({ qtd_aprovada: 3 })]
+    const [g] = agruparPorItem(linhas, sugerirDestinos(linhas))
+    expect(compraDoGrupo(g)).toEqual({ postos: 3, aMais: 0, total: 3, sobra: 0, embalagem: null })
+    expect(compraDoGrupo(g, 2).total).toBe(5)
+  })
+
+  it('resumo por fornecedor arredonda por item e soma o a mais', () => {
+    const linhas = [flanela({ qtd_aprovada: 3 }), flanela({ linha_id: 'l2', contrato_nome: 'Telex', qtd_aprovada: 2 }), l({ linha_id: 'l3', qtd_aprovada: 4 })]
+    const rep = [{ item_id: 'i1', variacao_id: null, fornecedor_id: 'antolimp', quantidade: 6 }]
+    const r = resumoPorFornecedor(linhas, sugerirDestinos(linhas), undefined, rep)
+    // flanela 5 → 100 (sobra 95); cloro 4 + 6 a mais = 10
+    expect(r).toEqual([{ fornecedorId: 'antolimp', itens: 2, quantidade: 110, valor: 300, semPreco: 0, sobra: 95 }])
+  })
+
+  it('payload do a mais: ignora fora/texto livre/escritório e exige fornecedor', () => {
+    const linhas = [
+      flanela({ qtd_aprovada: 3 }),
+      l({ linha_id: 'l2', item_id: 'i2', item_nome: 'Livro', preparo_escritorio: true }),
+      l({ linha_id: 'l3', item_id: 'i3', item_nome: 'Sem fornecedor', fornecedor_padrao_id: null }),
+      l({ linha_id: 'l4', item_id: 'i4', item_nome: 'Fora' }),
+    ]
+    const grupos = agruparPorItem(linhas, sugerirDestinos(linhas))
+    const chave = (nome: string) => grupos.find((g) => g.descricao.startsWith(nome))!.chave
+    const aMais = { [chave('Flanela')]: 50, [chave('Livro')]: 5, [chave('Sem fornecedor')]: 2, [chave('Fora')]: 9 }
+    const r = montarPayloadReposicao(grupos, aMais, () => null, new Set([chave('Fora')]))
+    expect(r.payload).toEqual([{ item_id: 'fl', variacao_id: null, fornecedor_id: 'antolimp', quantidade: 50 }])
+    expect(r.erros).toEqual([{ chave: chave('Sem fornecedor'), erro: 'A mais para o estoque: escolha o fornecedor do item.' }])
   })
 })

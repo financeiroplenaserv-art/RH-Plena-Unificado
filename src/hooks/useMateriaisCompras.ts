@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { competenciaDe } from '@/lib/materiais/datas'
 import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
-import { normalizarPrevia, type PayloadLinhaCompra, type PreviaCompra } from '@/lib/materiais/compra'
+import { normalizarPrevia, type PayloadLinhaCompra, type PayloadReposicao, type PreviaCompra } from '@/lib/materiais/compra'
 import { normalizarChegadas, type DadosChegadas, type PayloadChegada, type PayloadRemanejamento } from '@/lib/materiais/chegadas'
 import { buscarPorIds } from './useMateriaisPedidos'
 import type { MatCompra, MatCompraItem, MatPedidoItem } from '@/types/materiais'
@@ -19,6 +19,8 @@ export const COLUNAS_COMPRA =
   'id, competencia, fornecedor_id, numero, tipo, status, antes_da_janela, data_corte, entrega_prevista, enviada_em, enviada_por, cancelada_em, cancelada_motivo, observacao, criado_por, created_at, lotes'
 export const COLUNAS_COMPRA_ITEM =
   'id, compra_id, item_id, variacao_id, contrato_id, item_nome, variacao_rotulo, unidade, categoria, contrato_nome, rota, quantidade, preco_unitario, qtd_recebida, motivo_recebimento, recebido_em, entrega_local'
+/** Colunas da migration 152 (múltiplo de compra) — lidas com fallback antes da migration. */
+export const COLUNAS_COMPRA_ITEM_MULTIPLO = 'unidade_compra, fator_compra, qtd_arredondamento, qtd_fracionar'
 /** Colunas da Fase 2 em mat_pedido_itens (lidas à parte — a tela funciona antes da migration). */
 export const COLUNAS_ITEM_PEDIDO_FASE2 =
   'id, atendimento, qtd_estoque, qtd_compra, compra_item_id, motivo_nao_atendido, qtd_entregue_estoque, qtd_recebida_fornecedor, motivo_entrega, entregue_em, qtd_entregue'
@@ -34,7 +36,22 @@ const numerarCelula = (c: MatCompraItem): MatCompraItem => ({
   preco_unitario: c.preco_unitario == null ? null : Number(c.preco_unitario),
   qtd_recebida: c.qtd_recebida == null ? null : Number(c.qtd_recebida),
   rota: c.rota == null ? null : (Number(c.rota) as MatCompraItem['rota']),
+  fator_compra: c.fator_compra == null ? 1 : Number(c.fator_compra),
+  unidade_compra: c.unidade_compra ?? null,
+  qtd_arredondamento: c.qtd_arredondamento == null ? 0 : Number(c.qtd_arredondamento),
+  qtd_fracionar: c.qtd_fracionar == null ? 0 : Number(c.qtd_fracionar),
 })
+
+/** Células de uma compra; sem a migration 152 lê só as colunas antigas (fator 1, sem sobra). */
+async function lerCelulasCompra(compraId: string): Promise<{ data: MatCompraItem[]; error: Erro }> {
+  const ler = (colunas: string) =>
+    selecionarTudo<Record<string, unknown>>((de, ate) =>
+      supabase.from('mat_compra_itens').select(colunas as '*').eq('compra_id', compraId).order('id').range(de, ate)
+    )
+  let r = await ler(`${COLUNAS_COMPRA_ITEM}, ${COLUNAS_COMPRA_ITEM_MULTIPLO}`)
+  if (r.error && estruturaAusente(r.error, true)) r = await ler(COLUNAS_COMPRA_ITEM)
+  return { data: (r.data ?? []) as unknown as MatCompraItem[], error: r.error as Erro }
+}
 
 const n = (v: unknown) => (v == null ? null : Number(v))
 
@@ -108,6 +125,8 @@ function rpcOk(error: Erro, acao: string): boolean {
 
 export interface ResultadoGerarCompras {
   linhas: number
+  /** Migration 152: quantos itens "a mais para o estoque" foram somados. */
+  reposicao?: number
   compras: { id: string; numero: string; fornecedor_id: string; antes_da_janela: boolean; celulas: number }[]
 }
 
@@ -139,16 +158,24 @@ export function useMateriaisCompras() {
   }, [])
 
   const gerar = useCallback(
-    async (competencia: string, tipo: 'mensal' | 'avulsa', linhas: PayloadLinhaCompra[], observacao: string | null) => {
+    async (
+      competencia: string,
+      tipo: 'mensal' | 'avulsa',
+      linhas: PayloadLinhaCompra[],
+      observacao: string | null,
+      reposicao: PayloadReposicao[] = []
+    ) => {
       const { data, error } = await supabase.rpc('mat_gerar_compras', {
         p_competencia: competenciaDe(competencia),
         p_tipo: tipo,
         p_linhas: linhas as unknown as Record<string, unknown>[],
         p_observacao: observacao,
+        // 152: só manda quando há "a mais para o estoque" (sem a migration a chamada antiga segue igual).
+        ...(reposicao.length ? { p_reposicao: reposicao as unknown as Record<string, unknown>[] } : {}),
       })
       if (!rpcOk(error, 'gerar os pedidos aos fornecedores')) return null
       const r = (data ?? { linhas: 0, compras: [] }) as unknown as ResultadoGerarCompras
-      if (!r.linhas) {
+      if (!r.linhas && !r.reposicao) {
         toast.error('Nenhuma linha foi gravada — confira e tente de novo.')
         return null
       }
@@ -182,9 +209,7 @@ export function useCompraMaterial() {
     }
     setEstruturaPendente(false)
     setCompra((rc.data as MatCompra | null) ?? null)
-    const ri = await selecionarTudo<MatCompraItem>((de, ate) =>
-      supabase.from('mat_compra_itens').select(COLUNAS_COMPRA_ITEM).eq('compra_id', id).order('id').range(de, ate)
-    )
+    const ri = await lerCelulasCompra(id)
     if (ri.error) toast.error(mensagemErroMateriais(ri.error, 'carregar os itens da compra'))
     setItens((ri.data ?? []).map(numerarCelula))
     setLoading(false)
@@ -260,9 +285,7 @@ export function useChegadasMateriais() {
   }, [])
 
   const carregarItens = useCallback(async (compraId: string): Promise<MatCompraItem[]> => {
-    const ri = await selecionarTudo<MatCompraItem>((de, ate) =>
-      supabase.from('mat_compra_itens').select(COLUNAS_COMPRA_ITEM).eq('compra_id', compraId).order('id').range(de, ate)
-    )
+    const ri = await lerCelulasCompra(compraId)
     if (ri.error) toast.error(mensagemErroMateriais(ri.error, 'carregar os itens da compra'))
     return (ri.data ?? []).map(numerarCelula)
   }, [])

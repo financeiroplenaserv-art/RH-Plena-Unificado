@@ -21,7 +21,7 @@ import { carregarDadosChegadas, useCompraMaterial } from '@/hooks/useMateriaisCo
 import { useMateriaisFornecedores } from '@/hooks/useMateriaisFornecedores'
 import { podeComprarMateriais, podeRegistrarChegadaMateriais, podeVerComprasMateriais } from '@/lib/permissoes'
 import { formatarData, formatarDataHora, mascaraMoeda } from '@/lib/utils'
-import { montarMatrizCompra, rotuloRota, tituloColuna } from '@/lib/materiais/excelCompra'
+import { embalagemDaLinha, montarMatrizCompra, rotuloRota, tituloColuna } from '@/lib/materiais/excelCompra'
 import { baixarExcelCompra } from '@/lib/materiais/excelCompraArquivo'
 import { descricaoRemanejamento, remanejamentosDaCompra, type RemanejamentoChegada } from '@/lib/materiais/chegadas'
 import { quantidadeComUnidade } from '@/lib/materiais/unidades'
@@ -281,13 +281,29 @@ export function MateriaisCompraDetalhePage() {
               <TableBody>
                 {m.linhas.map((l) => (
                   <TableRow key={l.chave} className="hover:bg-accent/40">
-                    <TableCell className="font-medium">{l.descricao}</TableCell>
+                    <TableCell className="font-medium">
+                      {l.descricao}
+                      {embalagemDaLinha(l) && (
+                        <span className="block text-[11px] font-normal text-muted-foreground">compra: {embalagemDaLinha(l)}</span>
+                      )}
+                    </TableCell>
                     {m.colunas.map((col) => (
                       <TableCell key={col.contratoId} className="text-right tabular-nums">
                         {l.porContrato[col.contratoId] ?? ''}
                       </TableCell>
                     ))}
-                    {m.temEstoque && <TableCell className="text-right tabular-nums">{l.estoque || ''}</TableCell>}
+                    {m.temEstoque && (
+                      <TableCell className="text-right tabular-nums">
+                        {l.estoque || ''}
+                        {(l.sobra > 0 || l.fracionar > 0) && (
+                          <span className="block text-[11px] text-muted-foreground">
+                            {l.fracionar > 0 ? `${l.fracionar} p/ postos (mesa separa)` : ''}
+                            {l.fracionar > 0 && l.sobra > 0 ? ' · ' : ''}
+                            {l.sobra > 0 ? `${l.sobra} sobra do múltiplo` : ''}
+                          </span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right font-semibold tabular-nums">{l.total}</TableCell>
                     {podeVerValores && (
                       <Fragment>

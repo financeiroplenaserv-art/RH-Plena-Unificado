@@ -10,6 +10,8 @@ import type { MatItem, MatItemVariacao, MatPreco } from '@/types/materiais'
 
 const COLUNAS_ITEM =
   'id, nome, categoria, unidade_pedido, fornecedor_id, validade_meses, tem_variacao, ativo, ordem, created_at, nome_lider, contratos_exclusivos, contratos_ocultos'
+/** Migration 152 (múltiplo de compra) — lidas à parte: sem a migration o catálogo funciona igual. */
+const COLUNAS_ITEM_COMPRA = 'id, preparo_escritorio, unidade_compra, fator_compra, fracionado_escritorio'
 const COLUNAS_VARIACAO = 'id, item_id, rotulo, ativo, ordem, created_at, oculta_lider'
 const COLUNAS_PRECO = 'id, item_id, variacao_id, fornecedor_id, preco, vigente_desde, criado_por, created_at'
 
@@ -23,6 +25,13 @@ export interface VisaoLiderInput {
   nome_lider: string | null
   contratos_exclusivos: string[] | null
   contratos_ocultos: string[] | null
+}
+
+/** Como o item é comprado (migration 152). */
+export interface MultiploCompraInput {
+  unidade_compra: string | null
+  fator_compra: number
+  fracionado_escritorio: boolean
 }
 
 /** Contrato de pedido (só o necessário para o seletor "Exclusivo dos contratos"). */
@@ -74,7 +83,24 @@ export function useMateriaisCatalogo() {
       else toast.error(mensagemErroMateriais(erro, 'carregar o catálogo'))
     } else {
       setEstruturaPendente(false)
-      setItens((ri.data as MatItem[]) ?? [])
+      let lista = (ri.data as MatItem[]) ?? []
+      // 152: múltiplo de compra (tolerante — antes da migration fica tudo com fator 1).
+      const rm = await supabase.from('mat_itens').select(COLUNAS_ITEM_COMPRA)
+      if (!rm.error && rm.data) {
+        const porId = new Map((rm.data as Record<string, unknown>[]).map((x) => [String(x.id), x]))
+        lista = lista.map((it) => {
+          const x = porId.get(it.id)
+          if (!x) return it
+          return {
+            ...it,
+            preparo_escritorio: x.preparo_escritorio === true,
+            unidade_compra: (x.unidade_compra as string | null) ?? null,
+            fator_compra: Number(x.fator_compra) || 1,
+            fracionado_escritorio: x.fracionado_escritorio === true,
+          }
+        })
+      }
+      setItens(lista)
       setVariacoes((rv.data as MatItemVariacao[]) ?? [])
       setPrecos((rp.data ?? []).map((p) => ({ ...p, preco: Number(p.preco) })))
       setContratos(rc.error ? [] : ((rc.data as ContratoResumo[]) ?? []))
@@ -122,6 +148,22 @@ export function useMateriaisCatalogo() {
     return true
   }, [])
 
+  /** Unidade de compra, fator e "fracionado no escritório" (migration 152). */
+  const salvarMultiploCompra = useCallback(async (id: string, dados: MultiploCompraInput) => {
+    const resultado = await supabase
+      .from('mat_itens')
+      .update({
+        unidade_compra: dados.unidade_compra?.trim() || null,
+        fator_compra: dados.fator_compra,
+        fracionado_escritorio: dados.fracionado_escritorio,
+      })
+      .eq('id', id)
+      .select('id')
+    if (!escritaOk(resultado, 'salvar como o item é comprado')) return false
+    toast.success('Compra do item atualizada')
+    return true
+  }, [])
+
   /** "Esconder do líder (é marca)" na variação (migration 136). */
   const alternarOcultaLider = useCallback(async (id: string, oculta: boolean) => {
     const resultado = await supabase.from('mat_item_variacoes').update({ oculta_lider: oculta }).eq('id', id).select('id')
@@ -149,6 +191,7 @@ export function useMateriaisCatalogo() {
     salvarVariacao,
     alternarVariacao,
     salvarVisaoLider,
+    salvarMultiploCompra,
     alternarOcultaLider,
     registrarPreco,
   }

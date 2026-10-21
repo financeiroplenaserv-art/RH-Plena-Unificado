@@ -236,12 +236,24 @@ export async function montarWorkbookCompra(
   })
 
   const ws2 = wb.addWorksheet('Compra')
-  montarAba(ws2, aoaCompraAoFornecedor(m, cab, comValores), {
+  // 152: com múltiplo de compra entra a coluna de texto "Embalagem" logo depois da quantidade.
+  const desloc = m.temMultiplo ? 1 : 0
+  const aoa2 = aoaCompraAoFornecedor(m, cab, comValores)
+  montarAba(ws2, aoa2, {
     linhaCab: LINHAS_CABECALHO,
     primeiraNumerica: 1,
     colunaTotal: 1,
-    colunasMoeda: comValores ? [2, 3] : [],
+    colunasMoeda: comValores ? [2 + desloc, 3 + desloc] : [],
   })
+  if (m.temMultiplo) {
+    // A coluna da embalagem é texto: alinhada à esquerda e em negrito (é o que o fornecedor lê).
+    for (let i = LINHAS_CABECALHO + 2; i < aoa2.length; i++) {
+      const cell = ws2.getCell(i, 3)
+      cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }
+      cell.font = { bold: true }
+    }
+    ws2.getColumn(3).width = Math.min(Math.max(...aoa2.slice(LINHAS_CABECALHO).map((l) => String(l[2] ?? '').length), 14) + 3, 40)
+  }
 
   const ws3 = wb.addWorksheet('Entrega')
   const aoa3: Celula[][] = [...aoa1.slice(0, LINHAS_CABECALHO), ...aoaEntregaPorRota(m, agrupar)]

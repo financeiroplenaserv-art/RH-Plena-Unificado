@@ -996,7 +996,14 @@ export type Database = {
       // Fase 2 (migration 147): compra ao fornecedor, chegada e separação
       mat_previa_compra: { Args: { p_competencia: string }; Returns: Record<string, unknown> }
       mat_gerar_compras: {
-        Args: { p_competencia: string; p_tipo: string; p_linhas: Record<string, unknown>[]; p_observacao?: string | null }
+        Args: {
+          p_competencia: string
+          p_tipo: string
+          p_linhas: Record<string, unknown>[]
+          p_observacao?: string | null
+          /** Migration 152: "comprar a mais para o estoque". */
+          p_reposicao?: Record<string, unknown>[] | null
+        }
         Returns: Record<string, unknown>
       }
       mat_gerar_compra_reposicao: {

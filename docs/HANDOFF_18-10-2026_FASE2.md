@@ -174,3 +174,45 @@ A gestora mandou prints do painel de comentários (34 comentários, 14 a 17/10).
 - **Crachá do Dagno (Abaeté) apagado da fila** — entregue em 14/10.
 - **Ficam como estão até decidirem**: ABAETÉ Neutralizador Floral extra 2 (pergunta do Maciel); LA RESERVE Becker Floral extra 1 ("Kit Mensal", mas o kit tem Talco). SUMMER BAY (comentário na resposta de setembro) ignorado — só outubro.
 - **Compra avulsa × fornecedor**: a gestora vai dizer quais itens são de compra avulsa (ex.: Abaeté lábio da catadeira ×3 e espanador de teto de melhor qualidade). Aguardar antes de gerar a compra desses itens.
+
+## 21/10/2026 — branch `materiais-multiplo`: múltiplo de compra (migration 152)
+Branch `materiais-multiplo` criada a partir da `main` `05f9a9f`. **Nada aplicado no banco nem publicado.** Regras completas no AGENTS.md (§8 migration 152; §11 "Materiais — múltiplo de compra").
+
+**O que entrou**
+- **Migration 152** (`supabase/migrations/152_materiais_multiplo_compra.sql`): no item, `unidade_compra` + `fator_compra` (padrão 1) + `fracionado_escritorio`; na célula da compra, snapshot da unidade/fator + `qtd_arredondamento` (sobra) + `qtd_fracionar`; interna `mat_arredondar_compra`; `mat_gerar_compras` com `p_reposicao` (a mais para o estoque), fracionado e arredondamento (lote da 150 e remanejado da 151 mantidos); `mat_gerar_compra_reposicao` arredonda; `mat_previa_compra` devolve fator/unidade/fracionado; `mat_cancelar_compra` devolve as linhas fracionadas. Recriadas do `pg_get_functiondef` real de 21/10 (backup em `dados-locais/backup_materiais_152_2026-10-21/`).
+- **Testes em transação desfeita**: migration aplicada 2× seguidas + `scripts/materiais/testes-fase2/152_testes.sql` → **TUDO OK** (constraints; prévia com fator; travas do "a mais"; 3 flanelas-tipo → sobra no estoque e total múltiplo de 100; fracionado sem célula de posto e linha em "estoque"; fator 1 sem sobra; 2ª geração no mesmo rascunho recalcula sem acumular; envio congela mesmo mudando o fator; chegada põe a bombona no estoque e a separação baixa a linha; cancelar com lote dividido devolve só a linha fracionada; reposição avulsa arredonda; função interna não exposta). Conferido depois: banco sem as colunas e com as mesmas compras (rollback).
+- **Catálogo** → detalhe do item → seção "Compra ao fornecedor" (como vende, quantas unidades vêm, fracionado; exemplo "pediram 3 unidades → compra 1 kit c/ 100, 97 para o estoque").
+- **Compras**: selos "compra em kit c/ 100" e "fracionado no escritório"; coluna **"A mais p/ estoque"** por item; sob "Do fornecedor" a prévia "compra 100 = 1 kit c/ 100 · sobra 97 → estoque"; a confirmação mostra a sobra por fornecedor.
+- **Excel**: aba "Compra" com a coluna "Embalagem (como comprar)" só quando há múltiplo; "Entrega" marca o fracionado como "Escritório (a mesa separa para os postos)". **Detalhe da compra** e **Chegadas** explicam a sobra e o fracionamento na célula de estoque.
+- Checks: `npm run lint` ok, `npx tsc -b` ok, `npm test` 86 arquivos / 1157 testes ok, `npm run build` ok.
+
+**Ordem para aplicar (coordenador)**
+1. Conferir se alguém recriou depois de 21/10 alguma das funções (comparar com `dados-locais/backup_materiais_152_2026-10-21/funcoes/`).
+2. `powershell -NoProfile -File scripts/lib/executar-arquivo-sql-management-api.ps1 -Arquivo supabase/migrations/152_materiais_multiplo_compra.sql` (arquivo UTF-8 — nunca inline).
+3. Conferir: `select count(*) from pg_proc where proname = 'mat_gerar_compras'` = 1; as 4 constraints (`mat_itens_fator_compra_ck`, `mat_itens_unidade_compra_ck`, `mat_itens_fracionado_ck`, `mat_compra_itens_multiplo_ck`); nenhuma função `mat_*` com `chr(65533)` (o arquivo aborta sozinho).
+4. Com o OK da gestora, os dados iniciais (abaixo).
+5. Merge `materiais-multiplo` → `main` e deploy pelo checklist da §10 (Férias segue `false`). A ordem migration × frontend não quebra nada (leitura com fallback), mas o "A mais p/ estoque" e a seção do Catálogo só gravam com a 152 aplicada.
+
+**Decisões técnicas a confirmar com a gestora**
+1. O arredondamento é feito na COMPRA INTEIRA do fornecedor (soma de todos os postos + estoque), não posto a posto: 3 flanelas na Abaeté + 2 na Telex = 5 → 1 kit (95 para o estoque). O fornecedor entrega os 3 e os 2 nos postos e o resto do kit no escritório.
+2. Item fracionado (Lustro): o posto passa a ser atendido pelo ESTOQUE (a mesa enche os frascos e separa); o fornecedor entrega as bombonas no escritório. Na chegada a quantidade é contada em frascos (1 bombona = 5).
+3. O fator vale para o item inteiro (todas as variações). Se algum item tiver embalagem diferente por variação (ex.: cor), avisar — dá para mudar depois.
+4. "A mais p/ estoque" vai para o fornecedor escolhido para o item nesta compra (ou o padrão) e também é arredondado.
+5. Excel: a quantidade continua na unidade do pedido (100 flanelas) e a coluna nova diz como pedir ("1 kit c/ 100"). Preço e valor seguem por unidade do pedido (o valor do kit = 100 × preço da flanela).
+6. Sem múltiplo cadastrado, nada muda (fator 1). Compra já enviada nunca é recalculada.
+
+**Dados iniciais sugeridos (NÃO aplicados)** — arquivo `dados-locais/multiplos_compra_2026-10-19/dados_iniciais_152.sql` (testado dentro de transação desfeita depois da 152). Fonte: `levantamento.csv` (NFs) + casos da gestora. Ficam com fator 1 os vendidos avulsos (Ambientador Fresno 5L, cloro, desinfetantes, neutralizador, Clean Grease, Use Pronto, papel toalha — o catálogo já pede por caixa —, panos em pacote) e os sacos (resolvidos no rótulo). "Dazzle Home 5L" não está no catálogo.
+```sql
+begin;
+UPDATE public.mat_itens SET unidade_compra = 'kit', fator_compra = 100
+ WHERE id = '919897ce-19d2-4f61-8e9a-70a73abf60db';   -- Flanela branca de algodão (gestora: kit de 100)
+UPDATE public.mat_itens SET unidade_compra = 'caixa', fator_compra = 4
+ WHERE id = '7ecad68a-1849-448d-a554-b7442d2029a2';   -- RZK 101 5L (NF 54.391 Alklin = Essex: só caixa c/ 4 — confirmar)
+UPDATE public.mat_itens SET unidade_compra = 'bombona 5L', fator_compra = 5, fracionado_escritorio = true
+ WHERE id = 'e4cf3555-c866-411f-a020-f4ced328a7d4';   -- Lustro 1L (compra bombona 5L, a mesa enche 5 frascos)
+DO $$ BEGIN
+  IF (SELECT count(*) FROM public.mat_itens WHERE fator_compra > 1) <> 3 THEN RAISE EXCEPTION 'esperava 3 itens com fator > 1'; END IF;
+  IF (SELECT count(*) FROM public.mat_itens WHERE fracionado_escritorio) <> 1 THEN RAISE EXCEPTION 'esperava 1 item fracionado'; END IF;
+END $$;
+commit;
+```

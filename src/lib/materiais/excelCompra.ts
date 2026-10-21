@@ -1,5 +1,6 @@
 import type { MatCompra, MatCompraItem } from '@/types/materiais'
 import { chaveItemCompra, descricaoItemCompra } from './compra'
+import { fatorValido, textoEmbalagem } from './multiploCompra'
 
 // Excel ao fornecedor (docs/PLANO_MATERIAIS_FASE2.md §6) — reproduz as abas
 // "Pedido ao Fornecedor por Cliente" e "Compra ao Fornecedor" da planilha:
@@ -25,11 +26,20 @@ export interface LinhaMatriz {
   total: number
   preco: number | null
   valor: number | null
+  /** Migration 152: múltiplo de compra (snapshot da compra; 1 = vende na unidade do pedido). */
+  fator: number
+  unidadeCompra: string | null
+  /** Parte do estoque que é sobra do arredondamento ao múltiplo. */
+  sobra: number
+  /** Parte do estoque que é a necessidade dos postos de item fracionado no escritório. */
+  fracionar: number
 }
 
 export interface MatrizCompra {
   colunas: ColunaContrato[]
   temEstoque: boolean
+  /** Alguma linha com fator de compra > 1 (o Excel ganha a coluna "Embalagem"). */
+  temMultiplo: boolean
   linhas: LinhaMatriz[]
   totalPorContrato: Record<string, number>
   totalEstoque: number
@@ -71,6 +81,10 @@ export function montarMatrizCompra(itens: MatCompraItem[], agrupar = true): Matr
         total: 0,
         preco: c.preco_unitario == null ? null : Number(c.preco_unitario),
         valor: null,
+        fator: fatorValido(c.fator_compra ?? 1),
+        unidadeCompra: c.unidade_compra ?? null,
+        sobra: 0,
+        fracionar: 0,
       }
       linhasMap.set(chave, l)
     }
@@ -83,6 +97,8 @@ export function montarMatrizCompra(itens: MatCompraItem[], agrupar = true): Matr
     } else {
       l.estoque += q
       totalEstoque += q
+      l.sobra += Number(c.qtd_arredondamento ?? 0) || 0
+      l.fracionar += Number(c.qtd_fracionar ?? 0) || 0
     }
     l.total += q
     totalGeral += q
@@ -108,6 +124,7 @@ export function montarMatrizCompra(itens: MatCompraItem[], agrupar = true): Matr
   return {
     colunas,
     temEstoque: totalEstoque > 0,
+    temMultiplo: linhas.some((l) => l.fator > 1),
     linhas,
     totalPorContrato,
     totalEstoque,
@@ -175,14 +192,27 @@ export function aoaPedidoPorCliente(m: MatrizCompra, cab: CabecalhoExcel, comVal
   return aoa
 }
 
-/** Aba "Compra ao Fornecedor": Item | Quantidade (+ preço e valor na versão interna) | Total Geral. */
+/** Texto da coluna "Embalagem" da linha ("1 kit c/ 100"); vazio quando vende na unidade do pedido. */
+export const embalagemDaLinha = (l: Pick<LinhaMatriz, 'total' | 'fator' | 'unidadeCompra'>) => textoEmbalagem(l.total, l.fator, l.unidadeCompra) ?? ''
+
+/** Título da coluna da embalagem (migration 152). Só existe quando algum item tem fator > 1. */
+export const TITULO_EMBALAGEM = 'Embalagem (como comprar)'
+
+/**
+ * Aba "Compra ao Fornecedor": Item | Quantidade [| Embalagem] (+ preço e valor na
+ * versão interna) | Total Geral. A quantidade continua na unidade do pedido (é a
+ * soma da matriz); a coluna "Embalagem" (152) diz como pedir ao fornecedor
+ * ("1 kit c/ 100") e só aparece quando algum item tem múltiplo de compra.
+ */
 export function aoaCompraAoFornecedor(m: MatrizCompra, cab: CabecalhoExcel, comValores: boolean): Celula[][] {
+  const emb = m.temMultiplo
   const aoa: Celula[][] = [
     ...blocoCabecalho(cab),
-    comValores ? ['Item', 'Quantidade', 'Preço unitário', 'Valor'] : ['Item', 'Quantidade'],
+    (['Item', 'Quantidade'] as Celula[]).concat(emb ? [TITULO_EMBALAGEM] : [], comValores ? ['Preço unitário', 'Valor'] : []),
   ]
-  for (const l of m.linhas) aoa.push(comValores ? [l.descricao, l.total, l.preco, l.valor] : [l.descricao, l.total])
-  aoa.push(comValores ? ['Total Geral', m.totalGeral, null, m.valorGeral] : ['Total Geral', m.totalGeral])
+  for (const l of m.linhas)
+    aoa.push(([l.descricao, l.total] as Celula[]).concat(emb ? [embalagemDaLinha(l)] : [], comValores ? [l.preco, l.valor] : []))
+  aoa.push((['Total Geral', m.totalGeral] as Celula[]).concat(emb ? [null] : [], comValores ? [null, m.valorGeral] : []))
   return aoa
 }
 
@@ -202,7 +232,9 @@ export function aoaEntregaPorRota(m: MatrizCompra, agrupar = true): Celula[][] {
   if (m.temEstoque) {
     for (const l of m.linhas) {
       if (!l.estoque) continue
-      aoa.push(agrupar ? ['Escritório', 'Estoque (reposição)', l.descricao, l.estoque] : ['Estoque (reposição)', l.descricao, l.estoque])
+      // 152: item fracionado ou com sobra do múltiplo também é entregue no escritório.
+      const destino = l.fracionar > 0 ? 'Escritório (a mesa separa para os postos)' : 'Estoque (reposição)'
+      aoa.push(agrupar ? ['Escritório', destino, l.descricao, l.estoque] : [destino, l.descricao, l.estoque])
     }
   }
   return aoa

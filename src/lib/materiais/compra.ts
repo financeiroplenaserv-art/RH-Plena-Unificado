@@ -1,4 +1,5 @@
 import type { RotaMaterial } from '@/types/materiais'
+import { arredondarMultiplo, fatorValido, textoEmbalagem } from './multiploCompra'
 
 // Preparar a compra do mês (Fase 2 — docs/PLANO_MATERIAIS_FASE2.md §3.3/§5).
 // Lógica pura: a prévia vem agregada do servidor (RPC mat_previa_compra) e
@@ -29,6 +30,11 @@ export interface LinhaPrevia {
   categoria: string | null
   ordem: number | null
   preparo_escritorio: boolean
+  /** Migration 152: múltiplo de compra (padrão 1 = como antes). */
+  fator_compra?: number
+  unidade_compra?: string | null
+  /** Migration 152: o fornecedor entrega no escritório e a mesa separa (a linha sai do estoque). */
+  fracionado_escritorio?: boolean
   qtd_aprovada: number
   preco_pedido: number | null
   preco_vigente: number | null
@@ -91,6 +97,9 @@ export function normalizarPrevia(bruto: unknown): PreviaCompra {
     rota: (numOuNulo(l.rota) as RotaMaterial | null) ?? null,
     ordem: numOuNulo(l.ordem),
     preparo_escritorio: l.preparo_escritorio === true,
+    fator_compra: fatorValido(l.fator_compra ?? 1),
+    unidade_compra: typeof l.unidade_compra === 'string' && l.unidade_compra.trim() ? l.unidade_compra.trim() : null,
+    fracionado_escritorio: l.fracionado_escritorio === true,
     implantacao: l.implantacao === true,
     qtd_aprovada: num(l.qtd_aprovada),
     preco_pedido: numOuNulo(l.preco_pedido),
@@ -309,6 +318,10 @@ export interface GrupoItemCompra {
   totalCompra: number
   /** Migration 151: levado de outro posto. */
   totalRemanejado: number
+  /** Migration 152: múltiplo de compra e fracionamento no escritório. */
+  fatorCompra: number
+  unidadeCompra: string | null
+  fracionado: boolean
   linhas: LinhaPrevia[]
 }
 
@@ -334,6 +347,9 @@ export function agruparPorItem(linhas: LinhaPrevia[], destinos: Record<string, D
         totalEstoque: 0,
         totalCompra: 0,
         totalRemanejado: 0,
+        fatorCompra: fatorValido(l.fator_compra ?? 1),
+        unidadeCompra: l.unidade_compra ?? null,
+        fracionado: l.fracionado_escritorio === true,
         linhas: [],
       }
       grupos.set(chave, g)
@@ -354,31 +370,114 @@ export function agruparPorItem(linhas: LinhaPrevia[], destinos: Record<string, D
   return lista.sort((a, b) => Number(a.textoLivre) - Number(b.textoLivre) || a.descricao.localeCompare(b.descricao, 'pt-BR'))
 }
 
-/** Resumo do que vai a cada fornecedor (prévia da confirmação). */
+/**
+ * "Comprar a mais para o estoque" (migration 152): uma entrada por item + variação,
+ * na compra do fornecedor escolhido. Vai como célula de reposição (sem contrato).
+ */
+export interface PayloadReposicao {
+  item_id: string
+  variacao_id: string | null
+  fornecedor_id: string | null
+  quantidade: number
+}
+
+/**
+ * Payload de p_reposicao a partir do que o comprador digitou por item (chave do
+ * grupo → quantidade). Ignora grupos fora desta geração, texto livre e itens do
+ * escritório; o fornecedor é o do item nesta compra (ou o padrão).
+ */
+export function montarPayloadReposicao(
+  grupos: GrupoItemCompra[],
+  aMais: Record<string, number>,
+  fornecedorDoGrupo: (g: GrupoItemCompra) => string | null,
+  fora?: Set<string>
+): { payload: PayloadReposicao[]; erros: { chave: string; erro: string }[] } {
+  const payload: PayloadReposicao[] = []
+  const erros: { chave: string; erro: string }[] = []
+  for (const g of grupos) {
+    const q = aMais[g.chave] ?? 0
+    if (!(q > 0) || fora?.has(g.chave) || g.textoLivre || g.preparoEscritorio || !g.itemId) continue
+    const forn = fornecedorDoGrupo(g) ?? g.fornecedorPadraoId
+    if (!forn) {
+      erros.push({ chave: g.chave, erro: 'A mais para o estoque: escolha o fornecedor do item.' })
+      continue
+    }
+    payload.push({ item_id: g.itemId, variacao_id: g.variacaoId, fornecedor_id: forn, quantidade: q })
+  }
+  return { payload, erros }
+}
+
+/**
+ * O que o item vai pedir ao fornecedor nesta geração (prévia; quem grava é o
+ * banco): pedido dos postos + a mais para o estoque, arredondado ao múltiplo.
+ */
+export function compraDoGrupo(
+  g: Pick<GrupoItemCompra, 'totalCompra' | 'fatorCompra' | 'unidadeCompra'>,
+  aMais = 0
+): { postos: number; aMais: number; total: number; sobra: number; embalagem: string | null } {
+  const extra = aMais > 0 ? aMais : 0
+  const a = arredondarMultiplo(g.totalCompra + extra, g.fatorCompra)
+  return {
+    postos: g.totalCompra,
+    aMais: extra,
+    total: a.total,
+    sobra: a.sobra,
+    embalagem: textoEmbalagem(a.total, g.fatorCompra, g.unidadeCompra),
+  }
+}
+
+/**
+ * Resumo do que vai a cada fornecedor (prévia da confirmação). Com o múltiplo de
+ * compra (152): soma o a mais para o estoque e arredonda cada item ao múltiplo,
+ * como o banco fará; `sobra` = o que passa do pedido e vai para o estoque.
+ */
 export function resumoPorFornecedor(
   linhas: LinhaPrevia[],
   destinos: Record<string, DestinoLinha>,
-  selecionadas?: Set<string>
-): { fornecedorId: string; itens: number; quantidade: number; valor: number; semPreco: number }[] {
-  const m = new Map<string, { itens: Set<string>; quantidade: number; valor: number; semPreco: number }>()
+  selecionadas?: Set<string>,
+  reposicao: PayloadReposicao[] = []
+): { fornecedorId: string; itens: number; quantidade: number; valor: number; semPreco: number; sobra: number }[] {
+  // fornecedor → item → { quantidade, fator, preço }
+  const m = new Map<string, Map<string, { q: number; fator: number; preco: number | null }>>()
+  const infoItem = new Map<string, { fator: number; preco: number | null }>()
+  for (const l of linhas)
+    if (l.item_id) infoItem.set(chaveItemCompra(l.item_id, l.variacao_id), { fator: fatorValido(l.fator_compra ?? 1), preco: l.preco_vigente })
+  const somar = (forn: string, chave: string, q: number) => {
+    const porItem = m.get(forn) ?? new Map<string, { q: number; fator: number; preco: number | null }>()
+    const info = infoItem.get(chave) ?? { fator: 1, preco: null }
+    const r = porItem.get(chave) ?? { q: 0, fator: info.fator, preco: info.preco }
+    r.q += q
+    porItem.set(chave, r)
+    m.set(forn, porItem)
+  }
   for (const l of linhas) {
     if (selecionadas && !selecionadas.has(l.linha_id)) continue
     const d = destinos[l.linha_id]
     if (!d || !d.fornecedorId || d.qtdCompra <= 0 || d.naoAtender || !l.item_id || l.preparo_escritorio) continue
-    const r = m.get(d.fornecedorId) ?? { itens: new Set<string>(), quantidade: 0, valor: 0, semPreco: 0 }
-    r.itens.add(chaveItemCompra(l.item_id, l.variacao_id))
-    r.quantidade += d.qtdCompra
-    if (l.preco_vigente == null) r.semPreco++
-    else r.valor += d.qtdCompra * l.preco_vigente
-    m.set(d.fornecedorId, r)
+    somar(d.fornecedorId, chaveItemCompra(l.item_id, l.variacao_id), d.qtdCompra)
   }
-  return [...m.entries()].map(([fornecedorId, r]) => ({
-    fornecedorId,
-    itens: r.itens.size,
-    quantidade: r.quantidade,
-    valor: Math.round(r.valor * 100) / 100,
-    semPreco: r.semPreco,
-  }))
+  for (const r of reposicao) if (r.fornecedor_id && r.quantidade > 0) somar(r.fornecedor_id, chaveItemCompra(r.item_id, r.variacao_id), r.quantidade)
+  return [...m.entries()].map(([fornecedorId, porItem]) => {
+    let quantidade = 0
+    let valor = 0
+    let semPreco = 0
+    let sobra = 0
+    for (const it of porItem.values()) {
+      const a = arredondarMultiplo(it.q, it.fator)
+      quantidade += a.total
+      sobra += a.sobra
+      if (it.preco == null) semPreco++
+      else valor += a.total * it.preco
+    }
+    return {
+      fornecedorId,
+      itens: porItem.size,
+      quantidade: Math.round(quantidade * 100) / 100,
+      valor: Math.round(valor * 100) / 100,
+      semPreco,
+      sobra: Math.round(sobra * 100) / 100,
+    }
+  })
 }
 
 /**

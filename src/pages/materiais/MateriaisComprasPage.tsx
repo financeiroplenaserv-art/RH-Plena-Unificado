@@ -25,6 +25,8 @@ import { competenciaDoMes } from '@/lib/materiais/painel'
 import {
   agruparPorItem,
   avisoJanelaCompra,
+  compraDoGrupo,
+  montarPayloadReposicao,
   diasDesdeContagem,
   doMesAnterior,
   erroDestino,
@@ -38,6 +40,7 @@ import {
   type LinhaPrevia,
 } from '@/lib/materiais/compra'
 import { ROTULO_STATUS_COMPRA, ROTULO_TIPO_COMPRA } from './comprasRotulos'
+import { rotuloMultiplo } from '@/lib/materiais/multiploCompra'
 import { toast } from 'sonner'
 import { CartasLiderBotoes } from '@/components/materiais/CartasLiderBotoes'
 
@@ -69,6 +72,8 @@ export function MateriaisComprasPage() {
   const [tipo, setTipo] = useState<'mensal' | 'avulsa'>('mensal')
   const [observacao, setObservacao] = useState('')
   const [gerando, setGerando] = useState(false)
+  // 152: "comprar a mais para o estoque", por item (chave do grupo → quantidade).
+  const [aMais, setAMais] = useState<Record<string, number>>({})
 
   const { carregar: carregarForn } = forn
   useEffect(() => {
@@ -80,6 +85,7 @@ export function MateriaisComprasPage() {
   useEffect(() => {
     setDestinos(previa ? sugerirDestinos(previa.linhas) : {})
     setFora(new Set())
+    setAMais({})
   }, [previa])
 
   const linhas = useMemo(() => previa?.linhas ?? [], [previa])
@@ -91,7 +97,6 @@ export function MateriaisComprasPage() {
     for (const g of grupos) if (!fora.has(g.chave)) for (const l of g.linhas) s.add(l.linha_id)
     return s
   }, [grupos, fora])
-  const resumo = useMemo(() => resumoPorFornecedor(linhas, destinos, selecionadas), [linhas, destinos, selecionadas])
   const errosPorLinha = useMemo(() => {
     const m = new Map<string, string>()
     for (const l of linhas) {
@@ -137,6 +142,8 @@ export function MateriaisComprasPage() {
     const ids = new Set(g.linhas.map((l) => destinos[l.linha_id]?.fornecedorId ?? null))
     return ids.size === 1 ? [...ids][0] : null
   }
+  const reposicao = montarPayloadReposicao(grupos, aMais, fornecedorDoGrupo, fora)
+  const resumo = resumoPorFornecedor(linhas, destinos, selecionadas, reposicao.payload)
 
   const abrirConfirmacao = () => {
     const { erros, payload } = montarPayloadCompra(linhas, destinos, selecionadas)
@@ -145,14 +152,18 @@ export function MateriaisComprasPage() {
       setAbertos(new Set(grupos.filter((g) => g.linhas.some((l) => errosPorLinha.has(l.linha_id))).map((g) => g.chave)))
       return
     }
-    if (payload.length === 0) return toast.error('Nenhuma linha selecionada.')
+    if (reposicao.erros.length) {
+      toast.error(reposicao.erros[0].erro)
+      return
+    }
+    if (payload.length === 0 && reposicao.payload.length === 0) return toast.error('Nenhuma linha selecionada.')
     setConfirmar(true)
   }
 
   const executar = async () => {
     const { payload } = montarPayloadCompra(linhas, destinos, selecionadas)
     setGerando(true)
-    const r = await gerar(competencia, tipo, payload, observacao.trim() || null)
+    const r = await gerar(competencia, tipo, payload, observacao.trim() || null, reposicao.payload)
     setGerando(false)
     setConfirmar(false)
     if (r) {
@@ -230,7 +241,7 @@ export function MateriaisComprasPage() {
             />
           )}
         </TableCell>
-        <TableCell colSpan={2} className="space-y-1">
+        <TableCell colSpan={3} className="space-y-1">
           {(d?.qtdRemanejada ?? 0) > 0 && !d?.naoAtender && (
             <div className="space-y-1 rounded-lg border border-violet-200 bg-violet-50/60 p-2 dark:border-violet-900 dark:bg-violet-950/30">
               {podeComprar ? (
@@ -353,7 +364,7 @@ export function MateriaisComprasPage() {
               </section>
             )}
 
-            <DataTable title="Preparar a compra — aprovado e ainda sem destino" count={grupos.length} minWidth={1080}>
+            <DataTable title="Preparar a compra — aprovado e ainda sem destino" count={grupos.length} minWidth={1180}>
               {grupos.length === 0 ? (
                 <EmptyState
                   icon={<PackageSearch className="size-6" />}
@@ -371,6 +382,9 @@ export function MateriaisComprasPage() {
                       <TableHead className="text-right">Do fornecedor</TableHead>
                       <TableHead className="text-right" title="Levado de outro posto: não é comprado nem sai do estoque">
                         Remanejado
+                      </TableHead>
+                      <TableHead className="text-right" title="Compra além do que os postos pediram; vai para o estoque (célula de reposição na mesma compra)">
+                        A mais p/ estoque
                       </TableHead>
                       <TableHead>Fornecedor</TableHead>
                       <TableHead className="text-right">Preço</TableHead>
@@ -425,6 +439,10 @@ export function MateriaisComprasPage() {
                               </div>
                               <div className="mt-1 flex flex-wrap gap-1 pl-6">
                                 {g.preparoEscritorio && <Selo tom="cinza">preparado no escritório — não vai ao fornecedor</Selo>}
+                                {!g.preparoEscritorio && rotuloMultiplo(g.fatorCompra, g.unidadeCompra) && (
+                                  <Selo tom="azul">{rotuloMultiplo(g.fatorCompra, g.unidadeCompra)}</Selo>
+                                )}
+                                {g.fracionado && <Selo tom="cinza">fracionado no escritório — os postos recebem do estoque</Selo>}
                                 {g.textoLivre && <Selo tom="vermelho">texto livre — ligue ao catálogo</Selo>}
                                 {comErro && <Selo tom="vermelho">pendência</Selo>}
                               </div>
@@ -437,8 +455,27 @@ export function MateriaisComprasPage() {
                                 <span className={`block text-[11px] ${g.saldo < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>saldo {g.saldo}</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums">{g.preparoEscritorio ? '—' : g.totalCompra}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {g.preparoEscritorio ? '—' : g.totalCompra}
+                              {!g.preparoEscritorio && !g.textoLivre && <CompraDoItem g={g} aMais={aMais[g.chave] ?? 0} />}
+                            </TableCell>
                             <TableCell className="text-right tabular-nums">{g.preparoEscritorio ? '—' : g.totalRemanejado || ''}</TableCell>
+                            <TableCell className="text-right">
+                              {g.preparoEscritorio || g.textoLivre ? (
+                                '—'
+                              ) : podeComprar ? (
+                                <Input
+                                  aria-label={`A mais para o estoque — ${g.descricao}`}
+                                  inputMode="decimal"
+                                  className="ml-auto h-8 w-20 text-right tabular-nums"
+                                  disabled={fora.has(g.chave)}
+                                  value={String(aMais[g.chave] ?? 0)}
+                                  onChange={(e) => setAMais((a) => ({ ...a, [g.chave]: num(e.target.value) }))}
+                                />
+                              ) : (
+                                <span className="tabular-nums">{aMais[g.chave] || ''}</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               {g.preparoEscritorio || g.textoLivre ? (
                                 '—'
@@ -584,6 +621,7 @@ export function MateriaisComprasPage() {
                 <span>
                   {r.itens} item(ns) · {r.quantidade} un · {mascaraMoeda(r.valor)}
                   {r.semPreco > 0 ? ` (+${r.semPreco} sem preço)` : ''}
+                  {r.sobra > 0 && <span className="block text-xs text-muted-foreground">{r.sobra} un a mais para o estoque (múltiplo de compra)</span>}
                 </span>
               </li>
             ))}
@@ -611,5 +649,26 @@ export function MateriaisComprasPage() {
         </div>
       </ConfirmDialog>
     </MateriaisShell>
+  )
+}
+
+/**
+ * Prévia do múltiplo de compra e do a mais para o estoque (migration 152): o
+ * que vai de fato ao fornecedor depois de arredondar. Só aparece quando muda
+ * alguma coisa (fator > 1, a mais ou fracionado). Quem grava é o banco.
+ */
+function CompraDoItem({ g, aMais }: { g: GrupoItemCompra; aMais: number }) {
+  const c = compraDoGrupo(g, aMais)
+  if (c.total === 0 || (g.fatorCompra === 1 && c.aMais === 0 && !g.fracionado)) return null
+  return (
+    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+      {c.aMais > 0 && <span className="block">+ {c.aMais} a mais p/ estoque</span>}
+      <span className="block font-medium text-foreground">
+        compra {c.total}
+        {c.embalagem ? ` = ${c.embalagem}` : ''}
+      </span>
+      {c.sobra > 0 && <span className="block">sobra {c.sobra} → estoque</span>}
+      {g.fracionado && <span className="block">entrega no escritório</span>}
+    </span>
   )
 }

@@ -125,3 +125,42 @@ describe('nomeArquivoCompra', () => {
     )
   })
 })
+
+describe('múltiplo de compra no Excel (migration 152)', () => {
+  // 3 flanelas na Abaeté, kit c/ 100 → a sobra (97) está na célula de estoque.
+  const comKit = [
+    cel({ item_id: 'fl', item_nome: 'Flanela branca de algodão', unidade: 'unidade', preco_unitario: 1.8, quantidade: 3, fator_compra: 100, unidade_compra: 'kit' }),
+    cel({ item_id: 'fl', item_nome: 'Flanela branca de algodão', unidade: 'unidade', preco_unitario: 1.8, contrato_id: null, contrato_nome: null, rota: null, quantidade: 97, entrega_local: 'escritorio', fator_compra: 100, unidade_compra: 'kit', qtd_arredondamento: 97 }),
+    cel({ item_id: 'lus', item_nome: 'Lustro 1L', unidade: 'frasco/garrafa 1L', preco_unitario: 19.36, contrato_id: null, contrato_nome: null, rota: null, quantidade: 10, entrega_local: 'escritorio', fator_compra: 5, unidade_compra: 'bombona 5L', qtd_fracionar: 8, qtd_arredondamento: 2 }),
+    cel({}),
+  ]
+  const cab = { fornecedor: 'Antolimp', competencia: '2026-10-01', numero: 'COMP-2026-10-002' }
+
+  it('a matriz guarda fator, sobra e fracionamento por item', () => {
+    const m = montarMatrizCompra(comKit)
+    expect(m.temMultiplo).toBe(true)
+    const fl = m.linhas.find((l) => l.chave.startsWith('fl'))!
+    expect(fl).toMatchObject({ total: 100, estoque: 97, sobra: 97, fracionar: 0, fator: 100, unidadeCompra: 'kit' })
+    const lus = m.linhas.find((l) => l.chave.startsWith('lus'))!
+    expect(lus).toMatchObject({ total: 10, estoque: 10, sobra: 2, fracionar: 8 })
+  })
+
+  it('aba Compra ganha a coluna Embalagem (só quando há múltiplo) sem mexer nas demais', () => {
+    const aoa = aoaCompraAoFornecedor(montarMatrizCompra(comKit), cab, false)
+    expect(aoa[5]).toEqual(['Item', 'Quantidade', 'Embalagem (como comprar)'])
+    expect(aoa).toContainEqual(['Flanela branca de algodão', 100, '1 kit c/ 100'])
+    expect(aoa).toContainEqual(['Lustro 1L', 10, '2 bombonas 5L c/ 5'])
+    expect(aoa).toContainEqual(['Cloro 5L', 6, ''])
+    expect(aoa[aoa.length - 1]).toEqual(['Total Geral', 116, null])
+    const comValores = aoaCompraAoFornecedor(montarMatrizCompra(comKit), cab, true)
+    expect(comValores[5]).toEqual(['Item', 'Quantidade', 'Embalagem (como comprar)', 'Preço unitário', 'Valor'])
+    // sem múltiplo: igual a antes
+    expect(aoaCompraAoFornecedor(montarMatrizCompra([cel({})]), cab, false)[5]).toEqual(['Item', 'Quantidade'])
+  })
+
+  it('aba Entrega: fracionado vai ao escritório para a mesa separar', () => {
+    const aoa = aoaEntregaPorRota(montarMatrizCompra(comKit))
+    expect(aoa).toContainEqual(['Escritório', 'Estoque (reposição)', 'Flanela branca de algodão', 97])
+    expect(aoa).toContainEqual(['Escritório', 'Escritório (a mesa separa para os postos)', 'Lustro 1L', 10])
+  })
+})

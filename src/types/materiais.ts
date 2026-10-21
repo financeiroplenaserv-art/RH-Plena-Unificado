@@ -25,6 +25,14 @@ export interface MatItem {
   contratos_exclusivos?: string[] | null
   /** Migration 137: contratos para os quais o item fica ESCONDIDO no link (ex.: esponja dupla face na CNOOC). */
   contratos_ocultos?: string[] | null
+  /** Migration 146: item preparado no escritório (nunca vai ao fornecedor). */
+  preparo_escritorio?: boolean
+  /** Migration 152: como o fornecedor vende (kit, caixa, bombona 5L). NULL com fator 1 = na unidade do pedido. */
+  unidade_compra?: string | null
+  /** Migration 152: unidades do pedido que vêm na unidade de compra (padrão 1). A compra arredonda para cima. */
+  fator_compra?: number
+  /** Migration 152: o fornecedor entrega no escritório e a mesa separa para os postos (ex.: Lustro). */
+  fracionado_escritorio?: boolean
 }
 
 export interface MatItemVariacao {
@@ -354,6 +362,13 @@ export interface MatCompraItem {
   motivo_recebimento: string | null
   recebido_em: string | null
   entrega_local: 'posto' | 'escritorio'
+  /** Migration 152 (snapshot): unidade e fator de compra do item na geração. */
+  unidade_compra?: string | null
+  fator_compra?: number
+  /** Migration 152: na célula de estoque, parte que é sobra do arredondamento ao múltiplo. */
+  qtd_arredondamento?: number
+  /** Migration 152: na célula de estoque, parte que é a necessidade dos postos de item fracionado. */
+  qtd_fracionar?: number
 }
 
 export type TipoLinhaCeuPedido = 'uniforme' | 'epi' | 'cracha'
