@@ -53,8 +53,10 @@ interface FiltroCeuPedidos {
   contrato: string
   /** Texto da peça (vazio = todas); casa por "contém" com o nome base. */
   peca: string
+  /** Tipo da linha (uniforme/epi/cracha); 'todos' = sem filtro. */
+  tipo: 'todos' | CeuPedidoItem['tipo']
 }
-const FILTRO_PADRAO: FiltroCeuPedidos = { etapa: 'abertas', contrato: 'todos', peca: '' }
+const FILTRO_PADRAO: FiltroCeuPedidos = { etapa: 'abertas', contrato: 'todos', peca: '', tipo: 'todos' }
 
 const ROTULO_TIPO: Record<CeuPedidoItem['tipo'], string> = { uniforme: 'Uniforme', epi: 'EPI', cracha: 'Crachá' }
 
@@ -128,6 +130,7 @@ export function CeuPedidosPage() {
       dados.linhas.filter((l) => {
         const p = pedidoPorId.get(l.pedido_id)
         if (filtro.contrato !== 'todos' && p?.contrato_id !== filtro.contrato) return false
+        if (filtro.tipo !== 'todos' && l.tipo !== filtro.tipo) return false
         if (!linhaCasaComPeca(l, filtro.peca, nomeDoItem)) return false
         if (filtro.etapa === 'abertas' || filtro.etapa === 'concluida') return true
         return etapaLinhaCeu(l.status) === filtro.etapa
@@ -281,7 +284,10 @@ export function CeuPedidosPage() {
     setFiltro(FILTRO_PADRAO)
   }
   const filtrosAtivos =
-    (filtro.etapa !== FILTRO_PADRAO.etapa ? 1 : 0) + (filtro.contrato !== FILTRO_PADRAO.contrato ? 1 : 0) + (filtro.peca.trim() ? 1 : 0)
+    (filtro.etapa !== FILTRO_PADRAO.etapa ? 1 : 0) +
+    (filtro.contrato !== FILTRO_PADRAO.contrato ? 1 : 0) +
+    (filtro.peca.trim() ? 1 : 0) +
+    (filtro.tipo !== FILTRO_PADRAO.tipo ? 1 : 0)
 
   return (
     <CeuShell>
@@ -330,6 +336,20 @@ export function CeuPedidosPage() {
                     {c.nome}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ceu-ped-tipo">Tipo</Label>
+              <select
+                id="ceu-ped-tipo"
+                className={CLASSE_SELECT}
+                value={rascunho.tipo}
+                onChange={(e) => setRascunho((r) => ({ ...r, tipo: e.target.value as FiltroCeuPedidos['tipo'] }))}
+              >
+                <option value="todos">Todos</option>
+                <option value="uniforme">Uniforme</option>
+                <option value="epi">EPI</option>
+                <option value="cracha">Crachá</option>
               </select>
             </div>
             <div className="space-y-1.5">
