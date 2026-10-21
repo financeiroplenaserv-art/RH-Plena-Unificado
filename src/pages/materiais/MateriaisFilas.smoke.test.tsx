@@ -108,6 +108,7 @@ vi.mock('@/hooks/useMateriaisPedidos', () => estabilizar({
       {
         contratoId: 'c1', nome: 'Abaeté', pedidoIds: ['p1'], pedidoMensalId: 'p1', status: ['validado'], valorPedido: 80, limite: 40,
         media6: 35, media12: 30, excedeu: true, diferenca: 40, percentual: 2, preenchidoPeloEscritorio: false, excecoes: 1, aprovavel: true, semPreco: 0,
+        ceu: { temLinhas: true, valor: 120, valorImplantacao: 0, limite: 100, excedeu: true, diferenca: 20, percentual: 1.2, semPreco: 0, crachasSemCusto: 0 },
         valorKit: 0, valorExtras: 80, extrasPendentes: 1, valorImplantacao: 350, pedidoImplantacaoIds: ['imp1'],
       },
     ],
@@ -240,7 +241,8 @@ describe('Filas de Materiais — smoke test', () => {
 
   it('Painel: destaca quem passou do limite', () => {
     renderizar(<MateriaisPainelPage />)
-    expect(screen.getByText('acima do limite')).toBeTruthy()
+    expect(screen.getByText('material acima do limite')).toBeTruthy()
+    expect(screen.getByText('uniforme/EPI/crachá acima do limite')).toBeTruthy()
     expect(screen.getByText('200%')).toBeTruthy()
     expect(screen.getByText('Ajustar item a item')).toBeTruthy()
     // Implantação de contrato (migration 151): selo e valor à parte, fora do limite

@@ -5,6 +5,7 @@ import { arredondar, compararComLimite, limiteContrato, limiteEfetivo, precoVige
 import { ehLinhaKit, qtdEfetiva, temExcecao } from './filas'
 import { aplicarSubstituicoes, aplicarSubstituicoesLinhas, type VinculoSubstituicao } from './substituicao'
 import { aprovadoOuDepois } from './pedidos'
+import { compararOrcamentoCeu, resumirOrcamentoCeu, type CustoCracha, type LinhaCeuOrcamento } from './orcamento'
 
 // Painel do gestor (docs/PLANO_MATERIAIS_FASE1.md §5.1): por contrato, valor
 // pedido no mês × limite (Kit × preço vigente) × média dos últimos 6 meses
@@ -51,12 +52,38 @@ export interface LinhaPainel {
   aprovavel: boolean
   /** Itens sem preço (ficam fora do valor/limite). */
   semPreco: number
+  /**
+   * Segundo orçamento (migration 153): uniforme, EPI e crachá do mês × limite_mensal_ceu.
+   * Só aviso — `excedeu` nunca bloqueia nada.
+   */
+  ceu: OrcamentoCeuPainel
+}
+
+export interface OrcamentoCeuPainel {
+  /** Há linha de uniforme/EPI/crachá no mês (pedido enviado). */
+  temLinhas: boolean
+  valor: number
+  /** Pedidos de implantação: valor à parte, fora do limite. */
+  valorImplantacao: number
+  /** NULL = sem limite definido (mostra só o valor, discreto). */
+  limite: number | null
+  excedeu: boolean
+  diferenca: number
+  percentual: number | null
+  semPreco: number
+  crachasSemCusto: number
 }
 
 export interface EntradaPainel {
-  contratos: (Pick<MatContrato, 'id' | 'nome' | 'ativo'> & Partial<Pick<MatContrato, 'limite_mensal'>>)[]
+  contratos: (Pick<MatContrato, 'id' | 'nome' | 'ativo'> & Partial<Pick<MatContrato, 'limite_mensal' | 'limite_mensal_ceu'>>)[]
   pedidosDoMes: (Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'> &
-    Partial<Pick<MatPedido, 'implantacao'>>)[]
+    Partial<Pick<MatPedido, 'implantacao' | 'status_ceu'>>)[]
+  /** Linhas de uniforme/EPI/crachá dos pedidos do mês (ceu_pedido_itens). */
+  linhasCeu?: LinhaCeuOrcamento[]
+  /** item_id do CEU -> preço vigente em centavos (ceu_itens_precos_vigentes). */
+  precosCeu?: Map<string, number>
+  /** Custo do crachá em R$ (materiais_config, sem e com cordinha); null = não definido. */
+  custoCracha?: CustoCracha
   itensDoMes: (Pick<
     MatPedidoItem,
     'pedido_id' | 'item_id' | 'variacao_id' | 'qtd_pedida' | 'qtd_validada' | 'qtd_aprovada' | 'preco_unitario'
@@ -78,6 +105,8 @@ export interface EntradaPainel {
 }
 
 const SEM_PRODUTOS = new Set(['cancelado', 'nao_se_aplica', 'rascunho'])
+/** Pedidos cujo CEU não conta no orçamento de uniforme/EPI/crachá. */
+const SEM_CEU = new Set(['cancelado', 'nao_se_aplica', 'rascunho'])
 
 export function montarPainel(e: EntradaPainel): LinhaPainel[] {
   const vinculos = e.substituicoes ?? []
@@ -97,8 +126,30 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
     itensPorPedido.set(i.pedido_id, lista)
   }
 
+  // Orçamento de uniforme/EPI/crachá (migration 153): todos os pedidos do contrato no mês
+  // (mensal e extra) cujo CEU não foi cancelado; implantação fica à parte.
+  const pedidosCeuPorContrato = new Map<string, Set<string>>()
+  const implantacaoIds = new Set<string>()
+  const contratoDoPedido = new Map<string, string>()
+  for (const p of e.pedidosDoMes) {
+    contratoDoPedido.set(p.id, p.contrato_id)
+    if (p.status_ceu && SEM_CEU.has(p.status_ceu)) continue
+    if (p.implantacao) implantacaoIds.add(p.id)
+    const s = pedidosCeuPorContrato.get(p.contrato_id) ?? new Set<string>()
+    s.add(p.id)
+    pedidosCeuPorContrato.set(p.contrato_id, s)
+  }
+  const linhasCeuPorContrato = new Map<string, LinhaCeuOrcamento[]>()
+  for (const l of e.linhasCeu ?? []) {
+    const cid = contratoDoPedido.get(l.pedido_id)
+    if (!cid || !pedidosCeuPorContrato.get(cid)?.has(l.pedido_id)) continue
+    const lista = linhasCeuPorContrato.get(cid) ?? []
+    lista.push(l)
+    linhasCeuPorContrato.set(cid, lista)
+  }
+
   return e.contratos
-    .filter((c) => c.ativo || pedidosPorContrato.has(c.id))
+    .filter((c) => c.ativo || pedidosPorContrato.has(c.id) || linhasCeuPorContrato.has(c.id))
     .map((c) => {
       const pedidos = pedidosPorContrato.get(c.id) ?? []
       let valor = 0
@@ -138,6 +189,14 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
       const valorPedido = arredondar(valor)
       const cmp = compararComLimite(valorPedido, limite)
       const mensal = pedidos.find((p) => p.tipo === 'mensal') ?? null
+      const linhasCeu = linhasCeuPorContrato.get(c.id) ?? []
+      const resumoCeu = resumirOrcamentoCeu({
+        linhas: linhasCeu,
+        precosCentavos: e.precosCeu ?? new Map(),
+        custoCracha: e.custoCracha,
+        implantacaoIds,
+      })
+      const cmpCeu = compararOrcamentoCeu(resumoCeu.valor, c.limite_mensal_ceu)
       return {
         contratoId: c.id,
         nome: c.nome,
@@ -163,9 +222,20 @@ export function montarPainel(e: EntradaPainel): LinhaPainel[] {
         excecoes,
         aprovavel: pedidos.some((p) => p.status_produtos === 'validado'),
         semPreco,
+        ceu: {
+          temLinhas: linhasCeu.length > 0,
+          valor: resumoCeu.valor,
+          valorImplantacao: resumoCeu.valorImplantacao,
+          limite: cmpCeu.limite,
+          excedeu: cmpCeu.excedeu,
+          diferenca: cmpCeu.diferenca,
+          percentual: cmpCeu.percentual,
+          semPreco: resumoCeu.semPreco,
+          crachasSemCusto: resumoCeu.crachasSemCusto,
+        },
       }
     })
-    .sort((a, b) => Number(b.excedeu) - Number(a.excedeu) || a.nome.localeCompare(b.nome, 'pt-BR'))
+    .sort((a, b) => Number(b.excedeu || b.ceu.excedeu) - Number(a.excedeu || a.ceu.excedeu) || a.nome.localeCompare(b.nome, 'pt-BR'))
 }
 
 /** Competência no formato do input type="month" (AAAA-MM) ↔ 1º dia do mês. */

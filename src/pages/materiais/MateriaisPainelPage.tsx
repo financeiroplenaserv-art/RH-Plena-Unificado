@@ -22,6 +22,8 @@ import { lerMateriaisConfig, salvarMateriaisConfig, useMateriaisPainel } from '@
 import { podeAprovarMateriais } from '@/lib/permissoes'
 import { hojeBrasil, mascaraMoeda } from '@/lib/utils'
 import { competenciaDoMes } from '@/lib/materiais/painel'
+import { avisosOrcamentoCeu, lerCustoCracha } from '@/lib/materiais/orcamento'
+import { Input } from '@/components/ui/input'
 
 // Painel do gestor (docs/PLANO_MATERIAIS_FASE1.md §5.1): por contrato, valor
 // pedido × limite (Kit × preço vigente) × média dos últimos 6 meses fechados
@@ -49,10 +51,20 @@ export function MateriaisPainelPage() {
   const [kitAuto, setKitAuto] = useState<boolean | null>(null)
   const [salvandoConfig, setSalvandoConfig] = useState(false)
   const [confirmarConfig, setConfirmarConfig] = useState<boolean | null>(null)
+  // Custo do crachá (migration 153): texto dos campos, R$ sem e com cordinha.
+  const [custoSem, setCustoSem] = useState('')
+  const [custoCom, setCustoCom] = useState('')
+  const [salvandoCusto, setSalvandoCusto] = useState(false)
 
   useEffect(() => {
     let vivo = true
-    lerMateriaisConfig().then((c) => vivo && setKitAuto(c.kit_aprovacao_automatica))
+    lerMateriaisConfig().then((c) => {
+      if (!vivo) return
+      setKitAuto(c.kit_aprovacao_automatica)
+      const f = (n: number | null | undefined) => (n == null ? '' : String(n).replace('.', ','))
+      setCustoSem(f(c.custo_cracha_sem_cordinha))
+      setCustoCom(f(c.custo_cracha_com_cordinha))
+    })
     return () => {
       vivo = false
     }
@@ -67,6 +79,16 @@ export function MateriaisPainelPage() {
     setConfirmarConfig(null)
   }
 
+  const lerValor = (t: string) => (t.trim() ? lerCustoCracha(t.replace(/\./g, '').replace(',', '.')) : null)
+  const custoInvalido = (t: string) => t.trim() !== '' && lerValor(t) == null
+  const salvarCustos = async () => {
+    if (custoInvalido(custoSem) || custoInvalido(custoCom)) return
+    setSalvandoCusto(true)
+    const ok = await salvarMateriaisConfig({ custo_cracha_sem_cordinha: lerValor(custoSem), custo_cracha_com_cordinha: lerValor(custoCom) })
+    setSalvandoCusto(false)
+    if (ok) carregar(competencia)
+  }
+
   useEffect(() => {
     carregar(competencia)
     setSelecionados(new Set())
@@ -75,8 +97,8 @@ export function MateriaisPainelPage() {
   const lista = useMemo(
     () =>
       linhas.filter((l) => {
-        if (filtro.mostrar === 'com_pedido') return l.pedidoIds.length > 0
-        if (filtro.mostrar === 'acima') return l.excedeu
+        if (filtro.mostrar === 'com_pedido') return l.pedidoIds.length > 0 || l.ceu.temLinhas
+        if (filtro.mostrar === 'acima') return l.excedeu || l.ceu.excedeu
         if (filtro.mostrar === 'aprovar') return l.aprovavel
         return true
       }),
@@ -88,6 +110,8 @@ export function MateriaisPainelPage() {
       pedido: lista.reduce((s, l) => s + l.valorPedido, 0),
       limite: lista.reduce((s, l) => s + l.limite, 0),
       acima: lista.filter((l) => l.excedeu).length,
+      ceu: lista.reduce((s, l) => s + l.ceu.valor, 0),
+      acimaCeu: lista.filter((l) => l.ceu.excedeu).length,
     }),
     [lista]
   )
@@ -157,10 +181,34 @@ export function MateriaisPainelPage() {
             </section>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          {podeAprovar && kitAuto != null && (
+            <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="min-w-0 flex-1 basis-64 space-y-0.5">
+                <p className="text-sm font-semibold">Custo do crachá</p>
+                <p className="text-sm text-muted-foreground">
+                  Entra no orçamento de uniforme/EPI/crachá do contrato. Vazio = custo não definido (o crachá não é somado).
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="custo-sem">Sem cordinha (R$)</Label>
+                <Input id="custo-sem" inputMode="decimal" className="w-32" value={custoSem} onChange={(e) => setCustoSem(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="custo-com">Com cordinha (R$)</Label>
+                <Input id="custo-com" inputMode="decimal" className="w-32" value={custoCom} onChange={(e) => setCustoCom(e.target.value)} />
+              </div>
+              <Button onClick={salvarCustos} disabled={salvandoCusto || custoInvalido(custoSem) || custoInvalido(custoCom)}>
+                {salvandoCusto ? 'Salvando…' : 'Salvar custos'}
+              </Button>
+            </section>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Resumo titulo="Pedido no mês" valor={mascaraMoeda(totais.pedido)} />
             <Resumo titulo="Soma dos limites" valor={mascaraMoeda(totais.limite)} />
-            <Resumo titulo="Contratos acima do limite" valor={String(totais.acima)} alerta={totais.acima > 0} />
+            <Resumo titulo="Material acima do limite" valor={String(totais.acima)} alerta={totais.acima > 0} />
+            <Resumo titulo="Uniforme/EPI/crachá no mês" valor={mascaraMoeda(totais.ceu)} />
+            <Resumo titulo="Uniforme/EPI/crachá acima do limite" valor={String(totais.acimaCeu)} alerta={totais.acimaCeu > 0} />
           </div>
 
           <FiltrosAtivosBadge total={filtro.mostrar !== FILTRO_PADRAO.mostrar ? 1 : 0} onLimpar={limpar} />
@@ -175,14 +223,14 @@ export function MateriaisPainelPage() {
                 onChange={(e) => setRascunho({ mostrar: e.target.value as FiltroPainel['mostrar'] })}
               >
                 <option value="com_pedido">Contratos com pedido</option>
-                <option value="acima">Só acima do limite</option>
+                <option value="acima">Só acima de algum limite</option>
                 <option value="aprovar">Só aguardando aprovação</option>
                 <option value="todos">Todos os contratos</option>
               </select>
             </div>
           </Filters>
 
-          <DataTable title={`Contratos — ${rotuloCompetencia(competencia)}`} count={lista.length} minWidth={960}>
+          <DataTable title={`Contratos — ${rotuloCompetencia(competencia)}`} count={lista.length} minWidth={1180}>
             {loading ? (
               <LoadingScreen className="h-48" />
             ) : lista.length === 0 ? (
@@ -203,9 +251,10 @@ export function MateriaisPainelPage() {
                     )}
                     <TableHead>Contrato</TableHead>
                     <TableHead>Situação</TableHead>
-                    <TableHead className="text-right">Pedido</TableHead>
-                    <TableHead className="text-right">Limite</TableHead>
+                    <TableHead className="text-right">Material — pedido</TableHead>
+                    <TableHead className="text-right">Material — limite</TableHead>
                     <TableHead className="text-right">% do limite</TableHead>
+                    <TableHead className="text-right">Uniforme/EPI/crachá</TableHead>
                     <TableHead className="text-right">Média 6 meses</TableHead>
                     <TableHead className="text-right">Média 12 meses</TableHead>
                     <TableHead />
@@ -213,7 +262,7 @@ export function MateriaisPainelPage() {
                 </TableHeader>
                 <TableBody>
                   {lista.map((l) => (
-                    <TableRow key={l.contratoId} className={`hover:bg-accent/40 ${l.excedeu ? 'bg-red-50/70 dark:bg-red-950/20' : ''}`}>
+                    <TableRow key={l.contratoId} className={`hover:bg-accent/40 ${l.excedeu || l.ceu.excedeu ? 'bg-red-50/70 dark:bg-red-950/20' : ''}`}>
                       {podeAprovar && (
                         <TableCell>
                           <input
@@ -228,7 +277,8 @@ export function MateriaisPainelPage() {
                       <TableCell>
                         <p className="font-medium">{l.nome}</p>
                         <div className="mt-0.5 flex flex-wrap gap-1">
-                          {l.excedeu && <Selo tom="vermelho">acima do limite</Selo>}
+                          {l.excedeu && <Selo tom="vermelho">material acima do limite</Selo>}
+                          {l.ceu.excedeu && <Selo tom="vermelho">uniforme/EPI/crachá acima do limite</Selo>}
                           {l.preenchidoPeloEscritorio && <Selo tom="cinza">preenchido pelo escritório</Selo>}
                           {l.pedidoImplantacaoIds.length > 0 && (
                             <Selo tom="roxo" title="Pedido de implantação de contrato: abertura do posto, fora da média e do limite">
@@ -279,6 +329,27 @@ export function MateriaisPainelPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{l.percentual != null ? `${Math.round(l.percentual * 100)}%` : '—'}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${l.ceu.excedeu ? 'font-semibold text-red-700 dark:text-red-400' : ''}`}>
+                        {l.ceu.temLinhas || l.ceu.limite != null ? mascaraMoeda(l.ceu.valor) : '—'}
+                        {l.ceu.limite != null ? (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            limite {mascaraMoeda(l.ceu.limite)}
+                            {l.ceu.percentual != null ? ` · ${Math.round(l.ceu.percentual * 100)}%` : ''}
+                          </span>
+                        ) : (
+                          l.ceu.temLinhas && <span className="block text-xs font-normal text-muted-foreground">sem limite definido</span>
+                        )}
+                        {l.ceu.valorImplantacao > 0 && (
+                          <span className="block text-xs font-normal text-violet-700 dark:text-violet-300">
+                            + implantação {mascaraMoeda(l.ceu.valorImplantacao)} (fora do limite)
+                          </span>
+                        )}
+                        {avisosOrcamentoCeu(l.ceu).map((a) => (
+                          <span key={a} className="block text-xs font-normal text-amber-700 dark:text-amber-400">
+                            {a}
+                          </span>
+                        ))}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{mascaraMoeda(l.media6)}</TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">{mascaraMoeda(l.media12)}</TableCell>
                       <TableCell className="text-right">

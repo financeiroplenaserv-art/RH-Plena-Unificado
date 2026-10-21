@@ -50,9 +50,14 @@ interface FormContrato {
   equipeExtra: string[]
   /** Limite mensal em R$ (texto; vazio = calculado pelo kit). Só gestor/admin edita. */
   limite: string
+  /** Limite mensal de uniforme/EPI/crachá em R$ (texto; vazio = sem limite). Migration 153. */
+  limiteCeu: string
 }
 
-const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '', equipeExtra: [], limite: '' }
+const FORM_VAZIO: FormContrato = { id: null, departamento_id: '', nome: '', rota: '', recebe_limpeza: true, ativo: true, observacao: '', equipeExtra: [], limite: '', limiteCeu: '' }
+
+/** "1.500,50" -> 1500.5; vazio -> null. */
+const lerReais = (t: string): number | null => (t.trim() ? Number(t.replace(/\./g, '').replace(',', '.')) : null)
 
 export function MateriaisContratosPage() {
   const { user } = useAuth()
@@ -61,7 +66,7 @@ export function MateriaisContratosPage() {
   const podeRota = user ? podeEditarRotaMateriais(user.nivel_acesso) : false
   const podeLimite = user ? podeAprovarMateriais(user.nivel_acesso) : false
   const podeLinks = user ? podeGerenciarLinksMateriais(user.nivel_acesso) : false
-  const { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, loading, estruturaPendente, carregar, salvar, definirRota } =
+  const { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, suportaLimiteCeu, loading, estruturaPendente, carregar, salvar, definirRota } =
     useMateriaisContratos()
 
   const [filtro, setFiltro] = useFiltroPersistente<FiltroContratos>('materiais.contratos', FILTRO_PADRAO)
@@ -112,6 +117,7 @@ export function MateriaisContratosPage() {
             observacao: c.observacao ?? '',
             equipeExtra: c.departamentos_equipe_extra ?? [],
             limite: c.limite_mensal == null ? '' : String(c.limite_mensal).replace('.', ','),
+            limiteCeu: c.limite_mensal_ceu == null ? '' : String(c.limite_mensal_ceu).replace('.', ','),
           }
         : FORM_VAZIO
     )
@@ -127,9 +133,11 @@ export function MateriaisContratosPage() {
   const outrosDoDepartamento = form?.departamento_id
     ? contratos.filter((c) => c.departamento_id === form.departamento_id && c.id !== form.id)
     : []
-  const limiteNumero = form && form.limite.trim() ? Number(form.limite.replace(/\./g, '').replace(',', '.')) : null
+  const limiteNumero = form ? lerReais(form.limite) : null
   const limiteInvalido = limiteNumero != null && (!Number.isFinite(limiteNumero) || limiteNumero < 0)
-  const formValido = !!form && !!form.departamento_id && !!form.nome.trim() && !duplicado && !limiteInvalido
+  const limiteCeuNumero = form ? lerReais(form.limiteCeu) : null
+  const limiteCeuInvalido = limiteCeuNumero != null && (!Number.isFinite(limiteCeuNumero) || limiteCeuNumero < 0)
+  const formValido = !!form && !!form.departamento_id && !!form.nome.trim() && !duplicado && !limiteInvalido && !limiteCeuInvalido
 
   const handleSalvar = async () => {
     if (!form || !formValido) return
@@ -143,6 +151,7 @@ export function MateriaisContratosPage() {
         ativo: form.ativo,
         observacao: form.observacao.trim() || null,
         ...(podeLimite ? { limite_mensal: limiteNumero } : {}),
+        ...(podeLimite && suportaLimiteCeu ? { limite_mensal_ceu: limiteCeuNumero } : {}),
         ...(suportaEquipeExtra ? { departamentos_equipe_extra: form.equipeExtra.filter((d) => d !== form.departamento_id) } : {}),
       },
       form.id
@@ -233,7 +242,8 @@ export function MateriaisContratosPage() {
                     <TableHead>Rota</TableHead>
                     <TableHead>Limpeza</TableHead>
                     <TableHead className="text-right">Itens no kit</TableHead>
-                    <TableHead className="text-right">Limite mensal</TableHead>
+                    <TableHead className="text-right">Limite material</TableHead>
+                    {suportaLimiteCeu && <TableHead className="text-right">Limite uniforme/EPI/crachá</TableHead>}
                     <TableHead>Situação</TableHead>
                     <TableHead>Link</TableHead>
                     <TableHead className="w-32" />
@@ -274,6 +284,15 @@ export function MateriaisContratosPage() {
                           <span className="text-xs text-muted-foreground">calculado pelo kit</span>
                         )}
                       </TableCell>
+                      {suportaLimiteCeu && (
+                        <TableCell className="text-right tabular-nums">
+                          {c.limite_mensal_ceu != null ? (
+                            mascaraMoeda(Number(c.limite_mensal_ceu))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">sem limite</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <StatusBadge variant={c.ativo ? 'success' : 'neutral'}>{c.ativo ? 'Ativo' : 'Inativo'}</StatusBadge>
                       </TableCell>
@@ -382,7 +401,7 @@ export function MateriaisContratosPage() {
                 </label>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="ctr-limite">Limite mensal (R$)</Label>
+                <Label htmlFor="ctr-limite">Limite mensal de material (R$)</Label>
                 <Input
                   id="ctr-limite"
                   inputMode="decimal"
@@ -398,6 +417,23 @@ export function MateriaisContratosPage() {
                     : 'Só o gestor define o limite. Sem valor definido, vale o cálculo pelo kit.'}
                 </p>
               </div>
+              {suportaLimiteCeu && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="ctr-limite-ceu">Limite mensal de uniforme, EPI e crachá (R$)</Label>
+                  <Input
+                    id="ctr-limite-ceu"
+                    inputMode="decimal"
+                    value={form.limiteCeu}
+                    disabled={!podeLimite}
+                    onChange={(e) => setForm({ ...form, limiteCeu: e.target.value })}
+                    placeholder="Vazio = sem limite definido"
+                  />
+                  {limiteCeuInvalido && <p className="text-xs text-red-600">Informe um valor válido, como 800,00.</p>}
+                  <p className="text-xs text-muted-foreground">
+                    Segundo orçamento do contrato, fixo todo mês. Só avisa no Painel do gestor quando o gasto passa; nunca bloqueia nada.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="ctr-equipe-extra">A equipe também inclui o(s) departamento(s)</Label>
                 {suportaEquipeExtra ? (

@@ -811,6 +811,13 @@ export type Database = {
         Update: Partial<CeuItemPreco> & Record<string, unknown>
         Relationships: []
       }
+      // View (migration 134): preço vigente de cada item do CEU. Somente leitura.
+      ceu_itens_precos_vigentes: {
+        Row: CeuItemPreco & Record<string, unknown>
+        Insert: Partial<CeuItemPreco> & Record<string, unknown>
+        Update: Partial<CeuItemPreco> & Record<string, unknown>
+        Relationships: []
+      }
       entregas: {
         Row: EntregaCEU & Record<string, unknown>
         Insert: Partial<EntregaCEU> & Record<string, unknown>

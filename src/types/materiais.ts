@@ -95,6 +95,8 @@ export interface MatContrato {
   departamentos_equipe_extra?: string[]
   /** Migration 138: limite mensal em R$ definido pelo gestor. NULL = calculado pelo kit. */
   limite_mensal?: number | null
+  /** Migration 153: limite mensal de uniforme/EPI/crachá em R$. NULL = sem limite definido. */
+  limite_mensal_ceu?: number | null
   created_at?: string
 }
 
@@ -450,4 +452,7 @@ export interface MateriaisConfig {
   dia_limite_aprovacao?: number
   dia_inicio_compra?: number
   dia_fim_compra?: number
+  /** Migration 153: custo do crachá em R$ sem e com cordinha (somado ao orçamento de uniforme/EPI/crachá). null = não definido. */
+  custo_cracha_sem_cordinha?: number | null
+  custo_cracha_com_cordinha?: number | null
 }

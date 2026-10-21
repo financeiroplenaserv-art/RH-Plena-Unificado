@@ -19,6 +19,8 @@ export type ContratoInput = Pick<MatContrato, 'departamento_id' | 'nome' | 'rota
   departamentos_equipe_extra?: string[]
   /** Só enviado por gestor/admin (a policy de UPDATE já exige). NULL = calculado pelo kit. */
   limite_mensal?: number | null
+  /** Migration 153: limite de uniforme/EPI/crachá. Mesmos perfis do limite de material. */
+  limite_mensal_ceu?: number | null
 }
 
 export function useMateriaisContratos() {
@@ -33,6 +35,8 @@ export function useMateriaisContratos() {
   const [statusLinks, setStatusLinks] = useState<Record<string, MatStatusLink>>({})
   /** A coluna departamentos_equipe_extra existe (migration 129 aplicada)? */
   const [suportaEquipeExtra, setSuportaEquipeExtra] = useState(false)
+  /** A coluna limite_mensal_ceu existe (migration 153 aplicada)? */
+  const [suportaLimiteCeu, setSuportaLimiteCeu] = useState(false)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -53,6 +57,7 @@ export function useMateriaisContratos() {
       const lista = (rc.data as MatContrato[]) ?? []
       setContratos(lista)
       setSuportaEquipeExtra(lista.some((c) => Array.isArray(c.departamentos_equipe_extra)))
+      setSuportaLimiteCeu(lista.some((c) => 'limite_mensal_ceu' in c))
       const contagem: Record<string, number> = {}
       for (const k of rk.data ?? []) contagem[k.contrato_id] = (contagem[k.contrato_id] ?? 0) + 1
       setItensNoKit(contagem)
@@ -67,11 +72,12 @@ export function useMateriaisContratos() {
   }, [])
 
   const salvar = useCallback(async (entrada: ContratoInput, id?: string | null) => {
-    const { departamentos_equipe_extra, limite_mensal, ...resto } = entrada
+    const { departamentos_equipe_extra, limite_mensal, limite_mensal_ceu, ...resto } = entrada
     const dados = {
       ...resto,
       ...(departamentos_equipe_extra === undefined ? {} : { departamentos_equipe_extra }),
       ...(limite_mensal === undefined ? {} : { limite_mensal }),
+      ...(limite_mensal_ceu === undefined ? {} : { limite_mensal_ceu }),
     }
     const resultado = id
       ? await supabase.from('mat_contratos').update(dados).eq('id', id).select('id')
@@ -92,5 +98,5 @@ export function useMateriaisContratos() {
     return true
   }, [])
 
-  return { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, loading, estruturaPendente, carregar, salvar, definirRota }
+  return { contratos, itensNoKit, statusLinks, departamentos, suportaEquipeExtra, suportaLimiteCeu, loading, estruturaPendente, carregar, salvar, definirRota }
 }

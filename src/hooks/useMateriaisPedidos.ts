@@ -7,6 +7,7 @@ import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import { STATUS_APROVADO_OU_DEPOIS } from '@/lib/materiais/pedidos'
 import { montarPainel, type LinhaPainel } from '@/lib/materiais/painel'
+import { lerCustosCracha, type LinhaCeuOrcamento } from '@/lib/materiais/orcamento'
 import type { PayloadAprovacao, PayloadValidacao } from '@/lib/materiais/filas'
 import type { PrecoHistorico } from '@/lib/materiais/precos'
 import type { ConsumoMes } from '@/lib/materiais/media'
@@ -98,6 +99,11 @@ export async function lerMateriaisConfig(): Promise<MateriaisConfig> {
       aviso_recibo: typeof v?.aviso_recibo === 'string' ? v.aviso_recibo : '',
       // Ausente = ligada (padrão da decisão de 16/10/2026).
       kit_aprovacao_automatica: typeof v?.kit_aprovacao_automatica === 'boolean' ? v.kit_aprovacao_automatica : true,
+      // Migration 153: ausente/inválido = custo do crachá não definido.
+      ...(() => {
+        const c = lerCustosCracha(v)
+        return { custo_cracha_sem_cordinha: c.semCordinha, custo_cracha_com_cordinha: c.comCordinha }
+      })(),
     }
   } catch {
     return padrao
@@ -373,10 +379,11 @@ export function useMateriaisPainel() {
     const desde = adicionarMeses(comp, -12)
     const hoje = hojeBrasil()
     const [rc, rp, rk, rpr, rh, ra, vinculos] = await Promise.all([
-      supabase.from('mat_contratos').select('id, nome, ativo, limite_mensal').order('nome'),
+      // '*' de propósito: lê limite_mensal_ceu quando a migration 153 já foi aplicada, sem quebrar antes dela.
+      supabase.from('mat_contratos').select('*').order('nome'),
       supabase
         .from('mat_pedidos')
-        .select('id, contrato_id, tipo, status_produtos, preenchido_pelo_escritorio, implantacao')
+        .select('id, contrato_id, tipo, status_produtos, status_ceu, preenchido_pelo_escritorio, implantacao')
         .eq('competencia', comp),
       selecionarTudo<Pick<MatKitItem, 'contrato_id' | 'item_id' | 'variacao_id' | 'quantidade'>>((de, ate) =>
         supabase.from('mat_kit_itens').select('contrato_id, item_id, variacao_id, quantidade').order('id').range(de, ate)
@@ -413,10 +420,10 @@ export function useMateriaisPainel() {
     }
     setEstruturaPendente(false)
     const pedidosDoMes = (rp.data ?? []) as (Pick<MatPedido, 'id' | 'contrato_id' | 'tipo' | 'status_produtos' | 'preenchido_pelo_escritorio'> &
-      Pick<MatPedido, 'implantacao'>)[]
+      Pick<MatPedido, 'implantacao' | 'status_ceu'>)[]
     // Migration 151: pedidos de implantação de contrato não entram na média (consumoDePedidosAprovados).
     const anteriores = (ra.data ?? []) as { id: string; contrato_id: string; competencia: string; status_produtos: string; implantacao?: boolean }[]
-    const [ri, rant] = await Promise.all([
+    const [ri, rant, rceu, rprc, ritc, cfg] = await Promise.all([
       buscarPorIds<MatPedidoItem>(pedidosDoMes.map((p) => p.id), (lote, de, ate) =>
         supabase.from('mat_pedido_itens').select(COLUNAS_ITEM_PEDIDO).in('pedido_id', lote).order('id').range(de, ate)
       ),
@@ -425,12 +432,39 @@ export function useMateriaisPainel() {
         (lote, de, ate) =>
           supabase.from('mat_pedido_itens').select('pedido_id, item_id, variacao_id, qtd_aprovada').in('pedido_id', lote).order('id').range(de, ate)
       ),
+      // Orçamento de uniforme/EPI/crachá (migration 153): linhas do CEU dos pedidos do mês.
+      buscarPorIds<LinhaCeuOrcamento>(pedidosDoMes.map((p) => p.id), (lote, de, ate) =>
+        supabase
+          .from('ceu_pedido_itens')
+          .select('pedido_id, tipo, item_id, status, qtd_pedida, qtd_conferida, qtd_atendida, cracha_cordao')
+          .in('pedido_id', lote)
+          .order('id')
+          .range(de, ate)
+      ),
+      // Preço vigente (migration 134), em centavos; itens.valor como reserva.
+      selecionarTudo<{ item_id: string; valor: number | null }>((de, ate) =>
+        supabase.from('ceu_itens_precos_vigentes').select('item_id, valor').order('item_id').range(de, ate)
+      ),
+      selecionarTudo<{ id: string; valor: number | null }>((de, ate) =>
+        supabase.from('itens').select('id, valor').order('id').range(de, ate)
+      ),
+      lerMateriaisConfig(),
     ])
     if (ri.error || rant.error) toast.error(mensagemErroMateriais(ri.error ?? rant.error, 'carregar as linhas dos pedidos'))
+    // Sem a coluna qtd_atendida (antes da 124) ou a view (antes da 134) o orçamento do CEU fica de fora, sem quebrar o painel.
+    const ceuIndisponivel = !!(rceu.error || rprc.error || ritc.error)
+    if (ceuIndisponivel && !estruturaAusente(rceu.error ?? rprc.error ?? ritc.error))
+      toast.error(mensagemErroMateriais(rceu.error ?? rprc.error ?? ritc.error, 'carregar o orçamento de uniforme/EPI/crachá'))
+    const precosCeu = new Map<string, number>()
+    for (const i of ritc.data ?? []) if (i.valor != null && Number(i.valor) > 0) precosCeu.set(i.id, Number(i.valor))
+    for (const p of rprc.data ?? []) if (p.valor != null && Number(p.valor) > 0) precosCeu.set(p.item_id, Number(p.valor))
     setLinhas(
       montarPainel({
-        contratos: (rc.data ?? []) as Pick<MatContrato, 'id' | 'nome' | 'ativo'>[],
+        contratos: (rc.data ?? []) as MatContrato[],
         pedidosDoMes,
+        linhasCeu: ceuIndisponivel ? [] : rceu.data,
+        precosCeu,
+        custoCracha: { semCordinha: cfg.custo_cracha_sem_cordinha ?? null, comCordinha: cfg.custo_cracha_com_cordinha ?? null },
         itensDoMes: ri.data.map(numerarItem),
         kits: (rk.data ?? []).map((k) => ({ ...k, quantidade: Number(k.quantidade) })),
         precos: (rpr.data ?? []).map((p) => ({ ...p, preco: Number(p.preco) })),
@@ -645,7 +679,7 @@ export async function criarPedidoExtra(dados: {
 }
 
 /** Grava chaves da configuração do módulo (RPC mat_salvar_config — gestor/admin, migration 135). */
-export async function salvarMateriaisConfig(parcial: Partial<Pick<MateriaisConfig, 'kit_aprovacao_automatica' | 'dia_aviso' | 'dia_limite'>>) {
+export async function salvarMateriaisConfig(parcial: Partial<Pick<MateriaisConfig, 'kit_aprovacao_automatica' | 'dia_aviso' | 'dia_limite' | 'custo_cracha_sem_cordinha' | 'custo_cracha_com_cordinha'>>) {
   const { error } = await supabase.rpc('mat_salvar_config', { p_config: parcial as unknown as Record<string, unknown> })
   if (!rpcOk(error, 'salvar a configuração')) return false
   toast.success('Configuração salva')
