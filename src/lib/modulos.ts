@@ -11,3 +11,11 @@
  * Só mude para `true` com liberação expressa da gestora.
  */
 export const MODULO_FERIAS_LIBERADO = false
+
+/**
+ * VT (Vale-Transporte) — Fase 1 em construção na branch `vt-fase1`
+ * (plano: docs/PLANO_MODULO_VT.md). Com `false`, o menu Vale-Transporte some e
+ * as rotas /vt* redirecionam para o Dashboard. Só mude para `true` com
+ * liberação expressa da gestora (mesmo incidente de 14/10/2026 citado acima).
+ */
+export const MODULO_VT_LIBERADO = false

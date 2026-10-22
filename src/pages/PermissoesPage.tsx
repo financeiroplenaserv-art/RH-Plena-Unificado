@@ -94,6 +94,10 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'vr', acao: 'visualizar', label: 'Visualizar projetos VR', grupo: 'VR' },
   { recurso: 'vr', acao: 'gerenciar', label: 'Gerenciar projetos VR', grupo: 'VR' },
 
+  // Vale-Transporte (Fase 1, migration 155)
+  { recurso: 'vt', acao: 'gerenciar', label: 'Gerenciar vale-transporte (optantes, trajetos, combinações)', grupo: 'Vale-Transporte' },
+  { recurso: 'vt', acao: 'visualizar', label: 'Visualizar vale-transporte', grupo: 'Vale-Transporte' },
+
   // Adicionais contratuais
   { recurso: 'adicionais', acao: 'editar_contrato', label: 'Editar contratos', grupo: 'Adicionais' },
   { recurso: 'adicionais', acao: 'editar_vinculo', label: 'Editar vínculos', grupo: 'Adicionais' },
@@ -161,6 +165,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'menu', acao: 'rh', label: 'Ver menu Ocorrências', grupo: 'Menus' },
   { recurso: 'menu', acao: 'extras', label: 'Ver menu Extras', grupo: 'Menus' },
   { recurso: 'menu', acao: 'vr', label: 'Ver menu Benefícios (VR)', grupo: 'Menus' },
+  { recurso: 'menu', acao: 'vt', label: 'Ver menu Vale-Transporte', grupo: 'Menus' },
   { recurso: 'menu', acao: 'ceu', label: 'Ver menu CEU', grupo: 'Menus' },
   { recurso: 'menu', acao: 'adicionais', label: 'Ver menu Adicionais', grupo: 'Menus' },
   { recurso: 'menu', acao: 'alertas', label: 'Ver menu Alertas', grupo: 'Menus' },
@@ -182,6 +187,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'rota', acao: 'ocorrencias', label: 'Acessar rotas de ocorrências', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'extras', label: 'Acessar rotas de extras', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'vr', label: 'Acessar rotas de VR', grupo: 'Rotas' },
+  { recurso: 'rota', acao: 'vt', label: 'Acessar rotas de Vale-Transporte', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'ceu', label: 'Acessar rotas de CEU', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais', label: 'Acessar rotas de Materiais', grupo: 'Rotas' },
   { recurso: 'rota', acao: 'materiais_fornecedores', label: 'Acessar só Fornecedores (Materiais)', grupo: 'Rotas' },

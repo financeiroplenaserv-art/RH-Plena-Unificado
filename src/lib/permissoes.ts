@@ -146,6 +146,11 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     exportar: ['gestor', 'rh', 'dp1', 'dp2', 'mesa'],
     gerenciar: ['gestor', 'rh', 'dp1', 'dp2'],
   },
+  // Módulo VT (Vale-Transporte) Fase 1, migration 155. admin/adm têm bypass.
+  vt: {
+    gerenciar: ['gestor', 'mesa', 'dp1', 'dp2'],
+    visualizar: ['gestor', 'mesa', 'dp1', 'dp2', 'financeiro'],
+  },
 }
 
 function temPermissaoDinamica(perfil: NivelAcesso, recurso: string, acao: string): boolean | null {
@@ -419,6 +424,14 @@ export const podeExportarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, '
 
 /** Quem pode lançar previsões de férias do RH e registrar notificações */
 export const podeGerenciarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, 'ferias', 'gerenciar')
+
+// ================= VALE-TRANSPORTE (Fase 1, migration 155) =================
+
+/** Quem pode gerenciar o VT: marcar optantes/tipo de bilhete, trajetos e combinações */
+export const podeGerenciarVT = (p: NivelAcesso) => temPermissaoComPadrao(p, 'vt', 'gerenciar')
+
+/** Quem pode visualizar o módulo VT (financeiro só consulta) */
+export const podeVisualizarVT = (p: NivelAcesso) => temPermissaoComPadrao(p, 'vt', 'visualizar')
 
 // ================= CONFIGURAÇÕES =================
 

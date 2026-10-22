@@ -42,6 +42,8 @@ import {
   podeCancelarOcorrencia,
   podeGerenciarModelosOcorrencia,
   podeGerenciarAlertas,
+  podeGerenciarVT,
+  podeVisualizarVT,
   podeVerConfiguracoes,
   podeConfigurarTokenEContador,
   podeVerAuditoria,
@@ -214,6 +216,33 @@ describe('Permissões de modelos, alertas e configurações', () => {
     expect(perfisQuePermitem(podeConfigurarTokenEContador).sort()).toEqual(
       ['admin', 'adm', 'dp2'].sort()
     )
+  })
+})
+
+describe('Permissões do módulo VT (Vale-Transporte — Fase 1, migration 155)', () => {
+  beforeEach(() => setPermissoesCache([]))
+
+  it('gestor, mesa, dp1 e dp2 gerenciam o VT (além de admin/adm)', () => {
+    expect(perfisQuePermitem(podeGerenciarVT).sort()).toEqual(
+      ['admin', 'adm', 'gestor', 'mesa', 'dp1', 'dp2'].sort()
+    )
+  })
+
+  it('financeiro só visualiza; rh, inspetoria, dp3 e visualizador não têm acesso', () => {
+    expect(perfisQuePermitem(podeVisualizarVT).sort()).toEqual(
+      ['admin', 'adm', 'gestor', 'mesa', 'dp1', 'dp2', 'financeiro'].sort()
+    )
+    for (const p of ['rh', 'inspetoria', 'dp3', 'visualizador'] as const) {
+      expect(podeGerenciarVT(p)).toBe(false)
+      expect(podeVisualizarVT(p)).toBe(false)
+    }
+    expect(podeGerenciarVT('financeiro')).toBe(false)
+    expect(podeVisualizarVT('financeiro')).toBe(true)
+  })
+
+  it('linha dinâmica concedida pela tela Permissões prevalece sobre o padrão', () => {
+    setPermissoesCache([{ perfil: 'financeiro', recurso: 'vt', acao: 'gerenciar', permitido: true }])
+    expect(podeGerenciarVT('financeiro')).toBe(true)
   })
 })
 

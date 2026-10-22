@@ -28,13 +28,14 @@ import {
   Smartphone,
   IdCard,
   Boxes,
+  Bus,
   Truck,
   PackageCheck,
   ShoppingCart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
-import { MODULO_FERIAS_LIBERADO } from '@/lib/modulos'
+import { MODULO_FERIAS_LIBERADO, MODULO_VT_LIBERADO } from '@/lib/modulos'
 import type { Perfil } from '@/types/database'
 
 interface SidebarProps {
@@ -109,6 +110,10 @@ const groups: MenuGroup[] = [
     items: [
       { path: '/adicionais', label: 'Adicionais', icon: Briefcase, permissao: { recurso: 'menu', acao: 'adicionais' } },
       { path: '/vr/projetos', label: 'Benefícios', icon: Wallet, permissao: { recurso: 'menu', acao: 'vr' } },
+      // VT oculto até liberação da gestora (ver src/lib/modulos.ts)
+      ...(MODULO_VT_LIBERADO
+        ? [{ path: '/vt', label: 'Vale-Transporte', icon: Bus, permissao: { recurso: 'menu', acao: 'vt' } }]
+        : []),
       { path: '/ceu/movimentacoes', label: 'CEU', icon: Package, permissao: { recurso: 'menu', acao: 'ceu' } },
       // Atalho só para quem emite crachás mas NÃO acessa o CEU (dp3): quem tem o CEU usa a aba Crachás dentro dele
       { path: '/ceu/crachas', label: 'Crachás', icon: IdCard, permissao: { recurso: 'menu', acao: 'crachas' }, ocultarSePode: { recurso: 'menu', acao: 'ceu' } },

@@ -13,6 +13,7 @@ import type {
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 import type { FeriasFuncao, FeriasSolicitacao, FeriasFerista, FeriasAlocacao, FeriasRegra } from '@/types/ferias'
+import type { VtCombinacao, VtTrajeto, VtGeocodeCache } from '@/types/vt'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -108,6 +109,9 @@ export interface Colaborador {
   tamanho_calca?: string | null
   tamanho_calcado?: string | null
   tamanho_luva?: string | null
+  // Módulo VT (migration 155 — cadastro manual; a API da Alterdata não expõe VT)
+  vt_optante?: boolean
+  vt_tipo_cartao?: 'bun' | 'bui' | 'comum' | null
   created_at?: string
   updated_at?: string
 }
@@ -938,6 +942,25 @@ export type Database = {
         Row: BiSyncLog & Record<string, unknown>
         Insert: Partial<BiSyncLog> & Record<string, unknown>
         Update: Partial<BiSyncLog> & Record<string, unknown>
+        Relationships: []
+      }
+      // Módulo VT (migration 155 — Fase 1; combinações com valor diário fechado)
+      vt_combinacoes: {
+        Row: VtCombinacao & Record<string, unknown>
+        Insert: Partial<VtCombinacao> & Record<string, unknown>
+        Update: Partial<VtCombinacao> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_trajetos: {
+        Row: VtTrajeto & Record<string, unknown>
+        Insert: Partial<VtTrajeto> & Record<string, unknown>
+        Update: Partial<VtTrajeto> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_geocode_cache: {
+        Row: VtGeocodeCache & Record<string, unknown>
+        Insert: Partial<VtGeocodeCache> & Record<string, unknown>
+        Update: Partial<VtGeocodeCache> & Record<string, unknown>
         Relationships: []
       }
     }

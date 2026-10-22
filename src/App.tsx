@@ -10,7 +10,7 @@ import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import { PageLoading } from '@/components/PageLoading'
 import { cn } from '@/lib/utils'
 import { verificarPermissao } from '@/lib/permissoes'
-import { MODULO_FERIAS_LIBERADO } from '@/lib/modulos'
+import { MODULO_FERIAS_LIBERADO, MODULO_VT_LIBERADO } from '@/lib/modulos'
 import type { Perfil } from '@/types/database'
 import { LoginPage } from '@/pages/LoginPage'
 import { RedefinirSenhaPage } from '@/pages/RedefinirSenhaPage'
@@ -47,6 +47,7 @@ import {
   VrProjetosPage,
   VrProjetoFormPage,
   VrProjetoDetailPage,
+  VtPage,
   CeuItensPage,
   CeuItemFormPage,
   CeuMovimentacoesPage,
@@ -703,6 +704,38 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* VT oculto até liberação da gestora (ver src/lib/modulos.ts): rotas /vt* voltam ao Dashboard */}
+              {MODULO_VT_LIBERADO ? (
+                <>
+                <Route
+                path="/vt"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vt' }}>
+                    <VtPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vt/trajetos"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vt' }}>
+                    <VtPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vt/combinacoes"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vt' }}>
+                    <VtPage />
+                  </ProtectedRoute>
+                }
+              />
+                </>
+              ) : (
+                <Route path="/vt/*" element={<Navigate to="/" replace />} />
+              )}
 
               <Route
                 path="/configuracoes"
