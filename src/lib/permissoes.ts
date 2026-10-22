@@ -427,7 +427,7 @@ export const podeGerenciarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, 
 
 // ================= VALE-TRANSPORTE (Fase 1, migration 155) =================
 
-/** Quem pode gerenciar o VT: marcar optantes/tipo de bilhete, trajetos e combinações */
+/** Quem pode gerenciar o VT: marcar optantes/tipo de bilhete, trajetos e bilhetes */
 export const podeGerenciarVT = (p: NivelAcesso) => temPermissaoComPadrao(p, 'vt', 'gerenciar')
 
 /** Quem pode visualizar o módulo VT (financeiro só consulta) */

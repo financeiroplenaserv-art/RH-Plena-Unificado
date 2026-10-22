@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Layers, Plus, Trash2 } from 'lucide-react'
+import { Ticket, Plus, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -14,14 +14,14 @@ import { StatusBadge } from '@/components/corh/StatusBadge'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { formatarData, hojeBrasil } from '@/lib/utils'
-import { formatarCentavos } from '@/lib/vt/combinacoes'
-import type { NovaCombinacaoVT } from '@/hooks/useVt'
-import type { VtCombinacao } from '@/types/vt'
+import { formatarCentavos } from '@/lib/vt/bilhetes'
+import type { NovoBilheteVT } from '@/hooks/useVt'
+import type { VtBilhete } from '@/types/vt'
 
-// Aba Combinações do VT (Fase 1, modelo de 21/10/2026 — plano §2d): cada
-// combinação é um trajeto-tipo nomeado com valor diário fechado (ida+volta),
-// COM VIGÊNCIA (padrão ceu_itens_precos) — reajuste = linha nova, nunca edita
-// valor antigo.
+// Aba Bilhetes do VT (Fase 1, modelo de 21/10/2026 — plano §2d; "combinação"
+// virou "bilhete", termo da operação): cada bilhete é um trajeto-tipo nomeado
+// com valor diário fechado (ida+volta), COM VIGÊNCIA (padrão
+// ceu_itens_precos) — reajuste = linha nova, nunca edita valor antigo.
 
 /** "5,60" / "5.60" (R$) → centavos. Com vírgula, o ponto é milhar ("1.234,56"). */
 function parseValorCentavos(texto: string): number | null {
@@ -33,34 +33,47 @@ function parseValorCentavos(texto: string): number | null {
   return Math.round(n * 100)
 }
 
-interface VtCombinacoesTabProps {
-  combinacoes: VtCombinacao[]
+interface VtBilhetesTabProps {
+  bilhetes: VtBilhete[]
   loading: boolean
   podeGerenciar: boolean
-  novaVigenciaCombinacao: (dados: NovaCombinacaoVT) => Promise<boolean>
-  desativarCombinacao: (id: string) => Promise<boolean>
-  recarregarCombinacoes: () => Promise<boolean>
+  novaVigenciaBilhete: (dados: NovoBilheteVT) => Promise<boolean>
+  desativarBilhete: (id: string) => Promise<boolean>
+  recarregarBilhetes: () => Promise<boolean>
 }
 
-export function VtCombinacoesTab({
-  combinacoes,
+export function VtBilhetesTab({
+  bilhetes,
   loading,
   podeGerenciar,
-  novaVigenciaCombinacao,
-  desativarCombinacao,
-  recarregarCombinacoes,
-}: VtCombinacoesTabProps) {
+  novaVigenciaBilhete,
+  desativarBilhete,
+  recarregarBilhetes,
+}: VtBilhetesTabProps) {
   const [dialogAberto, setDialogAberto] = useState(false)
   const [nome, setNome] = useState('')
   const [valor, setValor] = useState('')
   const [vigenteDesde, setVigenteDesde] = useState(hojeBrasil())
   const [salvando, setSalvando] = useState(false)
 
-  // Nomes já cadastrados: o datalist sugere (nova vigência de combinação
-  // existente) e o texto livre permite criar combinação nova.
+  // Nomes já cadastrados: o datalist sugere (nova vigência de bilhete
+  // existente) e o texto livre permite criar bilhete novo.
   const nomesExistentes = useMemo(
-    () => [...new Set(combinacoes.map((c) => c.nome))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    [combinacoes]
+    () => [...new Set(bilhetes.map((b) => b.nome))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [bilhetes]
+  )
+
+  // Tabela por valor/dia, do menor para o maior (ajuste da gestora, 22/10/2026);
+  // empate de valor → nome A→Z. Ordena o array renderizado — a query do banco
+  // segue por vigente_desde.
+  const bilhetesOrdenados = useMemo(
+    () =>
+      [...bilhetes].sort(
+        (a, b) =>
+          a.valor_diario_centavos - b.valor_diario_centavos ||
+          a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
+      ),
+    [bilhetes]
   )
 
   const abrirDialog = () => {
@@ -74,26 +87,26 @@ export function VtCombinacoesTab({
     const centavos = parseValorCentavos(valor)
     if (!nome.trim() || centavos == null || !vigenteDesde) return
     setSalvando(true)
-    const ok = await novaVigenciaCombinacao({
+    const ok = await novaVigenciaBilhete({
       nome: nome.trim(),
       valor_diario_centavos: centavos,
       vigente_desde: vigenteDesde,
     })
     setSalvando(false)
     if (ok) {
-      await recarregarCombinacoes()
+      await recarregarBilhetes()
       setDialogAberto(false)
     }
   }
 
-  const desativar = async (c: VtCombinacao) => {
-    const ok = await desativarCombinacao(c.id)
-    if (ok) await recarregarCombinacoes()
+  const desativar = async (b: VtBilhete) => {
+    const ok = await desativarBilhete(b.id)
+    if (ok) await recarregarBilhetes()
   }
 
   return (
     <ModuleCard
-      title="Combinações de VT"
+      title="Bilhetes de VT"
       description="Valor diário fechado (ida+volta) de cada trajeto-tipo — reajuste = nova vigência; o histórico nunca é editado"
     >
       {podeGerenciar && (
@@ -104,10 +117,10 @@ export function VtCombinacoesTab({
           </ModuleButton>
         </div>
       )}
-      {combinacoes.length === 0 ? (
+      {bilhetes.length === 0 ? (
         <EmptyState
-          icon={<Layers className="size-6" />}
-          description={loading ? 'Carregando combinações...' : 'Nenhuma combinação cadastrada.'}
+          icon={<Ticket className="size-6" />}
+          description={loading ? 'Carregando bilhetes...' : 'Nenhum bilhete cadastrado.'}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
@@ -117,33 +130,33 @@ export function VtCombinacoesTab({
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3 text-right">Valor/dia</th>
                 <th className="px-4 py-3">Vigente desde</th>
-                <th className="px-4 py-3">Ativa</th>
+                <th className="px-4 py-3">Ativo</th>
                 {podeGerenciar && <th className="px-4 py-3 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>
-              {combinacoes.map((c) => (
-                <tr key={c.id} className="border-b border-border last:border-0 hover:bg-accent/40">
-                  <td className="px-4 py-2.5 font-medium text-foreground">{c.nome}</td>
+              {bilhetesOrdenados.map((b) => (
+                <tr key={b.id} className="border-b border-border last:border-0 hover:bg-accent/40">
+                  <td className="px-4 py-2.5 font-medium text-foreground">{b.nome}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
-                    {formatarCentavos(c.valor_diario_centavos)}
+                    {formatarCentavos(b.valor_diario_centavos)}
                   </td>
                   <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
-                    {formatarData(c.vigente_desde)}
+                    {formatarData(b.vigente_desde)}
                   </td>
                   <td className="px-4 py-2.5">
-                    <StatusBadge variant={c.ativo ? 'success' : 'neutral'}>
-                      {c.ativo ? 'Ativa' : 'Inativa'}
+                    <StatusBadge variant={b.ativo ? 'success' : 'neutral'}>
+                      {b.ativo ? 'Ativo' : 'Inativo'}
                     </StatusBadge>
                   </td>
                   {podeGerenciar && (
                     <td className="px-4 py-2.5 text-right">
-                      {c.ativo && (
+                      {b.ativo && (
                         <button
                           type="button"
                           className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
-                          title="Desativar combinação"
-                          onClick={() => desativar(c)}
+                          title="Desativar bilhete"
+                          onClick={() => desativar(b)}
                         >
                           <Trash2 className="size-4" />
                         </button>
@@ -160,24 +173,24 @@ export function VtCombinacoesTab({
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova vigência de combinação</DialogTitle>
+            <DialogTitle>Nova vigência de bilhete</DialogTitle>
             <DialogDescription>
               Reajuste entra como linha nova — a vigência anterior fica no histórico. Escolha um
-              nome existente ou escreva um novo para criar outra combinação.
+              nome existente ou escreva um novo para criar outro bilhete.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="vt-comb-nome">Nome</Label>
+              <Label htmlFor="vt-bilhete-nome">Nome</Label>
               <Input
-                id="vt-comb-nome"
+                id="vt-bilhete-nome"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex.: Niterói 1 ônibus (ida+volta)"
-                list="vt-combinacoes-nomes"
+                placeholder="Ex.: BU NITERÓI"
+                list="vt-bilhetes-nomes"
                 autoComplete="off"
               />
-              <datalist id="vt-combinacoes-nomes">
+              <datalist id="vt-bilhetes-nomes">
                 {nomesExistentes.map((n) => (
                   <option key={n} value={n} />
                 ))}
@@ -185,9 +198,9 @@ export function VtCombinacoesTab({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="vt-comb-valor">Valor/dia (R$, ida+volta)</Label>
+                <Label htmlFor="vt-bilhete-valor">Valor/dia (R$, ida+volta)</Label>
                 <Input
-                  id="vt-comb-valor"
+                  id="vt-bilhete-valor"
                   value={valor}
                   onChange={(e) => setValor(e.target.value)}
                   placeholder="Ex.: 11,20"
@@ -195,9 +208,9 @@ export function VtCombinacoesTab({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="vt-comb-vigencia">Vigente desde</Label>
+                <Label htmlFor="vt-bilhete-vigencia">Vigente desde</Label>
                 <Input
-                  id="vt-comb-vigencia"
+                  id="vt-bilhete-vigencia"
                   type="date"
                   value={vigenteDesde}
                   onChange={(e) => setVigenteDesde(e.target.value)}

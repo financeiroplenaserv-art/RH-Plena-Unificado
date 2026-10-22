@@ -13,7 +13,7 @@ import type {
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 import type { FeriasFuncao, FeriasSolicitacao, FeriasFerista, FeriasAlocacao, FeriasRegra } from '@/types/ferias'
-import type { VtCombinacao, VtTrajeto, VtGeocodeCache } from '@/types/vt'
+import type { VtBilhete, VtTrajeto, VtGeocodeCache, VtCarga, VtCobertura } from '@/types/vt'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -944,11 +944,11 @@ export type Database = {
         Update: Partial<BiSyncLog> & Record<string, unknown>
         Relationships: []
       }
-      // Módulo VT (migration 155 — Fase 1; combinações com valor diário fechado)
-      vt_combinacoes: {
-        Row: VtCombinacao & Record<string, unknown>
-        Insert: Partial<VtCombinacao> & Record<string, unknown>
-        Update: Partial<VtCombinacao> & Record<string, unknown>
+      // Módulo VT (migration 155 — Fase 1; rename "combinação"→"bilhete" na 156)
+      vt_bilhetes: {
+        Row: VtBilhete & Record<string, unknown>
+        Insert: Partial<VtBilhete> & Record<string, unknown>
+        Update: Partial<VtBilhete> & Record<string, unknown>
         Relationships: []
       }
       vt_trajetos: {
@@ -961,6 +961,20 @@ export type Database = {
         Row: VtGeocodeCache & Record<string, unknown>
         Insert: Partial<VtGeocodeCache> & Record<string, unknown>
         Update: Partial<VtGeocodeCache> & Record<string, unknown>
+        Relationships: []
+      }
+      // Carga mensal pela escala (migration 157 — Fase 2a)
+      vt_cargas: {
+        Row: VtCarga & Record<string, unknown>
+        Insert: Partial<VtCarga> & Record<string, unknown>
+        Update: Partial<VtCarga> & Record<string, unknown>
+        Relationships: []
+      }
+      // Cobertura de férias pelo ferista (migration 158)
+      vt_coberturas: {
+        Row: VtCobertura & Record<string, unknown>
+        Insert: Partial<VtCobertura> & Record<string, unknown>
+        Update: Partial<VtCobertura> & Record<string, unknown>
         Relationships: []
       }
     }

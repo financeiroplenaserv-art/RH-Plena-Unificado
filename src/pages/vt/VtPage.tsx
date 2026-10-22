@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation, Navigate } from 'react-router-dom'
-import { Users, Route, Layers } from 'lucide-react'
+import { Users, Route, Ticket, CalendarClock } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,16 +8,19 @@ import { useVt } from '@/hooks/useVt'
 import { podeGerenciarVT, podeVisualizarVT, verificarPermissao } from '@/lib/permissoes'
 import { VtColaboradoresTab } from './VtColaboradoresTab'
 import { VtTrajetosTab } from './VtTrajetosTab'
-import { VtCombinacoesTab } from './VtCombinacoesTab'
+import { VtBilhetesTab } from './VtBilhetesTab'
+import { VtCargaTab } from './VtCargaTab'
 
 // Módulo VT (Vale-Transporte) — Fase 1: cadastro de optantes/tipo de bilhete,
-// trajetos casa → posto e combinações de VT com valor diário e vigência
-// (docs/PLANO_MODULO_VT.md, modelo de 21/10/2026 §2d).
+// trajetos casa → posto e bilhetes de VT com valor diário e vigência
+// (docs/PLANO_MODULO_VT.md, modelo de 21/10/2026 §2d; migration 156 renomeou
+// "combinação" para "bilhete", termo da operação).
 
 const TABS = [
   { path: '/vt', label: 'Colaboradores', icon: Users },
   { path: '/vt/trajetos', label: 'Trajetos', icon: Route },
-  { path: '/vt/combinacoes', label: 'Combinações', icon: Layers },
+  { path: '/vt/carga', label: 'Carga', icon: CalendarClock },
+  { path: '/vt/bilhetes', label: 'Bilhetes', icon: Ticket },
 ]
 
 export function VtPage() {
@@ -46,16 +49,18 @@ export function VtPage() {
   const aba =
     location.pathname === '/vt/trajetos'
       ? 'trajetos'
-      : location.pathname === '/vt/combinacoes'
-        ? 'combinacoes'
-        : 'colaboradores'
+      : location.pathname === '/vt/carga'
+        ? 'carga'
+        : location.pathname === '/vt/bilhetes'
+          ? 'bilhetes'
+          : 'colaboradores'
 
   return (
     <ModuleShell tabs={TABS}>
       <PageHeader
         backTo="/"
         title="Vale-Transporte"
-        description="Optantes, trajetos casa → posto e custo do dia pelas combinações de VT"
+        description="Optantes, trajetos casa → posto e custo do dia pelos bilhetes de VT"
       />
 
       {aba === 'colaboradores' && (
@@ -71,7 +76,7 @@ export function VtPage() {
         <VtTrajetosTab
           colaboradores={vt.colaboradores}
           departamentos={vt.departamentos}
-          combinacoes={vt.combinacoes}
+          bilhetes={vt.bilhetes}
           trajetos={vt.trajetos}
           loading={vt.loading}
           usuarioId={user.id}
@@ -82,14 +87,25 @@ export function VtPage() {
           recarregarTrajetos={vt.listarTrajetos}
         />
       )}
-      {aba === 'combinacoes' && (
-        <VtCombinacoesTab
-          combinacoes={vt.combinacoes}
+      {aba === 'bilhetes' && (
+        <VtBilhetesTab
+          bilhetes={vt.bilhetes}
           loading={vt.loading}
           podeGerenciar={podeGerenciar}
-          novaVigenciaCombinacao={vt.novaVigenciaCombinacao}
-          desativarCombinacao={vt.desativarCombinacao}
-          recarregarCombinacoes={vt.listarCombinacoes}
+          novaVigenciaBilhete={vt.novaVigenciaBilhete}
+          desativarBilhete={vt.desativarBilhete}
+          recarregarBilhetes={vt.listarBilhetes}
+        />
+      )}
+      {aba === 'carga' && (
+        <VtCargaTab
+          colaboradores={vt.colaboradores}
+          departamentos={vt.departamentos}
+          trajetos={vt.trajetos}
+          bilhetes={vt.bilhetes}
+          dadosProntos={!vt.loading}
+          usuarioId={user.id}
+          podeGerenciar={podeGerenciar}
         />
       )}
     </ModuleShell>

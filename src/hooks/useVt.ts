@@ -7,19 +7,18 @@ import type {
   EscopoTrajetoVT,
   PrecisaoOrigemVT,
   TipoCartaoVT,
-  VtCombinacao,
+  VtBilhete,
   VtTrajeto,
 } from '@/types/vt'
 
-// Hook do módulo VT (Vale-Transporte) — Fase 1 (migration 155, docs/PLANO_MODULO_VT.md).
-// Escopo: cadastro de optantes/tipo de bilhete, trajetos casa → posto e
-// combinações de VT com valor diário fechado (ida+volta) e vigência — modelo
-// aprovado pela gestora em 21/10/2026 (§2d do plano): a precificação NÃO é
-// conduções × tarifa; o trajeto usa combinação 1 (obrigatória) + combinação 2
-// (opcional) e o custo do dia é a soma (calculado na página pelas funções
-// puras de src/lib/vt). Toda escrita termina em .select('id') e confere as
-// linhas afetadas — escrita bloqueada por RLS devolve 0 linhas SEM erro
-// (AGENTS.md §12).
+// Hook do módulo VT (Vale-Transporte) — Fase 1 (migration 155; rename da 156,
+// docs/PLANO_MODULO_VT.md). Escopo: cadastro de optantes/tipo de bilhete,
+// trajetos casa → posto e bilhetes de VT com valor diário fechado (ida+volta)
+// e vigência — modelo aprovado pela gestora em 21/10/2026 (§2d do plano): o
+// trajeto usa bilhete 1 (obrigatório) + bilhete 2 (opcional) e o custo do dia
+// é a soma (calculado na página pelas funções puras de src/lib/vt). Toda
+// escrita termina em .select('id') e confere as linhas afetadas — escrita
+// bloqueada por RLS devolve 0 linhas SEM erro (AGENTS.md §12).
 
 export interface VtColaborador {
   id: string
@@ -54,7 +53,7 @@ export interface VtTrajetoComDetalhes extends VtTrajeto {
   } | null
 }
 
-export interface NovaCombinacaoVT {
+export interface NovoBilheteVT {
   nome: string
   valor_diario_centavos: number
   vigente_desde: string
@@ -63,10 +62,10 @@ export interface NovaCombinacaoVT {
 export interface NovoTrajetoVT {
   colaborador_id: string
   departamento_id: string
-  /** Combinação 1 (obrigatória). */
-  combinacao_id: string
-  /** Combinação 2 (opcional; null = nenhuma — nunca igual à 1ª, CHECK do banco). */
-  combinacao_2_id: string | null
+  /** Bilhete 1 (obrigatório). */
+  bilhete_id: string
+  /** Bilhete 2 (opcional; null = nenhum — nunca igual ao 1º, CHECK do banco). */
+  bilhete_2_id: string | null
   /** Classificação informacional das cidades casa × posto (não precifica). */
   escopo: EscopoTrajetoVT
   precisao_origem: PrecisaoOrigemVT
@@ -83,7 +82,7 @@ const COLUNAS_TRAJETO = '*'
 export function useVt() {
   const [colaboradores, setColaboradores] = useState<VtColaborador[]>([])
   const [departamentos, setDepartamentos] = useState<VtDepartamento[]>([])
-  const [combinacoes, setCombinacoes] = useState<VtCombinacao[]>([])
+  const [bilhetes, setBilhetes] = useState<VtBilhete[]>([])
   const [trajetos, setTrajetos] = useState<VtTrajetoComDetalhes[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -148,43 +147,43 @@ export function useVt() {
     []
   )
 
-  const listarCombinacoes = useCallback(async (): Promise<boolean> => {
+  const listarBilhetes = useCallback(async (): Promise<boolean> => {
     const { data, error } = await supabase
-      .from('vt_combinacoes')
+      .from('vt_bilhetes')
       .select('*')
       .order('vigente_desde', { ascending: false })
     if (error) {
-      console.error('Erro ao listar combinações do VT:', error.message)
-      toast.error('Erro ao carregar as combinações de VT')
+      console.error('Erro ao listar bilhetes do VT:', error.message)
+      toast.error('Erro ao carregar os bilhetes de VT')
       return false
     }
-    setCombinacoes((data as VtCombinacao[]) ?? [])
+    setBilhetes((data as VtBilhete[]) ?? [])
     return true
   }, [])
 
   /**
-   * Nova vigência de combinação (reajuste): o histórico NUNCA é editado —
-   * insere uma linha nova. Se a vigência já vale hoje, desativa as anteriores
-   * do mesmo nome; se é futura (reajuste agendado), a anterior segue ativa até
-   * lá e a função combinacoesVigentes escolhe pela data.
+   * Nova vigência de bilhete (reajuste): o histórico NUNCA é editado — insere
+   * uma linha nova. Se a vigência já vale hoje, desativa as anteriores do
+   * mesmo nome; se é futura (reajuste agendado), a anterior segue ativa até lá
+   * e a função bilhetesVigentes escolhe pela data.
    */
-  const novaVigenciaCombinacao = useCallback(async (dados: NovaCombinacaoVT): Promise<boolean> => {
+  const novaVigenciaBilhete = useCallback(async (dados: NovoBilheteVT): Promise<boolean> => {
     const { data: inseridas, error: erroInsert } = await supabase
-      .from('vt_combinacoes')
+      .from('vt_bilhetes')
       .insert({ ...dados, ativo: true })
       .select('id')
     if (erroInsert) {
-      console.error('Erro ao cadastrar combinação do VT:', erroInsert.message)
-      toast.error('Erro ao cadastrar a nova vigência da combinação')
+      console.error('Erro ao cadastrar bilhete do VT:', erroInsert.message)
+      toast.error('Erro ao cadastrar a nova vigência do bilhete')
       return false
     }
     if (!inseridas || inseridas.length === 0) {
-      toast.error('Não foi possível cadastrar: combinação não gravada (permissão)')
+      toast.error('Não foi possível cadastrar: bilhete não gravado (permissão)')
       return false
     }
     if (dados.vigente_desde <= hojeBrasil()) {
       const { error: erroDesativar } = await supabase
-        .from('vt_combinacoes')
+        .from('vt_bilhetes')
         .update({ ativo: false })
         .eq('nome', dados.nome)
         .eq('ativo', true)
@@ -192,29 +191,29 @@ export function useVt() {
         .select('id')
       if (erroDesativar) {
         console.error('Erro ao desativar vigência anterior:', erroDesativar.message)
-        toast.error('Combinação gravada, mas a vigência anterior não foi desativada — confira a lista')
+        toast.error('Bilhete gravado, mas a vigência anterior não foi desativada — confira a lista')
       }
     }
-    toast.success('Nova vigência da combinação cadastrada')
+    toast.success('Nova vigência do bilhete cadastrada')
     return true
   }, [])
 
-  const desativarCombinacao = useCallback(async (id: string): Promise<boolean> => {
+  const desativarBilhete = useCallback(async (id: string): Promise<boolean> => {
     const { data, error } = await supabase
-      .from('vt_combinacoes')
+      .from('vt_bilhetes')
       .update({ ativo: false })
       .eq('id', id)
       .select('id')
     if (error) {
-      console.error('Erro ao desativar combinação do VT:', error.message)
-      toast.error('Erro ao desativar a combinação')
+      console.error('Erro ao desativar bilhete do VT:', error.message)
+      toast.error('Erro ao desativar o bilhete')
       return false
     }
     if (!data || data.length === 0) {
-      toast.error('Não foi possível desativar: combinação não alterada (permissão)')
+      toast.error('Não foi possível desativar: bilhete não alterado (permissão)')
       return false
     }
-    toast.success('Combinação desativada')
+    toast.success('Bilhete desativado')
     return true
   }, [])
 
@@ -236,8 +235,8 @@ export function useVt() {
    */
   const salvarTrajeto = useCallback(async (dados: NovoTrajetoVT): Promise<string | null> => {
     const campos = {
-      combinacao_id: dados.combinacao_id,
-      combinacao_2_id: dados.combinacao_2_id || null,
+      bilhete_id: dados.bilhete_id,
+      bilhete_2_id: dados.bilhete_2_id || null,
       escopo: dados.escopo,
       precisao_origem: dados.precisao_origem,
       observacao: dados.observacao ?? null,
@@ -316,24 +315,24 @@ export function useVt() {
 
   const carregarTudo = useCallback(async () => {
     setLoading(true)
-    await Promise.all([listarColaboradores(), listarDepartamentos(), listarCombinacoes(), listarTrajetos()])
+    await Promise.all([listarColaboradores(), listarDepartamentos(), listarBilhetes(), listarTrajetos()])
     setLoading(false)
-  }, [listarColaboradores, listarDepartamentos, listarCombinacoes, listarTrajetos])
+  }, [listarColaboradores, listarDepartamentos, listarBilhetes, listarTrajetos])
 
   return {
     colaboradores,
     departamentos,
-    combinacoes,
+    bilhetes,
     trajetos,
     loading,
     carregarTudo,
     listarColaboradores,
     listarDepartamentos,
-    listarCombinacoes,
+    listarBilhetes,
     listarTrajetos,
     salvarVtColaborador,
-    novaVigenciaCombinacao,
-    desativarCombinacao,
+    novaVigenciaBilhete,
+    desativarBilhete,
     salvarTrajeto,
     confirmarTrajeto,
     removerTrajeto,

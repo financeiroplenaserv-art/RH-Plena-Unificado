@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ExternalLink, Route, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -23,18 +24,19 @@ import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { hojeBrasil } from '@/lib/utils'
-import { combinacoesVigentes, custoDiaCombinacoesCentavos, formatarCentavos } from '@/lib/vt/combinacoes'
+import { bilhetesVigentes, custoDiaBilhetesCentavos, formatarCentavos } from '@/lib/vt/bilhetes'
 import { custoDiaTrajetoCentavos, escopoSugerido } from '@/lib/vt/trajetos'
 import { linkGoogleMapsTransito, precisaoDoEndereco, textoOrigemCasa } from '@/lib/vt/enderecos'
 import type { NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
-import type { EscopoTrajetoVT, VtCombinacao } from '@/types/vt'
+import type { EscopoTrajetoVT, VtBilhete } from '@/types/vt'
 
 // Aba Trajetos do VT (Fase 1): uma linha por par colaborador × posto. A
-// precificação é por combinação nomeada com valor diário (modelo de 21/10/2026,
-// plano §2d): combinação 1 obrigatória + combinação 2 opcional, custo = soma.
-// O trajeto só entra no cálculo depois de confirmado pelo RH — "importação
-// nunca grava palpite" (AGENTS.md §12, plano §4). O escopo é apenas um selo
-// informacional das cidades casa × posto (não precifica).
+// precificação é por bilhete nomeado com valor diário (modelo de 21/10/2026,
+// plano §2d; "combinação" virou "bilhete" — migration 156): bilhete 1
+// obrigatório + bilhete 2 opcional, custo = soma. O trajeto só entra no
+// cálculo depois de confirmado pelo RH — "importação nunca grava palpite"
+// (AGENTS.md §12, plano §4). O escopo é apenas um selo informacional das
+// cidades casa × posto (não precifica).
 
 /** Selo somente leitura do escopo: Niterói / Intermunicipal / cidade da casa. */
 function seloEscopo(escopo: EscopoTrajetoVT, cidadeCasa: string | null): string {
@@ -64,7 +66,7 @@ interface LinhaTrajeto {
 interface VtTrajetosTabProps {
   colaboradores: VtColaborador[]
   departamentos: VtDepartamento[]
-  combinacoes: VtCombinacao[]
+  bilhetes: VtBilhete[]
   trajetos: VtTrajetoComDetalhes[]
   loading: boolean
   usuarioId: string
@@ -75,12 +77,12 @@ interface VtTrajetosTabProps {
   recarregarTrajetos: () => Promise<boolean>
 }
 
-const NENHUMA = '__nenhuma__'
+const NENHUM = '__nenhum__'
 
 export function VtTrajetosTab({
   colaboradores,
   departamentos,
-  combinacoes,
+  bilhetes,
   trajetos,
   loading,
   usuarioId,
@@ -91,19 +93,24 @@ export function VtTrajetosTab({
   recarregarTrajetos,
 }: VtTrajetosTabProps) {
   const hoje = hojeBrasil()
-  const [edicoes, setEdicoes] = useState<Record<string, { c1: string; c2: string }>>({})
+  const [edicoes, setEdicoes] = useState<Record<string, { b1: string; b2: string }>>({})
+  // Visibilidade do 2º bilhete por linha (poucos colaboradores usam — não
+  // ocupa a tela de todo mundo). Padrão: visível só quando o trajeto gravado
+  // já tem bilhete_2_id (dado gravado nunca é escondido).
+  const [mostrarB2, setMostrarB2] = useState<Record<string, boolean>>({})
   const [dialogAberto, setDialogAberto] = useState(false)
   const [excluindo, setExcluindo] = useState<LinhaTrajeto | null>(null)
   const [novoColaboradorId, setNovoColaboradorId] = useState('')
   const [novoDepartamentoId, setNovoDepartamentoId] = useState('')
-  const [novaC1, setNovaC1] = useState('')
-  const [novaC2, setNovaC2] = useState('')
+  const [novoB1, setNovoB1] = useState('')
+  const [novoB2, setNovoB2] = useState('')
+  const [temB2, setTemB2] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
-  // Opções dos selects: as vigentes hoje. Combinação referenciada por trajeto
-  // gravado que saiu de vigor continua aparecendo (selo "vigência antiga") para
-  // o select não ficar vazio — trocar por uma vigente atualiza o custo.
-  const vigentes = useMemo(() => combinacoesVigentes(combinacoes, hoje), [combinacoes, hoje])
+  // Opções dos selects: os vigentes hoje. Bilhete referenciado por trajeto
+  // gravado que saiu de vigor continua aparecendo (selo "vigência antiga")
+  // para o select não ficar vazio — trocar por um vigente atualiza o custo.
+  const vigentes = useMemo(() => bilhetesVigentes(bilhetes, hoje), [bilhetes, hoje])
 
   const nomePosto = (depId: string, nomeTexto?: string | null) =>
     departamentos.find((d) => d.id === depId)?.nome_curto?.trim() ||
@@ -158,41 +165,41 @@ export function VtTrajetosTab({
 
   const valoresDa = (linha: LinhaTrajeto) =>
     edicoes[linha.chave] ?? {
-      c1: linha.trajeto?.combinacao_id ?? '',
-      c2: linha.trajeto?.combinacao_2_id ?? '',
+      b1: linha.trajeto?.bilhete_id ?? '',
+      b2: linha.trajeto?.bilhete_2_id ?? '',
     }
 
-  /** Opções do select da linha: vigentes + as referenciadas pelo trajeto (antigas). */
-  const opcoesDa = (linha: LinhaTrajeto): { id: string; nome: string; antiga: boolean }[] => {
-    const base = vigentes.map((c) => ({ id: c.id, nome: c.nome, antiga: false }))
+  /** Opções do select da linha: vigentes + os referenciados pelo trajeto (antigos). */
+  const opcoesDa = (linha: LinhaTrajeto): { id: string; nome: string; antigo: boolean }[] => {
+    const base = vigentes.map((b) => ({ id: b.id, nome: b.nome, antigo: false }))
     const valores = valoresDa(linha)
-    for (const id of [valores.c1, valores.c2]) {
+    for (const id of [valores.b1, valores.b2]) {
       if (id && !base.some((o) => o.id === id)) {
-        const ref = combinacoes.find((c) => c.id === id)
-        if (ref) base.push({ id: ref.id, nome: ref.nome, antiga: true })
+        const ref = bilhetes.find((b) => b.id === id)
+        if (ref) base.push({ id: ref.id, nome: ref.nome, antigo: true })
       }
     }
     return base
   }
 
-  const dadosDaLinha = (linha: LinhaTrajeto, valores: { c1: string; c2: string }): NovoTrajetoVT => ({
+  const dadosDaLinha = (linha: LinhaTrajeto, valores: { b1: string; b2: string }): NovoTrajetoVT => ({
     colaborador_id: linha.colaboradorId,
     departamento_id: linha.departamentoId,
-    combinacao_id: valores.c1,
-    combinacao_2_id: valores.c2 || null,
+    bilhete_id: valores.b1,
+    bilhete_2_id: valores.b2 || null,
     escopo: linha.trajeto?.escopo ?? escopoSugerido(linha.cidadeCasa, linha.cidadePosto),
     precisao_origem: linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa),
     observacao: linha.trajeto?.observacao ?? null,
   })
 
-  // Trajeto já gravado: salva na troca da combinação (mesmo padrão de antes).
+  // Trajeto já gravado: salva na troca do bilhete (mesmo padrão de antes).
   // Sugestões (ainda não gravadas) só persistem no "Confirmar".
-  const editar = (linha: LinhaTrajeto, parcial: Partial<{ c1: string; c2: string }>) => {
+  const editar = (linha: LinhaTrajeto, parcial: Partial<{ b1: string; b2: string }>) => {
     const valores = { ...valoresDa(linha), ...parcial }
-    // A 2ª nunca repete a 1ª (CHECK combinacao_2_id <> combinacao_id).
-    if (valores.c1 && valores.c1 === valores.c2) valores.c2 = ''
+    // O 2º nunca repete o 1º (CHECK bilhete_2_id <> bilhete_id).
+    if (valores.b1 && valores.b1 === valores.b2) valores.b2 = ''
     setEdicoes((atual) => ({ ...atual, [linha.chave]: valores }))
-    if (linha.trajeto && podeGerenciar && valores.c1) {
+    if (linha.trajeto && podeGerenciar && valores.b1) {
       salvarTrajeto(dadosDaLinha(linha, valores)).then((id) => {
         if (id) recarregarTrajetos()
       })
@@ -201,7 +208,7 @@ export function VtTrajetosTab({
 
   const confirmar = async (linha: LinhaTrajeto) => {
     const valores = valoresDa(linha)
-    if (!linha.trajeto && !valores.c1) return
+    if (!linha.trajeto && !valores.b1) return
     setSalvando(true)
     if (linha.trajeto) {
       await confirmarTrajeto(linha.trajeto.id, usuarioId)
@@ -224,28 +231,28 @@ export function VtTrajetosTab({
 
   const custoDaLinha = (linha: LinhaTrajeto): number | null => {
     if (linha.trajeto && !edicoes[linha.chave]) {
-      return custoDiaTrajetoCentavos(linha.trajeto, combinacoes, hoje)
+      return custoDiaTrajetoCentavos(linha.trajeto, bilhetes, hoje)
     }
     const valores = valoresDa(linha)
-    const c1 = vigentes.find((c) => c.id === valores.c1)
-    if (!c1) return null
-    const c2 = valores.c2 ? (vigentes.find((c) => c.id === valores.c2) ?? null) : null
-    if (valores.c2 && !c2) return null
-    return custoDiaCombinacoesCentavos(c1, c2)
+    const b1 = vigentes.find((b) => b.id === valores.b1)
+    if (!b1) return null
+    const b2 = valores.b2 ? (vigentes.find((b) => b.id === valores.b2) ?? null) : null
+    if (valores.b2 && !b2) return null
+    return custoDiaBilhetesCentavos(b1, b2)
   }
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante), [colaboradores])
 
   const salvarNovo = async () => {
     const colab = colaboradores.find((c) => c.id === novoColaboradorId)
-    if (!colab || !novoDepartamentoId || !novaC1) return
+    if (!colab || !novoDepartamentoId || !novoB1) return
     const dep = departamentos.find((d) => d.id === novoDepartamentoId)
     setSalvando(true)
     const id = await salvarTrajeto({
       colaborador_id: colab.id,
       departamento_id: novoDepartamentoId,
-      combinacao_id: novaC1,
-      combinacao_2_id: novaC2 || null,
+      bilhete_id: novoB1,
+      bilhete_2_id: novoB2 || null,
       escopo: escopoSugerido(colab.cidade, dep?.cidade ?? null),
       precisao_origem: precisaoDoEndereco(colab.endereco),
     })
@@ -255,8 +262,9 @@ export function VtTrajetosTab({
       setDialogAberto(false)
       setNovoColaboradorId('')
       setNovoDepartamentoId('')
-      setNovaC1('')
-      setNovaC2('')
+      setNovoB1('')
+      setNovoB2('')
+      setTemB2(false)
       toast.success('Trajeto adicionado — confira a rota e confirme')
     }
   }
@@ -268,28 +276,34 @@ export function VtTrajetosTab({
     setExcluindo(null)
   }
 
-  const selectCombinacao = (
+  const selectBilhete = (
     linha: LinhaTrajeto,
-    campo: 'c1' | 'c2',
+    campo: 'b1' | 'b2',
     valor: string,
-    opcoes: { id: string; nome: string; antiga: boolean }[]
+    opcoes: { id: string; nome: string; antigo: boolean }[]
   ) => (
     <Select
-      value={campo === 'c2' ? valor || NENHUMA : valor}
+      value={campo === 'b2' ? valor || NENHUM : valor}
       disabled={!podeGerenciar || salvando}
-      onValueChange={(v) => editar(linha, { [campo]: v === NENHUMA ? '' : v })}
+      onValueChange={(v) => {
+        editar(linha, { [campo]: v === NENHUM ? '' : v })
+        // "Nenhum" no 2º recolhe o select — volta ao estado simples da linha.
+        if (campo === 'b2' && v === NENHUM) {
+          setMostrarB2((atual) => ({ ...atual, [linha.chave]: false }))
+        }
+      }}
     >
       <SelectTrigger className="h-8 w-52 text-[13px]">
-        <SelectValue placeholder={campo === 'c1' ? 'Escolha a combinação' : 'Nenhuma'} />
+        <SelectValue placeholder={campo === 'b1' ? 'Escolha o bilhete' : 'Nenhum'} />
       </SelectTrigger>
       <SelectContent>
-        {campo === 'c2' && <SelectItem value={NENHUMA}>Nenhuma</SelectItem>}
+        {campo === 'b2' && <SelectItem value={NENHUM}>Nenhum</SelectItem>}
         {opcoes
-          .filter((o) => campo === 'c2' && o.id === valoresDa(linha).c1 ? false : true)
+          .filter((o) => campo === 'b2' && o.id === valoresDa(linha).b1 ? false : true)
           .map((o) => (
             <SelectItem key={o.id} value={o.id}>
               {o.nome}
-              {o.antiga ? ' (vigência antiga)' : ''}
+              {o.antigo ? ' (vigência antiga)' : ''}
             </SelectItem>
           ))}
       </SelectContent>
@@ -300,9 +314,9 @@ export function VtTrajetosTab({
     <div className="space-y-4">
       <ModuleCard>
         <p className="text-[13px] text-muted-foreground">
-          Abra a rota no Google Maps, veja o trajeto que a pessoa faz, escolha a combinação de VT
-          correspondente (até 2) e confirme. Só trajetos <strong>confirmados</strong> entram no
-          custo do dia.
+          Abra a rota no Google Maps, veja o trajeto que a pessoa faz, escolha o bilhete de VT
+          correspondente e confirme — a maioria usa um bilhete só; se a pessoa precisa de dois,
+          clique em + 2º bilhete. Só trajetos <strong>confirmados</strong> entram no custo do dia.
         </p>
       </ModuleCard>
 
@@ -335,8 +349,7 @@ export function VtTrajetosTab({
                   <th className="px-3 py-3">Colaborador</th>
                   <th className="px-3 py-3">Posto</th>
                   <th className="px-3 py-3">Escopo</th>
-                  <th className="px-3 py-3">Combinação 1</th>
-                  <th className="px-3 py-3">Combinação 2</th>
+                  <th className="px-3 py-3">Bilhete</th>
                   <th className="px-3 py-3 text-right">Custo/dia</th>
                   <th className="px-3 py-3">Precisão</th>
                   <th className="px-3 py-3">Status</th>
@@ -351,6 +364,7 @@ export function VtTrajetosTab({
                   const escopo = linha.trajeto?.escopo ?? escopoSugerido(linha.cidadeCasa, linha.cidadePosto)
                   const precisao = linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)
                   const confirmado = linha.trajeto?.status === 'confirmado'
+                  const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-3 py-2.5 font-medium text-foreground">{linha.nomeColaborador}</td>
@@ -360,8 +374,26 @@ export function VtTrajetosTab({
                           {seloEscopo(escopo, linha.cidadeCasa)}
                         </StatusBadge>
                       </td>
-                      <td className="px-3 py-2.5">{selectCombinacao(linha, 'c1', valores.c1, opcoes)}</td>
-                      <td className="px-3 py-2.5">{selectCombinacao(linha, 'c2', valores.c2, opcoes)}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {selectBilhete(linha, 'b1', valores.b1, opcoes)}
+                            {podeGerenciar && !b2Visivel && (
+                              <button
+                                type="button"
+                                className="shrink-0 rounded-md px-1.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
+                                title="Adicionar segundo bilhete — poucos colaboradores usam"
+                                onClick={() =>
+                                  setMostrarB2((atual) => ({ ...atual, [linha.chave]: true }))
+                                }
+                              >
+                                + 2º bilhete
+                              </button>
+                            )}
+                          </div>
+                          {b2Visivel && selectBilhete(linha, 'b2', valores.b2, opcoes)}
+                        </div>
+                      </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {custo == null ? '—' : formatarCentavos(custo)}
                       </td>
@@ -389,7 +421,7 @@ export function VtTrajetosTab({
                             <ModuleButton
                               size="sm"
                               variant="outline"
-                              disabled={salvando || (!linha.trajeto && !valores.c1)}
+                              disabled={salvando || (!linha.trajeto && !valores.b1)}
                               onClick={() => confirmar(linha)}
                             >
                               Confirmar
@@ -450,47 +482,60 @@ export function VtTrajetosTab({
                 placeholder="Buscar posto..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Bilhete 1</Label>
+              <Select
+                value={novoB1}
+                onValueChange={(v) => {
+                  setNovoB1(v)
+                  if (v === novoB2) setNovoB2('')
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Obrigatório" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vigentes.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nome} ({formatarCentavos(b.valor_diario_centavos)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="vt-tem-b2"
+                checked={temB2}
+                onCheckedChange={(marcado) => {
+                  setTemB2(marcado === true)
+                  if (!marcado) setNovoB2('')
+                }}
+              />
+              <Label htmlFor="vt-tem-b2" className="cursor-pointer text-muted-foreground">
+                Tem segundo bilhete (poucos colaboradores usam)
+              </Label>
+            </div>
+            {temB2 && (
               <div className="space-y-1.5">
-                <Label>Combinação 1</Label>
-                <Select
-                  value={novaC1}
-                  onValueChange={(v) => {
-                    setNovaC1(v)
-                    if (v === novaC2) setNovaC2('')
-                  }}
-                >
+                <Label>Bilhete 2</Label>
+                <Select value={novoB2 || NENHUM} onValueChange={(v) => setNovoB2(v === NENHUM ? '' : v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Obrigatória" />
+                    <SelectValue placeholder="Nenhum" />
                   </SelectTrigger>
                   <SelectContent>
-                    {vigentes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nome} ({formatarCentavos(c.valor_diario_centavos)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Combinação 2 (opcional)</Label>
-                <Select value={novaC2 || NENHUMA} onValueChange={(v) => setNovaC2(v === NENHUMA ? '' : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nenhuma" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NENHUMA}>Nenhuma</SelectItem>
+                    <SelectItem value={NENHUM}>Nenhum</SelectItem>
                     {vigentes
-                      .filter((c) => c.id !== novaC1)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nome} ({formatarCentavos(c.valor_diario_centavos)})
+                      .filter((b) => b.id !== novoB1)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.nome} ({formatarCentavos(b.valor_diario_centavos)})
                         </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            )}
           </div>
           <DialogFooter>
             <ModuleButton variant="outline" onClick={() => setDialogAberto(false)} disabled={salvando}>
@@ -498,7 +543,7 @@ export function VtTrajetosTab({
             </ModuleButton>
             <ModuleButton
               onClick={salvarNovo}
-              disabled={!novoColaboradorId || !novoDepartamentoId || !novaC1 || salvando}
+              disabled={!novoColaboradorId || !novoDepartamentoId || !novoB1 || salvando}
             >
               {salvando ? 'Salvando...' : 'Adicionar'}
             </ModuleButton>

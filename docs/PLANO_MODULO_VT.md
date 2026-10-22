@@ -35,11 +35,11 @@ O quadro está em 6 cidades e **cada escopo tem sua regra de integração** — 
 
 Cada embarque cobra tarifa cheia, sem janela de integração. Custo do dia = soma das tarifas das pernas (ida + volta).
 
-### 2d. O modelo real da operação: COMBINAÇÕES nomeadas com valor diário (decisão da gestora, 21/10/2026)
+### 2d. O modelo real da operação: BILHETES nomeados com valor diário (decisão da gestora, 21/10/2026; renomeado de "combinação" para "bilhete" em 21/10/2026 — migration 156)
 
-A precificação NÃO é calculada embarque a embarque: a operação usa um **catálogo de combinações**, cada uma com **valor por dia (ida + volta)** já fechado. Tabela real informada pela gestora:
+A precificação NÃO é calculada embarque a embarque: a operação usa um **catálogo de bilhetes**, cada um com **valor por dia (ida + volta)** já fechado. Tabela real informada pela gestora:
 
-| Combinação | Valor/dia |
+| Bilhete | Valor/dia |
 |---|---|
 | CENTRO RJ | R$ 10,00 |
 | BU NITERÓI | R$ 11,20 (= 2 × 5,60) |
@@ -51,7 +51,7 @@ A precificação NÃO é calculada embarque a embarque: a operação usa um **ca
 | ÔNIBUS, TREM E METRÔ | R$ 28,80 |
 | SEM INTEGRAÇÃO BU | R$ 32,00 |
 
-**Um trajeto (casa → posto) pode ter ATÉ 2 combinações** (ex.: BU NITERÓI + TREM) — o custo do dia é a **soma** das combinações do trajeto. A maioria dos colaboradores usa BU INTERMUNICIPAL ou BU NITERÓI. O motor de "conduções × tarifa" das §§2a–2c vira **conhecimento de apoio** para escolher a combinação certa (e para conferir reajustes), não mais o cálculo principal.
+**Um trajeto (casa → posto) pode ter ATÉ 2 bilhetes** (ex.: BU NITERÓI + TREM) — o custo do dia é a **soma** das bilhetes do trajeto. A maioria dos colaboradores usa BU INTERMUNICIPAL ou BU NITERÓI. O motor de "conduções × tarifa" das §§2a–2c vira **conhecimento de apoio** para escolher a bilhete certo (e para conferir reajustes), não mais o cálculo principal.
 
 **Fonte de tarifas com vigência**: a [Base Nacional de Tarifas e Integrações de VT da Otimiza.pro](https://otimizapro.com/tarifas-e-integracoes-transporte-publico-brasil/rj/niteroi) cobre todas as nossas cidades (Niterói, São Gonçalo, Maricá, Itaboraí, Macaé, Rio), com valor, data de vigência e ato oficial — serve de referência para alimentar `vt_tarifas` (a gravação segue manual/confirmada; licença CC BY-NC permite a consulta para decisões da própria empresa).
 
@@ -77,7 +77,7 @@ A precificação NÃO é calculada embarque a embarque: a operação usa um **ca
    - Resultado de baixa confiança é **marcado para conferência**, nunca usado em silêncio.
 2. **Rota de transporte público — SEM chave de API (decisão da gestora, 21/10/2026: "vamos sem a chave do Google; se for o caso, faremos")**: o sistema monta o **link do Google Maps já preenchido** (origem → posto, modo transporte público — links de consulta são gratuitos e não precisam de chave) e o RH abre, lê a rota sugerida e confirma na tela com o mínimo de cliques: **quantas conduções por sentido** (1 / 2 / 3+) e o **escopo** (municipal Niterói / intermunicipal / outra cidade). A partir daí o **custo é calculado pelas regras tarifárias** (§2) — não pelo Google. A chave da Routes API fica como **upgrade futuro**: com ela, a leitura das pernas vira automática e a confirmação humana vira só revisão.
    - Geocodificação (para posicionar origem/destino e montar os links) via **Nominatim/OSM gratuito** (com cache no banco e respeito ao rate limit de 1 req/s), com a normalização da POC; se um dia quiser mais precisão, troca-se o provedor sem mudar o fluxo.
-3. **Custo do dia**: o trajeto referencia **1 ou 2 combinações do catálogo** (§2d) e o custo do dia é a soma dos valores diários vigentes — combinações em tabela **com vigência** (padrão `ceu_itens_precos`). As regras de integração (§§2a–2c) servem de apoio para ESCOLHER a combinação certa.
+3. **Custo do dia**: o trajeto referencia **1 ou 2 bilhetes do catálogo** (§2d) e o custo do dia é a soma dos valores diários vigentes — bilhetes em tabela **com vigência** (padrão `ceu_itens_precos`). As regras de integração (§§2a–2c) servem de apoio para ESCOLHER a bilhete certo.
 4. **Confirmação humana de 1 clique**: fila "Trajetos a confirmar" — o RH vê "João: Niterói → CBO — ônibus 740I + barca + ônibus 100, R$ X/dia" e clica **Confirmar** ou **Ajustar**. Sem a confirmação, o trajeto não entra no cálculo (regra "importação nunca grava palpite").
 5. **Fallback para cidade sem cobertura do Google** (POC: Macaé não tem ônibus no Google): trajeto **declarado 1× como padrão da cidade/posto** (ex.: Macaé = 1 ônibus municipal por sentido, tarifa local) — vale para todo colaborador daquele par, não é por pessoa.
 
@@ -88,8 +88,8 @@ O trajeto é **cache eterno por par casa→posto**: só recalcula quando muda o 
 | Tabela/coluna | Conteúdo |
 |---|---|
 | `colaboradores.vt_optante` (bool), `colaboradores.vt_tipo_cartao` ('bun' \| 'bui' \| 'comum'), `colaboradores.salario_base` (numeric, vindo da Alterdata) | cadastro do VT |
-| `vt_trajetos` | colaborador × departamento: **combinacao_id + combinacao_2_id (nullable)** (§2d — custo do dia = soma dos valores diários das combinações), origem ('manual'/'link_confirmado'), precisao_origem ('exato'/'bairro'), status ('sugerido'/'confirmado'), confirmado_por/em |
-| `vt_combinacoes` | **combinação nomeada com valor diário** (§2d: BU NITERÓI R$ 11,20 etc.) com `vigente_desde` — imutável, padrão `ceu_itens_precos`; reajuste = nova linha de vigência |
+| `vt_trajetos` | colaborador × departamento: **bilhete_id + bilhete_2_id (nullable)** (§2d — custo do dia = soma dos valores diários dos bilhetes), origem ('manual'/'link_confirmado'), precisao_origem ('exato'/'bairro'), status ('sugerido'/'confirmado'), confirmado_por/em |
+| `vt_bilhetes` | **bilhete nomeado com valor diário** (§2d: BU NITERÓI R$ 11,20 etc.) com `vigente_desde` — imutável, padrão `ceu_itens_precos`; reajuste = nova linha de vigência |
 | `vt_cargas` | mensal por colaborador: dias por posto × custo/dia, necessidade, ajuste da reconciliação anterior, valor calculado, valor creditado, desconto 6% calculado |
 | `vt_eventos` | "bilhete acabou", complemento autorizado/negado, troca de trajeto — com previsão × real |
 | `vt_geocode_cache` | endereço normalizado → lat/lng/confiança (LGPD: sem nome/CPF) |
@@ -98,10 +98,10 @@ Regras do projeto que valem aqui: GRANT explícito em tabela nova; RLS padrão (
 
 ## 6. Fluxos operacionais
 
-1. **Carga mensal** (virada do mês): escala do mês seguinte importada → VT → "Calcular cargas" → por colaborador: dias por posto, custo/dia, necessidade, ± ajuste da reconciliação anterior, desconto 6% (`min(6% × salario_base, necessidade)`) → exportação (layout a definir — ver decisões pendentes).
+1. **Carga mensal** (virada do mês): escala do mês seguinte importada → VT → "Calcular cargas" → por colaborador: dias por posto, custo/dia, necessidade, ± ajuste da reconciliação anterior, desconto 6% (`min(6% × salario_base, necessidade)` — **depende de importar `salarioBase` da Alterdata**, pendente do desfreeze do e-Contador; até lá, a coluna mostra "—") → exportação. **Ponte escala→posto (decisão técnica, 21/10/2026)**: `locais_trabalho_diario` aponta para `locais_trabalho` (Escalas), que NÃO tem `departamento_id` — o posto do dia é resolvido por `encontrarDepartamentoFuzzy` (nome/nome_curto do local → departamentos), mesmo padrão de resolução já usado no projeto; sem match, o dia cai na fila "posto não identificado" (nunca custo inventado). **Transferência no meio do mês**: a escala já traz os dias no posto novo → o cálculo soma dias no X × custo X + dias no Y × custo Y sem intervenção; transferência programada sai certa na carga do mês seguinte. **Gatilho futuro (Fase 3)**: a ocorrência "Transferência de Setor" (que já atualiza `departamento_id`) dispara o alerta "o bilhete cobre o posto novo?".
 2. **Troca de posto**: ao importar escala com posto novo para alguém, o sistema recalcula e **alerta** ("o bilhete do João cobre o trajeto novo? precisa complementar R$ X") — se o par casa→posto é inédito, entra na fila de confirmação.
 3. **"Meu bilhete acabou"**: evento registrado com data → tela mostra **previsto × real** (dia previsto de esgotamento pelo cálculo × dia do relato; dias trabalhados a mais; troca de posto no meio do mês) → embasa autorizar ou questionar o complemento.
-4. **Reconciliação** (após o ponto do mês): dias reais × custo/dia vs. o que foi creditado → diferença entra automaticamente na próxima carga (igual VR).
+4. **Reconciliação** (após o ponto do mês): **"VR olha para trás, VT olha para a frente" (síntese da gestora, 21/10/2026)** — o VT credita contando os dias que a pessoa VAI trabalhar; o único olhar para trás é o fechamento: **se faltou (qualquer motivo — regra §10.3), desconta na carga do mês seguinte**. O fechamento confere também posto divergente do previsto (custou diferente → ajusta). dias reais × custo/dia vs. o que foi creditado → diferença entra automaticamente na próxima carga. **Fonte dos dias reais (decisão técnica, 21/10/2026)**: reprocessar o espelho de ponto **já arquivado** no bucket `ponto-espelhos` (migration 094) com o parser existente (`pdfPosicional`), cruzado com extras e `vt_coberturas` para o posto real — o espelho cobre TODOS os colaboradores, sem depender de vínculo de adicionais; não se pede reupload.
 
 ## 7. Integrações externas, custos e LGPD (versão sem chave Google — decisão de 21/10/2026)
 
@@ -130,7 +130,9 @@ Regras do projeto que valem aqui: GRANT explícito em tabela nova; RLS padrão (
 5. **Fases**: separadas, na ordem aconselhada — Fase 1 (cadastro de optantes/tipo de bilhete + trajetos + custo-dia), Fase 2 (carga mensal + reconciliação + exportação), Fase 3 (eventos "bilhete acabou" + alertas de troca de posto), Fase 4 (automação RioCard).
 6. **Cartão VT e tarifa de Niterói (corrigido em 21/10/2026)**: o cartão mostra o CPF do colaborador, **mas a compra é feita pela empresa** — logo vale a tarifa **R$ 5,60** (VT personalizado empresa), NÃO os R$ 4,45 do BUN de pessoa física. Tarifa padrão de Niterói no módulo: **R$ 5,60**. Pendente de verificação prática: se o cartão da empresa tem direito à **integração** (2ª linha em 1h grátis) ou se cada embarque cobra R$ 5,60 — ver §2a.
 7. **Sem chave do Google por ora** (21/10/2026): rotas via links gratuitos + confirmação humana; geocode via Nominatim. Se a fila de confirmação se mostrar trabalhosa demais na prática, aí se faz a chave e a leitura das pernas vira automática.
-8. **Preço por combinação nomeada, não por embarque (21/10/2026)**: a operação precifica com o catálogo de 9 combinações de valor diário fechado (§2d — ex.: BU NITERÓI R$ 11,20, BUI R$ 18,80), e **um trajeto pode ter até 2 combinações** (custo do dia = soma). A maioria usa BU INTERMUNICIPAL ou BU NITERÓI. Isso substitui o motor "conduções × tarifa" como cálculo principal.
+8. **Preço por bilhete nomeado, não por embarque (21/10/2026)**: a operação precifica com o catálogo de 9 bilhetes de valor diário fechado (§2d — ex.: BU NITERÓI R$ 11,20, BUI R$ 18,80), e **um trajeto pode ter até 2 bilhetes** (custo do dia = soma). A maioria usa BU INTERMUNICIPAL ou BU NITERÓI. Isso substitui o motor "conduções × tarifa" como cálculo principal.
+9. **Faltista × ferista são problemas diferentes (21/10/2026)**: (a) **faltista** cobre faltas — imprevisível por natureza; recebe **valor cheio** (bilhete abrangente no trajeto-base; os dias vêm da escala) e pronto, sem novidade de sistema; (b) **ferista** cobre férias — planejado com antecedência, mas o Flit não mostra o destino → registro manual mínimo **`vt_coberturas`** (ferista × posto × período, preenchido quando a cobertura é planejada — hoje essa decisão já existe na planilha "Planejamento Operacional"); na carga, o dia dentro de uma cobertura usa o **posto da cobertura**, com prioridade sobre a escala. Quando o módulo Férias for liberado, `ferias_alocacoes` passa a alimentar esse registro automaticamente e o manual se aposenta. (c) **extras + substitutos do calendário de adicionais são dados do período que PASSOU** (preenchidos para a folha) — não servem para a previsão; servem para a **reconciliação** (Fase 2b), junto com o ponto.
+10. **Carga dirigida pelas férias do mês (21/10/2026, refinamento do quadro de coberturas)**: o fluxo NÃO começa perguntando "quem cobre" — começa com o sistema **listando quem entra de férias no mês da carga** (lendo `ferias_solicitacoes`, que já existe no banco) e exigindo um destino para cada um: **quem cobre + período** (registra a cobertura já vinculada às férias, posto pré-preenchido com o posto do titular) ou **"sem cobertura" declarado** (caso do ferista que tira férias — ninguém o cobre). **Portão de fechamento da carga**: gravar/computar só com TUDO coberto — cada férias do mês com destino declarado + todo optante com trajeto confirmado para os postos que vai pisar + nenhum dia sem posto identificado — assim **ninguém fica sem VT no mês seguinte**. E o titular de férias tem os dias de gozo **subtraídos da própria carga** (não trabalhou → não recebe — o sistema corta os dias pela `ferias_solicitacoes`, não depende da escala estar certa).
 
 ## 11. Fora de escopo (por ora)
 

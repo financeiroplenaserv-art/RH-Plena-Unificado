@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { custoDiaTrajetoCentavos, escopoSugerido, paresDaEscala } from '@/lib/vt/trajetos'
-import type { VtCombinacao, VtTrajeto } from '@/types/vt'
+import type { VtBilhete, VtTrajeto } from '@/types/vt'
 
-const BU_NITEROI: VtCombinacao = {
-  id: 'c2',
+const BU_NITEROI: VtBilhete = {
+  id: 'b2',
   nome: 'BU NITERÓI',
   valor_diario_centavos: 1120,
   vigente_desde: '2026-10-21',
   ativo: true,
 }
 
-const TREM: VtCombinacao = {
-  id: 'c5',
+const TREM: VtBilhete = {
+  id: 'b5',
   nome: 'TREM',
   valor_diario_centavos: 1580,
   vigente_desde: '2026-10-21',
@@ -23,8 +23,8 @@ function trajeto(parcial: Partial<VtTrajeto>): VtTrajeto {
     id: 'tr1',
     colaborador_id: 'c1',
     departamento_id: 'd1',
-    combinacao_id: BU_NITEROI.id,
-    combinacao_2_id: null,
+    bilhete_id: BU_NITEROI.id,
+    bilhete_2_id: null,
     escopo: 'niteroi_municipal',
     precisao_origem: 'bairro',
     origem: 'manual',
@@ -37,23 +37,23 @@ function trajeto(parcial: Partial<VtTrajeto>): VtTrajeto {
 }
 
 describe('custoDiaTrajetoCentavos', () => {
-  it('trajeto com 1 combinação vale o valor diário dela', () => {
+  it('trajeto com 1 bilhete vale o valor diário dele', () => {
     expect(custoDiaTrajetoCentavos(trajeto({}), [BU_NITEROI, TREM], '2026-10-21')).toBe(1120)
   })
 
-  it('trajeto com 2 combinações soma os valores diários', () => {
-    expect(custoDiaTrajetoCentavos(trajeto({ combinacao_2_id: TREM.id }), [BU_NITEROI, TREM], '2026-10-21')).toBe(2700)
+  it('trajeto com 2 bilhetes soma os valores diários', () => {
+    expect(custoDiaTrajetoCentavos(trajeto({ bilhete_2_id: TREM.id }), [BU_NITEROI, TREM], '2026-10-21')).toBe(2700)
   })
 
-  it('null quando a combinação não está vigente na data', () => {
+  it('null quando o bilhete não está vigente na data', () => {
     expect(custoDiaTrajetoCentavos(trajeto({}), [BU_NITEROI], '2026-10-20')).toBeNull()
-    const inativa: VtCombinacao = { ...BU_NITEROI, ativo: false }
-    expect(custoDiaTrajetoCentavos(trajeto({}), [inativa], '2026-10-21')).toBeNull()
+    const inativo: VtBilhete = { ...BU_NITEROI, ativo: false }
+    expect(custoDiaTrajetoCentavos(trajeto({}), [inativo], '2026-10-21')).toBeNull()
   })
 
-  it('usa a vigência mais recente da combinação (mesmo nome, valor novo)', () => {
-    const antiga: VtCombinacao = { ...BU_NITEROI, id: 'c2a', valor_diario_centavos: 900, vigente_desde: '2026-01-01' }
-    expect(custoDiaTrajetoCentavos(trajeto({ combinacao_id: 'c2a' }), [antiga], '2026-06-01')).toBe(900)
+  it('usa a vigência mais recente do bilhete (mesmo nome, valor novo)', () => {
+    const antiga: VtBilhete = { ...BU_NITEROI, id: 'b2a', valor_diario_centavos: 900, vigente_desde: '2026-01-01' }
+    expect(custoDiaTrajetoCentavos(trajeto({ bilhete_id: 'b2a' }), [antiga], '2026-06-01')).toBe(900)
   })
 })
 

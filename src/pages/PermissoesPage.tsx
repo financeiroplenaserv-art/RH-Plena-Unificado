@@ -95,7 +95,7 @@ const PERMISSOES_CONFIG: PermissaoConfig[] = [
   { recurso: 'vr', acao: 'gerenciar', label: 'Gerenciar projetos VR', grupo: 'VR' },
 
   // Vale-Transporte (Fase 1, migration 155)
-  { recurso: 'vt', acao: 'gerenciar', label: 'Gerenciar vale-transporte (optantes, trajetos, combinações)', grupo: 'Vale-Transporte' },
+  { recurso: 'vt', acao: 'gerenciar', label: 'Gerenciar vale-transporte (optantes, trajetos, bilhetes)', grupo: 'Vale-Transporte' },
   { recurso: 'vt', acao: 'visualizar', label: 'Visualizar vale-transporte', grupo: 'Vale-Transporte' },
 
   // Adicionais contratuais

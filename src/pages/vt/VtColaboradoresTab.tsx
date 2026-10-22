@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, Users } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,7 @@ import { Filters } from '@/components/corh/Filters'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { ModuleCard } from '@/components/layout/ModuleShell'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { ordenarPorNome, type DirecaoNome } from '@/lib/vt/ordenacao'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { TipoCartaoVT } from '@/types/vt'
 
@@ -48,12 +49,15 @@ export function VtColaboradoresTab({
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
+  const [direcaoNome, setDirecaoNome] = useState<DirecaoNome>('az')
 
   const filtrados = useMemo(() => {
     const termo = buscaAplicada.trim().toLowerCase()
-    if (!termo) return colaboradores
-    return colaboradores.filter((c) => c.nome_completo.toLowerCase().includes(termo))
-  }, [colaboradores, buscaAplicada])
+    const base = termo
+      ? colaboradores.filter((c) => c.nome_completo.toLowerCase().includes(termo))
+      : colaboradores
+    return ordenarPorNome(base, (c) => c.nome_completo, direcaoNome)
+  }, [colaboradores, buscaAplicada, direcaoNome])
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante).length, [colaboradores])
 
@@ -103,7 +107,21 @@ export function VtColaboradoresTab({
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-3">Nome</th>
+                  <th className="px-4 py-3">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground"
+                      title={direcaoNome === 'az' ? 'Ordenar Z→A' : 'Ordenar A→Z'}
+                      onClick={() => setDirecaoNome((d) => (d === 'az' ? 'za' : 'az'))}
+                    >
+                      Nome
+                      {direcaoNome === 'az' ? (
+                        <ArrowUp className="size-3.5" />
+                      ) : (
+                        <ArrowDown className="size-3.5" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-4 py-3">Posto</th>
                   <th className="px-4 py-3">Cidade</th>
                   <th className="px-4 py-3 text-center">Usa VT</th>

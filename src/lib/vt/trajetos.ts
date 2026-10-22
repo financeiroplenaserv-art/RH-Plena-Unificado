@@ -1,31 +1,31 @@
 // Lógica pura do módulo VT — trajetos casa → posto e custo do dia.
-// Ver docs/PLANO_MODULO_VT.md (Fase 1; precificação por combinação nomeada, §2d).
+// Ver docs/PLANO_MODULO_VT.md (Fase 1; precificação por bilhete nomeado, §2d).
 
 import { removerAcentos } from '@/lib/utils'
-import type { EscopoTrajetoVT, VtCombinacao, VtTrajeto } from '@/types/vt'
-import { combinacoesVigentes, custoDiaCombinacoesCentavos } from '@/lib/vt/combinacoes'
+import type { EscopoTrajetoVT, VtBilhete, VtTrajeto } from '@/types/vt'
+import { bilhetesVigentes, custoDiaBilhetesCentavos } from '@/lib/vt/bilhetes'
 
 /**
- * Custo do dia do trajeto em centavos: resolve combinacao_id (e
- * combinacao_2_id, quando presente) entre as combinações vigentes na data e
- * soma os valores diários. Null quando a 1ª combinação não resolve (ou quando
- * a 2ª, informada, não resolve) — sem combinação vigente não se calcula, para
- * nunca cobrar a menos em silêncio.
+ * Custo do dia do trajeto em centavos: resolve bilhete_id (e bilhete_2_id,
+ * quando presente) entre os bilhetes vigentes na data e soma os valores
+ * diários. Null quando o 1º bilhete não resolve (ou quando o 2º, informado,
+ * não resolve) — sem bilhete vigente não se calcula, para nunca cobrar a
+ * menos em silêncio.
  */
 export function custoDiaTrajetoCentavos(
   trajeto: VtTrajeto,
-  combinacoes: VtCombinacao[],
+  bilhetes: VtBilhete[],
   hoje: string,
 ): number | null {
-  const vigentes = combinacoesVigentes(combinacoes, hoje)
-  const c1 = vigentes.find((c) => c.id === trajeto.combinacao_id)
-  if (!c1) return null
-  let c2: VtCombinacao | null = null
-  if (trajeto.combinacao_2_id) {
-    c2 = vigentes.find((c) => c.id === trajeto.combinacao_2_id) ?? null
-    if (!c2) return null
+  const vigentes = bilhetesVigentes(bilhetes, hoje)
+  const b1 = vigentes.find((b) => b.id === trajeto.bilhete_id)
+  if (!b1) return null
+  let b2: VtBilhete | null = null
+  if (trajeto.bilhete_2_id) {
+    b2 = vigentes.find((b) => b.id === trajeto.bilhete_2_id) ?? null
+    if (!b2) return null
   }
-  return custoDiaCombinacoesCentavos(c1, c2)
+  return custoDiaBilhetesCentavos(b1, b2)
 }
 
 export interface ParEscala {
