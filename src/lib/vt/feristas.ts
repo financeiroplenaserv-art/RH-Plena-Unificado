@@ -27,7 +27,7 @@ export const ROTULO_GRUPO_FERISTA: Record<PrioridadeFerista, string> = {
   0: 'Equipe de feristas',
   1: 'Cobrindo agora / agendado',
   2: 'Últimos utilizados',
-  3: 'Demais optantes',
+  3: 'Demais colaboradores',
 }
 
 export interface ClassificadorFeristas {

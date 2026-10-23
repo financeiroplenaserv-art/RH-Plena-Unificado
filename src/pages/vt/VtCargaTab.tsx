@@ -151,13 +151,21 @@ export function VtCargaTab({
     listarCoberturas()
   }, [listarCoberturas])
 
-  const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante), [colaboradores])
-  /** Seletor de ferista em grupos: carteira → cobrindo → últimos utilizados → demais (decisão da gestora, 23/10/2026). */
+  /**
+   * Seletor de ferista: QUALQUER ativo (a carga só paga optantes, mas o
+   * destino das férias é planejamento da operação — o portão exige destino
+   * inclusive para titular não optante; caso Francisco/Reginaldo, 23/10/2026).
+   * Grupos: carteira → cobrindo → últimos utilizados → demais.
+   */
   const gruposSeletor = useMemo(() => {
     const grupos: VtColaborador[][] = [[], [], [], []]
-    for (const c of optantes) grupos[prioridadeFerista(c.id)].push(c)
+    for (const c of colaboradores) grupos[prioridadeFerista(c.id)].push(c)
     return grupos
-  }, [optantes, prioridadeFerista])
+  }, [colaboradores, prioridadeFerista])
+  const feristaSelecionado = useMemo(
+    () => colaboradores.find((c) => c.id === feristaId) ?? null,
+    [colaboradores, feristaId]
+  )
   const nomeDo = useCallback(
     (colaboradorId: string | null | undefined) =>
       colaboradores.find((c) => c.id === colaboradorId)?.nome_completo ?? '—',
@@ -712,7 +720,7 @@ export function VtCargaTab({
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>{tipoRegistro === 'treinamento' && !feriasVinculoId ? 'Quem treina (optante)' : 'Ferista (optante)'}</Label>
+              <Label>{tipoRegistro === 'treinamento' && !feriasVinculoId ? 'Quem treina' : 'Ferista'}</Label>
               <Select value={feristaId} onValueChange={setFeristaId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Escolha o ferista" />
@@ -749,6 +757,11 @@ export function VtCargaTab({
                     </ModuleButton>
                   )}
                 </div>
+              )}
+              {feristaSelecionado && !feristaSelecionado.vt_optante && (
+                <p className="text-[12px] text-muted-foreground">
+                  Ele não é optante do VT — o registro vale para o planejamento da cobertura, mas não gera VT para ele.
+                </p>
               )}
             </div>
             <div className="space-y-1.5">
