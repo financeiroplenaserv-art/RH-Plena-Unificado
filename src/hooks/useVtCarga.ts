@@ -2,11 +2,11 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { hojeBrasil } from '@/lib/utils'
-import { encontrarDepartamentoFuzzy } from '@/lib/departamentos'
 import {
   agruparDiasPorPosto,
   aplicarCoberturas,
   calcularCargaMes,
+  resolverPostoDoRelatorio,
   situacaoCoberturaRelatorio,
   valorDaCarga,
   type DetalheCargaPosto,
@@ -17,11 +17,14 @@ import {
 } from '@/lib/vt/carga'
 import {
   casarColaboradores,
+  coberturaDoMesNoRelatorio,
   parseGestaoEscalas,
   periodosDeFerias,
+  type CoberturaMesRelatorio,
   type PessoaRelatorio,
 } from '@/lib/vt/gestaoEscalasFlit'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
+import { ajusteDoFechamento, competenciaAnterior } from '@/lib/vt/fechamento'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
@@ -41,6 +44,18 @@ export interface ResultadoCargaColaborador {
   nome: string
   detalhe: DetalheCargaPosto[]
   necessidade_centavos: number
+  /**
+   * Ajuste do fechamento da competência anterior (migrations 161/162):
+   * crédito − desconto — pode ser positivo (trabalhou fora da carga) ou
+   * negativo (faltou).
+   */
+  ajuste_centavos: number
+  /** Parte do ajuste que é desconto (positivo) — para o texto da coluna Total. */
+  ajusteDescontoCentavos: number
+  /** Parte do ajuste que é crédito (positivo) — para o texto da coluna Total. */
+  ajusteCreditoCentavos: number
+  /** Desconto que passou da necessidade e foi truncado pelo piso 0 (centavos, positivo) — não se perde em silêncio: a tela avisa. */
+  ajusteExcedenteCentavos: number
   valor_centavos: number
   /** Postos escalados sem trajeto confirmado (não somaram). */
   pendentes: { departamento_id: string; rotulo: string; dias: number }[]
@@ -96,6 +111,8 @@ export function useVtCarga() {
   const [coberturaGeral, setCoberturaGeral] = useState<PessoaCoberturaRelatorio[]>([])
   /** Nomes do relatório sem match no cadastro (nunca palpite). */
   const [nomesSemMatch, setNomesSemMatch] = useState<string[]>([])
+  /** O relatório traz o mês inteiro? (só aviso — não bloqueia a gravação). */
+  const [coberturaMes, setCoberturaMes] = useState<CoberturaMesRelatorio | null>(null)
   const [loading, setLoading] = useState(false)
 
   const importarRelatorio = useCallback(
@@ -118,6 +135,7 @@ export function useVtCarga() {
         const primeiraData = pessoas.flatMap((p) => p.dias).map((d) => d.data).sort()[0]
         const comp = primeiraData.slice(0, 7)
         setCompetencia(comp)
+        setCoberturaMes(coberturaDoMesNoRelatorio(pessoas, comp))
         setNomeArquivo(arquivo.name)
 
         // A lista do useVt já é só de ativos (listarColaboradores filtra) — o
@@ -163,7 +181,7 @@ export function useVtCarga() {
 
         // local(posto em texto) → departamento: fuzzy, mesma regra do projeto.
         const resolver = (nome: string) => {
-          const dep = encontrarDepartamentoFuzzy(apoio.departamentos, null, nome)
+          const dep = resolverPostoDoRelatorio(apoio.departamentos, nome)
           return dep ? { id: dep.id, rotulo: dep.nome_curto?.trim() || dep.nome.trim() } : null
         }
         const rotuloDoDepartamento = (depId: string) => {
@@ -193,7 +211,7 @@ export function useVtCarga() {
         const blocos: FeriasBloco[] = []
         for (const [id, pessoa] of pessoaPorId) {
           const depTitular = pessoa.departamentoTexto
-            ? encontrarDepartamentoFuzzy(apoio.departamentos, null, pessoa.departamentoTexto)
+            ? resolverPostoDoRelatorio(apoio.departamentos, pessoa.departamentoTexto)
             : null
           for (const b of periodosDeFerias(pessoa.dias)) {
             blocos.push({
@@ -241,6 +259,34 @@ export function useVtCarga() {
         todos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
         setCoberturaGeral(todos)
 
+        // Ajuste do fechamento do mês anterior (Fase 2b): faltou → desconta;
+        // trabalhou fora da carga → credita (ajuste = crédito − desconto).
+        // Erro de leitura ABORTA — nunca calcular com ajuste 0 fingindo que
+        // não há fechamento.
+        const fechamentoPorColab = new Map<string, ReturnType<typeof ajusteDoFechamento>>()
+        const idsOpt = optantes.map((c) => c.id)
+        const compAnt = competenciaAnterior(comp)
+        for (let i = 0; i < idsOpt.length; i += 100) {
+          const { data: fechs, error: erroFech } = await supabase
+            .from('vt_fechamentos')
+            .select('colaborador_id, desconto_centavos, credito_centavos')
+            .eq('competencia', compAnt)
+            .in('colaborador_id', idsOpt.slice(i, i + 100))
+          if (erroFech) {
+            console.error('Erro ao ler fechamentos do VT:', erroFech.message)
+            toast.error('Erro ao carregar o fechamento do mês anterior — carga não calculada')
+            setLoading(false)
+            return false
+          }
+          for (const f of (fechs ?? []) as {
+            colaborador_id: string
+            desconto_centavos: number
+            credito_centavos: number | null
+          }[]) {
+            fechamentoPorColab.set(f.colaborador_id, ajusteDoFechamento(f))
+          }
+        }
+
         const hoje = hojeBrasil()
         const lista: ResultadoCargaColaborador[] = optantes.map((c) => {
           const porPosto = porColaborador.get(c.id)
@@ -251,6 +297,7 @@ export function useVtCarga() {
                 dias: v.dias,
                 diasCobertura: v.diasCobertura,
                 diasTreinamento: v.diasTreinamento,
+                datas: v.datas,
               }))
             : []
           const calc = calcularCargaMes(
@@ -261,13 +308,20 @@ export function useVtCarga() {
           )
           const semMatchLocal = naoIdentificados.get(c.id)
           const diasSemPosto = semMatchLocal ? Array.from(semMatchLocal.values()).reduce((a, b) => a + b, 0) : 0
-          const valor = valorDaCarga(calc.necessidade_centavos, 0)
+          const fech = fechamentoPorColab.get(c.id)
+          const ajuste = fech?.ajuste ?? 0
+          const valor = valorDaCarga(calc.necessidade_centavos, ajuste)
+          const excedente = valor.ajusteMaiorQueNecessidade ? -(calc.necessidade_centavos + ajuste) : 0
           const pessoa = pessoaPorId.get(c.id)
           return {
             colaborador_id: c.id,
             nome: c.nome_completo,
             detalhe: calc.detalhe,
             necessidade_centavos: calc.necessidade_centavos,
+            ajuste_centavos: ajuste,
+            ajusteDescontoCentavos: fech?.desconto ?? 0,
+            ajusteCreditoCentavos: fech?.credito ?? 0,
+            ajusteExcedenteCentavos: excedente,
             valor_centavos: valor.valor_centavos,
             pendentes: calc.pendentes,
             diasSemPostoIdentificado: diasSemPosto,
@@ -312,7 +366,7 @@ export function useVtCarga() {
         competencia,
         detalhe: r.detalhe,
         necessidade_centavos: r.necessidade_centavos,
-        ajuste_centavos: 0,
+        ajuste_centavos: r.ajuste_centavos,
         valor_centavos: r.valor_centavos,
         gerada_por: usuarioId,
       }))
@@ -378,6 +432,7 @@ export function useVtCarga() {
     foraDoVt,
     coberturaGeral,
     nomesSemMatch,
+    coberturaMes,
     loading,
     importarRelatorio,
     gravarCargas,

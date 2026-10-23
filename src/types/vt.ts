@@ -76,6 +76,8 @@ export interface VtCargaDetalhe {
   dias_cobertura?: number
   /** Quantos desses dias vieram de treinamento (migration 160). */
   dias_treinamento?: number
+  /** Datas planejadas neste posto, ordenadas — base do fechamento (Fase 2b; ausente em cargas antigas). */
+  datas?: string[]
 }
 
 /** Carga mensal de VT de um colaborador (migration 157 — Fase 2a). */
@@ -89,6 +91,38 @@ export interface VtCarga {
   valor_centavos: number
   gerada_por: string | null
   gerada_em?: string
+}
+
+/** Fechamento de um colaborador × competência (migration 161 — Fase 2b). */
+export interface VtFechamento {
+  id: string
+  colaborador_id: string
+  competencia: string // 'AAAA-MM'
+  detalhe: {
+    departamento_id: string
+    posto: string
+    custo_dia_centavos: number
+    planejados: string[]
+    trabalhados: string[]
+    descontados: string[]
+    /** Migration 162: dias trabalhados fora da carga creditados neste posto (ausente em fechamento antigo). */
+    creditados?: string[]
+  }[]
+  dias_planejados: number
+  dias_trabalhados: number
+  dias_descontados: number
+  dias_nao_conferidos: number
+  /** Positivo; entra NEGATIVO em vt_cargas.ajuste_centavos da competência seguinte. */
+  desconto_centavos: number
+  /** Migration 162: dias trabalhados no ponto fora da carga, creditados no posto de referência. */
+  dias_creditados: number
+  /** Migration 162: positivo; entra POSITIVO no ajuste da competência seguinte (ajuste = crédito − desconto). */
+  credito_centavos: number
+  /** Migration 162: dias trabalhados fora da carga SEM posto de referência — não creditados, conferir. */
+  dias_fora_sem_posto: number
+  fechado_por: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 /**

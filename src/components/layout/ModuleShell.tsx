@@ -93,7 +93,10 @@ export function ModuleButton({
     primary: 'bg-brand-gradient-soft text-white shadow-sm hover:opacity-95 hover:shadow',
     outline: 'border border-input bg-white text-muted-foreground shadow-sm hover:border-primary/40 hover:text-primary',
     danger: 'bg-red-600 text-white shadow-sm hover:bg-red-700',
-    ghost: 'text-muted-foreground hover:bg-muted hover:text-foreground',
+    // bg-transparent + shadow-none: sem uma classe bg-*, o degradê do botão
+    // base (bg-brand-gradient-soft) sobrevivia ao tailwind-merge e o ghost
+    // ficava com texto cinza sobre azul (ilegível — caso "Sem cobertura", VT).
+    ghost: 'bg-transparent shadow-none text-muted-foreground hover:bg-muted hover:text-foreground',
   }
 
   const sizeClasses = {

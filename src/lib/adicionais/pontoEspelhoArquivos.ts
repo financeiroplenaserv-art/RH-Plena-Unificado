@@ -184,6 +184,26 @@ export async function buscarUltimoArquivoDoPeriodo(
   return mapearLinha(data[0])
 }
 
+/**
+ * Todos os espelhos cujo período (cabeçalho) toca o intervalo — base da
+ * sugestão do fechamento do VT, que escolhe o de maior cobertura (não o mais
+ * recente). Arquivos antigos sem metadados (null) não casam no filtro.
+ */
+export async function listarArquivosQueTocamPeriodo(
+  periodoInicio: string,
+  periodoFim: string
+): Promise<PontoEspelhoArquivo[]> {
+  const { data, error } = await supabase
+    .from(TABELA)
+    .select(`${COLUNAS}, perfis(nome)`)
+    .lte('periodo_inicio', periodoFim)
+    .gte('periodo_fim', periodoInicio)
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) throw error
+  return (data || []).map((row: Record<string, unknown>) => mapearLinha(row))
+}
+
 /** Baixa o PDF do bucket e devolve como File (reaproveita a pipeline de parsing). */
 export async function baixarArquivo(arquivo: PontoEspelhoArquivo): Promise<File> {
   const { data, error } = await supabase.storage.from(BUCKET).download(arquivo.storage_path)

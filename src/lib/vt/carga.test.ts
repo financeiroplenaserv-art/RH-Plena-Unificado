@@ -7,6 +7,7 @@ import {
   destinoFerias,
   rotuloCompetencia,
   situacaoCoberturaRelatorio,
+  resolverPostoDoRelatorio,
   valorDaCarga,
   type FeriasBloco,
 } from '@/lib/vt/carga'
@@ -76,8 +77,8 @@ describe('agruparDiasPorPosto', () => {
       ],
       resolver
     )
-    expect(porColaborador.get('c1')?.get('d1')).toEqual({ dias: 2, rotulo: 'ITAGUAÍ', diasCobertura: 0, diasTreinamento: 0 })
-    expect(porColaborador.get('c1')?.get('d2')).toEqual({ dias: 1, rotulo: 'CBO', diasCobertura: 0, diasTreinamento: 0 })
+    expect(porColaborador.get('c1')?.get('d1')).toEqual({ dias: 2, rotulo: 'ITAGUAÍ', diasCobertura: 0, diasTreinamento: 0, datas: ['2026-11-03', '2026-11-04'] })
+    expect(porColaborador.get('c1')?.get('d2')).toEqual({ dias: 1, rotulo: 'CBO', diasCobertura: 0, diasTreinamento: 0, datas: ['2026-11-05'] })
     expect(naoIdentificados.size).toBe(0)
   })
 
@@ -115,6 +116,7 @@ describe('calcularCargaMes', () => {
         subtotal_centavos: 13440,
         dias_cobertura: 0,
         dias_treinamento: 0,
+        datas: [],
       },
     ])
     expect(r.necessidade_centavos).toBe(13440)
@@ -213,7 +215,7 @@ describe('aplicarCoberturas (ferista cobre férias — cobertura vence escala)',
   it('dia dentro da cobertura troca o posto e marca diasCobertura', () => {
     const linhas = aplicarCoberturas([dia('2026-11-10')], [cobertura({})], rotulo)
     const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
-    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 1, rotulo: 'FOREVER', diasCobertura: 1, diasTreinamento: 0 })
+    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 1, rotulo: 'FOREVER', diasCobertura: 1, diasTreinamento: 0, datas: ['2026-11-10'] })
     expect(porColaborador.get('c1')?.has('d1')).toBe(false)
   })
 
@@ -230,7 +232,7 @@ describe('aplicarCoberturas (ferista cobre férias — cobertura vence escala)',
     )
     expect(linhas.map((l) => l.cobertura?.departamento_id ?? null)).toEqual([null, 'd9', 'd9', null])
     const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
-    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 2, rotulo: 'FOREVER', diasCobertura: 2, diasTreinamento: 0 })
+    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 2, rotulo: 'FOREVER', diasCobertura: 2, diasTreinamento: 0, datas: ['2026-11-10', '2026-11-11'] })
   })
 
   it('sobreposição no mesmo dia: vale a cobertura mais recentemente criada', () => {
@@ -406,6 +408,7 @@ describe('treinamento com VT (migration 160 — ferista antes de cobrir / admiti
       rotulo: 'FOREVER',
       diasCobertura: 0,
       diasTreinamento: 2,
+      datas: ['2026-11-08', '2026-11-09'],
     })
   })
 
@@ -432,6 +435,7 @@ describe('treinamento com VT (migration 160 — ferista antes de cobrir / admiti
       rotulo: 'FOREVER',
       diasCobertura: 1,
       diasTreinamento: 0,
+      datas: ['2026-11-08'],
     })
   })
 
@@ -445,5 +449,37 @@ describe('treinamento com VT (migration 160 — ferista antes de cobrir / admiti
     expect(r.necessidade_centavos).toBe(12 * 1120)
     expect(r.detalhe[0].dias_treinamento).toBe(2)
     expect(r.detalhe[0].dias_cobertura).toBe(0)
+  })
+})
+
+describe('resolverPostoDoRelatorio (texto antigo do Flit → linha ATIVA)', () => {
+  const dep = (id: string, nome: string, nome_curto: string | null, status: string) => ({
+    id,
+    nome,
+    nome_curto,
+    status,
+    empresa_id: null,
+  })
+  const deps = [
+    dep('87027244', 'CNOCC PETROLEUM BRASIL LTDA', 'CNOOC', 'Inativo'),
+    dep('b6a07cb5', 'CNOOC PETROLEUM BRASIL LTDA', 'CNOOC', 'Ativo'),
+    dep('97806df1-396b-4a05-97f5-9ddb8c49582f', 'CONDOMINIO DO EDIFICIO RESIDENCIAL DALIAS', 'DALIAS', 'Inativo'),
+    dep('8eb83a32-e1f7-454f-9e53-3134bf887a26', 'CONDOMINIO DO EDIFICIO RESIDENCIAL ROSAS', 'ITAGUAÍ', 'Ativo'),
+    dep('so-inativa', 'CONTRATO ENCERRADO LTDA', 'ENCERRADO', 'Inativo'),
+  ]
+
+  it('texto que casa exato com a linha inativa segue o redirect/irmã ativa', () => {
+    expect(resolverPostoDoRelatorio(deps, 'CNOCC PETROLEUM BRASIL LTDA')?.id).toBe('b6a07cb5')
+    expect(resolverPostoDoRelatorio(deps, 'CONDOMINIO DO EDIFICIO RESIDENCIAL DALIAS')?.id).toBe(
+      '8eb83a32-e1f7-454f-9e53-3134bf887a26',
+    )
+  })
+
+  it('inativa sem destino ativo é mantida (pendência visível, não some)', () => {
+    expect(resolverPostoDoRelatorio(deps, 'CONTRATO ENCERRADO LTDA')?.id).toBe('so-inativa')
+  })
+
+  it('sem match devolve null', () => {
+    expect(resolverPostoDoRelatorio(deps, 'POSTO QUE NAO EXISTE XYZ')).toBeNull()
   })
 })

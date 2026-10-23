@@ -5,6 +5,11 @@
 
 import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 import { custoDiaTrajetoCentavos } from '@/lib/vt/trajetos'
+import {
+  encontrarDepartamentoFuzzy,
+  redirecionarDepartamentoInativo,
+  type DepartamentoFuzzy,
+} from '@/lib/departamentos'
 
 const MESES = [
   'janeiro',
@@ -88,14 +93,31 @@ export function destinoFerias(ferias: FeriasBloco, coberturas: VtCobertura[]): D
     : { tipo: 'sem_cobertura', cobertura: vencedora }
 }
 
+/**
+ * Posto (departamento) de um texto do relatório do Flit. O texto antigo do
+ * Flit costuma casar EXATO com a linha INATIVA duplicada (Dalias, CNOCC, Blue
+ * Terminals, Flor de Lotus) enquanto os trajetos confirmados moram na linha
+ * ATIVA — sem o redirect, o optante virava "trajeto pendente" e travava a
+ * gravação (simulação com dados reais de 23/10/2026: 10 optantes). Linha
+ * inativa sem destino ativo é mantida (vira pendência visível, não some).
+ */
+export function resolverPostoDoRelatorio(
+  departamentos: DepartamentoFuzzy[],
+  texto: string,
+): DepartamentoFuzzy | null {
+  const dep = encontrarDepartamentoFuzzy(departamentos, null, texto)
+  if (!dep) return null
+  return redirecionarDepartamentoInativo(departamentos, dep) ?? dep
+}
+
 export interface ResolucaoPosto {
   id: string
   rotulo: string
 }
 
 export interface AgrupamentoEscala {
-  /** colaborador → departamento_id → dias distintos no posto (diasCobertura/diasTreinamento = quantos vieram de cobertura de férias/treinamento). */
-  porColaborador: Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number; diasTreinamento: number }>>
+  /** colaborador → departamento_id → dias distintos no posto (diasCobertura/diasTreinamento = quantos vieram de cobertura de férias/treinamento; datas = os dias, ordenados — base do fechamento dia a dia). */
+  porColaborador: Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number; diasTreinamento: number; datas: string[] }>>
   /** colaborador → nome cru do local → dias distintos sem match. */
   naoIdentificados: Map<string, Map<string, number>>
 }
@@ -111,7 +133,7 @@ export function agruparDiasPorPosto(
   linhas: LinhaEscalaDia[],
   resolver: (nome: string) => ResolucaoPosto | null,
 ): AgrupamentoEscala {
-  const porColaborador = new Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number; diasTreinamento: number }>>()
+  const porColaborador = new Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number; diasTreinamento: number; datas: string[] }>>()
   const naoIdentificados = new Map<string, Map<string, number>>()
   // Deduplica por dia: (colab|posto|data) e (colab|local cru|data).
   const diasPorPosto = new Map<string, Set<string>>()
@@ -151,6 +173,7 @@ export function agruparDiasPorPosto(
         rotulo: res.rotulo,
         diasCobertura: (atual?.diasCobertura ?? 0) + (res.cobertura && !res.treinamento ? 1 : 0),
         diasTreinamento: (atual?.diasTreinamento ?? 0) + (res.treinamento ? 1 : 0),
+        datas: [...(atual?.datas ?? []), l.data],
       })
     } else {
       const localCru = nome || '(sem local)'
@@ -169,6 +192,11 @@ export function agruparDiasPorPosto(
       }
       porLocal.set(localCru, (porLocal.get(localCru) ?? 0) + 1)
     }
+  }
+
+  // Datas ordenadas (a síntese de cobertura/treinamento entra no fim da lista).
+  for (const porPosto of porColaborador.values()) {
+    for (const v of porPosto.values()) v.datas.sort()
   }
 
   return { porColaborador, naoIdentificados }
@@ -276,6 +304,8 @@ export interface DetalheCargaPosto {
   dias_cobertura: number
   /** Quantos desses dias vieram de treinamento (0 = nenhum; migration 160). */
   dias_treinamento: number
+  /** As datas planejadas neste posto ('AAAA-MM-DD', ordenadas) — base do fechamento dia a dia (Fase 2b). */
+  datas: string[]
 }
 
 export interface ResultadoCargaMes {
@@ -291,7 +321,7 @@ export interface ResultadoCargaMes {
  * dias × custo. Posto sem trajeto confirmado vai para `pendentes` e não soma.
  */
 export function calcularCargaMes(
-  diasPorPosto: { departamento_id: string; rotulo: string; dias: number; diasCobertura?: number; diasTreinamento?: number }[],
+  diasPorPosto: { departamento_id: string; rotulo: string; dias: number; diasCobertura?: number; diasTreinamento?: number; datas?: string[] }[],
   trajetos: VtTrajeto[],
   bilhetes: VtBilhete[],
   hoje: string,
@@ -314,6 +344,7 @@ export function calcularCargaMes(
         subtotal_centavos: subtotal,
         dias_cobertura: p.diasCobertura ?? 0,
         dias_treinamento: p.diasTreinamento ?? 0,
+        datas: p.datas ?? [],
       })
       necessidade += subtotal
     } else {

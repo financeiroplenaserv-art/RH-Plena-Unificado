@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   casarColaboradores,
+  coberturaDoMesNoRelatorio,
   parseGestaoEscalas,
   periodosDeFerias,
 } from '@/lib/vt/gestaoEscalasFlit'
@@ -55,6 +56,17 @@ describe('parseGestaoEscalas', () => {
   it('linha sem nome é ignorada', () => {
     const pessoas = parseGestaoEscalas([CABECALHO, ['', 'PLENA', 'CBO', '', '', '[T]', '', '', ''], JOAO])
     expect(pessoas).toHaveLength(1)
+  })
+
+  it('rodapé de legenda do Flit (sem empresa e sem departamento) não vira pessoa', () => {
+    const pessoas = parseGestaoEscalas([
+      CABECALHO,
+      JOAO,
+      ['', '', '', '', '', '', '', '', ''],
+      ['Legenda das escalas:', '', '', '', '', '', '', '', ''],
+      ['[AF] - Afastado', '[AT] - Atestado', '[FR] - Férias', '[F] - Folga', '[T] - Trabalho', '', '', '', ''],
+    ])
+    expect(pessoas.map((p) => p.nome)).toEqual(['João da Silva'])
   })
 })
 
@@ -128,5 +140,34 @@ describe('casarColaboradores (nunca palpite)', () => {
     const m = casarColaboradores(['Fulano Ausente', 'Ana Maria'], colaboradores)
     expect(m.get('Fulano Ausente')).toEqual({ id: null })
     expect(m.get('Ana Maria')).toEqual({ id: null }) // 2 ativas → pendente, nunca palpite
+  })
+})
+
+describe('coberturaDoMesNoRelatorio (aviso de relatório incompleto)', () => {
+  const pessoa = (datas: string[]) => ({
+    nome: 'X',
+    departamentoTexto: 'D',
+    cargo: '',
+    horario: '',
+    dias: datas.map((data) => ({ data, marca: 'trabalha' as const, texto: '[T]' })),
+  })
+  const outubro = (ate: number) =>
+    Array.from({ length: ate }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`)
+
+  it('mês inteiro: completo', () => {
+    const c = coberturaDoMesNoRelatorio([pessoa(outubro(31))], '2026-10')
+    expect(c).toEqual({ primeiro: '2026-10-01', ultimo: '2026-10-31', diasFaltando: [], completo: true })
+  })
+
+  it('caso real: outubro só até 30/10 → falta o 31 (só aviso)', () => {
+    const c = coberturaDoMesNoRelatorio([pessoa(outubro(30))], '2026-10')
+    expect(c.completo).toBe(false)
+    expect(c.diasFaltando).toEqual(['2026-10-31'])
+    expect(c.ultimo).toBe('2026-10-30')
+  })
+
+  it('ignora colunas de outro mês', () => {
+    const c = coberturaDoMesNoRelatorio([pessoa(['2026-09-30', ...outubro(31), '2026-11-01'])], '2026-10')
+    expect(c.completo).toBe(true)
   })
 })

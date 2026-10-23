@@ -139,3 +139,22 @@ Regras do projeto que valem aqui: GRANT explícito em tabela nova; RLS padrão (
 - Otimização de rota de fretado/van (problema diferente — VRP).
 - App do colaborador (consulta do próprio saldo/trajeto).
 - Integração direta com operadora de cartão via API (se existir no futuro, vira Fase 4).
+
+## Estado da Fase 2b — fechamento/reconciliação (23/10/2026)
+
+Feito (branch `vt-fase1`, não commitado): migration 161 (`vt_fechamentos`, aplicada), lógica pura `src/lib/vt/fechamento.ts` (+ testes), hook `useVtFechamento`, aba VT → Fechamento, e o elo com a carga: `useVtCarga` aplica o desconto do fechamento da competência anterior como `ajuste_centavos` negativo (piso 0 no valor; excedente sinalizado na tela e no toast, sem carregar saldo; erro de leitura aborta). Tipos `VtFechamento` em `src/types/vt.ts` e `database.ts`.
+
+Decidido (gestora, 23/10/2026): o excedente do desconto acima da necessidade do mês NÃO vira saldo para o mês seguinte — fica só o aviso.
+
+Decidido (gestora, 23/10/2026 — depois da simulação com outubro real, que só descontava): o fechamento também **CREDITA** o dia trabalhado no ponto que não estava planejado na carga (troca de plantão). Migration 162 (`credito_centavos`, `dias_creditados`, `dias_fora_sem_posto`; aplicada). Regras:
+
+- Posto do crédito = o posto com mais dias planejados na carga do mês (empate → o primeiro do detalhe), ao custo/dia dele.
+- Sem nenhum dia planejado → não credita por palpite; aparece como "trabalhou fora da carga — sem posto, conferir".
+- Cada data é avaliada uma vez (nunca credita o mesmo dia duas vezes).
+- Ajuste da carga seguinte = crédito − desconto (pode ser positivo); valor = max(0, necessidade + ajuste); sobra de desconto não vira saldo.
+
+Vários espelhos por período: o ponto 20→19 chega em pedaços; a aba Fechamento aceita vários arquivos por período, pré-marca o conjunto que cobre o período e mostra a cobertura. Dia repetido em dois arquivos → vale o enviado mais recentemente.
+
+Instruções na tela (Carga e Fechamento) sobre quais arquivos anexar e o formato; aviso quando o relatório da Carga não traz o mês inteiro.
+
+Pendente: teste ponta a ponta com espelhos reais (gravar o fechamento de outubro e conferir a carga de novembro); liberar `MODULO_VT_LIBERADO`.

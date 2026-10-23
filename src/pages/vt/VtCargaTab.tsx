@@ -32,6 +32,7 @@ import { ROTULO_GRUPO_FERISTA } from '@/lib/vt/feristas'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { useVtCarga, type ResultadoCargaColaborador } from '@/hooks/useVtCarga'
 import { useVtCoberturas } from '@/hooks/useVtCoberturas'
+import { InstrucoesCarga } from '@/pages/vt/InstrucoesArquivosVt'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
@@ -120,6 +121,7 @@ export function VtCargaTab({
     nomeArquivo,
     coberturaGeral,
     nomesSemMatch,
+    coberturaMes,
     loading,
     importarRelatorio,
     gravarCargas,
@@ -266,6 +268,10 @@ export function VtCargaTab({
     setGravando(false)
     if (gravadas > 0) toast.success(`${gravadas} carga(s) gravada(s) para ${rotuloCompetencia(competencia)}`)
     if (puladas > 0) toast.info(`${puladas} optante(s) pulados por pendência`)
+    const comExcedente = resultados.filter((r) => r.ajusteExcedenteCentavos > 0).length
+    if (gravadas > 0 && comExcedente > 0) {
+      toast.warning(`${comExcedente} colaborador(es) com desconto maior que a carga do mês — valor limitado a R$ 0,00 (conferir na coluna Total)`)
+    }
     if (gravadas === 0 && puladas === 0) toast.info('Nada a gravar.')
   }
 
@@ -419,6 +425,9 @@ export function VtCargaTab({
           description='Importe o relatório "Gestão de escalas" do Flit (Excel, gerado com o mês seguinte programado) para calcular a carga de VT.'
         />
         <div className="flex justify-center">{botaoImportar('Importar Gestão de escalas (Flit)')}</div>
+        <div className="mt-4">
+          <InstrucoesCarga />
+        </div>
       </ModuleCard>
     )
   }
@@ -458,6 +467,25 @@ export function VtCargaTab({
               </>
             )}
           </div>
+        </div>
+        {coberturaMes && !coberturaMes.completo && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            <p className="font-semibold">O relatório não traz o mês inteiro.</p>
+            <p className="mt-1">
+              {coberturaMes.primeiro && coberturaMes.ultimo
+                ? `Ele vai de ${formatarData(coberturaMes.primeiro)} a ${formatarData(coberturaMes.ultimo)}`
+                : 'Ele não tem nenhum dia deste mês'}
+              {' — '}
+              {coberturaMes.diasFaltando.length === 1
+                ? `falta o dia ${formatarData(coberturaMes.diasFaltando[0])}`
+                : `faltam ${coberturaMes.diasFaltando.length} dias (${formatarData(coberturaMes.diasFaltando[0])} a ${formatarData(coberturaMes.diasFaltando[coberturaMes.diasFaltando.length - 1])})`}
+              . Esses dias ficam sem VT nesta carga. Se der, gere o relatório de novo com o mês completo (dia 1 ao
+              último dia). Você pode gravar mesmo assim.
+            </p>
+          </div>
+        )}
+        <div className="mt-3">
+          <InstrucoesCarga />
         </div>
         {bloqueado && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
@@ -762,6 +790,22 @@ export function VtCargaTab({
                       </td>
                       <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
                         {formatarCentavos(r.valor_centavos)}
+                        {(r.ajusteDescontoCentavos > 0 || r.ajusteCreditoCentavos > 0) && (
+                          <div className="text-[12px] font-normal text-muted-foreground">
+                            inclui ajuste do fechamento do mês anterior:{' '}
+                            {[
+                              r.ajusteDescontoCentavos > 0 ? `−${formatarCentavos(r.ajusteDescontoCentavos)} desconto` : null,
+                              r.ajusteCreditoCentavos > 0 ? `+${formatarCentavos(r.ajusteCreditoCentavos)} crédito` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' / ')}
+                          </div>
+                        )}
+                        {r.ajusteExcedenteCentavos > 0 && (
+                          <div className="text-[12px] font-normal text-amber-700 dark:text-amber-400">
+                            desconto passou da carga: {formatarCentavos(r.ajusteExcedenteCentavos)} não cabem neste mês
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-wrap gap-1.5">{situacaoDa(r)}</div>

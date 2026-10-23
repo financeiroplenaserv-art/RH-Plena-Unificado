@@ -740,6 +740,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/vt/fechamento"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vt' }}>
+                    <VtPage />
+                  </ProtectedRoute>
+                }
+              />
                 </>
               ) : (
                 <Route path="/vt/*" element={<Navigate to="/" replace />} />

@@ -67,6 +67,12 @@ export function parseGestaoEscalas(linhas: unknown[][]): PessoaRelatorio[] {
     const linha = linhas[l]
     const nome = String(linha[0] ?? '').trim()
     if (!nome) continue
+    // Rodapé do Flit ("Legenda das escalas:" e a linha "[AF] - Afastado | [AT] -
+    // Atestado...") não é pessoa: nome começando por colchete ou "Legenda", ou
+    // linha sem Empresa e sem Departamento. Sem este corte a legenda entrava como
+    // "nome sem match" e inflava os contadores (simulação de 23/10/2026).
+    if (/^(\[|legenda das escalas)/i.test(nome)) continue
+    if (!String(linha[1] ?? '').trim() && !String(linha[2] ?? '').trim()) continue
     pessoas.push({
       nome,
       departamentoTexto: String(linha[2] ?? '').trim(),
@@ -157,4 +163,37 @@ export function casarColaboradores(
     resultado.set(nome, matches.length === 1 ? { id: matches[0] } : { id: null })
   }
   return resultado
+}
+
+export interface CoberturaMesRelatorio {
+  /** Primeiro e último dia (colunas de data) do relatório dentro da competência. */
+  primeiro: string | null
+  ultimo: string | null
+  /** Dias do mês da competência sem coluna no relatório ('AAAA-MM-DD'). */
+  diasFaltando: string[]
+  completo: boolean
+}
+
+/**
+ * O relatório precisa trazer o mês da carga INTEIRO (dia 1 ao último). Caso
+ * real de 23/10/2026: o relatório de outubro vinha só até 30/10. Só AVISA —
+ * não bloqueia a gravação (os dias ausentes ficam sem VT na carga).
+ */
+export function coberturaDoMesNoRelatorio(pessoas: PessoaRelatorio[], competencia: string): CoberturaMesRelatorio {
+  const datas = new Set<string>()
+  for (const p of pessoas) for (const d of p.dias) if (d.data.startsWith(competencia)) datas.add(d.data)
+  const [ano, mes] = competencia.split('-').map(Number)
+  const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+  const diasFaltando: string[] = []
+  for (let d = 1; d <= ultimoDia; d++) {
+    const iso = `${competencia}-${String(d).padStart(2, '0')}`
+    if (!datas.has(iso)) diasFaltando.push(iso)
+  }
+  const ordenadas = [...datas].sort()
+  return {
+    primeiro: ordenadas[0] ?? null,
+    ultimo: ordenadas[ordenadas.length - 1] ?? null,
+    diasFaltando,
+    completo: diasFaltando.length === 0,
+  }
 }

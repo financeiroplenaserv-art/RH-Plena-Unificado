@@ -13,7 +13,7 @@ import type {
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 import type { FeriasFuncao, FeriasSolicitacao, FeriasFerista, FeriasAlocacao, FeriasRegra } from '@/types/ferias'
-import type { VtBilhete, VtTrajeto, VtGeocodeCache, VtCarga, VtCobertura } from '@/types/vt'
+import type { VtBilhete, VtTrajeto, VtGeocodeCache, VtCarga, VtCobertura, VtFechamento } from '@/types/vt'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -968,6 +968,13 @@ export type Database = {
         Row: VtCarga & Record<string, unknown>
         Insert: Partial<VtCarga> & Record<string, unknown>
         Update: Partial<VtCarga> & Record<string, unknown>
+        Relationships: []
+      }
+      // Fechamento/reconciliação pelo ponto (migration 161 — Fase 2b)
+      vt_fechamentos: {
+        Row: VtFechamento & Record<string, unknown>
+        Insert: Partial<VtFechamento> & Record<string, unknown>
+        Update: Partial<VtFechamento> & Record<string, unknown>
         Relationships: []
       }
       // Cobertura de férias pelo ferista (migration 158)
