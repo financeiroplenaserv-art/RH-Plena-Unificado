@@ -52,16 +52,38 @@ export function VtColaboradoresTab({
 }: VtColaboradoresTabProps) {
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
+  const [situacao, setSituacao] = useState<'todos' | 'optantes' | 'nao_optantes'>('todos')
+  const [situacaoAplicada, setSituacaoAplicada] = useState<'todos' | 'optantes' | 'nao_optantes'>('todos')
+  const [bilhete, setBilhete] = useState<'todos' | TipoCartaoVT | 'sem_tipo'>('todos')
+  const [bilheteAplicado, setBilheteAplicado] = useState<'todos' | TipoCartaoVT | 'sem_tipo'>('todos')
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
   const [direcaoNome, setDirecaoNome] = useState<DirecaoNome>('az')
 
   const filtrados = useMemo(() => {
     const termo = buscaAplicada.trim().toLowerCase()
-    const base = termo
+    let base = termo
       ? colaboradores.filter((c) => c.nome_completo.toLowerCase().includes(termo))
       : colaboradores
+    if (situacaoAplicada === 'optantes') base = base.filter((c) => c.vt_optante)
+    if (situacaoAplicada === 'nao_optantes') base = base.filter((c) => !c.vt_optante)
+    if (bilheteAplicado === 'sem_tipo') base = base.filter((c) => c.vt_optante && !c.vt_tipo_cartao)
+    else if (bilheteAplicado !== 'todos') base = base.filter((c) => c.vt_tipo_cartao === bilheteAplicado)
     return ordenarPorNome(base, (c) => c.nome_completo, direcaoNome)
-  }, [colaboradores, buscaAplicada, direcaoNome])
+  }, [colaboradores, buscaAplicada, situacaoAplicada, bilheteAplicado, direcaoNome])
+
+  const aplicarFiltros = () => {
+    setBuscaAplicada(busca)
+    setSituacaoAplicada(situacao)
+    setBilheteAplicado(bilhete)
+  }
+  const limparFiltros = () => {
+    setBusca('')
+    setBuscaAplicada('')
+    setSituacao('todos')
+    setSituacaoAplicada('todos')
+    setBilhete('todos')
+    setBilheteAplicado('todos')
+  }
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante).length, [colaboradores])
 
@@ -77,14 +99,7 @@ export function VtColaboradoresTab({
 
   return (
     <div className="space-y-4">
-      <Filters
-        onApply={() => setBuscaAplicada(busca)}
-        onClear={() => {
-          setBusca('')
-          setBuscaAplicada('')
-        }}
-        loading={loading}
-      >
+      <Filters onApply={aplicarFiltros} onClear={limparFiltros} loading={loading}>
         <div className="space-y-1.5">
           <Label htmlFor="vt-busca">Nome</Label>
           <Input
@@ -92,8 +107,38 @@ export function VtColaboradoresTab({
             placeholder="Buscar por nome..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && setBuscaAplicada(busca)}
+            onKeyDown={(e) => e.key === 'Enter' && aplicarFiltros()}
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="vt-situacao">Situação VT</Label>
+          <Select value={situacao} onValueChange={(v) => setSituacao(v as typeof situacao)}>
+            <SelectTrigger id="vt-situacao">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="optantes">Só optantes</SelectItem>
+              <SelectItem value="nao_optantes">Só não optantes</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="vt-bilhete">Tipo de bilhete</Label>
+          <Select value={bilhete} onValueChange={(v) => setBilhete(v as typeof bilhete)}>
+            <SelectTrigger id="vt-bilhete">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {TIPOS_CARTAO.map((t) => (
+                <SelectItem key={t.valor} value={t.valor}>
+                  {t.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="sem_tipo">Optante sem tipo escolhido</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </Filters>
 

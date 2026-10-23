@@ -27,7 +27,7 @@ import { hojeBrasil } from '@/lib/utils'
 import { bilhetesVigentes, custoDiaBilhetesCentavos, formatarCentavos } from '@/lib/vt/bilhetes'
 import { custoDiaTrajetoCentavos, escopoSugerido } from '@/lib/vt/trajetos'
 import { linkGoogleMapsTransito, precisaoDoEndereco, textoOrigemCasa } from '@/lib/vt/enderecos'
-import type { NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
+import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { EscopoTrajetoVT, VtBilhete } from '@/types/vt'
 
 // Aba Trajetos do VT (Fase 1): uma linha por par colaborador × posto. A
@@ -54,6 +54,8 @@ interface LinhaTrajeto {
   chave: string
   colaboradorId: string
   nomeColaborador: string
+  /** Status quando o colaborador NÃO está na lista de ativos (ex.: 'Afastado') — vira selo na linha. */
+  statusColaborador: string | null
   departamentoId: string
   nomePosto: string
   enderecoCasa: string | null
@@ -68,6 +70,8 @@ interface VtTrajetosTabProps {
   departamentos: VtDepartamento[]
   bilhetes: VtBilhete[]
   trajetos: VtTrajetoComDetalhes[]
+  /** Nome/status dos colaboradores de trajeto fora da lista de ativos (afastados/inativos). */
+  extrasTrajeto: Map<string, InfoColaboradorTrajeto>
   loading: boolean
   usuarioId: string
   podeGerenciar: boolean
@@ -84,6 +88,7 @@ export function VtTrajetosTab({
   departamentos,
   bilhetes,
   trajetos,
+  extrasTrajeto,
   loading,
   usuarioId,
   podeGerenciar,
@@ -122,11 +127,13 @@ export function VtTrajetosTab({
     const porChave = new Map<string, LinhaTrajeto>()
     for (const t of trajetos) {
       const colab = t.colaborador ?? colaboradores.find((c) => c.id === t.colaborador_id) ?? null
+      const extra = colab ? null : (extrasTrajeto.get(t.colaborador_id) ?? null)
       const dep = t.departamento ?? departamentos.find((d) => d.id === t.departamento_id) ?? null
       porChave.set(`${t.colaborador_id}|${t.departamento_id}`, {
         chave: t.id,
         colaboradorId: t.colaborador_id,
-        nomeColaborador: colab?.nome_completo ?? '—',
+        nomeColaborador: colab?.nome_completo ?? extra?.nome_completo ?? '—',
+        statusColaborador: colab ? null : (extra?.status ?? null),
         departamentoId: t.departamento_id,
         nomePosto: dep ? nomePosto(dep.id, dep.nome) : '—',
         enderecoCasa: colab?.endereco ?? null,
@@ -148,6 +155,7 @@ export function VtTrajetosTab({
         chave: `sug:${chavePar}`,
         colaboradorId: c.id,
         nomeColaborador: c.nome_completo,
+        statusColaborador: null,
         departamentoId: c.departamento_id,
         nomePosto: dep ? nomePosto(dep.id, c.departamento) : (c.departamento ?? '—'),
         enderecoCasa: c.endereco,
@@ -161,7 +169,7 @@ export function VtTrajetosTab({
       a.nomeColaborador.localeCompare(b.nomeColaborador, 'pt-BR')
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trajetos, colaboradores, departamentos])
+  }, [trajetos, colaboradores, departamentos, extrasTrajeto])
 
   const valoresDa = (linha: LinhaTrajeto) =>
     edicoes[linha.chave] ?? {
@@ -367,7 +375,16 @@ export function VtTrajetosTab({
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
-                      <td className="px-3 py-2.5 font-medium text-foreground">{linha.nomeColaborador}</td>
+                      <td className="px-3 py-2.5 font-medium text-foreground">
+                        <span className="inline-flex items-center gap-2">
+                          {linha.nomeColaborador}
+                          {linha.statusColaborador && (
+                            <StatusBadge variant="warning" dot={false}>
+                              {linha.statusColaborador}
+                            </StatusBadge>
+                          )}
+                        </span>
+                      </td>
                       <td className="px-3 py-2.5 text-muted-foreground">{linha.nomePosto}</td>
                       <td className="px-3 py-2.5">
                         <StatusBadge variant="info" dot={false}>

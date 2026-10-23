@@ -81,11 +81,15 @@ const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, ender
 // página já tem colaboradores/departamentos carregados para resolver o join.
 const COLUNAS_TRAJETO = '*'
 
+/** Nome/status de colaborador de trajeto que NÃO está na lista de ativos (afastado/inativo). */
+export type InfoColaboradorTrajeto = { nome_completo: string; status: string }
+
 export function useVt() {
   const [colaboradores, setColaboradores] = useState<VtColaborador[]>([])
   const [departamentos, setDepartamentos] = useState<VtDepartamento[]>([])
   const [bilhetes, setBilhetes] = useState<VtBilhete[]>([])
   const [trajetos, setTrajetos] = useState<VtTrajetoComDetalhes[]>([])
+  const [colaboradoresDeTrajetos, setColaboradoresDeTrajetos] = useState<Map<string, InfoColaboradorTrajeto>>(new Map())
   const [loading, setLoading] = useState(false)
 
   const listarColaboradores = useCallback(async (): Promise<boolean> => {
@@ -226,7 +230,24 @@ export function useVt() {
       toast.error('Erro ao carregar os trajetos')
       return false
     }
-    setTrajetos((data as VtTrajetoComDetalhes[]) ?? [])
+    const lista = (data as VtTrajetoComDetalhes[]) ?? []
+    setTrajetos(lista)
+    // A lista principal de colaboradores é só de ATIVOS — trajeto de afastado/
+    // inativo ficaria sem nome na aba Trajetos ("—"). Busca nome/status dos
+    // não ativos referenciados para a tela exibir com selo (23/10/2026).
+    const ids = [...new Set(lista.map((t) => t.colaborador_id))]
+    if (ids.length > 0) {
+      const { data: extras } = await supabase
+        .from('colaboradores')
+        .select('id, nome_completo, status')
+        .in('id', ids)
+        .neq('status', 'Ativo')
+      setColaboradoresDeTrajetos(
+        new Map((extras ?? []).map((c) => [c.id as string, { nome_completo: c.nome_completo, status: c.status }]))
+      )
+    } else {
+      setColaboradoresDeTrajetos(new Map())
+    }
     return true
   }, [])
 
@@ -326,6 +347,7 @@ export function useVt() {
     departamentos,
     bilhetes,
     trajetos,
+    colaboradoresDeTrajetos,
     loading,
     carregarTudo,
     listarColaboradores,

@@ -82,6 +82,7 @@ export function VtPage() {
           departamentos={vt.departamentos}
           bilhetes={vt.bilhetes}
           trajetos={vt.trajetos}
+          extrasTrajeto={vt.colaboradoresDeTrajetos}
           loading={vt.loading}
           usuarioId={user.id}
           podeGerenciar={podeGerenciar}
