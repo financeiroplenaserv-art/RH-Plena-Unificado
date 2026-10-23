@@ -2,38 +2,81 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { resolverFuncao } from '@/lib/ferias/funcoesFerias'
+import {
+  classificarFeristas,
+  mesesAtras,
+  type ClassificadorFeristas,
+} from '@/lib/vt/feristas'
+import { hojeBrasil } from '@/lib/utils'
 import type { FeriasFuncao } from '@/types/ferias'
+import type { VtCobertura } from '@/types/vt'
 
-// Etiqueta "Ferista" nas abas do VT (decisão da gestora, 23/10/2026): a FONTE
-// ÚNICA de "quem é ferista" é a carteira ferias_feristas (migration 112) — o
-// VT só LÊ a carteira (RLS: SELECT autenticado) e exibe o selo; nenhuma flag
-// paralela em colaboradores. O fluxo se autocorrige: ao registrar cobertura
-// com alguém fora da carteira, a tela avisa e oferece "Adicionar à carteira"
-// em 1 clique (função resolvida do cargo; sem match = só aviso, sem palpite).
+// Etiqueta "Ferista" nas abas do VT (decisão da gestora, 23/10/2026): o selo
+// vem de DOIS fatos, sem nenhuma flag paralela — (1) carteira ferias_feristas
+// ativa (a equipe dedicada, os "só ferista"; RLS: SELECT autenticado) e
+// (2) cobertura em andamento/agendada em vt_coberturas ("se cita que a pessoa
+// vai cobrir férias, naquele momento ela é ferista"). Cobertura ENCERRADA não
+// gera selo — só ordena o seletor ("últimos utilizados", janela de 6 meses).
+// A carteira é mantida pela aba Feristas do módulo Férias e pelo botão
+// "Adicionar à carteira" do dialog de cobertura (função resolvida do cargo;
+// sem match = só aviso, sem palpite).
+
+const JANELA_RECIENTES_MESES = 6
+
+const VAZIO: ClassificadorFeristas = classificarFeristas({
+  carteiraIds: [],
+  coberturas: [],
+  hoje: hojeBrasil(),
+})
 
 export function useCarteiraFeristas() {
-  const [carteira, setCarteira] = useState<Set<string>>(new Set())
+  const [classificador, setClassificador] = useState<ClassificadorFeristas>(VAZIO)
   const [funcoes, setFuncoes] = useState<FeriasFuncao[]>([])
   const [loading, setLoading] = useState(false)
 
   const listar = useCallback(async (): Promise<void> => {
     setLoading(true)
-    const [{ data: feristas, error: erroFeristas }, { data: fns, error: erroFuncoes }] = await Promise.all([
+    const hoje = hojeBrasil()
+    const limite = mesesAtras(hoje, JANELA_RECIENTES_MESES)
+    const [
+      { data: feristas, error: erroFeristas },
+      { data: fns, error: erroFuncoes },
+      { data: cobs, error: erroCoberturas },
+    ] = await Promise.all([
       supabase.from('ferias_feristas').select('colaborador_id').eq('ativo', true),
       supabase.from('ferias_funcoes').select('*'),
+      supabase
+        .from('vt_coberturas')
+        .select('colaborador_id, data_fim')
+        .not('colaborador_id', 'is', null)
+        .gte('data_fim', limite),
     ])
     setLoading(false)
     if (erroFeristas) {
       console.error('Erro ao carregar a carteira de feristas:', erroFeristas.message)
       return
     }
-    setCarteira(new Set((feristas ?? []).map((r) => r.colaborador_id as string)))
+    if (erroCoberturas) {
+      console.error('Erro ao carregar as coberturas para a etiqueta de ferista:', erroCoberturas.message)
+    }
+    setClassificador(
+      classificarFeristas({
+        carteiraIds: (feristas ?? []).map((r) => r.colaborador_id as string),
+        coberturas: (erroCoberturas ? [] : (cobs ?? [])) as Pick<VtCobertura, 'colaborador_id' | 'data_fim'>[],
+        hoje,
+      })
+    )
     if (!erroFuncoes) setFuncoes((fns ?? []) as FeriasFuncao[])
   }, [])
 
   const ehFerista = useCallback(
-    (colaboradorId: string | null | undefined) => !!colaboradorId && carteira.has(colaboradorId),
-    [carteira]
+    (colaboradorId: string | null | undefined) => classificador.ehFerista(colaboradorId),
+    [classificador]
+  )
+
+  const prioridadeFerista = useCallback(
+    (colaboradorId: string | null | undefined) => classificador.prioridade(colaboradorId),
+    [classificador]
   )
 
   /**
@@ -72,8 +115,8 @@ export function useCarteiraFeristas() {
             toast.error('Ele já estava na carteira e não consegui reativar (permissão)')
             return false
           }
-          setCarteira((atual) => new Set(atual).add(colaborador.id))
           toast.success('Ferista reativado na carteira.')
+          await listar()
           return true
         }
         toast.error('Erro ao adicionar à carteira: ' + error.message)
@@ -83,12 +126,12 @@ export function useCarteiraFeristas() {
         toast.error('Sem permissão para adicionar à carteira de feristas')
         return false
       }
-      setCarteira((atual) => new Set(atual).add(colaborador.id))
       toast.success('Adicionado à carteira de feristas.')
+      await listar()
       return true
     },
-    [funcoes]
+    [funcoes, listar]
   )
 
-  return { carteira, loading, listar, ehFerista, adicionar }
+  return { loading, listar, ehFerista, prioridadeFerista, adicionar }
 }

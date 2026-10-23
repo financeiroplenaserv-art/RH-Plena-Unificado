@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -26,6 +28,7 @@ import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { formatarData } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { destinoFerias, rotuloCompetencia, type FeriasBloco } from '@/lib/vt/carga'
+import { ROTULO_GRUPO_FERISTA } from '@/lib/vt/feristas'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { useVtCarga, type ResultadoCargaColaborador } from '@/hooks/useVtCarga'
 import { useVtCoberturas } from '@/hooks/useVtCoberturas'
@@ -87,10 +90,14 @@ interface VtCargaTabProps {
   dadosProntos: boolean
   usuarioId: string
   podeGerenciar: boolean
-  /** Carteira ferias_feristas (fonte única): selo "Ferista" e ordem no seletor. */
+  /** Carteira ferias_feristas + cobertura em andamento (fonte do selo "Ferista"). */
   ehFerista: (colaboradorId: string) => boolean
+  /** 0 carteira → 1 cobrindo → 2 últimos utilizados → 3 demais (ordena o seletor). */
+  prioridadeFerista: (colaboradorId: string) => 0 | 1 | 2 | 3
   /** Adiciona o colaborador à carteira em 1 clique (função resolvida do cargo). */
   adicionarFeristaCarteira: (colaborador: { id: string; cargo: string | null }) => Promise<boolean>
+  /** Recarrega a classificação de feristas (chamado após gravar/excluir cobertura). */
+  recarregarFeristas: () => Promise<void>
 }
 
 export function VtCargaTab({
@@ -102,7 +109,9 @@ export function VtCargaTab({
   usuarioId,
   podeGerenciar,
   ehFerista,
+  prioridadeFerista,
   adicionarFeristaCarteira,
+  recarregarFeristas,
 }: VtCargaTabProps) {
   const {
     resultados,
@@ -143,11 +152,12 @@ export function VtCargaTab({
   }, [listarCoberturas])
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante), [colaboradores])
-  /** Seletor de ferista: quem está na carteira vem primeiro (ordem alfabética mantida — a lista já vem ordenada). */
-  const optantesParaSeletor = useMemo(
-    () => [...optantes].sort((a, b) => Number(ehFerista(b.id)) - Number(ehFerista(a.id))),
-    [optantes, ehFerista]
-  )
+  /** Seletor de ferista em grupos: carteira → cobrindo → últimos utilizados → demais (decisão da gestora, 23/10/2026). */
+  const gruposSeletor = useMemo(() => {
+    const grupos: VtColaborador[][] = [[], [], [], []]
+    for (const c of optantes) grupos[prioridadeFerista(c.id)].push(c)
+    return grupos
+  }, [optantes, prioridadeFerista])
   const nomeDo = useCallback(
     (colaboradorId: string | null | undefined) =>
       colaboradores.find((c) => c.id === colaboradorId)?.nome_completo ?? '—',
@@ -311,6 +321,7 @@ export function VtCargaTab({
       setDialogAberto(false)
       await listarCoberturas()
       await recalcular()
+      void recarregarFeristas() // cobertura mudou → selo "Ferista" acompanha
     }
   }
 
@@ -337,6 +348,7 @@ export function VtCargaTab({
     if (ok) {
       await listarCoberturas()
       await recalcular()
+      void recarregarFeristas() // cobertura mudou → selo "Ferista" acompanha
     }
   }
 
@@ -347,6 +359,7 @@ export function VtCargaTab({
     if (ok) {
       await listarCoberturas()
       await recalcular()
+      void recarregarFeristas() // cobertura mudou → selo "Ferista" acompanha
     }
   }
 
@@ -705,17 +718,24 @@ export function VtCargaTab({
                   <SelectValue placeholder="Escolha o ferista" />
                 </SelectTrigger>
                 <SelectContent>
-                  {optantesParaSeletor.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.nome_completo} — {nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento)}
-                      {ehFerista(c.id) ? ' · Ferista' : ''}
-                    </SelectItem>
-                  ))}
+                  {gruposSeletor.map((grupo, p) =>
+                    grupo.length === 0 ? null : (
+                      <SelectGroup key={p}>
+                        <SelectLabel>{ROTULO_GRUPO_FERISTA[p as 0 | 1 | 2 | 3]}</SelectLabel>
+                        {grupo.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.nome_completo} — {nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento)}
+                            {ehFerista(c.id) ? ' · Ferista' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )
+                  )}
                 </SelectContent>
               </Select>
-              {feristaId && !ehFerista(feristaId) && (
+              {feristaId && prioridadeFerista(feristaId) !== 0 && (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                  <span>Ele não está na carteira de feristas.</span>
+                  <span>Ele não faz parte da equipe dedicada de feristas.</span>
                   {podeGerenciar && (
                     <ModuleButton
                       size="sm"

@@ -38,7 +38,7 @@ interface VtColaboradoresTabProps {
     id: string,
     dados: { vt_optante: boolean; vt_tipo_cartao: TipoCartaoVT | null }
   ) => Promise<boolean>
-  /** Carteira ferias_feristas (fonte única — decisão da gestora, 23/10/2026): selo "Ferista" na lista. */
+  /** Selo "Ferista": carteira ativa OU cobertura em andamento/agendada (decisão da gestora, 23/10/2026). */
   ehFerista: (colaboradorId: string) => boolean
 }
 

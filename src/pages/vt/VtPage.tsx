@@ -111,7 +111,9 @@ export function VtPage() {
           usuarioId={user.id}
           podeGerenciar={podeGerenciar}
           ehFerista={carteira.ehFerista}
+          prioridadeFerista={carteira.prioridadeFerista}
           adicionarFeristaCarteira={carteira.adicionar}
+          recarregarFeristas={carteira.listar}
         />
       )}
     </ModuleShell>
