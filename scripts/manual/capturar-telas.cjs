@@ -263,6 +263,76 @@ const feriasNotificacoes = [
   { id: 'fn2', colaborador_id: 'c3', tipo: 'agendamento', mensagem: 'Férias de Ana precisam ser agendadas', lida: true, created_at: '2026-07-28T00:00:00Z' },
 ]
 
+// ---------------------------------------------------------------- VT (Vale-Transporte)
+// Dados fictícios do módulo VT (capítulo 11 do manual). Os colaboradores
+// ganham endereço/cidade e a marca de optante só para as telas do VT.
+const ENDERECOS_VT = {
+  c1: ['Rua das Palmeiras, 120 - Fonseca', 'Niterói', true, 'bun'],
+  c2: ['Av. Exemplo, 450 - Centro', 'São Gonçalo', true, 'bui'],
+  c3: ['Rua Modelo, 33 - Icaraí', 'Niterói', true, 'bun'],
+  c4: ['Rua Amostra, 800 - Campo Grande', 'Rio de Janeiro', true, 'comum'],
+  c5: ['Rua Teste, 15 - Santa Rosa', 'Niterói', false, null],
+  c6: ['Rua Simulação, 9 - Centro', 'Niterói', false, null],
+}
+for (const c of colaboradores) {
+  const e = ENDERECOS_VT[c.id]
+  if (e) Object.assign(c, { endereco: e[0], cidade: e[1], vt_optante: e[2], vt_tipo_cartao: e[3] })
+}
+for (const d of departamentos) {
+  Object.assign(d, { endereco: d.endereco || 'Endereço de exemplo, 100', cidade: d.cidade })
+}
+
+const vtBilhetes = [
+  { id: 'vb1', nome: 'BU NITERÓI', valor_diario_centavos: 1120, vigente_desde: '2026-10-21', ativo: true, created_at: '2026-10-21T00:00:00Z' },
+  { id: 'vb2', nome: 'BUI', valor_diario_centavos: 1880, vigente_desde: '2026-10-21', ativo: true, created_at: '2026-10-21T00:00:00Z' },
+  { id: 'vb3', nome: 'CENTRO RJ', valor_diario_centavos: 1000, vigente_desde: '2026-10-21', ativo: true, created_at: '2026-10-21T00:00:00Z' },
+  { id: 'vb4', nome: 'TREM', valor_diario_centavos: 1580, vigente_desde: '2026-10-21', ativo: true, created_at: '2026-10-21T00:00:00Z' },
+  { id: 'vb5', nome: 'ÔNIBUS E VLT', valor_diario_centavos: 1600, vigente_desde: '2026-10-21', ativo: true, created_at: '2026-10-21T00:00:00Z' },
+  { id: 'vb6', nome: 'CENTRO RJ', valor_diario_centavos: 900, vigente_desde: '2025-10-01', ativo: false, created_at: '2025-10-01T00:00:00Z' },
+]
+
+function trajetoVt(id, colab, dep, b1, b2, escopo, precisao, status) {
+  return {
+    id, colaborador_id: colab, departamento_id: dep, bilhete_id: b1, bilhete_2_id: b2,
+    escopo, precisao_origem: precisao, origem: 'link_confirmado', status, observacao: null,
+    confirmado_por: status === 'confirmado' ? USER_ID : null,
+    confirmado_em: status === 'confirmado' ? '2026-10-22T10:00:00Z' : null,
+    created_at: '2026-10-22T09:00:00Z', updated_at: '2026-10-22T09:00:00Z',
+  }
+}
+// Cenário 'pendente': um trajeto a confirmar (trava a carga). Cenário 'ok': tudo confirmado.
+function trajetosVt(cenario) {
+  return [
+    trajetoVt('vt1', 'c1', 'd1', 'vb1', null, 'niteroi_municipal', 'exato', 'confirmado'),
+    trajetoVt('vt2', 'c2', 'd2', 'vb2', null, 'intermunicipal', 'bairro', 'confirmado'),
+    trajetoVt('vt3', 'c3', 'd3', 'vb1', null, 'niteroi_municipal', 'exato', cenario === 'ok' ? 'confirmado' : 'sugerido'),
+    trajetoVt('vt4', 'c4', 'd4', 'vb4', 'vb3', 'intermunicipal', 'exato', 'confirmado'),
+  ]
+}
+let CENARIO_VT = 'pendente'
+
+const vtCargas = [
+  { id: 'vc1', colaborador_id: 'c1', competencia: '2026-10', detalhe: [{ departamento_id: 'd1', posto: 'Enseada Park', dias: 15, custo_dia_centavos: 1120, subtotal_centavos: 16800, datas: ['2026-10-01','2026-10-03','2026-10-05','2026-10-07','2026-10-09','2026-10-11','2026-10-13','2026-10-15','2026-10-17','2026-10-19','2026-10-21','2026-10-23','2026-10-25','2026-10-27','2026-10-29'] }], necessidade_centavos: 16800, ajuste_centavos: 0, valor_centavos: 16800, gerada_por: USER_ID, gerada_em: '2026-09-25T10:00:00Z' },
+  { id: 'vc2', colaborador_id: 'c2', competencia: '2026-10', detalhe: [{ departamento_id: 'd2', posto: 'Great Place', dias: 22, custo_dia_centavos: 1880, subtotal_centavos: 41360, datas: [] }], necessidade_centavos: 41360, ajuste_centavos: 0, valor_centavos: 41360, gerada_por: USER_ID, gerada_em: '2026-09-25T10:00:00Z' },
+]
+
+const vtFechamentos = []
+const vtCoberturas = []
+
+// Espelhos de ponto arquivados: cada um com o período do cabeçalho (migration 109).
+function espelho(id, nomeArquivo, ini, fim, ate, criado) {
+  return {
+    id, nome_arquivo: nomeArquivo, storage_path: 'espelhos/' + nomeArquivo, tamanho_bytes: 2300000,
+    enviado_por: USER_ID, created_at: criado, periodo_inicio: ini, periodo_fim: fim, ponto_ate: ate,
+    perfis: { nome: 'Usuário Demonstração' },
+  }
+}
+const espelhosVt = [
+  espelho('pe1', 'CORH - Adicionais e Ocorrencias 20-09 a 19-10.pdf', '2026-09-20', '2026-10-19', '2026-10-19', '2026-10-20T09:00:00Z'),
+  espelho('pe2', 'CORH - Adicionais e Ocorrencias 20-10 a 07-11.pdf', '2026-10-20', '2026-11-19', '2026-11-07', '2026-11-08T09:00:00Z'),
+  espelho('pe3', 'CORH - Adicionais e Ocorrencias 08-11 a 19-11.pdf', '2026-10-20', '2026-11-19', '2026-11-19', '2026-11-20T09:00:00Z'),
+]
+
 const DATA = {
   colaboradores, empresas, departamentos, ocorrencias,
   ceu_itens: itensCeu, itens: itensCeu, fornecedores, entregas,
@@ -274,7 +344,7 @@ const DATA = {
   calendario_adicionais: calendarioAdicionais, feriados,
   vr_projetos: vrProjetos, perfis, auditoria, modelos_ocorrencia: modelos, modelos,
   recibos_extras: recibosExtras, ceu_tamanhos: ceuTamanhos,
-  ponto_espelho_arquivos: pontoEspelhoArquivos, escala_arquivos: escalaArquivos,
+  ponto_espelho_arquivos: [...pontoEspelhoArquivos, ...espelhosVt], escala_arquivos: escalaArquivos,
   permissoes_perfil: [], configuracoes: [], alertas: [],
   vr_calculos: [], vr_arquivos: [], testemunhas: [],
   ocorrencia_anexos: [
@@ -282,6 +352,8 @@ const DATA = {
     { id: 'an2', ocorrencia_id: 'o1', nome_arquivo: 'assinado.pdf', tipo: 'assinado', tamanho: 204800, created_at: '2026-07-16T11:00:00Z' },
   ],
   ocorrencia_testemunhas: [], defesas: [], ocorrencia_assinaturas: [],
+  vt_bilhetes: vtBilhetes, vt_cargas: vtCargas, vt_fechamentos: vtFechamentos, vt_coberturas: vtCoberturas,
+  ferias_feristas: [], ferias_funcoes: [],
 }
 
 // FKs possíveis para resolver embeds: tabelaEmbutida -> colunas FK candidatas
@@ -319,6 +391,10 @@ function aplicarFiltros(rows, url) {
     } else if (value.startsWith('in.')) {
       const vals = value.slice(3).replace(/^\(|\)$/g, '').split(',').map(decodeURIComponent)
       out = out.filter(r => vals.includes(String(r[key])))
+    } else if ((key === 'periodo_inicio' && value.startsWith('lte.')) || (key === 'periodo_fim' && value.startsWith('gte.'))) {
+      // Espelhos do VT: só os que tocam o período pedido (lte/gte em datas ISO)
+      const v = value.slice(4)
+      out = out.filter(r => r[key] && (value.startsWith('lte.') ? r[key] <= v : r[key] >= v))
     } else if (value.startsWith('neq.') || value.startsWith('not.')) {
       // ignora para prints
     }
@@ -414,7 +490,7 @@ async function interceptar(request, log) {
   }
 
   const tabela = url.pathname.split('/rest/v1/')[1]?.split('?')[0]
-  const rows = DATA[tabela] || []
+  const rows = tabela === 'vt_trajetos' ? trajetosVt(CENARIO_VT) : (DATA[tabela] || [])
   const selectParam = url.searchParams.get('select') || ''
   const filtradas = aplicarFiltros(rows, url).map(r => resolverEmbeds(r, selectParam))
 
@@ -477,6 +553,9 @@ const ROTAS = [
   ['ferias', '/ferias'],
   ['ferias-importar', '/ferias/importar'],
   ['ferias-notificacoes', '/ferias/notificacoes'],
+  ['vt-colaboradores', '/vt'],
+  ['vt-trajetos', '/vt/trajetos'],
+  ['vt-bilhetes', '/vt/bilhetes'],
   ['configuracoes', '/configuracoes'],
   ['auditoria', '/auditoria'],
   ['permissoes', '/permissoes'],
@@ -486,6 +565,142 @@ const ROTAS = [
 const ROTAS_MOBILE = [
   ['mobile-falta', '/mobile/falta'],
 ]
+
+
+// ---------------------------------------------------------------- VT interativo
+// Carga e Fechamento dependem de arquivo/seleção: aqui montamos um relatório
+// "Gestão de escalas" FICTÍCIO (xlsx gerado na hora) e enviamos pelo input da tela.
+function gerarRelatorioEscalasFicticio(arquivo, { completo, comFerias }) {
+  const XLSX = require(path.join(__dirname, '..', '..', 'node_modules', '@e965', 'xlsx'))
+  const dias = completo ? 30 : 29
+  const sem = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.']
+  const cab = ['Colaborador', 'Empresa', 'Departamento', 'Cargo', 'Horário']
+  for (let d = 1; d <= dias; d++) {
+    const dow = new Date(Date.UTC(2026, 10, d)).getUTCDay()
+    cab.push(String(d).padStart(2, '0') + '/11/2026 - ' + sem[dow])
+  }
+  const T = '[T] 07:00 - 12:00 - 13:00 - 19:00'
+  function linha(nome, dep, cargo, regra) {
+    const l = [nome, 'PLENA EA FACILITIES', dep, cargo, '']
+    for (let d = 1; d <= dias; d++) l.push(regra(d))
+    return l
+  }
+  const doze36 = (d) => (d % 2 === 1 ? T : '[F]')
+  const cinco2 = (d) => {
+    const dow = new Date(Date.UTC(2026, 10, d)).getUTCDay()
+    return dow === 0 || dow === 6 ? '[F]' : T
+  }
+  const ferias = (d) => (d >= 10 && d <= 20 ? '[FR]' : cinco2(d))
+  const linhas = [
+    cab,
+    linha('Mariana Souza Exemplo', 'CONDOMÍNIO ENSEADA PARK', 'Auxiliar de Limpeza', doze36),
+    linha('Carlos Pereira Modelo', 'EDIFÍCIO GREAT PLACE', 'Porteiro', cinco2),
+    linha('Ana Beatriz Fictícia', 'CBO NITERÓI', 'Recepcionista', cinco2),
+    linha('João Roberto Amostra', 'QUINTAS DE ICARAÍ', 'Jardineiro', comFerias ? ferias : cinco2),
+  ]
+  if (!completo) linhas.push(linha('Fernanda Lima Teste', 'CARTÓRIO 3º OFÍCIO DE NOTAS', 'Auxiliar de Serviços Gerais', cinco2))
+  if (!completo) linhas.push(linha('Pessoa Sem Cadastro Exemplo', 'EDIFÍCIO GREAT PLACE', 'Porteiro', cinco2))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas), 'data')
+  const destino = path.join(__dirname, arquivo)
+  XLSX.writeFile(wb, destino)
+  return destino
+}
+
+const esperar = (ms) => new Promise(r => setTimeout(r, ms))
+
+async function clicarPorTexto(page, texto, seletor = 'button') {
+  const ok = await page.evaluate((t, sel) => {
+    const el = [...document.querySelectorAll(sel)].find(e => e.textContent && e.textContent.trim().includes(t))
+    if (el) { el.click(); return true }
+    return false
+  }, texto, seletor)
+  return ok
+}
+
+async function capturarVtInterativo(browser, filtro, erros) {
+  const quer = (n) => filtro.length === 0 || filtro.includes(n) || filtro.includes('vt')
+  if (!['vt-carga-inicial', 'vt-carga-importada', 'vt-carga-quem-cobre', 'vt-carga-pronta', 'vt-fechamento-inicial', 'vt-fechamento-conferencia'].some(quer)) return
+  const page = await browser.newPage()
+  await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 })
+  await page.setRequestInterception(true)
+  page.on('request', req => interceptar(req, () => {}).catch(() => req.continue().catch(() => {})))
+  let rota = 'vt'
+  page.on('pageerror', e => erros.push(rota + ': ' + e.message))
+  await page.evaluateOnNewDocument((key, session) => {
+    window.localStorage.setItem(key, JSON.stringify(session))
+  }, STORAGE_KEY, FAKE_SESSION)
+  const foto = async (nome, opts = {}) => {
+    // 'alto' = janela mais comprida (a página rola dentro do layout, fullPage não pega)
+    const altura = opts.alto || 900
+    await page.setViewport({ width: 1440, height: altura, deviceScaleFactor: 1 })
+    await esperar(400)
+    await page.screenshot({ path: path.join(OUT_DIR, nome + '.png') })
+    await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 })
+    console.log('ok', nome)
+  }
+  const enviar = async (arquivo) => {
+    const input = await page.$('input[type=file]')
+    await input.uploadFile(arquivo)
+    await esperar(3500)
+  }
+
+  // Carga — estado inicial (com a caixa de instruções de arquivo)
+  rota = 'vt-carga'
+  CENARIO_VT = 'pendente'
+  await page.goto(BASE_URL + '/vt/carga', { waitUntil: 'load', timeout: 60000 })
+  await esperar(2800)
+  if (quer('vt-carga-inicial')) await foto('vt-carga-inicial')
+
+  // Carga — relatório com pendências (caixa amarela de bloqueio)
+  const arqPend = gerarRelatorioEscalasFicticio('Gestão de escalas - novembro 2026.xlsx', { completo: false, comFerias: true })
+  await enviar(arqPend)
+  if (quer('vt-carga-importada')) await foto('vt-carga-importada', { alto: 1500 })
+
+  // Carga — janela "Quem cobre as férias?"
+  if (quer('vt-carga-quem-cobre')) {
+    if (await clicarPorTexto(page, 'Quem cobre?')) {
+      await esperar(900)
+      await foto('vt-carga-quem-cobre')
+      await page.keyboard.press('Escape')
+      await esperar(400)
+    } else {
+      erros.push('vt-carga-quem-cobre: botão "Quem cobre?" não encontrado')
+    }
+  }
+  fs.unlinkSync(arqPend)
+
+  // Carga — pronta para gravar (relatório completo, tudo confirmado)
+  if (quer('vt-carga-pronta')) {
+    CENARIO_VT = 'ok'
+    await page.goto(BASE_URL + '/vt/carga', { waitUntil: 'load', timeout: 60000 })
+    await esperar(2800)
+    const arqOk = gerarRelatorioEscalasFicticio('Gestão de escalas - novembro 2026 (completo).xlsx', { completo: true, comFerias: false })
+    await enviar(arqOk)
+    await foto('vt-carga-pronta', { alto: 1250 })
+    fs.unlinkSync(arqOk)
+  }
+
+  // Fechamento
+  rota = 'vt-fechamento'
+  CENARIO_VT = 'ok'
+  await page.goto(BASE_URL + '/vt/fechamento', { waitUntil: 'load', timeout: 60000 })
+  await esperar(2800)
+  if (quer('vt-fechamento-inicial')) await foto('vt-fechamento-inicial', { alto: 1000 })
+  if (quer('vt-fechamento-conferencia')) {
+    const combo = await page.$('[role=combobox]')
+    if (combo) {
+      await combo.click()
+      await esperar(500)
+      await page.click('[role=option]')
+      await esperar(2000)
+      await foto('vt-fechamento-conferencia', { alto: 1000 })
+    } else {
+      erros.push('vt-fechamento-conferencia: seletor de mês não encontrado')
+    }
+  }
+  await page.close()
+}
 
 // ---------------------------------------------------------------- main
 async function main() {
@@ -565,6 +780,8 @@ async function main() {
     }
     await page.close()
   }
+
+  await capturarVtInterativo(browser, filtro, erros)
 
   await browser.close()
   logStream.end()

@@ -2,7 +2,8 @@
 // Lê os capítulos em markdown de scripts/manual/capitulos/ e os prints
 // de scripts/manual/prints/.
 //
-// Uso: node gerar-manual.cjs
+// Uso: node gerar-manual.cjs            (manual completo)
+//      node gerar-manual.cjs --so=vt    (documento avulso só de um módulo)
 
 const fs = require('fs')
 const path = require('path')
@@ -16,9 +17,9 @@ const DIR_PRINTS = path.join(__dirname, 'prints')
 const DIR_SAIDA = path.join(__dirname, '..', '..', 'docs', 'manual')
 const LOGO = path.join(__dirname, '..', '..', 'public', 'corh_icone_app_512.png')
 
-const TITULO_MANUAL = 'Manual do Usuário'
-const SUBTITULO_MANUAL = 'CORH — Controle Operacional e de RH'
-const RODAPE_DATA = 'Agosto de 2026 · Versão 1.0'
+const TITULO_MANUAL_PADRAO = 'Manual do Usuário'
+const SUBTITULO_MANUAL_PADRAO = 'CORH — Controle Operacional e de RH'
+const RODAPE_DATA = 'Outubro de 2026 · Versão 1.1'
 
 // ------------------------------------------------------------ parser markdown
 function parseInline(texto) {
@@ -50,7 +51,14 @@ function imagemInfo(arquivo) {
     return { data, width: Math.round(altura * (780 / 1688)), height: altura }
   }
   const largura = 610
-  return { data, width: largura, height: Math.round(largura * (900 / 1440)) }
+  // Altura proporcional à imagem real (PNG: largura/altura nos bytes 16-23)
+  let proporcao = 900 / 1440
+  if (data.length > 24 && data.toString('ascii', 1, 4) === 'PNG') {
+    const w = data.readUInt32BE(16)
+    const h = data.readUInt32BE(20)
+    if (w > 0 && h > 0) proporcao = h / w
+  }
+  return { data, width: largura, height: Math.round(largura * proporcao) }
 }
 
 function mdParaDocx(md) {
@@ -240,10 +248,38 @@ function apendiceVideoHtml() {
 </ul>`
 }
 
+// ------------------------------------------------------------ documentos avulsos
+// --so=<chave>: gera um Word/HTML só com o capítulo do módulo (capa própria, sem
+// sumário geral nem anexo de vídeo). Para incluir outro módulo, acrescente aqui.
+const AVULSOS = {
+  vt: {
+    capitulo: '11-vt.md',
+    titulo: 'Manual do Módulo Vale-Transporte',
+    subtitulo: 'CORH — Controle Operacional e de RH',
+    descricao: 'Guia passo a passo do módulo VT, da carga ao fechamento do mês',
+    docx: 'Manual-VT-Vale-Transporte.docx',
+    html: 'manual-vt.html',
+    rodape: 'Manual do Módulo Vale-Transporte — CORH · página ',
+  },
+}
+
 // ------------------------------------------------------------ montagem
 async function main() {
   fs.mkdirSync(DIR_SAIDA, { recursive: true })
+  const argSo = process.argv.find(a => a.startsWith('--so='))
+  const avulso = argSo ? AVULSOS[argSo.slice(5)] : null
+  if (argSo && !avulso) {
+    console.error('Opção --so desconhecida. Válidas: ' + Object.keys(AVULSOS).join(', '))
+    process.exit(1)
+  }
+  const TITULO_MANUAL = avulso ? avulso.titulo : TITULO_MANUAL_PADRAO
+  const SUBTITULO_MANUAL = avulso ? avulso.subtitulo : SUBTITULO_MANUAL_PADRAO
+  const DESCRICAO_CAPA = avulso ? avulso.descricao : 'Guia completo de uso do sistema, tela por tela'
+  const NOME_DOCX = avulso ? avulso.docx : 'Manual-do-Usuario-CORH.docx'
+  const NOME_HTML = avulso ? avulso.html : 'manual.html'
+  const TEXTO_RODAPE = avulso ? avulso.rodape : 'Manual do Usuário — CORH · página '
   const arquivos = fs.readdirSync(DIR_CAPITULOS).filter(f => f.endsWith('.md')).sort()
+    .filter(f => !avulso || f === avulso.capitulo)
   const capitulos = arquivos.map(f => ({
     arquivo: f,
     md: fs.readFileSync(path.join(DIR_CAPITULOS, f), 'utf8'),
@@ -263,11 +299,11 @@ async function main() {
     }) : new Paragraph({}),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: TITULO_MANUAL, bold: true, size: 56, color: '0C1730' })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1200 }, children: [new TextRun({ text: SUBTITULO_MANUAL, size: 32, color: '0F6CBD' })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: 'Guia completo de uso do sistema, tela por tela', size: 24, color: '64748B' })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: DESCRICAO_CAPA, size: 24, color: '64748B' })] }),
     new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: RODAPE_DATA, size: 22, color: '94A3B8' })] }),
   ]
 
-  const sumario = [
+  const sumario = avulso ? [] : [
     new Paragraph({
       heading: HeadingLevel.HEADING_1, pageBreakBefore: true, spacing: { after: 240 },
       children: [new TextRun({ text: 'Sumário', bold: true, size: 36, color: '0C1730' })],
@@ -277,11 +313,13 @@ async function main() {
     new Paragraph({ spacing: { after: 120 }, children: parseInline('**Anexo** — Como gravar vídeos de treinamento') }),
   ]
 
-  const corpo = [
-    ...sobreEsteManualDocx(),
-    ...capitulos.flatMap(c => mdParaDocx(c.md)),
-    ...apendiceVideoDocx(),
-  ]
+  const corpo = avulso
+    ? capitulos.flatMap(c => mdParaDocx(c.md))
+    : [
+        ...sobreEsteManualDocx(),
+        ...capitulos.flatMap(c => mdParaDocx(c.md)),
+        ...apendiceVideoDocx(),
+      ]
 
   const doc = new Document({
     title: `${TITULO_MANUAL} — CORH`,
@@ -295,7 +333,7 @@ async function main() {
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
-              new TextRun({ text: 'Manual do Usuário — CORH · página ', size: 16, color: '94A3B8' }),
+              new TextRun({ text: TEXTO_RODAPE, size: 16, color: '94A3B8' }),
               new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8' }),
             ],
           })],
@@ -306,7 +344,7 @@ async function main() {
   })
 
   const buffer = await Packer.toBuffer(doc)
-  const caminhoDocx = path.join(DIR_SAIDA, 'Manual-do-Usuario-CORH.docx')
+  const caminhoDocx = path.join(DIR_SAIDA, NOME_DOCX)
   fs.writeFileSync(caminhoDocx, buffer)
   console.log('DOCX:', caminhoDocx, `(${(buffer.length / 1024 / 1024).toFixed(1)} MB)`)
 
@@ -349,21 +387,21 @@ async function main() {
   ${fs.existsSync(LOGO) ? '<img src="../../public/corh_icone_app_512.png">' : ''}
   <h1>${TITULO_MANUAL}</h1>
   <p class="sub">${SUBTITULO_MANUAL}</p>
-  <p class="desc">Guia completo de uso do sistema, tela por tela</p>
+  <p class="desc">${DESCRICAO_CAPA}</p>
   <p class="data">${RODAPE_DATA}</p>
 </div>
-<div class="sumario">
+${avulso ? '' : `<div class="sumario">
 <h1>Sumário</h1>
 <p><strong>Sobre este manual</strong> — leia antes de começar</p>
 ${capitulos.map(c => `<p><strong>${inlineHtml(c.titulo)}</strong></p>`).join('\n')}
 <p><strong>Anexo</strong> — Como gravar vídeos de treinamento</p>
 </div>
-${sobreEsteManualHtml()}
+${sobreEsteManualHtml()}`}
 ${capitulos.map(c => mdParaHtml(c.md)).join('\n')}
-${apendiceVideoHtml()}
+${avulso ? '' : apendiceVideoHtml()}
 </body>
 </html>`
-  const caminhoHtml = path.join(__dirname, 'manual.html')
+  const caminhoHtml = path.join(__dirname, NOME_HTML)
   fs.writeFileSync(caminhoHtml, html)
   console.log('HTML:', caminhoHtml)
 }

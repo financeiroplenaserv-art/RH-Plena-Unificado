@@ -10,7 +10,7 @@ Esta pasta contém a infraestrutura que gera o **Manual do Usuário** do CORH
   (perfil Administrador) e responde todas as chamadas do Supabase (REST, Auth,
   Storage, Edge Functions) com dados de exemplo. **Nenhuma chamada real chega
   ao banco.** Requer o dev server rodando (`npm run dev` na raiz).
-- `capitulos/` — capítulos do manual em Markdown (01 a 10), escritos à mão
+- `capitulos/` — capítulos do manual em Markdown (01 a 11; o 11 é o Vale-Transporte), escritos à mão
   a partir do código das telas. É AQUI que o texto do manual é editado.
 - `prints/` — screenshots capturados (1440×900; mobile 390×844 @2x).
 - `gerar-manual.cjs` — monta os capítulos + prints em
@@ -29,6 +29,8 @@ Esta pasta contém a infraestrutura que gera o **Manual do Usuário** do CORH
    cd scripts/manual
    node capturar-telas.cjs            # todas as telas
    node capturar-telas.cjs escalas    # ou só algumas
+   BASE_URL=http://localhost:5175 node capturar-telas.cjs   # se o dev server não estiver na 5173
+   node capturar-telas.cjs vt         # prints interativos do VT (Carga/Fechamento)
    ```
    Confira `erros.log` e `requests.log` se alguma tela sair em branco —
    geralmente é campo/tabela faltando no mapa `DATA` do script.
@@ -44,10 +46,26 @@ Esta pasta contém a infraestrutura que gera o **Manual do Usuário** do CORH
      "file:///C:/Users/usuario/Documents/projetos/RH-Plena-Unificado/scripts/manual/manual.html"
    ```
 
+### Documento avulso de um módulo (ex.: só o VT)
+
+```bash
+node gerar-manual.cjs --so=vt     # gera docs/manual/Manual-VT-Vale-Transporte.docx + manual-vt.html
+```
+
+Depois, o PDF avulso (mesmo comando do Chrome, trocando o HTML e o destino):
+`--print-to-pdf=".../docs/manual/Manual-VT-Vale-Transporte.pdf" "file:///.../scripts/manual/manual-vt.html"`.
+Para criar outro avulso, acrescente uma entrada em `AVULSOS` no `gerar-manual.cjs`.
+
+Prints do VT: as telas simples (`vt-colaboradores`, `vt-trajetos`, `vt-bilhetes`) usam o
+mapa `DATA`; Carga e Fechamento são capturadas por `capturarVtInterativo`, que gera um
+relatório "Gestão de escalas" FICTÍCIO em xlsx na hora e envia pelo próprio input da
+tela (nenhum dado real, nenhum arquivo fica salvo).
+
 ## Saída final
 
 - `docs/manual/Manual-do-Usuario-CORH.docx`
 - `docs/manual/Manual-do-Usuario-CORH.pdf`
+- `docs/manual/Manual-VT-Vale-Transporte.docx` e `.pdf` (avulso do VT)
 
 ## Observações
 

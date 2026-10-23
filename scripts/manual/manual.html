@@ -37,7 +37,7 @@
   <h1>Manual do Usuário</h1>
   <p class="sub">CORH — Controle Operacional e de RH</p>
   <p class="desc">Guia completo de uso do sistema, tela por tela</p>
-  <p class="data">Agosto de 2026 · Versão 1.0</p>
+  <p class="data">Outubro de 2026 · Versão 1.1</p>
 </div>
 <div class="sumario">
 <h1>Sumário</h1>
@@ -52,6 +52,7 @@
 <p><strong>Capítulo 8 — Férias</strong></p>
 <p><strong>Capítulo 9 — Vale Refeição (VR)</strong></p>
 <p><strong>Capítulo 10 — Gestão: e-Contador, Auditoria, Permissões, Configurações e Relatórios</strong></p>
+<p><strong>Capítulo 11 — Vale-Transporte (VT)</strong></p>
 <p><strong>Anexo</strong> — Como gravar vídeos de treinamento</p>
 </div>
 
@@ -2681,6 +2682,171 @@
 <p>Marque a caixinha de novo — a mudança é imediata nos dois sentidos. Se não lembrar como estava, use <strong>Restaurar padrão deste perfil</strong> para voltar tudo ao original daquele perfil.</p>
 <p><strong>Por que não vejo todos os cartões na tela Relatórios?</strong></p>
 <p>Os cartões aparecem conforme a permissão do seu perfil. Se um relatório que você precisa não aparece, peça ao Administrador para liberar o acesso na tela Permissões.</p>
+<h1>Capítulo 11 — Vale-Transporte (VT)</h1>
+<p>O módulo de Vale-Transporte serve para uma coisa só: <strong>colocar no cartão de cada colaborador o valor certo — nem a mais, nem a menos.</strong> Para isso ele sabe quem usa VT, qual é o caminho de casa até o posto, quanto custa o bilhete de cada trajeto, em quais dias a pessoa vai trabalhar (pela escala do Flit) e, depois que o mês acaba, confere no ponto se a pessoa realmente foi trabalhar.</p>
+<p>Quem <strong>gerencia</strong> o VT (cadastra, importa, grava) são os perfis <strong>Gestor, Mesa, DP1 e DP2</strong>, além do Administrador. O perfil <strong>Financeiro</strong> só consulta: ele vê todas as telas, mas não vê os botões que gravam.</p>
+<h2>Como o VT funciona no mês: 3 momentos</h2>
+<p>Pense no VT como uma rotina que se repete todo mês, em três momentos:</p>
+<ol>
+<li><strong>Cadastro em dia (a qualquer hora).</strong> Quem usa VT está marcado, cada um tem seu trajeto confirmado e os bilhetes estão com o preço atual. Quando entra alguém novo, ou alguém muda de posto ou de endereço, é aqui que se arruma.</li>
+<li><strong>Carga do mês (por volta do dia 25).</strong> Quando o Flit já tem o mês seguinte programado, você importa o relatório "Gestão de escalas" na aba <strong>Carga</strong>. O sistema calcula quanto cada pessoa deve receber e você grava a carga.</li>
+<li><strong>Fechamento (depois que o ponto do mês fecha).</strong> Você confere, dia a dia, quem faltou e quem trabalhou em um dia que não estava na carga. O que sobrou ou faltou vira ajuste na carga do mês seguinte.</li>
+</ol>
+<p>O módulo tem cinco abas: <strong>Colaboradores</strong>, <strong>Trajetos</strong>, <strong>Carga</strong>, <strong>Fechamento</strong> e <strong>Bilhetes</strong>. As três primeiras do dia a dia são Colaboradores, Trajetos e Bilhetes (cadastros); Carga e Fechamento são as rotinas mensais.</p>
+<h2>Aba Bilhetes</h2>
+<p>Aqui ficam os <strong>bilhetes de VT</strong>: cada bilhete tem um nome (por exemplo, "BU NITERÓI" ou "BUI") e um <strong>valor por dia, já somando ida e volta</strong>. Esses valores são a base de todo o cálculo.</p>
+<figure><img class="img-desktop" src="prints/vt-bilhetes.png"><figcaption>Tela: vt-bilhetes (imagem com dados de exemplo)</figcaption></figure>
+<h3>Como fazer</h3>
+<p><strong>Quando a passagem aumentar (cadastrar um novo valor):</strong></p>
+<ol>
+<li>Clique em <strong>Nova vigência</strong>, no canto superior direito.</li>
+<li>Em <strong>Nome</strong>, escreva o nome do bilhete (se for um reajuste, use o mesmo nome do bilhete que já existe).</li>
+<li>Em <strong>Valor/dia (R$, ida+volta)</strong>, digite o novo valor. Exemplo: <code>11,20</code>.</li>
+<li>Em <strong>Vigente desde</strong>, escolha a data em que o novo valor passa a valer.</li>
+<li>Clique em salvar.</li>
+</ol>
+<p>O valor antigo não é apagado: ele fica na lista como <strong>Inativo</strong>, guardando o histórico. Nunca se edita um valor antigo — sempre se cria uma nova vigência.</p>
+<p><strong>Desativar um bilhete que não existe mais:</strong> clique na lixeira da linha dele (só aparece para quem gerencia).</p>
+<p class="dica">💡 <strong>DICA</strong> — o valor do bilhete é o que a pessoa gasta <strong>por dia</strong> (ida e volta juntas). Se o cartão da empresa cobra R$ 5,60 por passagem, o bilhete é R$ 11,20.</p>
+<p class="atencao">⚠️ <strong>ATENÇÃO</strong> — depois de mudar o valor de um bilhete, o custo do dia de todos os trajetos que usam esse bilhete muda sozinho nas próximas cargas. Cargas já gravadas não são alteradas.</p>
+<h2>Aba Colaboradores</h2>
+<p>Mostra todos os colaboradores ativos e permite marcar <strong>quem usa vale-transporte</strong> (os "optantes") e qual é o <strong>tipo de bilhete</strong> de cada um. Só os optantes entram na carga.</p>
+<figure><img class="img-desktop" src="prints/vt-colaboradores.png"><figcaption>Tela: vt-colaboradores (imagem com dados de exemplo)</figcaption></figure>
+<h3>Como fazer</h3>
+<p><strong>Marcar quem usa VT:</strong></p>
+<ol>
+<li>Encontre a pessoa na lista (ou digite o nome no campo <strong>Nome</strong>).</li>
+<li>Marque a caixinha da coluna <strong>Usa VT</strong>.</li>
+<li>Na coluna <strong>Tipo de bilhete</strong>, escolha o tipo do cartão da pessoa: <strong>Bilhete Único Niterói</strong>, <strong>Bilhete Único Intermunicipal</strong> ou <strong>Comum</strong>.</li>
+</ol>
+<p>A mudança é salva na hora. Para a pessoa <strong>deixar</strong> de usar VT, é só desmarcar a caixinha.</p>
+<p><strong>Filtrar a lista:</strong></p>
+<ul>
+<li><strong>Nome:</strong> digite parte do nome.</li>
+<li><strong>Situação VT:</strong> Todos, Só optantes ou Só não optantes.</li>
+<li><strong>Tipo de bilhete:</strong> um tipo específico, ou "Optante sem tipo escolhido" (ótimo para achar quem ficou faltando).</li>
+<li>Clique em <strong>Aplicar</strong> para filtrar e em <strong>Limpar</strong> para voltar à lista toda.</li>
+</ul>
+<p>O título da lista mostra quantos são optantes (por exemplo, "4 optantes de 4 colaboradores ativos"). Quem tem a etiqueta <strong>Ferista</strong> é quem cobre férias de outras pessoas.</p>
+<p class="dica">💡 <strong>DICA</strong> — o sistema não recebe a informação de VT do e-Contador — por isso a marcação de "Usa VT" é feita aqui, à mão.</p>
+<h2>Aba Trajetos</h2>
+<p>Um <strong>trajeto</strong> é o caminho da casa da pessoa até o posto onde ela trabalha. Cada trajeto diz <strong>qual bilhete</strong> a pessoa usa e, com isso, <strong>quanto custa o dia</strong>.</p>
+<figure><img class="img-desktop" src="prints/vt-trajetos.png"><figcaption>Tela: vt-trajetos (imagem com dados de exemplo)</figcaption></figure>
+<h3>Como funciona a lista</h3>
+<p>Cada linha é um par "colaborador + posto". As colunas mostram o <strong>Escopo</strong> (Niterói, Intermunicipal etc.), o <strong>Bilhete</strong>, o <strong>Custo/dia</strong>, a <strong>Precisão</strong> do endereço e o <strong>Status</strong>:</p>
+<ul>
+<li><strong>A confirmar</strong> (amarelo): o trajeto ainda não foi conferido por uma pessoa. <strong>Ele não entra no cálculo e trava a gravação da carga.</strong></li>
+<li><strong>Confirmado</strong> (verde): conferido; já vale no cálculo.</li>
+</ul>
+<p>A coluna <strong>Precisão</strong> diz o quanto o endereço da pessoa é confiável: <strong>exato</strong> (o endereço completo foi encontrado) ou <strong>bairro</strong> (só o bairro foi encontrado; vale conferir com mais atenção).</p>
+<h3>Como fazer</h3>
+<p><strong>Confirmar um trajeto:</strong></p>
+<ol>
+<li>Clique no ícone de <strong>seta saindo do quadradinho</strong> da linha. O sistema abre o <strong>Google Maps</strong> já com a casa da pessoa e o posto preenchidos.</li>
+<li>Olhe o caminho que a pessoa faz de verdade (ônibus, trem, barca...).</li>
+<li>Volte ao sistema e, na coluna <strong>Bilhete</strong>, escolha o bilhete que corresponde a esse caminho.</li>
+<li>Se a pessoa precisa de <strong>dois bilhetes</strong> no mesmo dia (poucos casos), clique em <strong>+ 2º bilhete</strong> e escolha o segundo. O custo do dia passa a ser a soma dos dois.</li>
+<li>Clique em <strong>Confirmar</strong>.</li>
+</ol>
+<p><strong>Adicionar um trajeto que não está na lista</strong> (por exemplo, a pessoa vai trabalhar em outro posto): clique em <strong>Adicionar trajeto</strong>, escolha o colaborador (só aparecem optantes), o posto e o <strong>Bilhete 1</strong> (o <strong>Bilhete 2</strong> é opcional), e salve.</p>
+<p><strong>Excluir um trajeto:</strong> clique na lixeira da linha e confirme.</p>
+<p class="atencao">⚠️ <strong>ATENÇÃO</strong> — o sistema <strong>nunca adivinha</strong> o trajeto. Mesmo que ele sugira um bilhete, quem decide é você, olhando o mapa. Só depois de confirmado o trajeto entra no cálculo.</p>
+<p class="dica">💡 <strong>DICA</strong> — se a pessoa muda de casa, confira o trajeto de novo. Endereço novo pode mudar o bilhete e o valor do dia.</p>
+<h2>Aba Carga</h2>
+<p>Esta é a tela do <strong>dia 25</strong>: com o relatório de escalas do Flit, o sistema calcula quanto cada optante deve receber de VT no mês seguinte.</p>
+<h3>Qual arquivo usar</h3>
+<ul>
+<li><strong>Arquivo:</strong> o relatório <strong>"Gestão de escalas"</strong> do Flit, exportado em <strong>Excel (.xlsx)</strong>.</li>
+<li><strong>Período:</strong> o <strong>mês inteiro</strong> da carga, do dia 1 ao último dia. Gere por volta do dia 25, quando o mês seguinte já está programado no Flit.</li>
+<li>Não edite o arquivo antes de importar: o sistema lê o relatório exatamente como o Flit gera.</li>
+</ul>
+<p>A própria tela mostra essas instruções numa caixa azul, para você não esquecer.</p>
+<figure><img class="img-desktop" src="prints/vt-carga-inicial.png"><figcaption>Tela: vt-carga-inicial (imagem com dados de exemplo)</figcaption></figure>
+<h3>Como fazer</h3>
+<ol>
+<li>Clique em <strong>Importar Gestão de escalas (Flit)</strong> e escolha o arquivo.</li>
+<li>O sistema mostra o mês (a <strong>Competência</strong>) e calcula a carga de cada optante: quantos dias em cada posto, o custo do dia e o <strong>Total a creditar</strong>.</li>
+<li>Se aparecer a caixa amarela de bloqueio, resolva cada item (veja abaixo).</li>
+<li>Quando tudo estiver verde ("Pronto"), clique em <strong>Gravar carga</strong>.</li>
+<li>Se quiser mandar para quem carrega os cartões, clique em <strong>Baixar Excel</strong>.</li>
+</ol>
+<figure><img class="img-desktop" src="prints/vt-carga-pronta.png"><figcaption>Tela: vt-carga-pronta (imagem com dados de exemplo)</figcaption></figure>
+<h3>Quando a gravação está bloqueada</h3>
+<p>Se houver alguma pendência, o botão <strong>Gravar carga</strong> fica apagado e uma caixa amarela, <strong>"A gravação está bloqueada"</strong>, lista o que falta. Isso existe de propósito: é melhor parar do que gravar um valor errado.</p>
+<figure><img class="img-desktop" src="prints/vt-carga-importada.png"><figcaption>Tela: vt-carga-importada (imagem com dados de exemplo)</figcaption></figure>
+<p>Veja como resolver cada item da caixa:</p>
+<p><strong>"N férias do mês sem destino"</strong></p>
+<p>Quando alguém está de férias, alguém normalmente cobre o posto. O sistema precisa saber quem cobre (ou que ninguém cobre). Na tabela <strong>Férias no mês</strong>, na linha da pessoa com <strong>PENDENTE</strong>:</p>
+<ul>
+<li>Clique em <strong>Quem cobre?</strong> e escolha o <strong>ferista</strong> (quem vai cobrir). O posto e as datas já vêm preenchidos. Se a pessoa precisa <strong>treinar no posto antes de cobrir</strong>, marque <strong>"Precisa treinar no posto antes de cobrir"</strong>: os dias de treinamento também recebem VT, no posto do treinamento.</li>
+<li>Se ninguém vai cobrir, clique em <strong>Sem cobertura</strong> e confirme (por exemplo, quando quem estaria de ferista é quem está de férias).</li>
+</ul>
+<figure><img class="img-desktop" src="prints/vt-carga-quem-cobre.png"><figcaption>Tela: vt-carga-quem-cobre (imagem com dados de exemplo)</figcaption></figure>
+<p class="dica">💡 <strong>DICA</strong> — para registrar uma cobertura ou treinamento que <strong>não</strong> é de férias (por exemplo, uma transferência temporária ou o treinamento de um recém-admitido), use o botão <strong>Registrar cobertura ou treinamento (fora de férias)</strong>, logo abaixo da tabela de férias.</p>
+<p><strong>"N optante(s) com trajeto a confirmar"</strong></p>
+<p>Falta confirmar o trajeto de alguém. Vá à aba <strong>Trajetos</strong>, confirme e volte para importar de novo o arquivo (ou clique em <strong>Importar outro relatório</strong>).</p>
+<p><strong>"N optante(s) com dias sem posto identificado"</strong></p>
+<p>A pessoa trabalha em um dia, mas o sistema não conseguiu descobrir o posto pelo nome que está no Flit. Confira o nome do posto no relatório e o cadastro de <strong>Departamentos</strong>.</p>
+<p><strong>"N optante(s) sem escala no relatório"</strong></p>
+<p>A pessoa está marcada como optante, mas não aparece no relatório. Veja se ela está na escala do Flit; se ela não usa mais VT, desmarque-a na aba <strong>Colaboradores</strong>.</p>
+<h3>Outros avisos da tela</h3>
+<ul>
+<li><strong>"O relatório não traz o mês inteiro"</strong> (caixa amarela de aviso): o relatório começa depois do dia 1 ou termina antes do último dia. Os dias que faltam ficam <strong>sem VT</strong>. Esse aviso <strong>não bloqueia</strong>, mas o ideal é gerar o relatório de novo, completo.</li>
+<li><strong>Cobertura do relatório — todos os colaboradores:</strong> um painel de conferência que mostra se <strong>todas as pessoas</strong> do relatório (usam VT ou não) estão em algum lugar: escaladas com posto, de férias/afastadas, ou cobrindo alguém. Se aparecer um nome em "A conferir", vale olhar, por exemplo "Sem match no cadastro" (o nome do Flit não bate com o cadastro). Esse painel <strong>não trava</strong> a gravação.</li>
+<li><strong>Ajuste do mês anterior:</strong> na coluna <strong>Total a creditar</strong>, quando o mês passado teve fechamento, aparece uma linha "inclui ajuste do fechamento do mês anterior" com o desconto (−) ou o crédito (+) já somado.</li>
+</ul>
+<p class="atencao">⚠️ <strong>ATENÇÃO</strong> — o sistema só casa pessoas pelo <strong>nome exatamente igual</strong> ao do cadastro. Nome escrito diferente aparece em "Sem match no cadastro": corrija o cadastro (ou o Flit), nunca "chute".</p>
+<h2>Aba Fechamento</h2>
+<p>O fechamento é a <strong>conferência depois do mês</strong>: o sistema compara, dia a dia, o que foi colocado na carga com o ponto de verdade. <strong>Faltou? Desconta. Trabalhou num dia que não estava na carga? Credita.</strong> O resultado entra como ajuste na carga do mês seguinte.</p>
+<h3>Qual arquivo usar</h3>
+<ul>
+<li><strong>Arquivo:</strong> o espelho de ponto do Flit, relatório <strong>"CORH - Adicionais e Ocorrências"</strong>, em <strong>PDF</strong>.</li>
+<li>Ele <strong>não é anexado nesta tela</strong>: envie em <strong>Adicionais → Importar Ponto</strong> e ele aparece sozinho aqui.</li>
+<li><strong>Períodos:</strong> o ponto fecha do dia 20 ao dia 19, então um mês precisa de <strong>dois períodos</strong> (de 20 do mês anterior a 19 do mês, e de 20 do mês a 19 do mês seguinte). Cada período pode vir em <strong>vários arquivos</strong> (por exemplo, 20/09 a 07/10, 07 a 13/10 e 12 a 19/10).</li>
+<li><strong>Quando fazer:</strong> depois que o ponto do segundo período fechar, ou seja, depois do dia 19 do mês seguinte.</li>
+</ul>
+<figure><img class="img-desktop" src="prints/vt-fechamento-inicial.png"><figcaption>Tela: vt-fechamento-inicial (imagem com dados de exemplo)</figcaption></figure>
+<h3>Como fazer</h3>
+<ol>
+<li>Em <strong>Mês da carga a fechar</strong>, escolha o mês. (Só aparecem meses que já têm carga gravada.)</li>
+<li>O sistema lista os espelhos que cobrem cada período e <strong>já marca</strong> os que cobrem o período inteiro. Confira as marcas: se um período estiver incompleto, o sistema avisa ("Faltam dias...").</li>
+<li>Clique em <strong>Conferir no ponto</strong>. O sistema lê os PDFs e mostra o resultado de cada pessoa.</li>
+<li>Confira a tabela e, se estiver certo, clique em <strong>Gravar fechamento</strong>.</li>
+</ol>
+<figure><img class="img-desktop" src="prints/vt-fechamento-conferencia.png"><figcaption>Tela: vt-fechamento-conferencia (imagem com dados de exemplo)</figcaption></figure>
+<h3>O que cada coluna significa</h3>
+<ul>
+<li><strong>Dias na carga:</strong> quantos dias o sistema tinha colocado no cartão.</li>
+<li><strong>Trabalhados:</strong> quantos desses dias a pessoa realmente trabalhou, segundo o ponto.</li>
+<li><strong>A descontar / Desconto:</strong> dias da carga em que a pessoa <strong>não trabalhou</strong> (qualquer motivo) e o valor a descontar.</li>
+<li><strong>A creditar / Crédito:</strong> dias em que a pessoa <strong>trabalhou fora da carga</strong> (por exemplo, trocou de plantão) e o valor a creditar, no posto de referência dela.</li>
+<li><strong>Não conferidos:</strong> dias sem registro no espelho. <strong>O sistema nunca desconta um dia sem evidência.</strong></li>
+<li><strong>Trabalhou fora da carga — sem posto, conferir:</strong> a pessoa trabalhou num dia que não estava na carga e o sistema não sabe em qual posto. <strong>Esse dia não é creditado</strong>; fica para você conferir.</li>
+</ul>
+<p>Clique na linha da pessoa para ver a lista de cada dia (descontados, creditados, não conferidos).</p>
+<h3>O que acontece depois</h3>
+<ul>
+<li>Desconto e crédito <strong>entram como ajuste na carga do mês seguinte</strong> (ajuste = crédito − desconto).</li>
+<li>Se o desconto for <strong>maior que a carga</strong> do mês seguinte, o valor fica em <strong>zero</strong> (nunca negativo) e <strong>a sobra não passa adiante</strong>. A tela da Carga avisa quando isso acontece.</li>
+<li>Se você <strong>refizer</strong> o fechamento do mesmo mês, o novo <strong>substitui</strong> o anterior — nunca soma duas vezes.</li>
+</ul>
+<p class="atencao">⚠️ <strong>ATENÇÃO</strong> — só dá para fechar cargas gravadas depois de 23/10/2026. Cargas mais antigas não guardam o detalhe dos dias e aparecem como "Carga antiga, sem datas por posto".</p>
+<p class="dica">💡 <strong>DICA</strong> — se o ponto do segundo período ainda não fechou, você pode conferir o que já existe — os dias sem espelho ficam como "não conferidos" e não geram desconto. Depois é só refazer.</p>
+<h2>Resumo: o calendário do VT</h2>
+<ul>
+<li><strong>Sempre que algo mudar</strong> — marcar quem usa VT e o tipo de bilhete. Aba <strong>Colaboradores</strong>. Sem arquivo.</li>
+<li><strong>Sempre que algo mudar</strong> — confirmar o trajeto de casa até o posto. Aba <strong>Trajetos</strong>. Sem arquivo.</li>
+<li><strong>Quando a passagem aumentar</strong> — cadastrar o novo valor (nova vigência). Aba <strong>Bilhetes</strong>. Sem arquivo.</li>
+<li><strong>Por volta do dia 25</strong> — importar a escala do mês seguinte, resolver as pendências e gravar a carga. Aba <strong>Carga</strong>. Arquivo: "Gestão de escalas" do Flit, em Excel (.xlsx), com o mês inteiro.</li>
+<li><strong>Depois do dia 19 do mês seguinte (ponto fechado)</strong> — conferir faltas e trocas de plantão e gravar o fechamento. Aba <strong>Fechamento</strong>. Arquivo: espelho "CORH - Adicionais e Ocorrências", em PDF, enviado em Adicionais → Importar Ponto.</li>
+</ul>
+<h2>Quem pode fazer o quê</h2>
+<ul>
+<li><strong>Gestor, Mesa, DP1 e DP2</strong> (e o Administrador): fazem tudo — marcam optantes, confirmam trajetos, cadastram bilhetes, importam, gravam a carga e o fechamento.</li>
+<li><strong>Financeiro:</strong> só <strong>consulta</strong> as telas; os botões que gravam não aparecem.</li>
+<li>Os demais perfis não enxergam o módulo.</li>
+</ul>
+<p class="dica">💡 <strong>DICA</strong> — se uma tela do VT não aparece no seu menu, o seu perfil não tem essa permissão. Fale com o Administrador.</p>
 
 <h1>Anexo — Como gravar vídeos de treinamento</h1>
 <p>Além deste manual, você pode gravar vídeos curtos mostrando as telas em movimento. Não é preciso nenhum programa pago: o próprio Windows já tem um gravador de tela.</p>
