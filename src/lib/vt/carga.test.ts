@@ -6,6 +6,7 @@ import {
   competenciaSeguinte,
   destinoFerias,
   rotuloCompetencia,
+  situacaoCoberturaRelatorio,
   valorDaCarga,
   type FeriasBloco,
 } from '@/lib/vt/carga'
@@ -157,6 +158,32 @@ describe('valorDaCarga', () => {
 
   it('ajuste negativo maior que a necessidade trunca no piso 0 e avisa', () => {
     expect(valorDaCarga(1000, -1500)).toEqual({ valor_centavos: 0, ajusteMaiorQueNecessidade: true })
+  })
+})
+
+describe('situacaoCoberturaRelatorio (completude de todos — 23/10/2026)', () => {
+  it('dia sem posto identificado é o problema que aparece primeiro', () => {
+    expect(
+      situacaoCoberturaRelatorio({ diasTrabalhoIdentificados: 10, diasTrabalhoSemPosto: 2, diasAusencia: 0 })
+    ).toBe('dias_sem_posto')
+  })
+
+  it('todo dia de trabalho com posto = escalado', () => {
+    expect(
+      situacaoCoberturaRelatorio({ diasTrabalhoIdentificados: 12, diasTrabalhoSemPosto: 0, diasAusencia: 0 })
+    ).toBe('escalado')
+  })
+
+  it('mês inteiro de férias/afastado sem dia trabalhado = só ausências', () => {
+    expect(
+      situacaoCoberturaRelatorio({ diasTrabalhoIdentificados: 0, diasTrabalhoSemPosto: 0, diasAusencia: 30 })
+    ).toBe('so_ausencias')
+  })
+
+  it('sem trabalho e sem ausência (só folga/vazio) = sem registro', () => {
+    expect(
+      situacaoCoberturaRelatorio({ diasTrabalhoIdentificados: 0, diasTrabalhoSemPosto: 0, diasAusencia: 0 })
+    ).toBe('sem_registro')
   })
 })
 

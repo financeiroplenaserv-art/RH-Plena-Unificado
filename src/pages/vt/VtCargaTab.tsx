@@ -118,7 +118,8 @@ export function VtCargaTab({
     ferias,
     competencia,
     nomeArquivo,
-    foraDoVt,
+    coberturaGeral,
+    nomesSemMatch,
     loading,
     importarRelatorio,
     gravarCargas,
@@ -228,6 +229,20 @@ export function VtCargaTab({
     }),
     [resultados]
   )
+
+  /** Completude de TODOS do relatório (decisão da gestora, 23/10/2026) — visão de conferência, não bloqueia. */
+  const resumoGeral = useMemo(() => {
+    const naoOptantes = coberturaGeral.filter((p) => !p.optante)
+    return {
+      total: coberturaGeral.length,
+      naoOptantes,
+      escalados: naoOptantes.filter((p) => p.situacao === 'escalado'),
+      soAusencias: naoOptantes.filter((p) => p.situacao === 'so_ausencias'),
+      diasSemPosto: naoOptantes.filter((p) => p.situacao === 'dias_sem_posto'),
+      semRegistro: naoOptantes.filter((p) => p.situacao === 'sem_registro'),
+    }
+  }, [coberturaGeral])
+  const [mostrarTodosGeral, setMostrarTodosGeral] = useState(false)
 
   // Portão (decisão de 21/10/2026): férias sem destino ou qualquer pendência
   // de cálculo bloqueiam a gravação; calcular/mostrar segue liberado.
@@ -454,11 +469,6 @@ export function VtCargaTab({
             </ul>
           </div>
         )}
-        {foraDoVt > 0 && (
-          <p className="mt-3 text-[12px] text-muted-foreground">
-            {foraDoVt} pessoa(s) do relatório fora do VT (sem match no cadastro ou não optantes) — ignoradas.
-          </p>
-        )}
       </ModuleCard>
 
       <ModuleCard
@@ -603,6 +613,93 @@ export function VtCargaTab({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </ModuleCard>
+
+      <ModuleCard
+        title="Cobertura do relatório — todos os colaboradores"
+        description="Optantes ou não: cada pessoa precisa estar escalada com posto identificado, de férias/afastada, ou cobrindo alguém"
+      >
+        <p className="text-[13px] text-muted-foreground">
+          <strong className="text-foreground">{resultados.length}</strong> optantes (tabela da carga abaixo)
+          {' · '}
+          <strong className="text-foreground">{resumoGeral.naoOptantes.length}</strong> não optantes:{' '}
+          {resumoGeral.escalados.length} escalados
+          {' · '}{resumoGeral.soAusencias.length} só com férias/afastamento
+          {' · '}{resumoGeral.diasSemPosto.length} com dias sem posto
+          {' · '}{resumoGeral.semRegistro.length} sem registro
+          {nomesSemMatch.length > 0 && (
+            <>
+              {' · '}<strong className="text-amber-700">{nomesSemMatch.length} sem match no cadastro</strong>
+            </>
+          )}
+        </p>
+        {(resumoGeral.diasSemPosto.length > 0 ||
+          resumoGeral.semRegistro.length > 0 ||
+          nomesSemMatch.length > 0) && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            <p className="font-semibold">A conferir (não bloqueia a carga dos optantes):</p>
+            <ul className="mt-1 list-disc pl-5">
+              {resumoGeral.diasSemPosto.map((p) => (
+                <li key={p.colaborador_id}>
+                  {p.nome} — {p.diasTrabalhoSemPosto} dia(s) sem posto identificado (
+                  {p.locaisNaoIdentificados.join('; ')})
+                </li>
+              ))}
+              {resumoGeral.semRegistro.map((p) => (
+                <li key={p.colaborador_id}>
+                  {p.nome} — sem dia de trabalho, férias ou afastamento no relatório
+                </li>
+              ))}
+              {nomesSemMatch.length > 0 && (
+                <li>Sem match no cadastro (nunca casamos por palpite): {nomesSemMatch.join(', ')}</li>
+              )}
+            </ul>
+          </div>
+        )}
+        <div className="mt-3">
+          <ModuleButton size="sm" variant="ghost" onClick={() => setMostrarTodosGeral((v) => !v)}>
+            {mostrarTodosGeral ? 'Esconder a lista completa' : 'Ver todos os não optantes'}
+          </ModuleButton>
+        </div>
+        {mostrarTodosGeral && (
+          <div className="mt-3 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-2.5">Nome</th>
+                  <th className="px-4 py-2.5 text-center">Dias trabalhados</th>
+                  <th className="px-4 py-2.5 text-center">Férias/afastamento</th>
+                  <th className="px-4 py-2.5">Situação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumoGeral.naoOptantes.map((p) => (
+                  <tr key={p.colaborador_id} className="border-b border-border last:border-0 hover:bg-accent/40">
+                    <td className="px-4 py-2 font-medium text-foreground">{p.nome}</td>
+                    <td className="px-4 py-2 text-center tabular-nums">{p.diasTrabalho}</td>
+                    <td className="px-4 py-2 text-center tabular-nums">{p.diasAusencia}</td>
+                    <td className="px-4 py-2">
+                      {p.situacao === 'escalado' && <StatusBadge variant="success">Escalado</StatusBadge>}
+                      {p.situacao === 'so_ausencias' && (
+                        <StatusBadge variant="neutral">Só férias/afastamento</StatusBadge>
+                      )}
+                      {p.situacao === 'dias_sem_posto' && (
+                        <span title={p.locaisNaoIdentificados.join('; ')}>
+                          <StatusBadge variant="warning">
+                            {p.diasTrabalhoSemPosto} dia(s) sem posto identificado
+                          </StatusBadge>
+                        </span>
+                      )}
+                      {p.situacao === 'sem_registro' && (
+                        <StatusBadge variant="warning">Sem registro no relatório</StatusBadge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </ModuleCard>

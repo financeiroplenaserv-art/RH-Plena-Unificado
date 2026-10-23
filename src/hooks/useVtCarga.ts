@@ -7,11 +7,13 @@ import {
   agruparDiasPorPosto,
   aplicarCoberturas,
   calcularCargaMes,
+  situacaoCoberturaRelatorio,
   valorDaCarga,
   type DetalheCargaPosto,
   type FeriasBloco,
   type LinhaEscalaDia,
   type MarcasPorDia,
+  type SituacaoCoberturaRelatorio,
 } from '@/lib/vt/carga'
 import {
   casarColaboradores,
@@ -58,6 +60,25 @@ export interface ApoioCarga {
   bilhetes: VtBilhete[]
 }
 
+/**
+ * Completude do relatório para TODOS, optantes ou não (decisão da gestora,
+ * 23/10/2026): cada pessoa precisa estar escalada com posto identificado, de
+ * férias/afastada, ou cobrindo alguém. Visão de conferência — não bloqueia a
+ * gravação (o VT dos optantes não depende dos demais).
+ */
+export interface PessoaCoberturaRelatorio {
+  colaborador_id: string
+  nome: string
+  optante: boolean
+  situacao: SituacaoCoberturaRelatorio
+  /** Dias [T] com posto identificado (inclui os sintetizados por cobertura). */
+  diasTrabalho: number
+  diasTrabalhoSemPosto: number
+  locaisNaoIdentificados: string[]
+  /** [FR] + [AF] + [AT]. */
+  diasAusencia: number
+}
+
 /** Último dia do mês da competência ('AAAA-MM') como string local. */
 function fimDoMes(competencia: string): string {
   const [a, m] = competencia.split('-').map(Number)
@@ -71,6 +92,10 @@ export function useVtCarga() {
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null)
   /** Pessoas do relatório fora do VT: sem match no cadastro ou não optantes. */
   const [foraDoVt, setForaDoVt] = useState(0)
+  /** Completude de TODOS os casados (optantes ou não) — visão de conferência. */
+  const [coberturaGeral, setCoberturaGeral] = useState<PessoaCoberturaRelatorio[]>([])
+  /** Nomes do relatório sem match no cadastro (nunca palpite). */
+  const [nomesSemMatch, setNomesSemMatch] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   const importarRelatorio = useCallback(
@@ -102,17 +127,18 @@ export function useVtCarga() {
           apoio.colaboradores.map((c) => ({ id: c.id, nome_completo: c.nome_completo, status: 'Ativo' }))
         )
         const pessoaPorId = new Map<string, PessoaRelatorio>()
-        let semMatch = 0
+        const nomesSemMatchLista: string[] = []
         for (const p of pessoas) {
           const c = casamento.get(p.nome)
           if (c?.id) pessoaPorId.set(c.id, p)
-          else semMatch++
+          else nomesSemMatchLista.push(p.nome)
         }
+        setNomesSemMatch(nomesSemMatchLista)
 
         const optantes = apoio.colaboradores.filter((c) => c.vt_optante)
         const idsOptantes = new Set(optantes.map((c) => c.id))
         const casadosNaoOptantes = [...pessoaPorId.keys()].filter((id) => !idsOptantes.has(id)).length
-        setForaDoVt(semMatch + casadosNaoOptantes)
+        setForaDoVt(nomesSemMatchLista.length + casadosNaoOptantes)
 
         // Coberturas que tocam o mês (todas — o pipeline usa as com ferista;
         // o clamp ao mês evita sintetizar dias fora da competência).
@@ -179,6 +205,41 @@ export function useVtCarga() {
           }
         }
         setFerias(blocos)
+
+        // Completude de TODOS os casados (optantes ou não) — decisão da
+        // gestora, 23/10/2026: conferência de que cada pessoa está em algum
+        // lugar (posto identificado, férias/afastamento, ou cobrindo alguém).
+        const nomePorId = new Map(apoio.colaboradores.map((c) => [c.id, c.nome_completo]))
+        const todos: PessoaCoberturaRelatorio[] = []
+        for (const [id, pessoa] of pessoaPorId) {
+          const porPosto = porColaborador.get(id)
+          const diasTrabalho = porPosto
+            ? Array.from(porPosto.values()).reduce((acc, v) => acc + v.dias, 0)
+            : 0
+          const semPosto = naoIdentificados.get(id)
+          const diasTrabalhoSemPosto = semPosto
+            ? Array.from(semPosto.values()).reduce((acc, n) => acc + n, 0)
+            : 0
+          const diasAusencia = pessoa.dias.filter(
+            (d) => d.marca === 'ferias' || d.marca === 'afastado' || d.marca === 'atestado'
+          ).length
+          todos.push({
+            colaborador_id: id,
+            nome: nomePorId.get(id) ?? pessoa.nome,
+            optante: idsOptantes.has(id),
+            situacao: situacaoCoberturaRelatorio({
+              diasTrabalhoIdentificados: diasTrabalho,
+              diasTrabalhoSemPosto,
+              diasAusencia,
+            }),
+            diasTrabalho,
+            diasTrabalhoSemPosto,
+            locaisNaoIdentificados: semPosto ? Array.from(semPosto.keys()) : [],
+            diasAusencia,
+          })
+        }
+        todos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        setCoberturaGeral(todos)
 
         const hoje = hojeBrasil()
         const lista: ResultadoCargaColaborador[] = optantes.map((c) => {
@@ -315,6 +376,8 @@ export function useVtCarga() {
     competencia,
     nomeArquivo,
     foraDoVt,
+    coberturaGeral,
+    nomesSemMatch,
     loading,
     importarRelatorio,
     gravarCargas,

@@ -330,6 +330,32 @@ export interface ValorCarga {
   ajusteMaiorQueNecessidade: boolean
 }
 
+/** Situação de UMA pessoa do relatório na visão de completude (optante ou não). */
+export type SituacaoCoberturaRelatorio =
+  | 'escalado' // tem dia de trabalho e todos com posto identificado
+  | 'dias_sem_posto' // tem dia [T] cujo local não casou com nenhum departamento
+  | 'so_ausencias' // o mês inteiro em férias/afastado/atestado (ok, informativo)
+  | 'sem_registro' // nenhum dia útil no relatório (só folga/vazio)
+
+/**
+ * Completude do relatório para TODOS (decisão da gestora, 23/10/2026): antes
+ * de fechar a carga queremos certeza de que cada pessoa está em algum lugar —
+ * trabalhando com posto identificado, de férias/afastada, ou cobrindo alguém.
+ * Prioridade da classificação: problema primeiro (dia sem posto), depois
+ * trabalho ok, depois só ausências, por fim sem registro.
+ */
+export function situacaoCoberturaRelatorio(d: {
+  diasTrabalhoIdentificados: number
+  diasTrabalhoSemPosto: number
+  /** [FR] + [AF] + [AT]. */
+  diasAusencia: number
+}): SituacaoCoberturaRelatorio {
+  if (d.diasTrabalhoSemPosto > 0) return 'dias_sem_posto'
+  if (d.diasTrabalhoIdentificados > 0) return 'escalado'
+  if (d.diasAusencia > 0) return 'so_ausencias'
+  return 'sem_registro'
+}
+
 /** Valor a creditar: necessidade + ajuste, com piso 0 (nunca negativo). */
 export function valorDaCarga(necessidadeCentavos: number, ajusteCentavos: number): ValorCarga {
   const bruto = necessidadeCentavos + ajusteCentavos
