@@ -75,8 +75,8 @@ describe('agruparDiasPorPosto', () => {
       ],
       resolver
     )
-    expect(porColaborador.get('c1')?.get('d1')).toEqual({ dias: 2, rotulo: 'ITAGUAÍ', diasCobertura: 0 })
-    expect(porColaborador.get('c1')?.get('d2')).toEqual({ dias: 1, rotulo: 'CBO', diasCobertura: 0 })
+    expect(porColaborador.get('c1')?.get('d1')).toEqual({ dias: 2, rotulo: 'ITAGUAÍ', diasCobertura: 0, diasTreinamento: 0 })
+    expect(porColaborador.get('c1')?.get('d2')).toEqual({ dias: 1, rotulo: 'CBO', diasCobertura: 0, diasTreinamento: 0 })
     expect(naoIdentificados.size).toBe(0)
   })
 
@@ -113,6 +113,7 @@ describe('calcularCargaMes', () => {
         custo_dia_centavos: 1120,
         subtotal_centavos: 13440,
         dias_cobertura: 0,
+        dias_treinamento: 0,
       },
     ])
     expect(r.necessidade_centavos).toBe(13440)
@@ -185,7 +186,7 @@ describe('aplicarCoberturas (ferista cobre férias — cobertura vence escala)',
   it('dia dentro da cobertura troca o posto e marca diasCobertura', () => {
     const linhas = aplicarCoberturas([dia('2026-11-10')], [cobertura({})], rotulo)
     const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
-    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 1, rotulo: 'FOREVER', diasCobertura: 1 })
+    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 1, rotulo: 'FOREVER', diasCobertura: 1, diasTreinamento: 0 })
     expect(porColaborador.get('c1')?.has('d1')).toBe(false)
   })
 
@@ -202,7 +203,7 @@ describe('aplicarCoberturas (ferista cobre férias — cobertura vence escala)',
     )
     expect(linhas.map((l) => l.cobertura?.departamento_id ?? null)).toEqual([null, 'd9', 'd9', null])
     const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
-    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 2, rotulo: 'FOREVER', diasCobertura: 2 })
+    expect(porColaborador.get('c1')?.get('d9')).toEqual({ dias: 2, rotulo: 'FOREVER', diasCobertura: 2, diasTreinamento: 0 })
   })
 
   it('sobreposição no mesmo dia: vale a cobertura mais recentemente criada', () => {
@@ -330,5 +331,92 @@ describe('destinoFerias', () => {
   it('cobertura de outro período (sem sobreposição) não conta', () => {
     const d = destinoFerias(ferias, [cobertura({ data_inicio: '2026-12-01', data_fim: '2026-12-15' })])
     expect(d.tipo).toBe('pendente')
+  })
+
+  it('treinamento (migration 160) NÃO é destino de férias — segue pendente', () => {
+    expect(destinoFerias(ferias, [cobertura({ tipo: 'treinamento' })])).toEqual({ tipo: 'pendente' })
+  })
+
+  it('treinamento não tira o lugar da cobertura de férias no destino', () => {
+    const d = destinoFerias(ferias, [
+      cobertura({ id: 'cb1', tipo: 'treinamento' }),
+      cobertura({ id: 'cb2' }),
+    ])
+    expect(d.tipo).toBe('coberta')
+    expect(d.tipo === 'coberta' && d.cobertura.id).toBe('cb2')
+  })
+})
+
+describe('treinamento com VT (migration 160 — ferista antes de cobrir / admitido em posto novo)', () => {
+  const rotulo = () => 'FOREVER'
+  const treinamento = (parcial: Partial<VtCobertura>): VtCobertura => ({
+    id: 'tr1',
+    tipo: 'treinamento',
+    colaborador_id: 'c1',
+    departamento_id: 'd9',
+    data_inicio: '2026-11-08',
+    data_fim: '2026-11-09',
+    observacao: null,
+    registrado_por: null,
+    created_at: '2026-10-21T10:00:00Z',
+    ...parcial,
+  })
+  const marcas = (mapa: Record<string, string>) => new Map([['c1', new Map(Object.entries(mapa))]])
+  const resolver = () => null
+
+  it('sintetiza dias de trabalho no posto do treinamento (folga e fora do relatório)', () => {
+    const linhas = aplicarCoberturas(
+      [],
+      [treinamento({})],
+      rotulo,
+      marcas({ '2026-11-08': 'folga' })
+    )
+    expect(linhas.map((l) => l.data)).toEqual(['2026-11-08', '2026-11-09'])
+    expect(linhas.every((l) => l.cobertura?.tipo === 'treinamento')).toBe(true)
+    const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
+    expect(porColaborador.get('c1')?.get('d9')).toEqual({
+      dias: 2,
+      rotulo: 'FOREVER',
+      diasCobertura: 0,
+      diasTreinamento: 2,
+    })
+  })
+
+  it('férias/afastado/atestado NUNCA viram treinamento', () => {
+    const linhas = aplicarCoberturas(
+      [],
+      [treinamento({})],
+      rotulo,
+      marcas({ '2026-11-08': 'ferias', '2026-11-09': 'atestado' })
+    )
+    expect(linhas).toEqual([])
+  })
+
+  it('cobertura sem tipo (linha antiga) conta como cobertura de férias, não treinamento', () => {
+    const linhas = aplicarCoberturas(
+      [{ colaborador_id: 'c1', data: '2026-11-08', local_nome: 'X', local_nome_curto: 'Y' }],
+      [treinamento({ tipo: undefined })],
+      rotulo
+    )
+    expect(linhas[0].cobertura?.tipo).toBe('ferias')
+    const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
+    expect(porColaborador.get('c1')?.get('d9')).toEqual({
+      dias: 1,
+      rotulo: 'FOREVER',
+      diasCobertura: 1,
+      diasTreinamento: 0,
+    })
+  })
+
+  it('dias de treinamento somam na carga com o custo do posto (recebem VT)', () => {
+    const r = calcularCargaMes(
+      [{ departamento_id: 'd1', rotulo: 'ITAGUAÍ', dias: 12, diasCobertura: 0, diasTreinamento: 2 }],
+      [trajeto({})],
+      [BU_NITEROI],
+      '2026-10-21'
+    )
+    expect(r.necessidade_centavos).toBe(12 * 1120)
+    expect(r.detalhe[0].dias_treinamento).toBe(2)
+    expect(r.detalhe[0].dias_cobertura).toBe(0)
   })
 })

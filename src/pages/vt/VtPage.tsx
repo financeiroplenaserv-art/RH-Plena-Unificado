@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import { useAuth } from '@/hooks/useAuth'
 import { useVt } from '@/hooks/useVt'
+import { useCarteiraFeristas } from '@/hooks/useCarteiraFeristas'
 import { podeGerenciarVT, podeVisualizarVT, verificarPermissao } from '@/lib/permissoes'
 import { VtColaboradoresTab } from './VtColaboradoresTab'
 import { VtTrajetosTab } from './VtTrajetosTab'
@@ -27,10 +28,12 @@ export function VtPage() {
   const { user, loading: authLoading } = useAuth()
   const location = useLocation()
   const vt = useVt()
+  const carteira = useCarteiraFeristas()
 
   useEffect(() => {
     if (user && podeVisualizarVT(user.nivel_acesso)) {
       vt.carregarTudo()
+      void carteira.listar()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
@@ -70,6 +73,7 @@ export function VtPage() {
           loading={vt.loading}
           podeGerenciar={podeGerenciar}
           salvarVtColaborador={vt.salvarVtColaborador}
+          ehFerista={carteira.ehFerista}
         />
       )}
       {aba === 'trajetos' && (
@@ -106,6 +110,8 @@ export function VtPage() {
           dadosProntos={!vt.loading}
           usuarioId={user.id}
           podeGerenciar={podeGerenciar}
+          ehFerista={carteira.ehFerista}
+          adicionarFeristaCarteira={carteira.adicionar}
         />
       )}
     </ModuleShell>

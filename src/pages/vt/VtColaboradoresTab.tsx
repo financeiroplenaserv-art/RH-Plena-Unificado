@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Filters } from '@/components/corh/Filters'
 import { EmptyState } from '@/components/corh/EmptyState'
+import { StatusBadge } from '@/components/corh/StatusBadge'
 import { ModuleCard } from '@/components/layout/ModuleShell'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { ordenarPorNome, type DirecaoNome } from '@/lib/vt/ordenacao'
@@ -37,6 +38,8 @@ interface VtColaboradoresTabProps {
     id: string,
     dados: { vt_optante: boolean; vt_tipo_cartao: TipoCartaoVT | null }
   ) => Promise<boolean>
+  /** Carteira ferias_feristas (fonte única — decisão da gestora, 23/10/2026): selo "Ferista" na lista. */
+  ehFerista: (colaboradorId: string) => boolean
 }
 
 export function VtColaboradoresTab({
@@ -45,6 +48,7 @@ export function VtColaboradoresTab({
   loading,
   podeGerenciar,
   salvarVtColaborador,
+  ehFerista,
 }: VtColaboradoresTabProps) {
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
@@ -131,7 +135,16 @@ export function VtColaboradoresTab({
               <tbody>
                 {filtrados.map((c) => (
                   <tr key={c.id} className="border-b border-border last:border-0 hover:bg-accent/40">
-                    <td className="px-4 py-2.5 font-medium text-foreground">{c.nome_completo}</td>
+                    <td className="px-4 py-2.5 font-medium text-foreground">
+                      <span className="inline-flex items-center gap-2">
+                        {c.nome_completo}
+                        {ehFerista(c.id) && (
+                          <StatusBadge variant="info" dot={false}>
+                            Ferista
+                          </StatusBadge>
+                        )}
+                      </span>
+                    </td>
                     <td className="px-4 py-2.5 text-muted-foreground">
                       {nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento)}
                     </td>

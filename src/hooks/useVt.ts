@@ -29,6 +29,8 @@ export interface VtColaborador {
   endereco: string | null
   vt_optante: boolean | null
   vt_tipo_cartao: TipoCartaoVT | null
+  /** Cargo do cadastro — resolve a função ao adicionar à carteira de feristas pela tela do VT. */
+  cargo?: string | null
 }
 
 /** Departamento para resolução (nome_curto fuzzy) + endereço do posto (link do Maps). */
@@ -73,7 +75,7 @@ export interface NovoTrajetoVT {
 }
 
 const COLUNAS_COLABORADOR_VT =
-  'id, nome_completo, departamento, departamento_id, cidade, endereco, vt_optante, vt_tipo_cartao'
+  'id, nome_completo, departamento, departamento_id, cidade, endereco, vt_optante, vt_tipo_cartao, cargo'
 const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, endereco, cidade'
 // Sem embed: o tipo Database não declara os relacionamentos de vt_trajetos e a
 // página já tem colaboradores/departamentos carregados para resolver o join.

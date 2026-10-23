@@ -16,6 +16,15 @@ export type PrecisaoOrigemVT = 'exato' | 'bairro'
 /** Como o trajeto foi gerado: manual ou confirmado a partir do link do Google Maps. */
 export type OrigemTrajetoVT = 'manual' | 'link_confirmado'
 
+/**
+ * Tipo da cobertura (migration 160 — decisão da gestora, 22/10/2026):
+ * 'ferias' = cobertura de férias (destino da férias, padrão); 'treinamento' =
+ * dias de treinamento com VT (ferista antes de cobrir, ou admitido em posto
+ * novo) — sintetiza dias de trabalho no posto como a cobertura, mas NÃO é
+ * destino de férias. Ausente em leitura antiga = 'ferias'.
+ */
+export type TipoCoberturaVT = 'ferias' | 'treinamento'
+
 /** O trajeto só entra no cálculo depois de confirmado pelo RH. */
 export type StatusTrajetoVT = 'sugerido' | 'confirmado'
 
@@ -65,6 +74,8 @@ export interface VtCargaDetalhe {
   subtotal_centavos: number
   /** Quantos desses dias vieram de cobertura de férias (migration 158). */
   dias_cobertura?: number
+  /** Quantos desses dias vieram de treinamento (migration 160). */
+  dias_treinamento?: number
 }
 
 /** Carga mensal de VT de um colaborador (migration 157 — Fase 2a). */
@@ -94,8 +105,10 @@ export interface VtCobertura {
   id: string
   /** O ferista (quem cobre). NULL = declaração "sem cobertura". */
   colaborador_id: string | null
-  /** De quem são as férias cobertas. NULL = cobertura avulsa. */
+  /** De quem são as férias cobertas. NULL = cobertura/treinamento avulso. */
   ferias_colaborador_id?: string | null
+  /** Migration 160: 'ferias' (padrão) ou 'treinamento'. Ausente = 'ferias'. */
+  tipo?: TipoCoberturaVT
   departamento_id: string
   data_inicio: string // date ISO AAAA-MM-DD
   data_fim: string // date ISO AAAA-MM-DD

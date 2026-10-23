@@ -3,7 +3,7 @@
 // etapa. Regra de ouro: posto sem trajeto confirmado NUNCA ganha custo
 // inventado — vai para a fila de pendências.
 
-import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
+import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 import { custoDiaTrajetoCentavos } from '@/lib/vt/trajetos'
 
 const MESES = [
@@ -41,11 +41,12 @@ export interface LinhaEscalaDia {
   local_nome: string | null
   local_nome_curto: string | null
   /**
-   * Override de cobertura de férias (saída de `aplicarCoberturas`): quando
-   * presente, o dia conta para ESTE posto, sem passar pelo resolver fuzzy —
-   * cobertura vence escala.
+   * Override de cobertura de férias/treinamento (saída de
+   * `aplicarCoberturas`): quando presente, o dia conta para ESTE posto, sem
+   * passar pelo resolver fuzzy — cobertura vence escala. `tipo` discrimina
+   * treinamento (migration 160) para a contagem em `diasTreinamento`.
    */
-  cobertura?: { departamento_id: string; rotulo: string }
+  cobertura?: { departamento_id: string; rotulo: string; tipo?: TipoCoberturaVT }
 }
 
 /** Bloco de férias vindo do relatório "Gestão de escalas" (marca [FR]). */
@@ -67,10 +68,13 @@ export type DestinoFerias =
  * ferista NULL = declaração "sem cobertura"; nenhuma = pendente (bloqueia a
  * gravação — portão da decisão de 21/10/2026). Match por ferias_colaborador_id
  * + sobreposição de período; em empate vale a cobertura mais recente.
+ * Linhas tipo 'treinamento' (migration 160) NÃO são destino de férias — ficam
+ * de fora do match.
  */
 export function destinoFerias(ferias: FeriasBloco, coberturas: VtCobertura[]): DestinoFerias {
   const matches = coberturas.filter(
     (c) =>
+      (c.tipo ?? 'ferias') !== 'treinamento' &&
       c.ferias_colaborador_id === ferias.colaborador_id &&
       c.data_inicio <= ferias.data_fim &&
       c.data_fim >= ferias.data_inicio
@@ -90,8 +94,8 @@ export interface ResolucaoPosto {
 }
 
 export interface AgrupamentoEscala {
-  /** colaborador → departamento_id → dias distintos no posto (diasCobertura = quantos vieram de cobertura). */
-  porColaborador: Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number }>>
+  /** colaborador → departamento_id → dias distintos no posto (diasCobertura/diasTreinamento = quantos vieram de cobertura de férias/treinamento). */
+  porColaborador: Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number; diasTreinamento: number }>>
   /** colaborador → nome cru do local → dias distintos sem match. */
   naoIdentificados: Map<string, Map<string, number>>
 }
@@ -100,13 +104,14 @@ export interface AgrupamentoEscala {
  * Conta os DIAS DISTINTOS de cada colaborador por posto. A resolução
  * local → departamento é injetada (a fuzzy real fica no hook); sem match o dia
  * acumula em naoIdentificados com o nome cru do local. Linha com `cobertura`
- * pula o resolver: vale o posto da cobertura, marcado em diasCobertura.
+ * pula o resolver: vale o posto da cobertura, marcado em diasCobertura
+ * (tipo 'ferias') ou diasTreinamento (tipo 'treinamento', migration 160).
  */
 export function agruparDiasPorPosto(
   linhas: LinhaEscalaDia[],
   resolver: (nome: string) => ResolucaoPosto | null,
 ): AgrupamentoEscala {
-  const porColaborador = new Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number }>>()
+  const porColaborador = new Map<string, Map<string, { dias: number; rotulo: string; diasCobertura: number; diasTreinamento: number }>>()
   const naoIdentificados = new Map<string, Map<string, number>>()
   // Deduplica por dia: (colab|posto|data) e (colab|local cru|data).
   const diasPorPosto = new Map<string, Set<string>>()
@@ -114,12 +119,17 @@ export function agruparDiasPorPosto(
 
   for (const l of linhas) {
     const nome = l.local_nome_curto?.trim() || l.local_nome?.trim() || ''
-    let res: (ResolucaoPosto & { cobertura: boolean }) | null = null
+    let res: (ResolucaoPosto & { cobertura: boolean; treinamento: boolean }) | null = null
     if (l.cobertura) {
-      res = { id: l.cobertura.departamento_id, rotulo: l.cobertura.rotulo, cobertura: true }
+      res = {
+        id: l.cobertura.departamento_id,
+        rotulo: l.cobertura.rotulo,
+        cobertura: true,
+        treinamento: l.cobertura.tipo === 'treinamento',
+      }
     } else if (nome) {
       const r = resolver(nome)
-      if (r) res = { ...r, cobertura: false }
+      if (r) res = { ...r, cobertura: false, treinamento: false }
     }
     if (res) {
       const chave = `${l.colaborador_id}|${res.id}`
@@ -139,7 +149,8 @@ export function agruparDiasPorPosto(
       porPosto.set(res.id, {
         dias: (atual?.dias ?? 0) + 1,
         rotulo: res.rotulo,
-        diasCobertura: (atual?.diasCobertura ?? 0) + (res.cobertura ? 1 : 0),
+        diasCobertura: (atual?.diasCobertura ?? 0) + (res.cobertura && !res.treinamento ? 1 : 0),
+        diasTreinamento: (atual?.diasTreinamento ?? 0) + (res.treinamento ? 1 : 0),
       })
     } else {
       const localCru = nome || '(sem local)'
@@ -177,12 +188,14 @@ function vencedoraDoDia(candidatas: VtCobertura[]): VtCobertura {
 export type MarcasPorDia = Map<string, Map<string, string>>
 
 /**
- * Cobertura de férias (migrations 158/159 — decisão da gestora, 21/10/2026):
- * o Flit não mostra o destino do ferista, então o registro manual manda no
- * relatório. Para cada dia de trabalho do ferista dentro de
- * [data_inicio, data_fim] de uma cobertura DELE, o posto do dia vira o da
- * cobertura. Sobreposição no mesmo dia: vale a mais recentemente criada
- * (created_at). Cobertura com ferista NULL ("sem cobertura") nunca altera dia.
+ * Cobertura de férias e treinamento (migrations 158/159/160 — decisão da
+ * gestora, 21-22/10/2026): o Flit não mostra o destino do ferista, então o
+ * registro manual manda no relatório. Para cada dia de trabalho do ferista
+ * dentro de [data_inicio, data_fim] de uma cobertura DELE, o posto do dia vira
+ * o da cobertura — vale igual para tipo 'ferias' e tipo 'treinamento' (os dias
+ * de treinamento também geram VT). Sobreposição no mesmo dia: vale a mais
+ * recentemente criada (created_at). Cobertura com ferista NULL ("sem
+ * cobertura") nunca altera dia.
  *
  * Com `marcasPorDia` (relatório importado), a cobertura também CRIA dias de
  * trabalho no posto coberto quando o relatório do ferista marca folga/vazio
@@ -216,6 +229,7 @@ export function aplicarCoberturas(
       cobertura: {
         departamento_id: vencedora.departamento_id,
         rotulo: rotuloDoDepartamento(vencedora.departamento_id),
+        tipo: vencedora.tipo ?? 'ferias',
       },
     }
   })
@@ -244,6 +258,7 @@ export function aplicarCoberturas(
         cobertura: {
           departamento_id: vencedora.departamento_id,
           rotulo: rotuloDoDepartamento(vencedora.departamento_id),
+          tipo: vencedora.tipo ?? 'ferias',
         },
       })
     }
@@ -259,6 +274,8 @@ export interface DetalheCargaPosto {
   subtotal_centavos: number
   /** Quantos desses dias vieram de cobertura de férias (0 = nenhum). */
   dias_cobertura: number
+  /** Quantos desses dias vieram de treinamento (0 = nenhum; migration 160). */
+  dias_treinamento: number
 }
 
 export interface ResultadoCargaMes {
@@ -274,7 +291,7 @@ export interface ResultadoCargaMes {
  * dias × custo. Posto sem trajeto confirmado vai para `pendentes` e não soma.
  */
 export function calcularCargaMes(
-  diasPorPosto: { departamento_id: string; rotulo: string; dias: number; diasCobertura?: number }[],
+  diasPorPosto: { departamento_id: string; rotulo: string; dias: number; diasCobertura?: number; diasTreinamento?: number }[],
   trajetos: VtTrajeto[],
   bilhetes: VtBilhete[],
   hoje: string,
@@ -296,6 +313,7 @@ export function calcularCargaMes(
         custo_dia_centavos: custoDia,
         subtotal_centavos: subtotal,
         dias_cobertura: p.diasCobertura ?? 0,
+        dias_treinamento: p.diasTreinamento ?? 0,
       })
       necessidade += subtotal
     } else {

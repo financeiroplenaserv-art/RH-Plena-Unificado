@@ -30,7 +30,7 @@ import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { useVtCarga, type ResultadoCargaColaborador } from '@/hooks/useVtCarga'
 import { useVtCoberturas } from '@/hooks/useVtCoberturas'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
-import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
+import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
 // Aba Carga do VT (decisão da gestora, 21/10/2026 — plano §6): a fonte oficial
 // é o relatório "Gestão de escalas" do Flit (Excel com o mês seguinte). A carga
@@ -67,6 +67,18 @@ function sufixoCobertura(diasCobertura: number | undefined, dias: number): strin
   return diasCobertura === dias ? ' (cobertura de férias)' : ` (${diasCobertura} em cobertura)`
 }
 
+/** Sufixo da linha de posto quando há dias de treinamento (migration 160). */
+function sufixoTreinamento(diasTreinamento: number | undefined, dias: number): string {
+  if (!diasTreinamento) return ''
+  return diasTreinamento === dias ? ' (treinamento)' : ` (${diasTreinamento} em treinamento)`
+}
+
+/** 'AAAA-MM-DD' menos n dias, como string local (Date.UTC: sem bug de fuso). */
+function diasAntes(data: string, n: number): string {
+  const [a, m, d] = data.split('-').map(Number)
+  return new Date(Date.UTC(a, m - 1, d - n)).toISOString().slice(0, 10)
+}
+
 interface VtCargaTabProps {
   colaboradores: VtColaborador[]
   departamentos: VtDepartamento[]
@@ -75,6 +87,10 @@ interface VtCargaTabProps {
   dadosProntos: boolean
   usuarioId: string
   podeGerenciar: boolean
+  /** Carteira ferias_feristas (fonte única): selo "Ferista" e ordem no seletor. */
+  ehFerista: (colaboradorId: string) => boolean
+  /** Adiciona o colaborador à carteira em 1 clique (função resolvida do cargo). */
+  adicionarFeristaCarteira: (colaborador: { id: string; cargo: string | null }) => Promise<boolean>
 }
 
 export function VtCargaTab({
@@ -85,6 +101,8 @@ export function VtCargaTab({
   dadosProntos,
   usuarioId,
   podeGerenciar,
+  ehFerista,
+  adicionarFeristaCarteira,
 }: VtCargaTabProps) {
   const {
     resultados,
@@ -97,7 +115,7 @@ export function VtCargaTab({
     gravarCargas,
     exportarExcel,
   } = useVtCarga()
-  const { coberturas, listar: listarCoberturas, registrar, remover } = useVtCoberturas()
+  const { coberturas, listar: listarCoberturas, registrar, registrarComTreinamento, remover } = useVtCoberturas()
 
   const inputArquivoRef = useRef<HTMLInputElement>(null)
   const arquivoAtualRef = useRef<File | null>(null)
@@ -105,12 +123,17 @@ export function VtCargaTab({
 
   // Dialog de cobertura (avulsa ou vinculada a férias do relatório)
   const [dialogAberto, setDialogAberto] = useState(false)
+  const [tipoRegistro, setTipoRegistro] = useState<TipoCoberturaVT>('ferias')
   const [feristaId, setFeristaId] = useState('')
   const [postoId, setPostoId] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
   const [observacao, setObservacao] = useState('')
   const [feriasVinculoId, setFeriasVinculoId] = useState<string | null>(null)
+  // Treinamento do ferista antes de cobrir (migration 160 — só no dialog de férias)
+  const [comTreinamento, setComTreinamento] = useState(false)
+  const [treinInicio, setTreinInicio] = useState('')
+  const [treinFim, setTreinFim] = useState('')
   const [salvandoCobertura, setSalvandoCobertura] = useState(false)
   const [excluindo, setExcluindo] = useState<VtCobertura | null>(null)
   const [semCoberturaDe, setSemCoberturaDe] = useState<FeriasBloco | null>(null)
@@ -120,6 +143,11 @@ export function VtCargaTab({
   }, [listarCoberturas])
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante), [colaboradores])
+  /** Seletor de ferista: quem está na carteira vem primeiro (ordem alfabética mantida — a lista já vem ordenada). */
+  const optantesParaSeletor = useMemo(
+    () => [...optantes].sort((a, b) => Number(ehFerista(b.id)) - Number(ehFerista(a.id))),
+    [optantes, ehFerista]
+  )
   const nomeDo = useCallback(
     (colaboradorId: string | null | undefined) =>
       colaboradores.find((c) => c.id === colaboradorId)?.nome_completo ?? '—',
@@ -161,6 +189,19 @@ export function VtCargaTab({
     )
   }, [coberturas, competencia])
 
+  /** Treinamentos vinculados a férias (migration 160), por titular — exibidos no Destino. */
+  const treinamentosDoTitular = useCallback(
+    (f: FeriasBloco) =>
+      coberturas.filter(
+        (c) =>
+          (c.tipo ?? 'ferias') === 'treinamento' &&
+          c.ferias_colaborador_id === f.colaborador_id &&
+          c.data_inicio <= f.data_fim &&
+          c.data_fim >= diasAntes(f.data_inicio, 31)
+      ),
+    [coberturas]
+  )
+
   const totais = useMemo(
     () => ({
       optantes: resultados.length,
@@ -196,39 +237,75 @@ export function VtCargaTab({
   }
 
   const abrirDialogAvulso = () => {
+    setTipoRegistro('ferias')
     setFeristaId('')
     setPostoId('')
     setDataInicio(competencia ? `${competencia}-01` : '')
     setDataFim('')
     setObservacao('')
     setFeriasVinculoId(null)
+    setComTreinamento(false)
+    setTreinInicio('')
+    setTreinFim('')
     setDialogAberto(true)
   }
 
   const abrirDialogParaFerias = (f: FeriasBloco) => {
+    setTipoRegistro('ferias')
     setFeristaId('')
     setPostoId(postoDoTitular(f))
     setDataInicio(f.data_inicio)
     setDataFim(f.data_fim)
     setObservacao('')
     setFeriasVinculoId(f.colaborador_id)
+    // Padrão operacional: 2 dias de treinamento imediatamente antes da cobertura
+    setComTreinamento(false)
+    setTreinInicio(diasAntes(f.data_inicio, 2))
+    setTreinFim(diasAntes(f.data_inicio, 1))
     setDialogAberto(true)
   }
 
   const salvarCobertura = async () => {
     if (!feristaId || !postoId || !dataInicio || !dataFim) return
+    if (comTreinamento && (!treinInicio || !treinFim)) return
     setSalvandoCobertura(true)
-    const ok = await registrar(
-      {
-        colaborador_id: feristaId,
-        ferias_colaborador_id: feriasVinculoId,
-        departamento_id: postoId,
-        data_inicio: dataInicio,
-        data_fim: dataFim,
-        observacao: observacao.trim() || null,
-      },
-      usuarioId
-    )
+    let ok: boolean
+    if (feriasVinculoId) {
+      ok = await registrarComTreinamento(
+        {
+          colaborador_id: feristaId,
+          ferias_colaborador_id: feriasVinculoId,
+          departamento_id: postoId,
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          observacao: observacao.trim() || null,
+        },
+        comTreinamento
+          ? {
+              colaborador_id: feristaId,
+              ferias_colaborador_id: feriasVinculoId,
+              departamento_id: postoId,
+              data_inicio: treinInicio,
+              data_fim: treinFim,
+              observacao: 'Treinamento no posto',
+            }
+          : null,
+        usuarioId
+      )
+    } else {
+      ok = await registrar(
+        {
+          tipo: tipoRegistro,
+          colaborador_id: feristaId,
+          ferias_colaborador_id: null,
+          departamento_id: postoId,
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          observacao: observacao.trim() || null,
+        },
+        usuarioId
+      )
+    }
     setSalvandoCobertura(false)
     if (ok) {
       setDialogAberto(false)
@@ -373,7 +450,7 @@ export function VtCargaTab({
             {podeGerenciar && (
               <ModuleButton size="sm" variant="outline" onClick={abrirDialogAvulso}>
                 <Plus className="size-4" />
-                Registrar cobertura
+                Registrar cobertura ou treinamento
               </ModuleButton>
             )}
           </div>
@@ -412,6 +489,26 @@ export function VtCargaTab({
                         {destino.tipo === 'pendente' && (
                           <StatusBadge variant="warning">PENDENTE</StatusBadge>
                         )}
+                        {treinamentosDoTitular(f).map((t) => (
+                          <div key={t.id} className="mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                            <StatusBadge variant="info" dot={false} className="bg-purple-50 text-purple-700">
+                              Treinamento
+                            </StatusBadge>
+                            <span>
+                              {nomeDo(t.colaborador_id)}, {formatarData(t.data_inicio)} a {formatarData(t.data_fim)}
+                            </span>
+                            {podeGerenciar && (
+                              <button
+                                type="button"
+                                className="rounded-md p-0.5 text-red-600 hover:bg-red-50"
+                                title="Excluir treinamento"
+                                onClick={() => setExcluindo(t)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       </td>
                       {podeGerenciar && (
                         <td className="px-4 py-2">
@@ -447,7 +544,7 @@ export function VtCargaTab({
               <div className="mt-3 flex justify-end">
                 <ModuleButton size="sm" variant="ghost" onClick={abrirDialogAvulso}>
                   <Plus className="size-4" />
-                  Registrar cobertura avulsa (fora de férias)
+                  Registrar cobertura ou treinamento (fora de férias)
                 </ModuleButton>
               </div>
             )}
@@ -456,11 +553,16 @@ export function VtCargaTab({
         {coberturasAvulsas.length > 0 && (
           <div className="mt-4">
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Coberturas avulsas no mês
+              Coberturas e treinamentos avulsos no mês
             </p>
             <div className="space-y-1">
               {coberturasAvulsas.map((c) => (
                 <div key={c.id} className="flex items-center gap-3 text-[13px] text-muted-foreground">
+                  {(c.tipo ?? 'ferias') === 'treinamento' && (
+                    <StatusBadge variant="info" dot={false} className="bg-purple-50 text-purple-700">
+                      Treinamento
+                    </StatusBadge>
+                  )}
                   <span className="font-medium text-foreground">{nomeDo(c.colaborador_id)}</span>
                   <span>{nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id)}</span>
                   <span className="tabular-nums">
@@ -528,6 +630,7 @@ export function VtCargaTab({
                                 {d.posto} — {d.dias} dias × {formatarCentavos(d.custo_dia_centavos)} ={' '}
                                 {formatarCentavos(d.subtotal_centavos)}
                                 {sufixoCobertura(d.dias_cobertura, d.dias)}
+                                {sufixoTreinamento(d.dias_treinamento, d.dias)}
                               </div>
                             ))}
                             {feriasDele.map((f) => (
@@ -566,32 +669,70 @@ export function VtCargaTab({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {feriasVinculoId ? 'Quem cobre as férias?' : 'Registrar cobertura'}
+              {feriasVinculoId
+                ? 'Quem cobre as férias?'
+                : tipoRegistro === 'treinamento'
+                  ? 'Registrar treinamento'
+                  : 'Registrar cobertura'}
             </DialogTitle>
             <DialogDescription>
               {feriasVinculoId
                 ? 'O ferista trabalha no posto das férias no período — a carga usa esse posto, não o do relatório.'
-                : 'Cobertura avulsa (ex.: transferência temporária). A carga usa o posto coberto no período.'}
+                : tipoRegistro === 'treinamento'
+                  ? 'Dias de treinamento com VT (ex.: treinamento de admissão). A carga conta esses dias no posto do treinamento.'
+                  : 'Cobertura avulsa (ex.: transferência temporária). A carga usa o posto coberto no período.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {!feriasVinculoId && (
+              <div className="space-y-1.5">
+                <Label>Tipo de registro</Label>
+                <Select value={tipoRegistro} onValueChange={(v) => setTipoRegistro(v as TipoCoberturaVT)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ferias">Cobertura de férias (avulsa)</SelectItem>
+                    <SelectItem value="treinamento">Treinamento (admissão ou posto novo)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
-              <Label>Ferista (optante)</Label>
+              <Label>{tipoRegistro === 'treinamento' && !feriasVinculoId ? 'Quem treina (optante)' : 'Ferista (optante)'}</Label>
               <Select value={feristaId} onValueChange={setFeristaId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Escolha o ferista" />
                 </SelectTrigger>
                 <SelectContent>
-                  {optantes.map((c) => (
+                  {optantesParaSeletor.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.nome_completo} — {nomeCurtoDepartamentoFuzzy(departamentos, c.departamento_id, c.departamento)}
+                      {ehFerista(c.id) ? ' · Ferista' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {feristaId && !ehFerista(feristaId) && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                  <span>Ele não está na carteira de feristas.</span>
+                  {podeGerenciar && (
+                    <ModuleButton
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const colab = colaboradores.find((c) => c.id === feristaId)
+                        if (colab) await adicionarFeristaCarteira({ id: colab.id, cargo: colab.cargo ?? null })
+                      }}
+                    >
+                      Adicionar à carteira
+                    </ModuleButton>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
-              <Label>Posto coberto</Label>
+              <Label>{tipoRegistro === 'treinamento' && !feriasVinculoId ? 'Posto do treinamento' : 'Posto coberto'}</Label>
               <DepartamentoAutocomplete
                 value={postoId}
                 onChange={setPostoId}
@@ -610,12 +751,46 @@ export function VtCargaTab({
                 <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
               </div>
             </div>
+            {feriasVinculoId && (
+              <div className="rounded-lg border border-border p-3">
+                <label className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={comTreinamento}
+                    onChange={(e) => setComTreinamento(e.target.checked)}
+                  />
+                  Precisa treinar no posto antes de cobrir
+                </label>
+                {comTreinamento && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[12px] text-muted-foreground">
+                      Os dias de treinamento também recebem VT no posto coberto (padrão: 2 dias antes do início).
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>Treinamento de</Label>
+                        <Input type="date" value={treinInicio} onChange={(e) => setTreinInicio(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Até</Label>
+                        <Input type="date" value={treinFim} onChange={(e) => setTreinFim(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Observação (opcional)</Label>
               <Input
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                placeholder="Ex.: cobre as férias do João"
+                placeholder={
+                  tipoRegistro === 'treinamento' && !feriasVinculoId
+                    ? 'Ex.: treinamento de admissão'
+                    : 'Ex.: cobre as férias do João'
+                }
               />
             </div>
           </div>
@@ -625,7 +800,14 @@ export function VtCargaTab({
             </ModuleButton>
             <ModuleButton
               onClick={salvarCobertura}
-              disabled={!feristaId || !postoId || !dataInicio || !dataFim || salvandoCobertura}
+              disabled={
+                !feristaId ||
+                !postoId ||
+                !dataInicio ||
+                !dataFim ||
+                (comTreinamento && (!treinInicio || !treinFim)) ||
+                salvandoCobertura
+              }
             >
               {salvandoCobertura ? 'Salvando...' : 'Registrar'}
             </ModuleButton>
@@ -653,7 +835,7 @@ export function VtCargaTab({
         onOpenChange={() => setExcluindo(null)}
         icon={<Trash2 className="size-6 text-red-600" />}
         iconClassName="bg-red-50"
-        title="Excluir cobertura?"
+        title={(excluindo?.tipo ?? 'ferias') === 'treinamento' ? 'Excluir treinamento?' : 'Excluir cobertura?'}
         description={
           excluindo
             ? `${nomeDo(excluindo.colaborador_id ?? excluindo.ferias_colaborador_id)} — ${nomeCurtoDepartamentoFuzzy(departamentos, excluindo.departamento_id)} de ${formatarData(excluindo.data_inicio)} a ${formatarData(excluindo.data_fim)}. A carga volta a usar o relatório para esses dias.`

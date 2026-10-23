@@ -189,6 +189,7 @@ export function useVtCarga() {
                 rotulo: v.rotulo,
                 dias: v.dias,
                 diasCobertura: v.diasCobertura,
+                diasTreinamento: v.diasTreinamento,
               }))
             : []
           const calc = calcularCargaMes(
