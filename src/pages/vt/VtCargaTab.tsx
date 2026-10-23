@@ -784,7 +784,7 @@ export function VtCargaTab({
       </ModuleCard>
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {feriasVinculoId
