@@ -5,8 +5,10 @@ Antes de continuar, leia também `docs/HANDOFF_23-10-2026_VT_FASE2B.md` e `docs/
 
 ## Estado final
 
-- Branch `vt-fase1`, **commitada e enviada ao GitHub**. **NÃO mesclada na `main` e NÃO publicada**: o deploy fica para depois, por decisão da gestora.
-- Produção continua com o bundle de 23/10 (VT no ar, Férias oculto).
+- **PUBLICADO em 27/10/2026.** `main` = `vt-fase1` (fast-forward até `5d817df`, mais este commit de documentação), enviada ao GitHub. O deploy de produção foi no `plena-corh` com o bundle **`assets/index-DppSbz90.js`**, conferido contra o site (hash de produção = hash do build).
+- Build feito num **worktree limpo da `main`** (`git worktree add`, `npm ci`, `.env` copiado), porque a pasta de trabalho tem arquivos soltos não versionados em `docs/`. Checklist do §10 conferido: branch `main`, worktree sem alterações, `MODULO_FERIAS_LIBERADO = false`, `MODULO_VT_LIBERADO = true`.
+- Atenção no próximo deploy: o `netlify deploy --prod --dir=<worktree>/dist` **também roda o `npm run build` do `netlify.toml` na pasta atual** ("Netlify Build completed"). Desta vez publicou o `--dir` certo (hash conferido), mas use `--no-build` para evitar o build extra na pasta suja. O `npm ci` bloqueou os install-scripts; o `public/pdf.worker.min.mjs` é versionado, então o build saiu igual (conferido com `cmp`).
+- Férias continua oculto. As Edge Functions não foram redeployadas (nenhuma mudou).
 - Banco: migrations **163** e **164** já **aplicadas** em 24/10/2026, pelo agente anterior. Backups em `dados-locais/backup_permissoes_dp3_vt_163_2026-10-24/` e `dados-locais/backup_perfis_164_2026-10-24.json`. A verificação da 163 confirma dp3 com `menu.vt`, `rota.vt` e `vt.visualizar` = true e `vt.gerenciar` = false.
 - Checks: `npx vitest run src` = 99 arquivos e 1.342 testes passando; `tsc -p tsconfig.app.json` limpo; `eslint` nos arquivos do VT limpo.
 
@@ -95,7 +97,6 @@ A gestora trouxe dois documentos:
 5. Depois, avaliar o arquivo CADUSU (seção 1 do PEF; versão 04.02 é a mais recente) para cadastrar admitidos e cancelar demitidos.
 
 ## Pendências que seguem
-- **Deploy**: mesclar `vt-fase1` na `main` e publicar seguindo o checklist do AGENTS.md §10 (main limpa, `MODULO_FERIAS_LIBERADO = false`, conferir o hash do bundle). Não há migration pendente para este deploy.
 - Gestora: decidir os 3 casos de possível valor errado e repassar ao DP as 25 correções de endereço/CEP para a Alterdata.
 - Riocard: confirmar a proposta acima e se há compra separada pela Plena Tech.
 - Pendências do handoff de 23/10 continuam valendo: carga de novembro, fechamento de outubro, espelhos sem metadados, `npm run lint` quebrando por `.claude/worktrees/`.
