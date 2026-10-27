@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { custoDiaTrajetoCentavos, escopoSugerido, paresDaEscala } from '@/lib/vt/trajetos'
+import { custoDiaTrajetoCentavos, escopoSugerido, paresDaEscala, avisoBilheteIncompativel } from '@/lib/vt/trajetos'
 import type { VtBilhete, VtTrajeto } from '@/types/vt'
 
 const BU_NITEROI: VtBilhete = {
@@ -98,5 +98,46 @@ describe('escopoSugerido', () => {
   it('cidade vazia não é "igual": cai em intermunicipal', () => {
     expect(escopoSugerido(null, null)).toBe('intermunicipal')
     expect(escopoSugerido('', 'Niterói')).toBe('intermunicipal')
+  })
+})
+
+describe('avisoBilheteIncompativel', () => {
+  it('mora e trabalha em Niterói com bilhete intermunicipal: avisa (regra de 24/10/2026)', () => {
+    expect(
+      avisoBilheteIncompativel('Niterói', 'NITEROI', ['BILHETE ÚNICO INTERMUNICIPAL'])
+    ).toContain('BU Niterói')
+    // mesmo com o BUI só no 2º bilhete
+    expect(
+      avisoBilheteIncompativel('Niterói', 'Niterói', ['BU NITERÓI', 'BILHETE ÚNICO INTERMUNICIPAL'])
+    ).toContain('intermunicipal')
+  })
+
+  it('mora e trabalha em Niterói com BU Niterói: sem aviso (valor certo)', () => {
+    expect(avisoBilheteIncompativel('Niterói', 'Niterói', ['BU NITERÓI'])).toBeNull()
+    expect(avisoBilheteIncompativel('Niterói', 'Niterói', ['BU NITERÓI', 'BU NITERÓI'])).toBeNull()
+  })
+
+  it('cidades diferentes com bilhete intermunicipal: sem aviso (correto)', () => {
+    expect(
+      avisoBilheteIncompativel('São Gonçalo', 'Niterói', ['BILHETE ÚNICO INTERMUNICIPAL'])
+    ).toBeNull()
+  })
+
+  it('cidades diferentes com bilhete municipal de Niterói: avisa (inverso)', () => {
+    expect(avisoBilheteIncompativel('São Gonçalo', 'Niterói', ['BU NITERÓI'])).toContain(
+      'cidades diferentes'
+    )
+  })
+
+  it('bilhete de outra praça (trem, VLT, São Gonçalo...) nunca gera aviso', () => {
+    expect(avisoBilheteIncompativel('Niterói', 'Niterói', ['TREM'])).toBeNull()
+    expect(avisoBilheteIncompativel('São Gonçalo', 'Niterói', ['PASSAGEM SÃO GONÇALO'])).toBeNull()
+    expect(avisoBilheteIncompativel('São Gonçalo', 'São Gonçalo', ['BU NITERÓI'])).toBeNull()
+  })
+
+  it('sem cidade dos dois lados ou sem bilhete: sem base para julgar, sem aviso', () => {
+    expect(avisoBilheteIncompativel(null, 'Niterói', ['BU NITERÓI'])).toBeNull()
+    expect(avisoBilheteIncompativel('Niterói', '', ['BILHETE ÚNICO INTERMUNICIPAL'])).toBeNull()
+    expect(avisoBilheteIncompativel('Niterói', 'Niterói', [null, undefined])).toBeNull()
   })
 })

@@ -122,6 +122,8 @@ export interface Perfil {
   nome: string | null
   nivel_acesso: NivelAcesso
   empresa_id: string | null
+  /** Suspenso pela tela Permissões (migration 164): o useAuth desloga na hora. Ausente em bases antigas = false. */
+  acesso_bloqueado?: boolean
   consentimento_lgpd: boolean
   consentimento_lgpd_data: string | null
   consentimento_lgpd_versao: string | null

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ExternalLink, Route, Trash2 } from 'lucide-react'
+import { ExternalLink, Route, Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -25,10 +25,10 @@ import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { hojeBrasil } from '@/lib/utils'
 import { bilhetesVigentes, custoDiaBilhetesCentavos, formatarCentavos } from '@/lib/vt/bilhetes'
-import { custoDiaTrajetoCentavos, escopoSugerido } from '@/lib/vt/trajetos'
-import { linkGoogleMapsTransito, precisaoDoEndereco, textoOrigemCasa } from '@/lib/vt/enderecos'
+import { custoDiaTrajetoCentavos, escopoSugerido, avisoBilheteIncompativel } from '@/lib/vt/trajetos'
+import { linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
-import type { EscopoTrajetoVT, VtBilhete } from '@/types/vt'
+import type { EscopoTrajetoVT, TipoCartaoVT, VtBilhete } from '@/types/vt'
 
 // Aba Trajetos do VT (Fase 1): uma linha por par colaborador × posto. A
 // precificação é por bilhete nomeado com valor diário (modelo de 21/10/2026,
@@ -45,9 +45,11 @@ function seloEscopo(escopo: EscopoTrajetoVT, cidadeCasa: string | null): string 
   return cidadeCasa?.trim() || 'Outra cidade'
 }
 
-function destinoPosto(dep: { endereco: string | null; cidade: string | null; nome_curto: string | null; nome: string }): string {
-  const partes = [dep.endereco, dep.cidade].filter(Boolean)
-  return partes.length > 0 ? partes.join(', ') : dep.nome_curto || dep.nome
+/** Rótulo curto do cartão que a pessoa TEM (cadastro) — selo ao lado do nome. */
+const ROTULO_CARTAO: Record<TipoCartaoVT, string> = {
+  bun: 'BUN',
+  bui: 'BUI',
+  comum: 'Comum',
 }
 
 interface LinhaTrajeto {
@@ -60,8 +62,11 @@ interface LinhaTrajeto {
   nomePosto: string
   enderecoCasa: string | null
   cidadeCasa: string | null
+  cepCasa: string | null
   enderecoPosto: string | null
   cidadePosto: string | null
+  /** Cartão que a pessoa TEM (cadastro; null para colaborador fora da lista de ativos) — exibido ao lado do nome: o valor pago vem do bilhete do trajeto, não do cartão (decisão da gestora, 24/10/2026). */
+  tipoCartao: TipoCartaoVT | null
   trajeto: VtTrajetoComDetalhes | null // null = sugestão ainda não gravada
 }
 
@@ -138,8 +143,10 @@ export function VtTrajetosTab({
         nomePosto: dep ? nomePosto(dep.id, dep.nome) : '—',
         enderecoCasa: colab?.endereco ?? null,
         cidadeCasa: colab?.cidade ?? null,
+        cepCasa: colab?.cep ?? null,
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
+        tipoCartao: colab?.vt_tipo_cartao ?? null,
         trajeto: t,
       })
     }
@@ -160,8 +167,10 @@ export function VtTrajetosTab({
         nomePosto: dep ? nomePosto(dep.id, c.departamento) : (c.departamento ?? '—'),
         enderecoCasa: c.endereco,
         cidadeCasa: c.cidade,
+        cepCasa: c.cep ?? null,
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
+        tipoCartao: c.vt_tipo_cartao ?? null,
         trajeto: null,
       })
     }
@@ -229,10 +238,10 @@ export function VtTrajetosTab({
   }
 
   const abrirRota = (linha: LinhaTrajeto) => {
-    const origem = textoOrigemCasa(linha.enderecoCasa, linha.cidadeCasa)
+    const origem = textoOrigemCasa(linha.enderecoCasa, linha.cidadeCasa, linha.cepCasa)
     const dep = departamentos.find((d) => d.id === linha.departamentoId)
     const destino = dep
-      ? destinoPosto(dep)
+      ? textoDestinoPosto(dep)
       : [linha.enderecoPosto, linha.cidadePosto].filter(Boolean).join(', ') || linha.nomePosto
     window.open(linkGoogleMapsTransito(origem, destino), '_blank', 'noopener,noreferrer')
   }
@@ -373,11 +382,26 @@ export function VtTrajetosTab({
                   const precisao = linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)
                   const confirmado = linha.trajeto?.status === 'confirmado'
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
+                  // Aviso de consistência bilhete × cidades (decisão da gestora,
+                  // 24/10/2026): só aviso, nunca bloqueia.
+                  const avisoBilhete = avisoBilheteIncompativel(
+                    linha.cidadeCasa,
+                    linha.cidadePosto,
+                    [valores.b1, valores.b2].map((id) => bilhetes.find((b) => b.id === id)?.nome),
+                  )
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-3 py-2.5 font-medium text-foreground">
                         <span className="inline-flex items-center gap-2">
                           {linha.nomeColaborador}
+                          {linha.tipoCartao && (
+                            <span
+                              className="text-[11px] font-medium text-muted-foreground"
+                              title="Cartão que a pessoa tem (cadastro). O valor pago por dia vem do bilhete do trajeto, não do cartão."
+                            >
+                              cartão: {ROTULO_CARTAO[linha.tipoCartao]}
+                            </span>
+                          )}
                           {linha.statusColaborador && (
                             <StatusBadge variant="warning" dot={false}>
                               {linha.statusColaborador}
@@ -409,6 +433,12 @@ export function VtTrajetosTab({
                             )}
                           </div>
                           {b2Visivel && selectBilhete(linha, 'b2', valores.b2, opcoes)}
+                          {avisoBilhete && (
+                            <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
+                              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                              {avisoBilhete}
+                            </p>
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">

@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { loginComEmail, logout as logoutAuth, cadastrarComEmail } from '@/lib/auth'
 import { setPermissoesCache } from '@/lib/permissoes'
 import type { Perfil, NivelAcesso } from '@/types/database'
 
 const COLUNAS_PERMISSOES_PERFIL = 'perfil, recurso, acao, permitido'
-const COLUNAS_PERFIL = 'id, email, nome, nivel_acesso, empresa_id, consentimento_lgpd, consentimento_lgpd_data, consentimento_lgpd_versao, consentimento_lgpd_finalidades, created_at'
+const COLUNAS_PERFIL = 'id, email, nome, nivel_acesso, empresa_id, acesso_bloqueado, consentimento_lgpd, consentimento_lgpd_data, consentimento_lgpd_versao, consentimento_lgpd_finalidades, created_at'
 
 const PERFIL_STORAGE_KEY = 'plena_perfil'
+
+const ERRO_ACESSO_BLOQUEADO = 'Seu acesso ao CORH foi suspenso. Fale com o administrador do sistema.'
 
 // Perfis legados mantidos para compatibilidade
 const PERFIS_ADMIN: NivelAcesso[] = ['admin', 'adm']
@@ -63,6 +66,17 @@ export function useAuth() {
       .single()
 
     if (perfil) {
+      // Acesso suspenso pela tela Permissões (migration 164): encerra a sessão
+      // recém-criada/restaurada e avisa. O throw chega ao login (App mostra o
+      // toast); na restauração de sessão quem trata é o onAuthStateChange.
+      if ((perfil as Perfil).acesso_bloqueado) {
+        await logoutAuth()
+        setUser(null)
+        setPermissoesCache([])
+        localStorage.removeItem(PERFIL_STORAGE_KEY)
+        setLoading(false)
+        throw new Error(ERRO_ACESSO_BLOQUEADO)
+      }
       setUser(perfil as Perfil)
       // Carrega permissões dinâmicas do perfil
       await carregarPermissoesDoPerfil((perfil as Perfil).nivel_acesso)
@@ -104,7 +118,14 @@ export function useAuth() {
     // no boot (perfil + permissões em duplicidade).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user?: { id: string; email?: string | null } } | null) => {
       if (session?.user) {
-        carregarPerfil(session.user)
+        carregarPerfil(session.user).catch((err: unknown) => {
+          // Sessão restaurada de usuário bloqueado: o carregarPerfil já deslogou.
+          if (err instanceof Error && err.message === ERRO_ACESSO_BLOQUEADO) {
+            toast.error(err.message)
+          } else {
+            console.error('Erro ao carregar perfil:', err)
+          }
+        })
       } else {
         // Sem sessao valida: descarta qualquer perfil em cache e forca tela de login.
         setUser(null)

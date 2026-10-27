@@ -27,6 +27,7 @@ export interface VtColaborador {
   departamento_id: string | null
   cidade: string | null
   endereco: string | null
+  cep?: string | null
   vt_optante: boolean | null
   vt_tipo_cartao: TipoCartaoVT | null
   /** Cargo do cadastro — resolve a função ao adicionar à carteira de feristas pela tela do VT. */
@@ -37,6 +38,7 @@ export interface VtColaborador {
 export interface VtDepartamento extends DepartamentoFuzzy {
   endereco: string | null
   cidade: string | null
+  cep?: string | null
 }
 
 export interface VtTrajetoComDetalhes extends VtTrajeto {
@@ -45,6 +47,9 @@ export interface VtTrajetoComDetalhes extends VtTrajeto {
     nome_completo: string
     cidade: string | null
     endereco: string | null
+    cep?: string | null
+    /** Cartão que a pessoa TEM (cadastro) — exibido na aba Trajetos; o valor pago vem do bilhete do trajeto (decisão da gestora, 24/10/2026). */
+    vt_tipo_cartao?: TipoCartaoVT | null
   } | null
   departamento?: {
     id: string
@@ -52,6 +57,7 @@ export interface VtTrajetoComDetalhes extends VtTrajeto {
     nome_curto: string | null
     endereco: string | null
     cidade: string | null
+    cep?: string | null
   } | null
 }
 
@@ -75,8 +81,8 @@ export interface NovoTrajetoVT {
 }
 
 const COLUNAS_COLABORADOR_VT =
-  'id, nome_completo, departamento, departamento_id, cidade, endereco, vt_optante, vt_tipo_cartao, cargo'
-const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, endereco, cidade'
+  'id, nome_completo, departamento, departamento_id, cidade, endereco, cep, vt_optante, vt_tipo_cartao, cargo'
+const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, endereco, cidade, cep'
 // Sem embed: o tipo Database não declara os relacionamentos de vt_trajetos e a
 // página já tem colaboradores/departamentos carregados para resolver o join.
 const COLUNAS_TRAJETO = '*'

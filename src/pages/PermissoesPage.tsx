@@ -26,19 +26,8 @@ import { Loader2, RotateCcw } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell, ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-
-const PERFIS: { valor: NivelAcesso; label: string }[] = [
-  { valor: 'adm', label: 'Administrador (adm)' },
-  { valor: 'gestor', label: 'Gestor' },
-  { valor: 'rh', label: 'RH' },
-  { valor: 'dp1', label: 'DP1' },
-  { valor: 'dp2', label: 'DP2' },
-  { valor: 'dp3', label: 'DP3 (só crachás)' },
-  { valor: 'mesa', label: 'Mesa' },
-  { valor: 'inspetoria', label: 'Inspetoria' },
-  { valor: 'financeiro', label: 'Financeiro' },
-  { valor: 'visualizador', label: 'Visualizador' },
-]
+import { PERFIS } from '@/lib/perfis'
+import { UsuariosAcessoCard } from '@/components/permissoes/UsuariosAcessoCard'
 
 interface PermissaoConfig {
   recurso: string
@@ -303,6 +292,8 @@ export function PermissoesPage() {
   return (
     <ModuleShell>
       <PageHeader backTo="/" title="Permissões" />
+
+      <UsuariosAcessoCard usuarioAtualId={user.id} />
 
       <ModuleCard title="Selecionar perfil">
           <div className="w-full max-w-sm">

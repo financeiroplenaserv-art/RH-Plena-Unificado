@@ -147,9 +147,10 @@ export const PERMISSOES_PADRAO: Partial<Record<string, Partial<Record<string, Ni
     gerenciar: ['gestor', 'rh', 'dp1', 'dp2'],
   },
   // Módulo VT (Vale-Transporte) Fase 1, migration 155. admin/adm têm bypass.
+  // Migration 163: dp3 (estagiária) passa a VISUALIZAR o VT (só leitura).
   vt: {
     gerenciar: ['gestor', 'mesa', 'dp1', 'dp2'],
-    visualizar: ['gestor', 'mesa', 'dp1', 'dp2', 'financeiro'],
+    visualizar: ['gestor', 'mesa', 'dp1', 'dp2', 'financeiro', 'dp3'],
   },
 }
 
@@ -430,7 +431,7 @@ export const podeGerenciarFerias = (p: NivelAcesso) => temPermissaoComPadrao(p, 
 /** Quem pode gerenciar o VT: marcar optantes/tipo de bilhete, trajetos e bilhetes */
 export const podeGerenciarVT = (p: NivelAcesso) => temPermissaoComPadrao(p, 'vt', 'gerenciar')
 
-/** Quem pode visualizar o módulo VT (financeiro só consulta) */
+/** Quem pode visualizar o módulo VT (financeiro e dp3 só consultam) */
 export const podeVisualizarVT = (p: NivelAcesso) => temPermissaoComPadrao(p, 'vt', 'visualizar')
 
 // ================= CONFIGURAÇÕES =================

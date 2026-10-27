@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cepFormatado,
   linkGoogleMapsTransito,
   normalizarEnderecoCasa,
   precisaoDoEndereco,
+  textoDestinoPosto,
   textoOrigemCasa,
+  ufDoCep,
 } from '@/lib/vt/enderecos'
 
 // Casos reais da POC (scripts/poc-vt-normalizar-enderecos.mjs, 21/10/2026).
@@ -98,6 +101,44 @@ describe('textoOrigemCasa', () => {
   it('sem endereço: só a cidade', () => {
     expect(textoOrigemCasa(null, 'Niterói')).toBe('Niterói')
     expect(textoOrigemCasa(null, null)).toBe('')
+  })
+
+  it('com CEP: acrescenta UF da faixa do CEP e o CEP (caso Spar Inoã, 24/10/2026)', () => {
+    expect(textoOrigemCasa('RUA SETE , 10, QD B , SPAR INOA', 'Maricá', '24944236')).toBe(
+      'RUA SETE, 10, SPAR INOA, Maricá - RJ, 24944-236',
+    )
+  })
+
+  it('CEP inválido é ignorado', () => {
+    expect(textoOrigemCasa('RUA X, 1, CENTRO', 'Niterói', '123')).toBe('RUA X, 1, CENTRO, Niterói')
+  })
+})
+
+describe('ufDoCep / cepFormatado', () => {
+  it('UF pela faixa do CEP', () => {
+    expect(ufDoCep('24470-640')).toBe('RJ')
+    expect(ufDoCep('01310-100')).toBe('SP')
+    expect(ufDoCep('29000-000')).toBe('ES')
+    expect(ufDoCep('')).toBeNull()
+    expect(ufDoCep('00000-000')).toBeNull()
+  })
+
+  it('formata e rejeita CEP inválido', () => {
+    expect(cepFormatado('24470640')).toBe('24470-640')
+    expect(cepFormatado('2447064')).toBeNull()
+    expect(cepFormatado(null)).toBeNull()
+  })
+})
+
+describe('textoDestinoPosto', () => {
+  it('endereço + cidade - UF, CEP', () => {
+    expect(
+      textoDestinoPosto({ endereco: 'RUA X, 1', cidade: 'Niterói', cep: '24020-000', nome_curto: 'P', nome: 'POSTO' }),
+    ).toBe('RUA X, 1, Niterói - RJ, 24020-000')
+  })
+
+  it('sem endereço nem cidade: nome do posto', () => {
+    expect(textoDestinoPosto({ endereco: null, cidade: null, cep: null, nome_curto: 'P', nome: 'POSTO' })).toBe('P')
   })
 })
 

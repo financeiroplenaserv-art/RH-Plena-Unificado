@@ -228,16 +228,19 @@ describe('Permissões do módulo VT (Vale-Transporte — Fase 1, migration 155)'
     )
   })
 
-  it('financeiro só visualiza; rh, inspetoria, dp3 e visualizador não têm acesso', () => {
+  it('financeiro e dp3 só visualizam; rh, inspetoria e visualizador não têm acesso', () => {
     expect(perfisQuePermitem(podeVisualizarVT).sort()).toEqual(
-      ['admin', 'adm', 'gestor', 'mesa', 'dp1', 'dp2', 'financeiro'].sort()
+      ['admin', 'adm', 'gestor', 'mesa', 'dp1', 'dp2', 'financeiro', 'dp3'].sort()
     )
-    for (const p of ['rh', 'inspetoria', 'dp3', 'visualizador'] as const) {
+    for (const p of ['rh', 'inspetoria', 'visualizador'] as const) {
       expect(podeGerenciarVT(p)).toBe(false)
       expect(podeVisualizarVT(p)).toBe(false)
     }
     expect(podeGerenciarVT('financeiro')).toBe(false)
     expect(podeVisualizarVT('financeiro')).toBe(true)
+    // dp3 (estagiária) vê o VT, mas não gerencia (decisão da gestão, migration 163)
+    expect(podeGerenciarVT('dp3')).toBe(false)
+    expect(podeVisualizarVT('dp3')).toBe(true)
   })
 
   it('linha dinâmica concedida pela tela Permissões prevalece sobre o padrão', () => {

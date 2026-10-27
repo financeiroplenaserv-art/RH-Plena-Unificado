@@ -73,3 +73,35 @@ export function escopoSugerido(cidadeCasa: string | null, cidadePosto: string | 
   }
   return 'intermunicipal'
 }
+
+/**
+ * Aviso de consistência bilhete × trajeto (decisão da gestora, 24/10/2026):
+ * quem mora E trabalha em Niterói recebe o valor de Niterói (BU NITERÓI,
+ * R$ 11,20/dia), mesmo que o cartão dela seja o BUI — o cartão fica no
+ * cadastro (vt_tipo_cartao), o valor segue o trajeto. E o inverso: casa e
+ * posto em cidades diferentes não combinam com o bilhete municipal.
+ * Só compara os bilhetes que o nome classifica (intermunicipal / BU Niterói);
+ * os demais (trem, VLT, RJ, São Gonçalo...) não geram aviso. Sem cidade dos
+ * dois lados não há base para julgar: sem aviso. É só aviso — nunca bloqueia.
+ */
+export function avisoBilheteIncompativel(
+  cidadeCasa: string | null,
+  cidadePosto: string | null,
+  nomesBilhetes: (string | null | undefined)[],
+): string | null {
+  if (!cidadeCasa?.trim() || !cidadePosto?.trim()) return null
+  const nomes = nomesBilhetes
+    .filter((n): n is string => !!n)
+    .map((n) => removerAcentos(n).toUpperCase())
+  if (nomes.length === 0) return null
+  const escopo = escopoSugerido(cidadeCasa, cidadePosto)
+  const temIntermunicipal = nomes.some((n) => n.includes('INTERMUNICIPAL'))
+  const soMunicipalNiteroi = nomes.every((n) => n.includes('BU NITEROI'))
+  if (escopo === 'niteroi_municipal' && temIntermunicipal) {
+    return 'Mora e trabalha em Niterói, mas o bilhete é intermunicipal — em geral vale o BU Niterói (R$ 11,20/dia)'
+  }
+  if (escopo === 'intermunicipal' && soMunicipalNiteroi) {
+    return 'Casa e posto em cidades diferentes, mas o bilhete é o municipal de Niterói — confira o trajeto'
+  }
+  return null
+}
