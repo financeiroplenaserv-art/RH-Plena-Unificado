@@ -151,28 +151,28 @@ export function descricaoCartaoDosBilhetes(
 }
 
 /**
- * Aviso de consistência cartão da pessoa × cartão que o trajeto pede
- * (decisão da gestora, 27/10/2026): se o trajeto depende de integração e o
- * cartão dela não tem, o valor carregado não basta na prática. Só aviso —
- * nunca bloqueia. Sem bilhete classificado ou sem bilhete: null (catálogo
- * ainda não classificado). Pessoa sem cartão cadastrado: aviso próprio.
+ * Aviso de integração do trajeto × situação do BU na Riocard (decisão da
+ * gestora, 28/10/2026 — migration 167; SUBSTITUI o avisoCartaoDoTrajeto de
+ * 27/10): o cartão físico é o mesmo (Riocard) para todos — o que manda é a
+ * tarifa carregada e se a integração (Bilhete Único) está ATIVADA no cartão.
+ * Cruzar "cartão necessário do bilhete" com o vt_tipo_cartao do cadastro
+ * gerava falsos positivos (quem tem BU ativado pode receber a tarifa de
+ * Niterói mesmo com cadastro dizendo BUI). Só aviso — nunca bloqueia.
+ * Trajeto sem bilhete com integração: null (a tarifa vale e pronto).
+ * buAtivado null = situação ainda não consultada na Riocard.
  */
-export function avisoCartaoDoTrajeto(
-  bilhetes: (Pick<VtBilhete, 'cartao_necessario' | 'usa_integracao' | 'nome'> | null | undefined)[],
-  cartaoDaPessoa: TipoCartaoVT | null,
+export function avisoIntegracaoDoTrajeto(
+  bilhetes: (Pick<VtBilhete, 'usa_integracao' | 'nome'> | null | undefined)[],
+  buAtivado: boolean | null | undefined,
+  buSituacao: string | null | undefined,
 ): string | null {
-  const cartoesPedidos = bilhetes
-    .map((b) => b?.cartao_necessario ?? null)
-    .filter((c): c is TipoCartaoVT => !!c)
-  if (cartoesPedidos.length === 0) return null
-  if (!cartaoDaPessoa) {
-    return 'Cadastro sem o tipo de cartão — confira qual cartão ela tem'
+  const dependeDeIntegracao = bilhetes.some((b) => b?.usa_integracao === true)
+  if (!dependeDeIntegracao) return null
+  if (buAtivado === true) return null
+  if (buAtivado === false) {
+    const situacao = buSituacao?.trim()
+    const trecho = situacao ? `, mas no site da Riocard o BU dele consta como '${situacao}'` : ''
+    return `Este trajeto depende de integração (Bilhete Único)${trecho} — sem a ativação, o valor carregado não cobre o trajeto. Providenciar a ativação ou trocar o bilhete.`
   }
-  const divergente = cartoesPedidos.find((c) => c !== cartaoDaPessoa)
-  if (!divergente) return null
-  const cadastro =
-    cartaoDaPessoa === 'comum'
-      ? 'ela não tem cartão de integração'
-      : `o dela é ${ROTULO_CARTAO_NECESSARIO[cartaoDaPessoa]}`
-  return `Este trajeto pede o cartão ${ROTULO_CARTAO_NECESSARIO[divergente]}; o cadastro diz que ${cadastro} — se for isso mesmo, providenciar o cartão ${ROTULO_CARTAO_NECESSARIO[divergente]}, senão o valor não cobre o trajeto`
+  return 'Este trajeto depende de integração (Bilhete Único) e a situação do BU dele ainda não foi consultada na Riocard — confira antes de gravar a carga.'
 }

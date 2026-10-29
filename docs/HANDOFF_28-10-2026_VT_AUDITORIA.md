@@ -71,6 +71,14 @@ treinamento (`useCarteiraFeristas` filtra tipo); ConfirmDialog ao desmarcar
 optante com trajetos; JAE (RJ) no select de cartão; aba Bilhetes com "Qual
 cartão" + "Tem integração" (pré-preenche ao reajustar).
 
+**Correção de modelo (mesma sessão, após deploy inicial)**: a gestora
+esclareceu que o cartão físico é o MESMO para todos (Riocard) — o que manda é
+a tarifa carregada e se a integração (BU) está ativada. O aviso
+`avisoCartaoDoTrajeto` (cartão×cartão, gerava falso positivo — caso Acacio)
+foi substituído por `avisoIntegracaoDoTrajeto`: só avisa quando o trajeto
+DEPENDE de integração e o BU da pessoa não consta ativado na Riocard (fato da
+migration 167). `vt_tipo_cartao` fica só informativo.
+
 ## 4. Migrations aplicadas (Management API, 28/10/2026)
 
 - **165** `vt_bilhetes.cartao_necessario` ('bun'/'bui'/'jae'/'comum') +

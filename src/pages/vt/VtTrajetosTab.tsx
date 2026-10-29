@@ -30,7 +30,7 @@ import {
   custoDiaTrajetoCentavos,
   escopoSugerido,
   avisoBilheteIncompativel,
-  avisoCartaoDoTrajeto,
+  avisoIntegracaoDoTrajeto,
   descricaoCartaoDosBilhetes,
 } from '@/lib/vt/trajetos'
 import { linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
@@ -78,6 +78,9 @@ interface LinhaTrajeto {
   cidadePosto: string | null
   /** Cartão que a pessoa TEM (cadastro; null para colaborador fora da lista de ativos) — exibido ao lado do nome: o valor pago vem do bilhete do trajeto, não do cartão (decisão da gestora, 24/10/2026). */
   tipoCartao: TipoCartaoVT | null
+  /** Situação do BU na Riocard (migration 167; null = não consultado ou colaborador fora da lista de ativos). */
+  buAtivado: boolean | null
+  buSituacao: string | null
   trajeto: VtTrajetoComDetalhes | null // null = sugestão ainda não gravada
 }
 
@@ -165,6 +168,8 @@ export function VtTrajetosTab({
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
         tipoCartao: colab?.vt_tipo_cartao ?? null,
+        buAtivado: colab?.vt_bu_ativado ?? null,
+        buSituacao: colab?.vt_bu_situacao ?? null,
         trajeto: t,
       })
     }
@@ -191,6 +196,8 @@ export function VtTrajetosTab({
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
         tipoCartao: c.vt_tipo_cartao ?? null,
+        buAtivado: c.vt_bu_ativado ?? null,
+        buSituacao: c.vt_bu_situacao ?? null,
         trajeto: null,
       })
     }
@@ -483,15 +490,15 @@ export function VtTrajetosTab({
                     linha.cidadePosto,
                     [valores.b1, valores.b2].map((id) => bilhetes.find((b) => b.id === id)?.nome),
                   )
-                  // Cartão que o trajeto PEDE × cartão que a pessoa TEM
-                  // (decisão da gestora, 27/10/2026 — migration 165): a carga é
-                  // feita naquele cartão; se o trajeto depende de integração e
-                  // o cartão dela não tem, o valor carregado não basta. Só aviso.
+                  // Integração do trajeto × situação do BU na Riocard (decisão
+                  // da gestora, 28/10/2026 — migration 167): o cartão físico é o
+                  // mesmo para todos; o que manda é a integração estar ATIVADA.
+                  // Só aviso, nunca bloqueia.
                   const bilhetesDaLinha = [valores.b1, valores.b2].map((id) =>
                     bilhetes.find((b) => b.id === id)
                   )
                   const descricaoCartao = descricaoCartaoDosBilhetes(bilhetesDaLinha)
-                  const avisoCartao = avisoCartaoDoTrajeto(bilhetesDaLinha, linha.tipoCartao)
+                  const avisoCartao = avisoIntegracaoDoTrajeto(bilhetesDaLinha, linha.buAtivado, linha.buSituacao)
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-3 py-2.5 font-medium text-foreground">

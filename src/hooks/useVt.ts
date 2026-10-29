@@ -30,6 +30,10 @@ export interface VtColaborador {
   cep?: string | null
   vt_optante: boolean | null
   vt_tipo_cartao: TipoCartaoVT | null
+  /** Situação do BU no site da Riocard (migration 167; null = ainda não consultado). */
+  vt_bu_ativado?: boolean | null
+  /** Texto cru do site da Riocard ("Ativado", "Suspenso Setrans"...). */
+  vt_bu_situacao?: string | null
   /** Cargo do cadastro — resolve a função ao adicionar à carteira de feristas pela tela do VT. */
   cargo?: string | null
 }
@@ -50,6 +54,9 @@ export interface VtTrajetoComDetalhes extends VtTrajeto {
     cep?: string | null
     /** Cartão que a pessoa TEM (cadastro) — exibido na aba Trajetos; o valor pago vem do bilhete do trajeto (decisão da gestora, 24/10/2026). */
     vt_tipo_cartao?: TipoCartaoVT | null
+    /** Situação do BU na Riocard (migration 167; ausente/null = não consultado). */
+    vt_bu_ativado?: boolean | null
+    vt_bu_situacao?: string | null
   } | null
   departamento?: {
     id: string
@@ -87,7 +94,7 @@ export interface NovoTrajetoVT {
 }
 
 const COLUNAS_COLABORADOR_VT =
-  'id, nome_completo, departamento, departamento_id, cidade, endereco, cep, vt_optante, vt_tipo_cartao, cargo'
+  'id, nome_completo, departamento, departamento_id, cidade, endereco, cep, vt_optante, vt_tipo_cartao, vt_bu_ativado, vt_bu_situacao, cargo'
 const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, endereco, cidade, cep'
 // Sem embed: o tipo Database não declara os relacionamentos de vt_trajetos e a
 // página já tem colaboradores/departamentos carregados para resolver o join.
