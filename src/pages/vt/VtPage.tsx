@@ -74,6 +74,7 @@ export function VtPage() {
         <VtColaboradoresTab
           colaboradores={vt.colaboradores}
           departamentos={vt.departamentos}
+          trajetos={vt.trajetos}
           loading={vt.loading}
           podeGerenciar={podeGerenciar}
           salvarVtColaborador={vt.salvarVtColaborador}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { ArrowDown, ArrowUp, Users } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Users } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,11 +14,12 @@ import {
 import { Filters } from '@/components/corh/Filters'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { StatusBadge } from '@/components/corh/StatusBadge'
+import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard } from '@/components/layout/ModuleShell'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { ordenarPorNome, type DirecaoNome } from '@/lib/vt/ordenacao'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
-import type { TipoCartaoVT } from '@/types/vt'
+import type { TipoCartaoVT, VtTrajeto } from '@/types/vt'
 
 // Aba Colaboradores do VT (Fase 1): marca o optante e o tipo de bilhete.
 // Cadastro manual — a API da Alterdata não expõe VT (plano §3).
@@ -26,12 +27,15 @@ import type { TipoCartaoVT } from '@/types/vt'
 const TIPOS_CARTAO: { valor: TipoCartaoVT; label: string }[] = [
   { valor: 'bun', label: 'Bilhete Único Niterói' },
   { valor: 'bui', label: 'Bilhete Único Intermunicipal' },
+  { valor: 'jae', label: 'JAE (RJ)' },
   { valor: 'comum', label: 'Comum' },
 ]
 
 interface VtColaboradoresTabProps {
   colaboradores: VtColaborador[]
   departamentos: VtDepartamento[]
+  /** Trajetos gravados — desmarcar "Usa VT" de quem tem trajeto pede confirmação. */
+  trajetos: VtTrajeto[]
   loading: boolean
   podeGerenciar: boolean
   salvarVtColaborador: (
@@ -45,6 +49,7 @@ interface VtColaboradoresTabProps {
 export function VtColaboradoresTab({
   colaboradores,
   departamentos,
+  trajetos,
   loading,
   podeGerenciar,
   salvarVtColaborador,
@@ -58,6 +63,9 @@ export function VtColaboradoresTab({
   const [bilheteAplicado, setBilheteAplicado] = useState<'todos' | TipoCartaoVT | 'sem_tipo'>('todos')
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
   const [direcaoNome, setDirecaoNome] = useState<DirecaoNome>('az')
+  // Desmarcar "Usa VT" de quem TEM trajetos gravados pede confirmação — os
+  // trajetos deixam de valer na carga (mas NÃO são excluídos automaticamente).
+  const [desmarcando, setDesmarcando] = useState<{ colaborador: VtColaborador; totalTrajetos: number } | null>(null)
 
   const filtrados = useMemo(() => {
     const termo = buscaAplicada.trim().toLowerCase()
@@ -95,6 +103,23 @@ export function VtColaboradoresTab({
     const ok = await salvarVtColaborador(colaborador.id, dados)
     setSalvandoId(null)
     if (ok) toast.success(`VT de ${colaborador.nome_completo} salvo`)
+  }
+
+  const aoMarcarOptante = (c: VtColaborador, marcado: boolean) => {
+    if (!marcado) {
+      const totalTrajetos = trajetos.filter((t) => t.colaborador_id === c.id).length
+      if (totalTrajetos > 0) {
+        setDesmarcando({ colaborador: c, totalTrajetos })
+        return
+      }
+    }
+    void salvar(c, { vt_optante: marcado, vt_tipo_cartao: c.vt_tipo_cartao ?? null })
+  }
+
+  const confirmarDesmarcar = () => {
+    if (!desmarcando) return
+    void salvar(desmarcando.colaborador, { vt_optante: false, vt_tipo_cartao: null })
+    setDesmarcando(null)
   }
 
   return (
@@ -198,12 +223,7 @@ export function VtColaboradoresTab({
                       <Checkbox
                         checked={!!c.vt_optante}
                         disabled={!podeGerenciar || salvandoId === c.id}
-                        onCheckedChange={(marcado) =>
-                          salvar(c, {
-                            vt_optante: marcado === true,
-                            vt_tipo_cartao: c.vt_tipo_cartao ?? null,
-                          })
-                        }
+                        onCheckedChange={(marcado) => aoMarcarOptante(c, marcado === true)}
                         aria-label={`Usa VT — ${c.nome_completo}`}
                       />
                     </td>
@@ -234,6 +254,21 @@ export function VtColaboradoresTab({
           </div>
         )}
       </ModuleCard>
+
+      <ConfirmDialog
+        open={!!desmarcando}
+        onOpenChange={() => setDesmarcando(null)}
+        icon={<AlertTriangle className="size-6 text-amber-600" />}
+        iconClassName="bg-amber-50"
+        title="Desmarcar o vale-transporte?"
+        description={
+          desmarcando
+            ? `Ele tem ${desmarcando.totalTrajetos} trajeto(s) cadastrado(s), que deixam de valer na carga. Quer desmarcar mesmo assim?`
+            : ''
+        }
+        confirmLabel="Sim, desmarcar"
+        onConfirm={confirmarDesmarcar}
+      />
     </div>
   )
 }

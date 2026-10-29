@@ -1,7 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Ticket, Plus, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -14,24 +22,28 @@ import { StatusBadge } from '@/components/corh/StatusBadge'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { formatarData, hojeBrasil } from '@/lib/utils'
-import { formatarCentavos } from '@/lib/vt/bilhetes'
+import { formatarCentavos, parseValorCentavos } from '@/lib/vt/bilhetes'
 import type { NovoBilheteVT } from '@/hooks/useVt'
-import type { VtBilhete } from '@/types/vt'
+import type { TipoCartaoVT, VtBilhete } from '@/types/vt'
 
 // Aba Bilhetes do VT (Fase 1, modelo de 21/10/2026 — plano §2d; "combinação"
 // virou "bilhete", termo da operação): cada bilhete é um trajeto-tipo nomeado
 // com valor diário fechado (ida+volta), COM VIGÊNCIA (padrão
 // ceu_itens_precos) — reajuste = linha nova, nunca edita valor antigo.
+// Migration 165 (27/10/2026): o bilhete também diz QUAL CARTÃO a pessoa
+// precisa ter e SE depende de integração (a carga é feita naquele cartão; se
+// o trajeto depende de integração e o cartão dela não tem, o valor carregado
+// não basta na prática).
 
-/** "5,60" / "5.60" (R$) → centavos. Com vírgula, o ponto é milhar ("1.234,56"). */
-function parseValorCentavos(texto: string): number | null {
-  const limpo = texto.trim()
-  if (!limpo) return null
-  const normalizado = limpo.includes(',') ? limpo.replace(/\./g, '').replace(',', '.') : limpo
-  const n = Number(normalizado)
-  if (!isFinite(n) || n < 0) return null
-  return Math.round(n * 100)
-}
+/** Opções do "Qual cartão" (migration 165). Vazio = ainda não classificado. */
+const OPCOES_CARTAO: { valor: TipoCartaoVT; label: string }[] = [
+  { valor: 'bun', label: 'BUN (Niterói)' },
+  { valor: 'bui', label: 'BUI (intermunicipal)' },
+  { valor: 'jae', label: 'JAE (RJ)' },
+  { valor: 'comum', label: 'Comum (sem cartão de integração)' },
+]
+
+const SEM_CARTAO = '__sem_cartao__'
 
 interface VtBilhetesTabProps {
   bilhetes: VtBilhete[]
@@ -54,6 +66,8 @@ export function VtBilhetesTab({
   const [nome, setNome] = useState('')
   const [valor, setValor] = useState('')
   const [vigenteDesde, setVigenteDesde] = useState(hojeBrasil())
+  const [cartao, setCartao] = useState<TipoCartaoVT | ''>('')
+  const [usaIntegracao, setUsaIntegracao] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
   // Nomes já cadastrados: o datalist sugere (nova vigência de bilhete
@@ -62,6 +76,22 @@ export function VtBilhetesTab({
     () => [...new Set(bilhetes.map((b) => b.nome))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [bilhetes]
   )
+
+  // Nova vigência de bilhete EXISTENTE: pré-preenche cartão/integração da
+  // vigência mais recente — sem isso, um reajuste "esqueceria" a classificação
+  // e os avisos de cartão sumiriam da aba Trajetos.
+  useEffect(() => {
+    if (!dialogAberto) return
+    const digitado = nome.trim()
+    if (!digitado) return
+    const maisRecente = bilhetes
+      .filter((b) => b.nome === digitado)
+      .sort((a, b) => b.vigente_desde.localeCompare(a.vigente_desde))[0]
+    if (maisRecente) {
+      setCartao(maisRecente.cartao_necessario ?? '')
+      setUsaIntegracao(!!maisRecente.usa_integracao)
+    }
+  }, [nome, bilhetes, dialogAberto])
 
   // Tabela por valor/dia, do menor para o maior (ajuste da gestora, 22/10/2026);
   // empate de valor → nome A→Z. Ordena o array renderizado — a query do banco
@@ -80,6 +110,8 @@ export function VtBilhetesTab({
     setNome('')
     setValor('')
     setVigenteDesde(hojeBrasil())
+    setCartao('')
+    setUsaIntegracao(false)
     setDialogAberto(true)
   }
 
@@ -91,6 +123,8 @@ export function VtBilhetesTab({
       nome: nome.trim(),
       valor_diario_centavos: centavos,
       vigente_desde: vigenteDesde,
+      cartao_necessario: cartao || null,
+      usa_integracao: usaIntegracao,
     })
     setSalvando(false)
     if (ok) {
@@ -216,6 +250,39 @@ export function VtBilhetesTab({
                   onChange={(e) => setVigenteDesde(e.target.value)}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="vt-bilhete-cartao">Qual cartão (opcional)</Label>
+              <Select
+                value={cartao || SEM_CARTAO}
+                onValueChange={(v) => setCartao(v === SEM_CARTAO ? '' : (v as TipoCartaoVT))}
+              >
+                <SelectTrigger id="vt-bilhete-cartao">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEM_CARTAO}>Ainda não classificado</SelectItem>
+                  {OPCOES_CARTAO.map((o) => (
+                    <SelectItem key={o.valor} value={o.valor}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                É o cartão em que a carga é feita. A aba Trajetos avisa quando o cartão do
+                cadastro da pessoa não é este.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="vt-bilhete-integracao"
+                checked={usaIntegracao}
+                onCheckedChange={(marcado) => setUsaIntegracao(marcado === true)}
+              />
+              <Label htmlFor="vt-bilhete-integracao" className="cursor-pointer text-muted-foreground">
+                Tem integração (2+ conduções numa tarifa só)
+              </Label>
             </div>
           </div>
           <DialogFooter>

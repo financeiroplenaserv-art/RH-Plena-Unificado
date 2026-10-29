@@ -7,6 +7,8 @@
 // planejamento ter "os últimos utilizados". Fonte única de comportamento =
 // vt_coberturas (nenhuma flag paralela; quando o módulo Férias for liberado,
 // ferias_alocacoes alimenta vt_coberturas e a regra segue idêntica).
+// Só contam linhas tipo 'ferias' (migration 160): quem está só em TREINAMENTO
+// não é ferista — treinamento não gera selo nem prioridade.
 
 import type { VtCobertura } from '@/types/vt'
 
@@ -46,7 +48,7 @@ export function classificarFeristas({
   /** colaborador_id dos feristas ativos da carteira (ferias_feristas). */
   carteiraIds: string[]
   /** Coberturas com ferista e fim dentro da janela (já filtradas na consulta ou não — a função refiltra). */
-  coberturas: Pick<VtCobertura, 'colaborador_id' | 'data_fim'>[]
+  coberturas: Pick<VtCobertura, 'colaborador_id' | 'data_fim' | 'tipo'>[]
   hoje: string // 'AAAA-MM-DD'
   janelaMeses?: number
 }): ClassificadorFeristas {
@@ -55,6 +57,8 @@ export function classificarFeristas({
   const cobrindo = new Set<string>()
   const recentes = new Set<string>()
   for (const c of coberturas) {
+    // Só cobertura de FÉRIAS conta (migration 160): treinamento não é ferista.
+    if (c.tipo === 'treinamento') continue
     if (!c.colaborador_id || c.data_fim < limite) continue
     if (c.data_fim >= hoje) cobrindo.add(c.colaborador_id)
     else recentes.add(c.colaborador_id)
@@ -69,4 +73,55 @@ export function classificarFeristas({
       return 3
     },
   }
+}
+
+export interface SobreposicaoCobertura {
+  colaborador_id: string
+  /** Interseção dos períodos sobrepostos ('AAAA-MM-DD'). */
+  inicio: string
+  fim: string
+  /** Quantas coberturas do ferista se sobrepõem. */
+  quantas: number
+}
+
+/**
+ * Ferista cobrindo 2+ postos ao mesmo tempo (decisão da gestora, 27/10/2026;
+ * caso real: Everaldo cobre Mérito Barreto 01–27/11 e Itaguaí 01–04/11). Os
+ * registros são MANTIDOS — a carga do dia usa a cobertura mais recente —, mas
+ * a aba Carga mostra o aviso. Só contam coberturas tipo 'ferias' (ou sem tipo)
+ * com ferista: "sem cobertura" (colaborador_id null) e 'treinamento' ficam de
+ * fora. UMA entrada por ferista; o período é a interseção das coberturas
+ * envolvidas (em cadeia sem interseção comum — A∩B e B∩C sem A∩C — mostra o
+ * intervalo total envolvido, para o aviso nunca sair com datas invertidas).
+ */
+export function sobreposicoesDeCobertura(coberturas: VtCobertura[]): SobreposicaoCobertura[] {
+  const porFerista = new Map<string, VtCobertura[]>()
+  for (const c of coberturas) {
+    if ((c.tipo ?? 'ferias') !== 'ferias') continue
+    if (!c.colaborador_id) continue
+    const lista = porFerista.get(c.colaborador_id) ?? []
+    lista.push(c)
+    porFerista.set(c.colaborador_id, lista)
+  }
+  const resultado: SobreposicaoCobertura[] = []
+  for (const [colaborador_id, lista] of porFerista) {
+    const envolvidas = lista.filter((a) =>
+      lista.some((b) => b !== a && a.data_inicio <= b.data_fim && a.data_fim >= b.data_inicio)
+    )
+    if (envolvidas.length < 2) continue
+    const inicioIntersecao = envolvidas.map((c) => c.data_inicio).reduce((a, b) => (b > a ? b : a))
+    const fimIntersecao = envolvidas.map((c) => c.data_fim).reduce((a, b) => (b < a ? b : a))
+    const temIntersecaoComum = inicioIntersecao <= fimIntersecao
+    resultado.push({
+      colaborador_id,
+      inicio: temIntersecaoComum
+        ? inicioIntersecao
+        : envolvidas.map((c) => c.data_inicio).reduce((a, b) => (b < a ? b : a)),
+      fim: temIntersecaoComum
+        ? fimIntersecao
+        : envolvidas.map((c) => c.data_fim).reduce((a, b) => (b > a ? b : a)),
+      quantas: envolvidas.length,
+    })
+  }
+  return resultado.sort((a, b) => a.colaborador_id.localeCompare(b.colaborador_id))
 }

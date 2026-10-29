@@ -47,6 +47,35 @@ export function useVtCoberturas() {
     return true
   }, [])
 
+  // Núcleo do INSERT, sem toast — quem chama decide a mensagem (registrar e
+  // registrarComTreinamento precisam de textos diferentes para o mesmo erro).
+  // 'duplicada' = unique (ferias_colaborador_id, data_inicio, tipo) — migration 160.
+  const gravar = useCallback(
+    async (
+      dados: NovaCoberturaVT & { tipo: TipoCoberturaVT },
+      usuarioId: string
+    ): Promise<'ok' | 'duplicada' | 'erro' | 'vazio'> => {
+      const { data, error } = await supabase
+        .from('vt_coberturas')
+        .insert({
+          ...dados,
+          colaborador_id: dados.colaborador_id || null,
+          ferias_colaborador_id: dados.ferias_colaborador_id || null,
+          observacao: dados.observacao ?? null,
+          registrado_por: usuarioId,
+        })
+        .select('id')
+      if (error) {
+        if (error.code === '23505') return 'duplicada'
+        console.error('Erro ao registrar cobertura do VT:', error.message)
+        return 'erro'
+      }
+      if (!data || data.length === 0) return 'vazio'
+      return 'ok'
+    },
+    []
+  )
+
   const registrar = useCallback(
     async (dados: NovaCoberturaVT, usuarioId: string): Promise<boolean> => {
       if (dados.data_fim < dados.data_inicio) {
@@ -58,23 +87,18 @@ export function useVtCoberturas() {
         return false
       }
       const tipo = dados.tipo ?? 'ferias'
-      const { data, error } = await supabase
-        .from('vt_coberturas')
-        .insert({
-          ...dados,
-          tipo,
-          colaborador_id: dados.colaborador_id || null,
-          ferias_colaborador_id: dados.ferias_colaborador_id || null,
-          observacao: dados.observacao ?? null,
-          registrado_por: usuarioId,
-        })
-        .select('id')
-      if (error) {
-        console.error('Erro ao registrar cobertura do VT:', error.message)
+      const resultado = await gravar({ ...dados, tipo }, usuarioId)
+      if (resultado === 'duplicada') {
+        toast.error(
+          'Já existe um registro dessas férias começando nesse dia — exclua o anterior se quiser substituir'
+        )
+        return false
+      }
+      if (resultado === 'erro') {
         toast.error(tipo === 'treinamento' ? 'Erro ao registrar o treinamento' : 'Erro ao registrar a cobertura')
         return false
       }
-      if (!data || data.length === 0) {
+      if (resultado === 'vazio') {
         toast.error('Não foi possível registrar: não gravado (permissão)')
         return false
       }
@@ -87,7 +111,7 @@ export function useVtCoberturas() {
       )
       return true
     },
-    []
+    [gravar]
   )
 
   /**
@@ -95,6 +119,8 @@ export function useVtCoberturas() {
    * do mesmo ferista no mesmo posto (migration 160). A cobertura é gravada
    * primeiro; se o treinamento falhar, a cobertura NÃO é desfeita — o erro
    * vem no toast e o retorno é false para a tela recarregar mesmo assim.
+   * Duplicidade do treinamento NÃO pede para "registrar de novo" — o caminho
+   * é excluir o registro anterior.
    */
   const registrarComTreinamento = useCallback(
     async (
@@ -105,14 +131,25 @@ export function useVtCoberturas() {
       const okCobertura = await registrar({ ...cobertura, tipo: 'ferias' }, usuarioId)
       if (!okCobertura) return false
       if (!treinamento) return true
-      const okTreinamento = await registrar({ ...treinamento, tipo: 'treinamento' }, usuarioId)
-      if (!okTreinamento) {
-        toast.error('A cobertura foi gravada, mas o treinamento falhou — registre o treinamento de novo')
+      const resultado = await gravar({ ...treinamento, tipo: 'treinamento' }, usuarioId)
+      if (resultado === 'ok') {
+        toast.success('Treinamento registrado')
+        return true
+      }
+      if (resultado === 'duplicada') {
+        toast.error(
+          'A cobertura foi gravada, mas já existe um treinamento dessas férias começando nesse dia — exclua o anterior se quiser substituir'
+        )
         return false
       }
-      return true
+      if (resultado === 'vazio') {
+        toast.error('A cobertura foi gravada, mas o treinamento não foi gravado (permissão)')
+        return false
+      }
+      toast.error('A cobertura foi gravada, mas o treinamento falhou — registre o treinamento de novo')
+      return false
     },
-    [registrar]
+    [registrar, gravar]
   )
 
   const remover = useCallback(async (id: string): Promise<boolean> => {

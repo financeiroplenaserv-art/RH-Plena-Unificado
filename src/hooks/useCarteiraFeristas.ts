@@ -15,8 +15,10 @@ import type { VtCobertura } from '@/types/vt'
 // vem de DOIS fatos, sem nenhuma flag paralela — (1) carteira ferias_feristas
 // ativa (a equipe dedicada, os "só ferista"; RLS: SELECT autenticado) e
 // (2) cobertura em andamento/agendada em vt_coberturas ("se cita que a pessoa
-// vai cobrir férias, naquele momento ela é ferista"). Cobertura ENCERRADA não
-// gera selo — só ordena o seletor ("últimos utilizados", janela de 6 meses).
+// vai cobrir férias, naquele momento ela é ferista"). Só linhas tipo 'ferias':
+// TREINAMENTO (migration 160) não gera selo nem prioridade. Cobertura
+// ENCERRADA não gera selo — só ordena o seletor ("últimos utilizados", janela
+// de 6 meses).
 // A carteira é mantida pela aba Feristas do módulo Férias e pelo botão
 // "Adicionar à carteira" do dialog de cobertura (função resolvida do cargo;
 // sem match = só aviso, sem palpite).
@@ -47,9 +49,11 @@ export function useCarteiraFeristas() {
       supabase.from('ferias_funcoes').select('*'),
       supabase
         .from('vt_coberturas')
-        .select('colaborador_id, data_fim')
+        .select('colaborador_id, data_fim, tipo')
         .not('colaborador_id', 'is', null)
-        .gte('data_fim', limite),
+        .gte('data_fim', limite)
+        // Treinamento não é ferista (migration 160) — inclui NULL (linhas antigas).
+        .or('tipo.is.null,tipo.eq.ferias'),
     ])
     setLoading(false)
     if (erroFeristas) {
@@ -62,7 +66,7 @@ export function useCarteiraFeristas() {
     setClassificador(
       classificarFeristas({
         carteiraIds: (feristas ?? []).map((r) => r.colaborador_id as string),
-        coberturas: (erroCoberturas ? [] : (cobs ?? [])) as Pick<VtCobertura, 'colaborador_id' | 'data_fim'>[],
+        coberturas: (erroCoberturas ? [] : (cobs ?? [])) as Pick<VtCobertura, 'colaborador_id' | 'data_fim' | 'tipo'>[],
         hoje,
       })
     )

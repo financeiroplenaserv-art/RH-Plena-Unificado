@@ -111,7 +111,7 @@ export interface Colaborador {
   tamanho_luva?: string | null
   // Módulo VT (migration 155 — cadastro manual; a API da Alterdata não expõe VT)
   vt_optante?: boolean
-  vt_tipo_cartao?: 'bun' | 'bui' | 'comum' | null
+  vt_tipo_cartao?: 'bun' | 'bui' | 'jae' | 'comum' | null
   created_at?: string
   updated_at?: string
 }

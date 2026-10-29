@@ -7,8 +7,9 @@
 /** Escopo do trajeto: classificação INFORMACIONAL auto-sugerida (não precifica). */
 export type EscopoTrajetoVT = 'niteroi_municipal' | 'intermunicipal' | 'municipal_outra'
 
-/** Tipo de bilhete do colaborador (cadastro manual — a API da Alterdata não expõe VT). */
-export type TipoCartaoVT = 'bun' | 'bui' | 'comum'
+/** Tipo de bilhete do colaborador (cadastro manual — a API da Alterdata não expõe VT).
+ *  'jae' = cartão do RJ (migration 165 — decisão da gestora, 27/10/2026). */
+export type TipoCartaoVT = 'bun' | 'bui' | 'jae' | 'comum'
 
 /** Precisão alcançada na geocodificação da origem (casa do colaborador). */
 export type PrecisaoOrigemVT = 'exato' | 'bairro'
@@ -35,6 +36,10 @@ export interface VtBilhete {
   valor_diario_centavos: number
   vigente_desde: string // date ISO AAAA-MM-DD
   ativo: boolean
+  /** Cartão que a pessoa precisa TER para o valor cobrir o trajeto (migration 165; null = não classificado). */
+  cartao_necessario: TipoCartaoVT | null
+  /** Migration 165: o bilhete depende de integração (2+ conduções numa tarifa só). */
+  usa_integracao: boolean
   created_at?: string
 }
 
@@ -49,6 +54,8 @@ export interface VtTrajeto {
   precisao_origem: PrecisaoOrigemVT
   origem: OrigemTrajetoVT
   status: StatusTrajetoVT
+  /** Migration 166: valor extra manual por dia (centavos; 0 = sem extra). */
+  valor_extra_centavos: number
   observacao: string | null
   confirmado_por: string | null
   confirmado_em: string | null
@@ -76,6 +83,8 @@ export interface VtCargaDetalhe {
   dias_cobertura?: number
   /** Quantos desses dias vieram de treinamento (migration 160). */
   dias_treinamento?: number
+  /** Valor extra manual por dia já incluído no custo (migration 166; ausente em carga antiga = sem extra). */
+  valor_extra_centavos?: number
   /** Datas planejadas neste posto, ordenadas — base do fechamento (Fase 2b; ausente em cargas antigas). */
   datas?: string[]
 }

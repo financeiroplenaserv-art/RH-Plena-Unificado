@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ExternalLink, Route, Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -24,8 +25,14 @@ import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { hojeBrasil } from '@/lib/utils'
-import { bilhetesVigentes, custoDiaBilhetesCentavos, formatarCentavos } from '@/lib/vt/bilhetes'
-import { custoDiaTrajetoCentavos, escopoSugerido, avisoBilheteIncompativel } from '@/lib/vt/trajetos'
+import { bilhetesVigentes, custoDiaBilhetesCentavos, formatarCentavos, parseValorCentavos, textoValorReais } from '@/lib/vt/bilhetes'
+import {
+  custoDiaTrajetoCentavos,
+  escopoSugerido,
+  avisoBilheteIncompativel,
+  avisoCartaoDoTrajeto,
+  descricaoCartaoDosBilhetes,
+} from '@/lib/vt/trajetos'
 import { linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { EscopoTrajetoVT, TipoCartaoVT, VtBilhete } from '@/types/vt'
@@ -49,6 +56,7 @@ function seloEscopo(escopo: EscopoTrajetoVT, cidadeCasa: string | null): string 
 const ROTULO_CARTAO: Record<TipoCartaoVT, string> = {
   bun: 'BUN',
   bui: 'BUI',
+  jae: 'JAE',
   comum: 'Comum',
 }
 
@@ -60,6 +68,9 @@ interface LinhaTrajeto {
   statusColaborador: string | null
   departamentoId: string
   nomePosto: string
+  /** Posto ATUAL do cadastro (lista de ativos) — compara com o posto do trajeto gravado para o aviso de mudança de posto. */
+  cadastroDepartamentoId: string | null
+  cadastroDepartamentoTexto: string | null
   enderecoCasa: string | null
   cidadeCasa: string | null
   cepCasa: string | null
@@ -80,7 +91,7 @@ interface VtTrajetosTabProps {
   loading: boolean
   usuarioId: string
   podeGerenciar: boolean
-  salvarTrajeto: (dados: NovoTrajetoVT) => Promise<string | null>
+  salvarTrajeto: (dados: NovoTrajetoVT, opcoes?: { desconfirmar?: boolean }) => Promise<string | null>
   confirmarTrajeto: (id: string, usuarioId: string) => Promise<boolean>
   removerTrajeto: (id: string) => Promise<boolean>
   recarregarTrajetos: () => Promise<boolean>
@@ -103,7 +114,8 @@ export function VtTrajetosTab({
   recarregarTrajetos,
 }: VtTrajetosTabProps) {
   const hoje = hojeBrasil()
-  const [edicoes, setEdicoes] = useState<Record<string, { b1: string; b2: string }>>({})
+  // Edições por linha: bilhetes + valor extra (texto do input, "2,00").
+  const [edicoes, setEdicoes] = useState<Record<string, { b1: string; b2: string; extra: string }>>({})
   // Visibilidade do 2º bilhete por linha (poucos colaboradores usam — não
   // ocupa a tela de todo mundo). Padrão: visível só quando o trajeto gravado
   // já tem bilhete_2_id (dado gravado nunca é escondido).
@@ -114,6 +126,7 @@ export function VtTrajetosTab({
   const [novoDepartamentoId, setNovoDepartamentoId] = useState('')
   const [novoB1, setNovoB1] = useState('')
   const [novoB2, setNovoB2] = useState('')
+  const [novoExtra, setNovoExtra] = useState('')
   const [temB2, setTemB2] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
@@ -132,6 +145,9 @@ export function VtTrajetosTab({
     const porChave = new Map<string, LinhaTrajeto>()
     for (const t of trajetos) {
       const colab = t.colaborador ?? colaboradores.find((c) => c.id === t.colaborador_id) ?? null
+      // Cadastro atual (lista de ativos) — base do aviso de mudança de posto.
+      // O embed t.colaborador não traz departamento_id.
+      const cadastro = colaboradores.find((c) => c.id === t.colaborador_id) ?? null
       const extra = colab ? null : (extrasTrajeto.get(t.colaborador_id) ?? null)
       const dep = t.departamento ?? departamentos.find((d) => d.id === t.departamento_id) ?? null
       porChave.set(`${t.colaborador_id}|${t.departamento_id}`, {
@@ -141,6 +157,8 @@ export function VtTrajetosTab({
         statusColaborador: colab ? null : (extra?.status ?? null),
         departamentoId: t.departamento_id,
         nomePosto: dep ? nomePosto(dep.id, dep.nome) : '—',
+        cadastroDepartamentoId: cadastro?.departamento_id ?? null,
+        cadastroDepartamentoTexto: cadastro?.departamento ?? null,
         enderecoCasa: colab?.endereco ?? null,
         cidadeCasa: colab?.cidade ?? null,
         cepCasa: colab?.cep ?? null,
@@ -165,6 +183,8 @@ export function VtTrajetosTab({
         statusColaborador: null,
         departamentoId: c.departamento_id,
         nomePosto: dep ? nomePosto(dep.id, c.departamento) : (c.departamento ?? '—'),
+        cadastroDepartamentoId: c.departamento_id,
+        cadastroDepartamentoTexto: c.departamento,
         enderecoCasa: c.endereco,
         cidadeCasa: c.cidade,
         cepCasa: c.cep ?? null,
@@ -184,6 +204,7 @@ export function VtTrajetosTab({
     edicoes[linha.chave] ?? {
       b1: linha.trajeto?.bilhete_id ?? '',
       b2: linha.trajeto?.bilhete_2_id ?? '',
+      extra: textoValorReais(linha.trajeto?.valor_extra_centavos),
     }
 
   /** Opções do select da linha: vigentes + os referenciados pelo trajeto (antigos). */
@@ -199,33 +220,83 @@ export function VtTrajetosTab({
     return base
   }
 
-  const dadosDaLinha = (linha: LinhaTrajeto, valores: { b1: string; b2: string }): NovoTrajetoVT => ({
+  /** Extra da linha em centavos: o texto do input; vazio = 0; texto inválido cai no valor gravado. */
+  const extraDaLinha = (linha: LinhaTrajeto, valores: { extra: string }): number => {
+    const texto = valores.extra.trim()
+    if (!texto) return 0
+    return parseValorCentavos(texto) ?? (linha.trajeto?.valor_extra_centavos ?? 0)
+  }
+
+  const dadosDaLinha = (linha: LinhaTrajeto, valores: { b1: string; b2: string; extra: string }): NovoTrajetoVT => ({
     colaborador_id: linha.colaboradorId,
     departamento_id: linha.departamentoId,
     bilhete_id: valores.b1,
     bilhete_2_id: valores.b2 || null,
     escopo: linha.trajeto?.escopo ?? escopoSugerido(linha.cidadeCasa, linha.cidadePosto),
     precisao_origem: linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa),
+    valor_extra_centavos: extraDaLinha(linha, valores),
     observacao: linha.trajeto?.observacao ?? null,
   })
 
   // Trajeto já gravado: salva na troca do bilhete (mesmo padrão de antes).
   // Sugestões (ainda não gravadas) só persistem no "Confirmar".
+  // Troca de bilhete em trajeto CONFIRMADO exige reconfirmação (o preço muda):
+  // o UPDATE grava desconfirmar — a linha volta a "A confirmar".
   const editar = (linha: LinhaTrajeto, parcial: Partial<{ b1: string; b2: string }>) => {
     const valores = { ...valoresDa(linha), ...parcial }
     // O 2º nunca repete o 1º (CHECK bilhete_2_id <> bilhete_id).
     if (valores.b1 && valores.b1 === valores.b2) valores.b2 = ''
     setEdicoes((atual) => ({ ...atual, [linha.chave]: valores }))
     if (linha.trajeto && podeGerenciar && valores.b1) {
-      salvarTrajeto(dadosDaLinha(linha, valores)).then((id) => {
+      const t = linha.trajeto
+      const bilheteMudou = t.bilhete_id !== valores.b1 || (t.bilhete_2_id ?? '') !== valores.b2
+      salvarTrajeto(dadosDaLinha(linha, valores), {
+        desconfirmar: t.status === 'confirmado' && bilheteMudou,
+      }).then((id) => {
         if (id) recarregarTrajetos()
       })
     }
   }
 
+  // Valor extra manual (migration 166 — decisão da gestora, 27/10/2026): a
+  // digitação só edita o estado; a gravação é no blur, com a MESMA regra do
+  // bilhete — trajeto confirmado com extra alterado volta a "A confirmar".
+  const editarExtra = (linha: LinhaTrajeto, texto: string) => {
+    setEdicoes((atual) => ({ ...atual, [linha.chave]: { ...valoresDa(linha), extra: texto } }))
+  }
+
+  const salvarExtra = (linha: LinhaTrajeto) => {
+    const valores = valoresDa(linha)
+    const texto = valores.extra.trim()
+    const extraCent = texto === '' ? 0 : parseValorCentavos(texto)
+    if (extraCent == null) {
+      toast.error('Valor extra inválido — use por exemplo 2,00')
+      return
+    }
+    if (extraCent > 100000) {
+      toast.error('Valor extra acima do teto de R$ 1.000,00 por dia')
+      return
+    }
+    // Normaliza a exibição ("2" → "2,00").
+    setEdicoes((atual) => ({ ...atual, [linha.chave]: { ...valores, extra: textoValorReais(extraCent) } }))
+    if (!linha.trajeto || !podeGerenciar || !valores.b1) return
+    const t = linha.trajeto
+    if ((t.valor_extra_centavos ?? 0) === extraCent) return
+    salvarTrajeto(dadosDaLinha(linha, { ...valores, extra: textoValorReais(extraCent) }), {
+      desconfirmar: t.status === 'confirmado',
+    }).then((id) => {
+      if (id) recarregarTrajetos()
+    })
+  }
+
   const confirmar = async (linha: LinhaTrajeto) => {
     const valores = valoresDa(linha)
     if (!linha.trajeto && !valores.b1) return
+    const textoExtra = valores.extra.trim()
+    if (textoExtra && parseValorCentavos(textoExtra) == null) {
+      toast.error('Valor extra inválido — use por exemplo 2,00')
+      return
+    }
     setSalvando(true)
     if (linha.trajeto) {
       await confirmarTrajeto(linha.trajeto.id, usuarioId)
@@ -255,7 +326,7 @@ export function VtTrajetosTab({
     if (!b1) return null
     const b2 = valores.b2 ? (vigentes.find((b) => b.id === valores.b2) ?? null) : null
     if (valores.b2 && !b2) return null
-    return custoDiaBilhetesCentavos(b1, b2)
+    return custoDiaBilhetesCentavos(b1, b2) + extraDaLinha(linha, valores)
   }
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante), [colaboradores])
@@ -263,6 +334,16 @@ export function VtTrajetosTab({
   const salvarNovo = async () => {
     const colab = colaboradores.find((c) => c.id === novoColaboradorId)
     if (!colab || !novoDepartamentoId || !novoB1) return
+    const textoExtra = novoExtra.trim()
+    const extraCent = textoExtra === '' ? 0 : parseValorCentavos(textoExtra)
+    if (extraCent == null) {
+      toast.error('Valor extra inválido — use por exemplo 2,00')
+      return
+    }
+    if (extraCent > 100000) {
+      toast.error('Valor extra acima do teto de R$ 1.000,00 por dia')
+      return
+    }
     const dep = departamentos.find((d) => d.id === novoDepartamentoId)
     setSalvando(true)
     const id = await salvarTrajeto({
@@ -272,6 +353,7 @@ export function VtTrajetosTab({
       bilhete_2_id: novoB2 || null,
       escopo: escopoSugerido(colab.cidade, dep?.cidade ?? null),
       precisao_origem: precisaoDoEndereco(colab.endereco),
+      valor_extra_centavos: extraCent,
     })
     setSalvando(false)
     if (id) {
@@ -281,6 +363,7 @@ export function VtTrajetosTab({
       setNovoDepartamentoId('')
       setNovoB1('')
       setNovoB2('')
+      setNovoExtra('')
       setTemB2(false)
       toast.success('Trajeto adicionado — confira a rota e confirme')
     }
@@ -378,10 +461,21 @@ export function VtTrajetosTab({
                   const valores = valoresDa(linha)
                   const opcoes = opcoesDa(linha)
                   const custo = custoDaLinha(linha)
+                  const extraLinha = extraDaLinha(linha, valores)
                   const escopo = linha.trajeto?.escopo ?? escopoSugerido(linha.cidadeCasa, linha.cidadePosto)
                   const precisao = linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)
                   const confirmado = linha.trajeto?.status === 'confirmado'
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
+                  // Mudança de posto: trajeto GRAVADO para um posto diferente
+                  // do cadastro atual — a mesma pessoa aparece 2× (esta linha
+                  // + a sugestão do posto novo). Só aviso, nunca bloqueia.
+                  const postoMudou =
+                    !!linha.trajeto &&
+                    !!linha.cadastroDepartamentoId &&
+                    linha.cadastroDepartamentoId !== linha.departamentoId
+                  const nomePostoAtual = postoMudou
+                    ? nomePosto(linha.cadastroDepartamentoId!, linha.cadastroDepartamentoTexto)
+                    : null
                   // Aviso de consistência bilhete × cidades (decisão da gestora,
                   // 24/10/2026): só aviso, nunca bloqueia.
                   const avisoBilhete = avisoBilheteIncompativel(
@@ -389,6 +483,15 @@ export function VtTrajetosTab({
                     linha.cidadePosto,
                     [valores.b1, valores.b2].map((id) => bilhetes.find((b) => b.id === id)?.nome),
                   )
+                  // Cartão que o trajeto PEDE × cartão que a pessoa TEM
+                  // (decisão da gestora, 27/10/2026 — migration 165): a carga é
+                  // feita naquele cartão; se o trajeto depende de integração e
+                  // o cartão dela não tem, o valor carregado não basta. Só aviso.
+                  const bilhetesDaLinha = [valores.b1, valores.b2].map((id) =>
+                    bilhetes.find((b) => b.id === id)
+                  )
+                  const descricaoCartao = descricaoCartaoDosBilhetes(bilhetesDaLinha)
+                  const avisoCartao = avisoCartaoDoTrajeto(bilhetesDaLinha, linha.tipoCartao)
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-3 py-2.5 font-medium text-foreground">
@@ -409,7 +512,16 @@ export function VtTrajetosTab({
                           )}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{linha.nomePosto}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">
+                        {linha.nomePosto}
+                        {nomePostoAtual && (
+                          <p className="mt-1 flex items-start gap-1 text-[11px] font-medium text-amber-600">
+                            <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                            O cadastro dele hoje aponta outro posto ({nomePostoAtual}) — se ele
+                            mudou de posto, confirme a linha sugerida e exclua este trajeto.
+                          </p>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5">
                         <StatusBadge variant="info" dot={false}>
                           {seloEscopo(escopo, linha.cidadeCasa)}
@@ -433,16 +545,51 @@ export function VtTrajetosTab({
                             )}
                           </div>
                           {b2Visivel && selectBilhete(linha, 'b2', valores.b2, opcoes)}
+                          {descricaoCartao && (
+                            <p className="text-[11px] text-muted-foreground">{descricaoCartao}</p>
+                          )}
+                          {avisoCartao && (
+                            <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
+                              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                              {avisoCartao}
+                            </p>
+                          )}
                           {avisoBilhete && (
                             <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
                               <AlertTriangle className="mt-0.5 size-3 shrink-0" />
                               {avisoBilhete}
                             </p>
                           )}
+                          {podeGerenciar && (
+                            <div className="flex items-center gap-1.5">
+                              <label
+                                htmlFor={`extra-${linha.chave}`}
+                                className="text-[11px] text-muted-foreground"
+                                title="Valor manual a mais por dia (ex.: acordo pontual) — soma ao custo do dia"
+                              >
+                                Extra/dia R$
+                              </label>
+                              <Input
+                                id={`extra-${linha.chave}`}
+                                className="h-7 w-20 text-[12px] tabular-nums"
+                                inputMode="decimal"
+                                placeholder="0,00"
+                                value={valores.extra}
+                                disabled={salvando}
+                                onChange={(e) => editarExtra(linha, e.target.value)}
+                                onBlur={() => salvarExtra(linha)}
+                              />
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {custo == null ? '—' : formatarCentavos(custo)}
+                        {custo != null && extraLinha > 0 && (
+                          <div className="text-[11px] font-normal text-muted-foreground">
+                            {formatarCentavos(custo - extraLinha)} + {formatarCentavos(extraLinha)} extra
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         <StatusBadge variant={precisao === 'exato' ? 'success' : 'warning'}>
@@ -450,9 +597,17 @@ export function VtTrajetosTab({
                         </StatusBadge>
                       </td>
                       <td className="px-3 py-2.5">
-                        <StatusBadge variant={confirmado ? 'success' : 'warning'}>
-                          {confirmado ? 'Confirmado' : 'A confirmar'}
-                        </StatusBadge>
+                        {linha.trajeto ? (
+                          <StatusBadge variant={confirmado ? 'success' : 'warning'}>
+                            {confirmado ? 'Confirmado' : 'A confirmar'}
+                          </StatusBadge>
+                        ) : (
+                          <span title="O sistema montou do cadastro; confirme para valer ou ignore.">
+                            <StatusBadge variant="neutral" dot={false}>
+                              Sugestão — não gravada
+                            </StatusBadge>
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1">
@@ -583,6 +738,16 @@ export function VtTrajetosTab({
                 </Select>
               </div>
             )}
+            <div className="space-y-1.5">
+              <Label htmlFor="vt-novo-extra">Valor extra por dia (R$, opcional)</Label>
+              <Input
+                id="vt-novo-extra"
+                value={novoExtra}
+                onChange={(e) => setNovoExtra(e.target.value)}
+                placeholder="Ex.: 2,00"
+                inputMode="decimal"
+              />
+            </div>
           </div>
           <DialogFooter>
             <ModuleButton variant="outline" onClick={() => setDialogAberto(false)} disabled={salvando}>

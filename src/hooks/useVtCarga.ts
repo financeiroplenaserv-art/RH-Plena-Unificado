@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { hojeBrasil } from '@/lib/utils'
@@ -6,6 +6,7 @@ import {
   agruparDiasPorPosto,
   aplicarCoberturas,
   calcularCargaMes,
+  prontaParaGravar,
   resolverPostoDoRelatorio,
   situacaoCoberturaRelatorio,
   valorDaCarga,
@@ -24,6 +25,12 @@ import {
   type PessoaRelatorio,
 } from '@/lib/vt/gestaoEscalasFlit'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
+import {
+  CHAVE_RASCUNHO_CARGA_VT,
+  montarRascunhoCarga,
+  validarRascunhoCarga,
+  type RascunhoCargaVt,
+} from '@/lib/vt/cargaRascunho'
 import { ajusteDoFechamento, competenciaAnterior } from '@/lib/vt/fechamento'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
@@ -62,8 +69,14 @@ export interface ResultadoCargaColaborador {
   /** Dias cujo posto (texto do relatório) não casou com nenhum departamento. */
   diasSemPostoIdentificado: number
   locaisNaoIdentificados: string[]
-  /** Optante sem dia de trabalho no relatório (ou fora dele — sem match). */
+  /** Optante FORA do relatório (sem match) — bloqueia a gravação (portão). */
   semEscala: boolean
+  /**
+   * No relatório, mas sem nenhum dia [T] — mês inteiro de férias/afastamento/
+   * atestado (ou só folgas). NÃO bloqueia a gravação: valor R$ 0 ("não
+   * trabalhou, não recebe"). Caso da dúvida de 27/10/2026.
+   */
+  semDiaDeTrabalho: boolean
   /** Dias [FR] do próprio colaborador no mês (fora da carga — informativo). */
   diasEmFerias: number
 }
@@ -73,6 +86,18 @@ export interface ApoioCarga {
   departamentos: VtDepartamento[]
   trajetos: VtTrajeto[]
   bilhetes: VtBilhete[]
+}
+
+/** Estado REAL da gravação no banco para a competência carregada. */
+export interface GravacaoCarga {
+  /** Competência verificada — a tela só mostra o banner se bater com a atual. */
+  competencia: string
+  /** Quantas linhas de vt_cargas existem para a competência. */
+  total: number
+  /** Colaboradores gravados — o banner compara o CONJUNTO com o cálculo. */
+  ids: string[]
+  /** gerada_em mais recente (ISO) — null se a tabela não tem a data. */
+  ultimaEm: string | null
 }
 
 /**
@@ -114,29 +139,84 @@ export function useVtCarga() {
   /** O relatório traz o mês inteiro? (só aviso — não bloqueia a gravação). */
   const [coberturaMes, setCoberturaMes] = useState<CoberturaMesRelatorio | null>(null)
   const [loading, setLoading] = useState(false)
+  /** O que está de fato no banco para a competência (banner "gravada?"). */
+  const [gravacao, setGravacao] = useState<GravacaoCarga | null>(null)
+  /**
+   * Pessoas parseadas do último relatório processado com sucesso — permitem
+   * RECALCULAR sem o File (a aba desmonta ao trocar de aba e o File se
+   * perde): registrar/excluir uma cobertura chama `reprocessar`, que refaz o
+   * pipeline a partir daqui (auditoria C2 — antes o recalcular virava no-op
+   * silencioso e os valores velhos eram gravados assim).
+   */
+  const pessoasRef = useRef<PessoaRelatorio[] | null>(null)
+  const nomeArquivoRef = useRef<string | null>(null)
 
-  const importarRelatorio = useCallback(
-    async (arquivo: File, apoio: ApoioCarga): Promise<boolean> => {
-      setLoading(true)
+  /** Volta a tela ao estado vazio — falha do pipeline nunca deixa mistura de meses (auditoria C1). */
+  const limparEstado = useCallback(() => {
+    pessoasRef.current = null
+    nomeArquivoRef.current = null
+    setCompetencia(null)
+    setResultados([])
+    setFerias([])
+    setCoberturaGeral([])
+    setNomesSemMatch([])
+    setCoberturaMes(null)
+    setNomeArquivo(null)
+    setForaDoVt(0)
+    setGravacao(null)
+    setLoading(false)
+  }, [])
+
+  /**
+   * Lê vt_cargas da competência e devolve a contagem real (incidente de
+   * 25/10/2026: a tela não mostrava se a gravação tinha acontecido e o
+   * operador saía achando que estava salvo — o banco ficou vazio).
+   */
+  const verificarGravacao = useCallback(async (comp: string) => {
+    const { data, error } = await supabase
+      .from('vt_cargas')
+      .select('colaborador_id, gerada_em')
+      .eq('competencia', comp)
+    if (error) {
+      console.error('Erro ao verificar a carga gravada:', error.message)
+      return
+    }
+    const linhas = (data ?? []) as { colaborador_id: string; gerada_em: string | null }[]
+    const ultima =
+      linhas
+        .map((l) => l.gerada_em)
+        .filter((e): e is string => !!e)
+        .sort()
+        .pop() ?? null
+    setGravacao({ competencia: comp, total: linhas.length, ids: linhas.map((l) => l.colaborador_id), ultimaEm: ultima })
+  }, [])
+
+  /**
+   * Pipeline da carga sobre as pessoas JÁ parseadas do relatório — usado pela
+   * importação do arquivo e pela restauração do rascunho (27/10/2026: sair da
+   * aba perdia tudo). Devolve a competência ('AAAA-MM') no sucesso, null na
+   * falha. Não liga o loading — quem chama gerencia.
+   */
+  const processarPessoas = useCallback(
+    async (pessoas: PessoaRelatorio[], nomeArq: string | null, apoio: ApoioCarga): Promise<string | null> => {
+      // Auditoria C1: os estados só são PUBLICADOS no final, no sucesso —
+      // antes, uma query que falhava no meio deixava os resultados do
+      // relatório ANTERIOR com a competência nova (o "Gravar carga" gravaria
+      // o cálculo de um mês na competência de outro). Tudo se acumula em
+      // variáveis locais; na falha, limparEstado() volta a tela ao vazio.
+      // O banner some no início e só volta no final, com a verificação fresca (M1).
+      setGravacao(null)
       try {
-        const XLSX = await import('@e965/xlsx')
-        const buffer = await arquivo.arrayBuffer()
-        const workbook = XLSX.read(buffer)
-        const planilha = workbook.Sheets['data'] ?? workbook.Sheets[workbook.SheetNames[0]]
-        const linhasBrutas = XLSX.utils.sheet_to_json(planilha, { header: 1, defval: '' }) as unknown[][]
-        const pessoas = parseGestaoEscalas(linhasBrutas)
         if (pessoas.length === 0 || pessoas.every((p) => p.dias.length === 0)) {
           toast.error('Nenhuma pessoa/dia encontrada — confira se é o relatório "Gestão de escalas" (aba "data")')
-          setLoading(false)
-          return false
+          limparEstado()
+          return null
         }
 
         // Competência = mês das datas do relatório.
         const primeiraData = pessoas.flatMap((p) => p.dias).map((d) => d.data).sort()[0]
         const comp = primeiraData.slice(0, 7)
-        setCompetencia(comp)
-        setCoberturaMes(coberturaDoMesNoRelatorio(pessoas, comp))
-        setNomeArquivo(arquivo.name)
+        const coberturaMesCalc = coberturaDoMesNoRelatorio(pessoas, comp)
 
         // A lista do useVt já é só de ativos (listarColaboradores filtra) — o
         // match recebe status 'Ativo' explícito para a regra "só ativos".
@@ -151,12 +231,11 @@ export function useVtCarga() {
           if (c?.id) pessoaPorId.set(c.id, p)
           else nomesSemMatchLista.push(p.nome)
         }
-        setNomesSemMatch(nomesSemMatchLista)
 
         const optantes = apoio.colaboradores.filter((c) => c.vt_optante)
         const idsOptantes = new Set(optantes.map((c) => c.id))
         const casadosNaoOptantes = [...pessoaPorId.keys()].filter((id) => !idsOptantes.has(id)).length
-        setForaDoVt(nomesSemMatchLista.length + casadosNaoOptantes)
+        const foraDoVtN = nomesSemMatchLista.length + casadosNaoOptantes
 
         // Coberturas que tocam o mês (todas — o pipeline usa as com ferista;
         // o clamp ao mês evita sintetizar dias fora da competência).
@@ -170,8 +249,8 @@ export function useVtCarga() {
         if (erroCoberturas) {
           console.error('Erro ao ler coberturas do VT:', erroCoberturas.message)
           toast.error('Erro ao carregar as coberturas de férias')
-          setLoading(false)
-          return false
+          limparEstado()
+          return null
         }
         const coberturas = ((dadosCoberturas as VtCobertura[]) ?? []).map((c) => ({
           ...c,
@@ -222,7 +301,6 @@ export function useVtCarga() {
             })
           }
         }
-        setFerias(blocos)
 
         // Completude de TODOS os casados (optantes ou não) — decisão da
         // gestora, 23/10/2026: conferência de que cada pessoa está em algum
@@ -257,7 +335,6 @@ export function useVtCarga() {
           })
         }
         todos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-        setCoberturaGeral(todos)
 
         // Ajuste do fechamento do mês anterior (Fase 2b): faltou → desconta;
         // trabalhou fora da carga → credita (ajuste = crédito − desconto).
@@ -275,8 +352,8 @@ export function useVtCarga() {
           if (erroFech) {
             console.error('Erro ao ler fechamentos do VT:', erroFech.message)
             toast.error('Erro ao carregar o fechamento do mês anterior — carga não calculada')
-            setLoading(false)
-            return false
+            limparEstado()
+            return null
           }
           for (const f of (fechs ?? []) as {
             colaborador_id: string
@@ -326,15 +403,79 @@ export function useVtCarga() {
             pendentes: calc.pendentes,
             diasSemPostoIdentificado: diasSemPosto,
             locaisNaoIdentificados: semMatchLocal ? Array.from(semMatchLocal.keys()) : [],
-            semEscala: !pessoa || !pessoa.dias.some((d) => d.marca === 'trabalha'),
+            semEscala: !pessoa,
+            semDiaDeTrabalho: !!pessoa && !pessoa.dias.some((d) => d.marca === 'trabalha'),
             diasEmFerias: pessoa ? pessoa.dias.filter((d) => d.marca === 'ferias').length : 0,
           }
         })
 
         lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+        // Sucesso: publica TUDO de uma vez (C1) e reverifica a gravação no
+        // banco para o banner voltar sempre (M1) — inclusive ao reprocessar a
+        // MESMA competência (não há efeito por mudança de competência na tela).
+        pessoasRef.current = pessoas
+        nomeArquivoRef.current = nomeArq
+        setCompetencia(comp)
+        setCoberturaMes(coberturaMesCalc)
+        setNomeArquivo(nomeArq)
+        setNomesSemMatch(nomesSemMatchLista)
+        setForaDoVt(foraDoVtN)
+        setFerias(blocos)
+        setCoberturaGeral(todos)
         setResultados(lista)
         setLoading(false)
-        return true
+        await verificarGravacao(comp)
+        return comp
+      } catch (err) {
+        console.error('Erro ao processar o relatório de escalas:', err)
+        toast.error('Erro ao processar o relatório — tente importar de novo')
+        limparEstado()
+        return null
+      }
+    },
+    [limparEstado, verificarGravacao]
+  )
+
+  /**
+   * Refaz o pipeline a partir das pessoas guardadas do último processamento —
+   * SEM depender do File (auditoria C2: a aba desmonta ao trocar de aba e o
+   * File se perde; registrar/excluir cobertura precisa recalcular de verdade,
+   * senão o portão destrava e os valores VELHOS da tabela são gravados).
+   */
+  const reprocessar = useCallback(
+    async (apoio: ApoioCarga): Promise<boolean> => {
+      const pessoas = pessoasRef.current
+      if (!pessoas) return false
+      setLoading(true)
+      const comp = await processarPessoas(pessoas, nomeArquivoRef.current, apoio)
+      return comp != null
+    },
+    [processarPessoas]
+  )
+
+  const importarRelatorio = useCallback(
+    async (arquivo: File, apoio: ApoioCarga): Promise<boolean> => {
+      setLoading(true)
+      try {
+        const XLSX = await import('@e965/xlsx')
+        const buffer = await arquivo.arrayBuffer()
+        const workbook = XLSX.read(buffer)
+        const planilha = workbook.Sheets['data'] ?? workbook.Sheets[workbook.SheetNames[0]]
+        const linhasBrutas = XLSX.utils.sheet_to_json(planilha, { header: 1, defval: '' }) as unknown[][]
+        const pessoas = parseGestaoEscalas(linhasBrutas)
+        const comp = await processarPessoas(pessoas, arquivo.name, apoio)
+        if (comp) {
+          try {
+            localStorage.setItem(
+              CHAVE_RASCUNHO_CARGA_VT,
+              JSON.stringify(montarRascunhoCarga(pessoas, arquivo.name, comp, new Date().toISOString()))
+            )
+          } catch {
+            // Sem espaço no armazenamento: o rascunho é conveniência, nunca bloqueia.
+          }
+        }
+        return comp != null
       } catch (err) {
         console.error('Erro ao importar o relatório de escalas:', err)
         toast.error('Erro ao ler o arquivo — confira se é o Excel da Gestão de escalas')
@@ -342,13 +483,49 @@ export function useVtCarga() {
         return false
       }
     },
-    []
+    [processarPessoas]
+  )
+
+  /**
+   * Restaura o rascunho do relatório salvo no aparelho ao voltar à aba
+   * (incidente de 27/10/2026: sair da tela apagava o cálculo importado). O
+   * pipeline roda de novo com os dados ATUAIS do banco — trajetos, coberturas
+   * e fechamentos novos entram sozinhos. Rascunho inválido é descartado.
+   */
+  const restaurarRascunho = useCallback(
+    async (apoio: ApoioCarga): Promise<boolean> => {
+      let rascunho: RascunhoCargaVt | null = null
+      try {
+        const texto = localStorage.getItem(CHAVE_RASCUNHO_CARGA_VT)
+        if (texto) rascunho = validarRascunhoCarga(JSON.parse(texto))
+      } catch {
+        rascunho = null
+      }
+      if (!rascunho) {
+        try {
+          localStorage.removeItem(CHAVE_RASCUNHO_CARGA_VT)
+        } catch {
+          // sem acesso ao armazenamento — nada a fazer
+        }
+        return false
+      }
+      setLoading(true)
+      const comp = await processarPessoas(rascunho.pessoas, rascunho.nomeArquivo, apoio)
+      if (comp) {
+        toast.info(
+          `Relatório "${rascunho.nomeArquivo ?? 'importado antes'}" restaurado — cálculo refeito com os dados atuais`
+        )
+      }
+      return comp != null
+    },
+    [processarPessoas]
   )
 
   /**
    * Upsert por (colaborador_id, competencia) — regera a carga do mês sem
-   * duplicar. Só grava cálculo COMPLETO (sem posto pendente de trajeto e sem
-   * dia sem posto identificado); os demais ficam de fora e são contados.
+   * duplicar. Só grava quem passa no filtro único `prontaParaGravar` (sem
+   * trajeto pendente, sem dia sem posto identificado e presente no
+   * relatório); os demais ficam de fora e são contados.
    */
   const gravarCargas = useCallback(
     async (
@@ -356,7 +533,7 @@ export function useVtCarga() {
       lista: ResultadoCargaColaborador[],
       usuarioId: string
     ): Promise<{ gravadas: number; puladas: number }> => {
-      const prontos = lista.filter((r) => r.pendentes.length === 0 && r.diasSemPostoIdentificado === 0)
+      const prontos = lista.filter(prontaParaGravar)
       const puladas = lista.length - prontos.length
       if (prontos.length === 0) {
         return { gravadas: 0, puladas }
@@ -369,6 +546,9 @@ export function useVtCarga() {
         ajuste_centavos: r.ajuste_centavos,
         valor_centavos: r.valor_centavos,
         gerada_por: usuarioId,
+        // Carimbo novo a cada regravação — o DEFAULT now() da coluna só vale
+        // no INSERT; no upsert ele ficaria com a data da 1ª gravação.
+        gerada_em: new Date().toISOString(),
       }))
       const { data, error } = await supabase
         .from('vt_cargas')
@@ -379,6 +559,8 @@ export function useVtCarga() {
         toast.error('Erro ao gravar as cargas')
         return { gravadas: 0, puladas }
       }
+      // Reconta no banco para o banner refletir o que ficou gravado de fato.
+      await verificarGravacao(competencia)
       const gravadas = data?.length ?? 0
       if (gravadas !== prontos.length) {
         toast.error(`Só ${gravadas} de ${prontos.length} cargas foram gravadas (permissão) — confira`)
@@ -386,13 +568,13 @@ export function useVtCarga() {
       }
       return { gravadas, puladas }
     },
-    []
+    [verificarGravacao]
   )
 
   /** Excel da carga (o arquivo usado para creditar): só os cálculos completos. */
   const exportarExcel = useCallback(
     async (competencia: string, lista: ResultadoCargaColaborador[]): Promise<boolean> => {
-      const prontos = lista.filter((r) => r.pendentes.length === 0 && r.diasSemPostoIdentificado === 0)
+      const prontos = lista.filter(prontaParaGravar)
       if (prontos.length === 0) {
         toast.info('Nenhuma carga pronta para exportar (há pendências de trajeto ou posto).')
         return false
@@ -433,9 +615,13 @@ export function useVtCarga() {
     coberturaGeral,
     nomesSemMatch,
     coberturaMes,
+    gravacao,
     loading,
     importarRelatorio,
+    restaurarRascunho,
+    reprocessar,
     gravarCargas,
+    verificarGravacao,
     exportarExcel,
   }
 }

@@ -298,8 +298,11 @@ export interface DetalheCargaPosto {
   departamento_id: string
   posto: string
   dias: number
+  /** Inclui o valor extra manual do trajeto (migration 166) quando houver. */
   custo_dia_centavos: number
   subtotal_centavos: number
+  /** Valor extra manual por dia do trajeto (migration 166; 0 = sem extra) — só exibição. */
+  valor_extra_centavos: number
   /** Quantos desses dias vieram de cobertura de férias (0 = nenhum). */
   dias_cobertura: number
   /** Quantos desses dias vieram de treinamento (0 = nenhum; migration 160). */
@@ -342,6 +345,7 @@ export function calcularCargaMes(
         dias: p.dias,
         custo_dia_centavos: custoDia,
         subtotal_centavos: subtotal,
+        valor_extra_centavos: trajeto.valor_extra_centavos ?? 0,
         dias_cobertura: p.diasCobertura ?? 0,
         dias_treinamento: p.diasTreinamento ?? 0,
         datas: p.datas ?? [],
@@ -394,4 +398,41 @@ export function valorDaCarga(necessidadeCentavos: number, ajusteCentavos: number
     valor_centavos: Math.max(0, bruto),
     ajusteMaiorQueNecessidade: bruto < 0,
   }
+}
+
+/** Situação da gravação da carga no banco (banner da aba Carga). */
+export type SituacaoGravacaoCarga = 'gravada' | 'parcial' | 'nao_gravada'
+
+/**
+ * Filtro ÚNICO de "pronto para gravar" (usado pelo gravarCargas, pela tela e
+ * pelo Excel — nunca divergir): sem trajeto pendente, sem dia sem posto
+ * identificado e presente no relatório (!semEscala). Com o !semEscala, o
+ * optante fora do relatório deixa de gravar carga 0 — o portão já bloqueia;
+ * aqui é defesa em profundidade.
+ */
+export function prontaParaGravar(r: {
+  pendentes: readonly unknown[]
+  diasSemPostoIdentificado: number
+  semEscala: boolean
+}): boolean {
+  return r.pendentes.length === 0 && r.diasSemPostoIdentificado === 0 && !r.semEscala
+}
+
+/**
+ * Compara o CONJUNTO do que está gravado no banco com o do cálculo atual da
+ * tela (não as contagens — contagens iguais com pessoas diferentes significam
+ * cálculo mudado). A carga calculada existe só na memória da aba até o
+ * "Gravar carga" — incidente de 25/10/2026: o operador saiu da tela achando
+ * que a carga estava salva e o banco ficou vazio. `idsProntos` usa o MESMO
+ * filtro do gravarCargas (`prontaParaGravar`).
+ */
+export function situacaoGravacaoCarga(
+  idsGravados: readonly string[],
+  idsProntos: readonly string[]
+): SituacaoGravacaoCarga {
+  if (idsGravados.length === 0) return 'nao_gravada'
+  const gravados = new Set(idsGravados)
+  const conjuntosIguais =
+    gravados.size === idsProntos.length && idsProntos.every((id) => gravados.has(id))
+  return conjuntosIguais ? 'gravada' : 'parcial'
 }

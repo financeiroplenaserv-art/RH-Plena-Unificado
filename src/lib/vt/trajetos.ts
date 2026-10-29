@@ -2,15 +2,15 @@
 // Ver docs/PLANO_MODULO_VT.md (Fase 1; precificação por bilhete nomeado, §2d).
 
 import { removerAcentos } from '@/lib/utils'
-import type { EscopoTrajetoVT, VtBilhete, VtTrajeto } from '@/types/vt'
+import type { EscopoTrajetoVT, TipoCartaoVT, VtBilhete, VtTrajeto } from '@/types/vt'
 import { bilhetesVigentes, custoDiaBilhetesCentavos } from '@/lib/vt/bilhetes'
 
 /**
  * Custo do dia do trajeto em centavos: resolve bilhete_id (e bilhete_2_id,
  * quando presente) entre os bilhetes vigentes na data e soma os valores
- * diários. Null quando o 1º bilhete não resolve (ou quando o 2º, informado,
- * não resolve) — sem bilhete vigente não se calcula, para nunca cobrar a
- * menos em silêncio.
+ * diários + o valor extra manual do trajeto (migration 166). Null quando o
+ * 1º bilhete não resolve (ou quando o 2º, informado, não resolve) — sem
+ * bilhete vigente não se calcula, para nunca cobrar a menos em silêncio.
  */
 export function custoDiaTrajetoCentavos(
   trajeto: VtTrajeto,
@@ -25,7 +25,9 @@ export function custoDiaTrajetoCentavos(
     b2 = vigentes.find((b) => b.id === trajeto.bilhete_2_id) ?? null
     if (!b2) return null
   }
-  return custoDiaBilhetesCentavos(b1, b2)
+  // Migration 166: valor extra manual por dia soma ao custo (?? 0 = leitura
+  // de trajeto de antes da migration, com a coluna ausente na resposta).
+  return custoDiaBilhetesCentavos(b1, b2) + (trajeto.valor_extra_centavos ?? 0)
 }
 
 export interface ParEscala {
@@ -75,14 +77,18 @@ export function escopoSugerido(cidadeCasa: string | null, cidadePosto: string | 
 }
 
 /**
- * Aviso de consistência bilhete × trajeto (decisão da gestora, 24/10/2026):
- * quem mora E trabalha em Niterói recebe o valor de Niterói (BU NITERÓI,
- * R$ 11,20/dia), mesmo que o cartão dela seja o BUI — o cartão fica no
+ * Aviso de consistência bilhete × trajeto (decisão da gestora, 24/10/2026;
+ * ampliado em 27/10/2026): quem mora E trabalha em Niterói recebe o valor de
+ * Niterói (BU NITERÓI), mesmo que o cartão dela seja o BUI — o cartão fica no
  * cadastro (vt_tipo_cartao), o valor segue o trajeto. E o inverso: casa e
- * posto em cidades diferentes não combinam com o bilhete municipal.
- * Só compara os bilhetes que o nome classifica (intermunicipal / BU Niterói);
- * os demais (trem, VLT, RJ, São Gonçalo...) não geram aviso. Sem cidade dos
- * dois lados não há base para julgar: sem aviso. É só aviso — nunca bloqueia.
+ * posto em cidades diferentes não combinam com o bilhete municipal. Também
+ * avisa quando casa e posto são a MESMA cidade fora de Niterói com bilhete de
+ * Niterói/intermunicipal, e Niterói × Niterói com o bilhete de São Gonçalo.
+ * Só compara os bilhetes que o nome classifica (intermunicipal / BU Niterói /
+ * São Gonçalo); os demais (trem, VLT, RJ...) não geram aviso. Sem cidade dos
+ * dois lados não há base para julgar: sem aviso. É só aviso — nunca bloqueia
+ * e nunca cita valor (o valor muda de vigência — não repetir o problema do
+ * "R$ 11,20" fixo).
  */
 export function avisoBilheteIncompativel(
   cidadeCasa: string | null,
@@ -96,12 +102,77 @@ export function avisoBilheteIncompativel(
   if (nomes.length === 0) return null
   const escopo = escopoSugerido(cidadeCasa, cidadePosto)
   const temIntermunicipal = nomes.some((n) => n.includes('INTERMUNICIPAL'))
+  const temBuNiteroi = nomes.some((n) => n.includes('BU NITEROI'))
+  const temSaoGoncalo = nomes.some((n) => n.includes('SAO GONCALO'))
+  // TODOS os bilhetes são BU Niterói (o 2º bilhete pode ser um trecho
+  // municipal legítimo — ex.: casa em SG + posto em Niterói).
   const soMunicipalNiteroi = nomes.every((n) => n.includes('BU NITEROI'))
   if (escopo === 'niteroi_municipal' && temIntermunicipal) {
-    return 'Mora e trabalha em Niterói, mas o bilhete é intermunicipal — em geral vale o BU Niterói (R$ 11,20/dia)'
+    return 'Mora e trabalha em Niterói, mas o bilhete é intermunicipal — em geral vale o BU Niterói'
+  }
+  if (escopo === 'niteroi_municipal' && temSaoGoncalo) {
+    return 'Mora e trabalha em Niterói, mas o bilhete é o de São Gonçalo — em geral vale o BU Niterói'
+  }
+  if (escopo === 'municipal_outra' && (temBuNiteroi || temIntermunicipal)) {
+    return `Mora e trabalha em ${cidadeCasa.trim()}, mas o bilhete é de outra cidade — confira o trajeto`
   }
   if (escopo === 'intermunicipal' && soMunicipalNiteroi) {
     return 'Casa e posto em cidades diferentes, mas o bilhete é o municipal de Niterói — confira o trajeto'
   }
   return null
+}
+
+/** Rótulo do cartão que o bilhete exige (migration 165 — decisão da gestora, 27/10/2026). */
+export const ROTULO_CARTAO_NECESSARIO: Record<TipoCartaoVT, string> = {
+  bun: 'BUN (Niterói)',
+  bui: 'BUI (intermunicipal)',
+  jae: 'JAE (RJ)',
+  comum: 'comum',
+}
+
+/**
+ * Linha discreta sob o select de bilhete da aba Trajetos: o cartão que o(s)
+ * bilhete(s) escolhido(s) pedem, com "· com integração" quando o bilhete
+ * depende de integração (2+ conduções numa tarifa só). Com 2 bilhetes, junta
+ * com " + ". Null quando nenhum bilhete está classificado (catálogo ainda sem
+ * cartao_necessario — migration 165 não aplicada ou bilhete novo).
+ */
+export function descricaoCartaoDosBilhetes(
+  bilhetes: (Pick<VtBilhete, 'cartao_necessario' | 'usa_integracao'> | null | undefined)[],
+): string | null {
+  const partes = bilhetes
+    .filter((b): b is Pick<VtBilhete, 'cartao_necessario' | 'usa_integracao'> => !!b?.cartao_necessario)
+    .map(
+      (b) =>
+        `${ROTULO_CARTAO_NECESSARIO[b.cartao_necessario!]}${b.usa_integracao ? ' · com integração' : ''}`
+    )
+  if (partes.length === 0) return null
+  return `cartão: ${partes.join(' + ')}`
+}
+
+/**
+ * Aviso de consistência cartão da pessoa × cartão que o trajeto pede
+ * (decisão da gestora, 27/10/2026): se o trajeto depende de integração e o
+ * cartão dela não tem, o valor carregado não basta na prática. Só aviso —
+ * nunca bloqueia. Sem bilhete classificado ou sem bilhete: null (catálogo
+ * ainda não classificado). Pessoa sem cartão cadastrado: aviso próprio.
+ */
+export function avisoCartaoDoTrajeto(
+  bilhetes: (Pick<VtBilhete, 'cartao_necessario' | 'usa_integracao' | 'nome'> | null | undefined)[],
+  cartaoDaPessoa: TipoCartaoVT | null,
+): string | null {
+  const cartoesPedidos = bilhetes
+    .map((b) => b?.cartao_necessario ?? null)
+    .filter((c): c is TipoCartaoVT => !!c)
+  if (cartoesPedidos.length === 0) return null
+  if (!cartaoDaPessoa) {
+    return 'Cadastro sem o tipo de cartão — confira qual cartão ela tem'
+  }
+  const divergente = cartoesPedidos.find((c) => c !== cartaoDaPessoa)
+  if (!divergente) return null
+  const cadastro =
+    cartaoDaPessoa === 'comum'
+      ? 'ela não tem cartão de integração'
+      : `o dela é ${ROTULO_CARTAO_NECESSARIO[cartaoDaPessoa]}`
+  return `Este trajeto pede o cartão ${ROTULO_CARTAO_NECESSARIO[divergente]}; o cadastro diz que ${cadastro} — se for isso mesmo, providenciar o cartão ${ROTULO_CARTAO_NECESSARIO[divergente]}, senão o valor não cobre o trajeto`
 }

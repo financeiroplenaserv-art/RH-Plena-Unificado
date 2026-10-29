@@ -12,6 +12,8 @@ const BU_NITEROI: VtBilhete = {
   valor_diario_centavos: 1120,
   vigente_desde: '2026-10-21',
   ativo: true,
+  cartao_necessario: 'bun',
+  usa_integracao: true,
 }
 
 const TREM: VtBilhete = {
@@ -20,6 +22,8 @@ const TREM: VtBilhete = {
   valor_diario_centavos: 1580,
   vigente_desde: '2026-10-21',
   ativo: true,
+  cartao_necessario: 'comum',
+  usa_integracao: false,
 }
 
 function bilhete(parcial: Partial<VtBilhete>): VtBilhete {
@@ -29,6 +33,8 @@ function bilhete(parcial: Partial<VtBilhete>): VtBilhete {
     valor_diario_centavos: 1000,
     vigente_desde: '2026-10-21',
     ativo: true,
+    cartao_necessario: 'jae',
+    usa_integracao: false,
     ...parcial,
   }
 }

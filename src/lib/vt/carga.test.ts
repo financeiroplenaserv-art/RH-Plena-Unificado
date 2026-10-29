@@ -7,6 +7,8 @@ import {
   destinoFerias,
   rotuloCompetencia,
   situacaoCoberturaRelatorio,
+  situacaoGravacaoCarga,
+  prontaParaGravar,
   resolverPostoDoRelatorio,
   valorDaCarga,
   type FeriasBloco,
@@ -19,6 +21,8 @@ const BU_NITEROI: VtBilhete = {
   valor_diario_centavos: 1120,
   vigente_desde: '2026-10-21',
   ativo: true,
+  cartao_necessario: 'bun',
+  usa_integracao: true,
 }
 
 const BUI: VtBilhete = {
@@ -27,6 +31,8 @@ const BUI: VtBilhete = {
   valor_diario_centavos: 1880,
   vigente_desde: '2026-10-21',
   ativo: true,
+  cartao_necessario: 'bui',
+  usa_integracao: true,
 }
 
 function trajeto(parcial: Partial<VtTrajeto>): VtTrajeto {
@@ -40,6 +46,7 @@ function trajeto(parcial: Partial<VtTrajeto>): VtTrajeto {
     precisao_origem: 'bairro',
     origem: 'manual',
     status: 'confirmado',
+    valor_extra_centavos: 0,
     observacao: null,
     confirmado_por: null,
     confirmado_em: null,
@@ -114,6 +121,7 @@ describe('calcularCargaMes', () => {
         dias: 12,
         custo_dia_centavos: 1120,
         subtotal_centavos: 13440,
+        valor_extra_centavos: 0,
         dias_cobertura: 0,
         dias_treinamento: 0,
         datas: [],
@@ -121,6 +129,19 @@ describe('calcularCargaMes', () => {
     ])
     expect(r.necessidade_centavos).toBe(13440)
     expect(r.pendentes).toEqual([])
+  })
+
+  it('valor extra manual do trajeto entra no custo do dia e fica visível no detalhe (migration 166)', () => {
+    const r = calcularCargaMes(
+      [{ departamento_id: 'd1', rotulo: 'ITAGUAÍ', dias: 12 }],
+      [trajeto({ valor_extra_centavos: 200 })],
+      bilhetes,
+      '2026-10-21'
+    )
+    expect(r.detalhe[0].custo_dia_centavos).toBe(1320)
+    expect(r.detalhe[0].valor_extra_centavos).toBe(200)
+    expect(r.detalhe[0].subtotal_centavos).toBe(12 * 1320)
+    expect(r.necessidade_centavos).toBe(12 * 1320)
   })
 
   it('2 postos (transferência no meio do mês): soma os dois custos', () => {
@@ -481,5 +502,36 @@ describe('resolverPostoDoRelatorio (texto antigo do Flit → linha ATIVA)', () =
 
   it('sem match devolve null', () => {
     expect(resolverPostoDoRelatorio(deps, 'POSTO QUE NAO EXISTE XYZ')).toBeNull()
+  })
+})
+
+describe('situacaoGravacaoCarga (banner "a carga está gravada?" — incidente de 25/10/2026)', () => {
+  it('nada no banco = não gravada, mesmo com cálculo pronto', () => {
+    expect(situacaoGravacaoCarga([], ['a', 'b'])).toBe('nao_gravada')
+    expect(situacaoGravacaoCarga([], [])).toBe('nao_gravada')
+  })
+
+  it('mesmo conjunto de colaboradores = gravada (ordem não importa)', () => {
+    expect(situacaoGravacaoCarga(['a', 'b', 'c'], ['c', 'a', 'b'])).toBe('gravada')
+  })
+
+  it('conjuntos diferentes = parcial, mesmo com a MESMA contagem', () => {
+    expect(situacaoGravacaoCarga(['a', 'b'], ['a', 'c'])).toBe('parcial')
+    expect(situacaoGravacaoCarga(['a'], ['a', 'b'])).toBe('parcial')
+    expect(situacaoGravacaoCarga(['a', 'b'], ['a'])).toBe('parcial')
+  })
+})
+
+describe('prontaParaGravar (filtro único do gravarCargas, da tela e do Excel)', () => {
+  const base = { pendentes: [] as unknown[], diasSemPostoIdentificado: 0, semEscala: false }
+
+  it('sem pendência, sem dia sem posto e no relatório = pronto', () => {
+    expect(prontaParaGravar(base)).toBe(true)
+  })
+
+  it('trajeto pendente ou dia sem posto ou fora do relatório = não pronto', () => {
+    expect(prontaParaGravar({ ...base, pendentes: [{ departamento_id: 'x' }] })).toBe(false)
+    expect(prontaParaGravar({ ...base, diasSemPostoIdentificado: 2 })).toBe(false)
+    expect(prontaParaGravar({ ...base, semEscala: true })).toBe(false)
   })
 })

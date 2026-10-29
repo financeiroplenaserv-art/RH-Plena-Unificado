@@ -25,10 +25,10 @@ import { EmptyState } from '@/components/corh/EmptyState'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
-import { formatarData } from '@/lib/utils'
+import { formatarData, formatarDataHora } from '@/lib/utils'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
-import { destinoFerias, rotuloCompetencia, type FeriasBloco } from '@/lib/vt/carga'
-import { ROTULO_GRUPO_FERISTA } from '@/lib/vt/feristas'
+import { destinoFerias, prontaParaGravar, rotuloCompetencia, situacaoGravacaoCarga, type FeriasBloco } from '@/lib/vt/carga'
+import { ROTULO_GRUPO_FERISTA, sobreposicoesDeCobertura } from '@/lib/vt/feristas'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { useVtCarga, type ResultadoCargaColaborador } from '@/hooks/useVtCarga'
 import { useVtCoberturas } from '@/hooks/useVtCoberturas'
@@ -43,8 +43,15 @@ import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types
 // de férias não entra (o [FR] nunca é dia trabalhado).
 
 function situacaoDa(r: ResultadoCargaColaborador) {
-  if (r.semEscala) return [<StatusBadge key="se" variant="neutral">Sem escala no relatório</StatusBadge>]
+  if (r.semEscala) return [<StatusBadge key="se" variant="warning">Fora do relatório</StatusBadge>]
   const badges = []
+  if (r.semDiaDeTrabalho) {
+    badges.push(
+      <StatusBadge key="st" variant="neutral">
+        Mês sem dia de trabalho — R$ 0,00
+      </StatusBadge>
+    )
+  }
   if (r.pendentes.length > 0) {
     badges.push(
       <StatusBadge key="pt" variant="warning">
@@ -75,6 +82,12 @@ function sufixoCobertura(diasCobertura: number | undefined, dias: number): strin
 function sufixoTreinamento(diasTreinamento: number | undefined, dias: number): string {
   if (!diasTreinamento) return ''
   return diasTreinamento === dias ? ' (treinamento)' : ` (${diasTreinamento} em treinamento)`
+}
+
+/** Sufixo da linha de posto quando o trajeto tem valor extra manual (migration 166). */
+function sufixoExtra(extraCentavos: number | undefined): string {
+  if (!extraCentavos) return ''
+  return ` (inclui ${formatarCentavos(extraCentavos)}/dia extra)`
 }
 
 /** 'AAAA-MM-DD' menos n dias, como string local (Date.UTC: sem bug de fuso). */
@@ -122,15 +135,17 @@ export function VtCargaTab({
     coberturaGeral,
     nomesSemMatch,
     coberturaMes,
+    gravacao,
     loading,
     importarRelatorio,
+    restaurarRascunho,
+    reprocessar,
     gravarCargas,
     exportarExcel,
   } = useVtCarga()
   const { coberturas, listar: listarCoberturas, registrar, registrarComTreinamento, remover } = useVtCoberturas()
 
   const inputArquivoRef = useRef<HTMLInputElement>(null)
-  const arquivoAtualRef = useRef<File | null>(null)
   const [gravando, setGravando] = useState(false)
 
   // Dialog de cobertura (avulsa ou vinculada a férias do relatório)
@@ -153,6 +168,15 @@ export function VtCargaTab({
   useEffect(() => {
     listarCoberturas()
   }, [listarCoberturas])
+
+  // Ao voltar à aba sem nada carregado, restaura o rascunho do relatório
+  // salvo no aparelho (27/10/2026 — sair da tela apagava o cálculo importado).
+  const restaurouRef = useRef(false)
+  useEffect(() => {
+    if (restaurouRef.current || competencia || !dadosProntos) return
+    restaurouRef.current = true
+    void restaurarRascunho({ colaboradores, departamentos, trajetos, bilhetes })
+  }, [competencia, dadosProntos, restaurarRascunho, colaboradores, departamentos, trajetos, bilhetes])
 
   /**
    * Seletor de ferista: QUALQUER ativo (a carga só paga optantes, mas o
@@ -182,15 +206,20 @@ export function VtCargaTab({
     [colaboradores]
   )
 
+  /**
+   * Recalcula a partir das pessoas guardadas no hook (auditoria C2) — sem o
+   * File: após restaurar o rascunho ou trocar de aba não há mais arquivo, e o
+   * recalcular antigo virava no-op silencioso (o portão destravava e os
+   * valores VELHOS da tabela eram gravados assim).
+   */
   const recalcular = useCallback(async () => {
-    if (arquivoAtualRef.current && dadosProntos) {
-      await importarRelatorio(arquivoAtualRef.current, { colaboradores, departamentos, trajetos, bilhetes })
+    if (dadosProntos) {
+      await reprocessar({ colaboradores, departamentos, trajetos, bilhetes })
     }
-  }, [importarRelatorio, dadosProntos, colaboradores, departamentos, trajetos, bilhetes])
+  }, [reprocessar, dadosProntos, colaboradores, departamentos, trajetos, bilhetes])
 
   const aoEscolherArquivo = async (arquivo: File | null) => {
     if (!arquivo) return
-    arquivoAtualRef.current = arquivo
     await importarRelatorio(arquivo, { colaboradores, departamentos, trajetos, bilhetes })
   }
 
@@ -210,6 +239,17 @@ export function VtCargaTab({
     )
   }, [coberturas, competencia])
 
+  // Ferista cobrindo 2+ postos ao mesmo tempo (decisão da gestora, 27/10/2026;
+  // caso Everaldo): os registros são mantidos — a carga usa a cobertura mais
+  // recente —, mas o aviso fica visível na seção "Férias no mês". Só aviso.
+  const sobreposicoes = useMemo(() => {
+    if (!competencia) return []
+    const inicio = `${competencia}-01`
+    const fim = inicio.slice(0, 8) + '31'
+    const doMes = coberturas.filter((c) => c.data_inicio <= fim && c.data_fim >= inicio)
+    return sobreposicoesDeCobertura(doMes)
+  }, [coberturas, competencia])
+
   /** Treinamentos vinculados a férias (migration 160), por titular — exibidos no Destino. */
   const treinamentosDoTitular = useCallback(
     (f: FeriasBloco) =>
@@ -226,7 +266,7 @@ export function VtCargaTab({
   const totais = useMemo(
     () => ({
       optantes: resultados.length,
-      prontos: resultados.filter((r) => r.pendentes.length === 0 && r.diasSemPostoIdentificado === 0 && !r.semEscala).length,
+      prontos: resultados.filter(prontaParaGravar).length,
       soma: resultados.reduce((acc, r) => acc + r.valor_centavos, 0),
     }),
     [resultados]
@@ -256,10 +296,30 @@ export function VtCargaTab({
     const semPosto = resultados.filter((r) => r.diasSemPostoIdentificado > 0).length
     if (semPosto > 0) lista.push(`${semPosto} optante(s) com dias sem posto identificado`)
     const semEscala = resultados.filter((r) => r.semEscala).length
-    if (semEscala > 0) lista.push(`${semEscala} optante(s) sem escala no relatório`)
+    if (semEscala > 0) lista.push(`${semEscala} optante(s) fora do relatório — confira se o relatório está completo`)
     return lista
   }, [feriasPendentes, resultados])
   const bloqueado = pendenciasPortao.length > 0
+
+  /** Prontos com o MESMO filtro do gravarCargas (helper único `prontaParaGravar`). */
+  const prontosParaGravar = useMemo(() => resultados.filter(prontaParaGravar), [resultados])
+  // O banner só vale para a competência que a verificação leu — evita corrida
+  // entre verificações de competências diferentes (auditoria M1/M2).
+  const situacaoGravacao =
+    resultados.length > 0 && gravacao && gravacao.competencia === competencia
+      ? situacaoGravacaoCarga(
+          gravacao.ids,
+          prontosParaGravar.map((r) => r.colaborador_id)
+        )
+      : null
+
+  // Aviso do navegador ao fechar/recarregar com carga calculada e não gravada.
+  useEffect(() => {
+    if (!situacaoGravacao || situacaoGravacao === 'gravada') return
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [situacaoGravacao])
 
   const gravar = async () => {
     if (!competencia) return
@@ -408,7 +468,7 @@ export function VtCargaTab({
         variant={outline ? 'outline' : 'primary'}
         size="sm"
         onClick={() => inputArquivoRef.current?.click()}
-        disabled={loading}
+        disabled={loading || !dadosProntos}
       >
         <FileUp className="size-4" />
         {loading ? 'Lendo relatório...' : rotulo}
@@ -487,6 +547,38 @@ export function VtCargaTab({
         <div className="mt-3">
           <InstrucoesCarga />
         </div>
+        {situacaoGravacao === 'nao_gravada' && (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
+            <p className="font-semibold">
+              A carga de {rotuloCompetencia(competencia)} AINDA NÃO está gravada no sistema.
+            </p>
+            <p className="mt-1">
+              O cálculo abaixo existe só nesta tela — se você sair, ele se perde. Clique em{' '}
+              <strong>Gravar carga</strong> (se o botão estiver desabilitado, resolva antes as pendências do banner
+              amarelo) e confira o aviso verde de confirmação.
+            </p>
+          </div>
+        )}
+        {situacaoGravacao === 'parcial' && gravacao && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            <p className="font-semibold">A carga gravada não bate com o cálculo atual.</p>
+            <p className="mt-1">
+              O cálculo atual é diferente do que está gravado ({gravacao.total} gravada(s)
+              {gravacao.ultimaEm ? `, última em ${formatarDataHora(gravacao.ultimaEm)},` : ''} ×{' '}
+              {prontosParaGravar.length} pronta(s) agora) — se a mudança é esperada, clique em{' '}
+              <strong>Gravar carga</strong> de novo.
+            </p>
+          </div>
+        )}
+        {situacaoGravacao === 'gravada' && gravacao && (
+          <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-[13px] text-green-800">
+            <p className="font-semibold">
+              Carga gravada no sistema
+              {gravacao.ultimaEm ? ` em ${formatarDataHora(gravacao.ultimaEm)}` : ''} — {gravacao.total}{' '}
+              colaborador(es).
+            </p>
+          </div>
+        )}
         {bloqueado && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
             <p className="font-semibold">A gravação está bloqueada:</p>
@@ -503,6 +595,16 @@ export function VtCargaTab({
         title="Férias no mês"
         description='Blocos [FR] do relatório — cada um precisa de destino: quem cobre (ferista) ou a declaração "sem cobertura"'
       >
+        {sobreposicoes.length > 0 && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            {sobreposicoes.map((s) => (
+              <p key={s.colaborador_id}>
+                <strong>{nomeDo(s.colaborador_id)}</strong> está cobrindo {s.quantas} postos ao mesmo
+                tempo ({formatarData(s.inicio)} a {formatarData(s.fim)}) — confira se está certo.
+              </p>
+            ))}
+          </div>
+        )}
         {destinos.length === 0 ? (
           <div className="flex items-center justify-between gap-3">
             <p className="text-[13px] text-muted-foreground">Nenhuma férias no mês do relatório.</p>
@@ -777,6 +879,7 @@ export function VtCargaTab({
                                 {formatarCentavos(d.subtotal_centavos)}
                                 {sufixoCobertura(d.dias_cobertura, d.dias)}
                                 {sufixoTreinamento(d.dias_treinamento, d.dias)}
+                                {sufixoExtra(d.valor_extra_centavos)}
                               </div>
                             ))}
                             {feriasDele.map((f) => (

@@ -65,6 +65,10 @@ export interface NovoBilheteVT {
   nome: string
   valor_diario_centavos: number
   vigente_desde: string
+  /** Cartão que a pessoa precisa ter para o valor cobrir o trajeto (migration 165; null = não classificado). */
+  cartao_necessario: TipoCartaoVT | null
+  /** Migration 165: o bilhete depende de integração (2+ conduções numa tarifa só). */
+  usa_integracao: boolean
 }
 
 export interface NovoTrajetoVT {
@@ -77,6 +81,8 @@ export interface NovoTrajetoVT {
   /** Classificação informacional das cidades casa × posto (não precifica). */
   escopo: EscopoTrajetoVT
   precisao_origem: PrecisaoOrigemVT
+  /** Valor extra manual por dia em centavos (migration 166; 0/ausente = sem extra). */
+  valor_extra_centavos?: number
   observacao?: string | null
 }
 
@@ -261,46 +267,64 @@ export function useVt() {
    * Um trajeto por par colaborador × departamento: atualiza o par existente
    * (preservando status/confirmação) ou insere como 'sugerido'/'manual'.
    * Devolve o id do trajeto (null em caso de erro).
+   * Com `desconfirmar: true` (troca de bilhete em trajeto CONFIRMADO), o
+   * UPDATE também volta o status para 'sugerido' e zera a confirmação — o
+   * preço muda, então a linha volta a "A confirmar" e a carga não vale sem
+   * reconfirmação humana.
    */
-  const salvarTrajeto = useCallback(async (dados: NovoTrajetoVT): Promise<string | null> => {
-    const campos = {
-      bilhete_id: dados.bilhete_id,
-      bilhete_2_id: dados.bilhete_2_id || null,
-      escopo: dados.escopo,
-      precisao_origem: dados.precisao_origem,
-      observacao: dados.observacao ?? null,
-    }
-    const { data: atualizados, error: erroUpdate } = await supabase
-      .from('vt_trajetos')
-      .update(campos)
-      .eq('colaborador_id', dados.colaborador_id)
-      .eq('departamento_id', dados.departamento_id)
-      .select('id')
-    if (erroUpdate) {
-      console.error('Erro ao salvar trajeto do VT:', erroUpdate.message)
-      toast.error('Erro ao salvar o trajeto')
-      return null
-    }
-    if (atualizados && atualizados.length > 0) {
-      toast.success('Trajeto atualizado')
-      return atualizados[0].id
-    }
-    const { data: inseridos, error: erroInsert } = await supabase
-      .from('vt_trajetos')
-      .insert({ ...dados, ...campos })
-      .select('id')
-    if (erroInsert) {
-      console.error('Erro ao criar trajeto do VT:', erroInsert.message)
-      toast.error('Erro ao criar o trajeto')
-      return null
-    }
-    if (!inseridos || inseridos.length === 0) {
-      toast.error('Não foi possível criar: trajeto não gravado (permissão)')
-      return null
-    }
-    toast.success('Trajeto criado — confirme após conferir a rota')
-    return inseridos[0].id
-  }, [])
+  const salvarTrajeto = useCallback(
+    async (
+      dados: NovoTrajetoVT,
+      opcoes?: { desconfirmar?: boolean }
+    ): Promise<string | null> => {
+      const campos = {
+        bilhete_id: dados.bilhete_id,
+        bilhete_2_id: dados.bilhete_2_id || null,
+        escopo: dados.escopo,
+        precisao_origem: dados.precisao_origem,
+        valor_extra_centavos: dados.valor_extra_centavos ?? 0,
+        observacao: dados.observacao ?? null,
+        ...(opcoes?.desconfirmar
+          ? { status: 'sugerido' as const, confirmado_por: null, confirmado_em: null }
+          : {}),
+      }
+      const { data: atualizados, error: erroUpdate } = await supabase
+        .from('vt_trajetos')
+        .update(campos)
+        .eq('colaborador_id', dados.colaborador_id)
+        .eq('departamento_id', dados.departamento_id)
+        .select('id')
+      if (erroUpdate) {
+        console.error('Erro ao salvar trajeto do VT:', erroUpdate.message)
+        toast.error('Erro ao salvar o trajeto')
+        return null
+      }
+      if (atualizados && atualizados.length > 0) {
+        toast.success(
+          opcoes?.desconfirmar
+            ? 'Bilhete alterado — confirme o trajeto de novo para valer na carga'
+            : 'Trajeto atualizado'
+        )
+        return atualizados[0].id
+      }
+      const { data: inseridos, error: erroInsert } = await supabase
+        .from('vt_trajetos')
+        .insert({ ...dados, ...campos })
+        .select('id')
+      if (erroInsert) {
+        console.error('Erro ao criar trajeto do VT:', erroInsert.message)
+        toast.error('Erro ao criar o trajeto')
+        return null
+      }
+      if (!inseridos || inseridos.length === 0) {
+        toast.error('Não foi possível criar: trajeto não gravado (permissão)')
+        return null
+      }
+      toast.success('Trajeto criado — confirme após conferir a rota')
+      return inseridos[0].id
+    },
+    []
+  )
 
   /** Confirmação humana do trajeto (regra "importação nunca grava palpite"). */
   const confirmarTrajeto = useCallback(async (id: string, usuarioId: string): Promise<boolean> => {

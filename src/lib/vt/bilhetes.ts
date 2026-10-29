@@ -29,3 +29,19 @@ export function custoDiaBilhetesCentavos(b1: VtBilhete, b2: VtBilhete | null): n
 export function formatarCentavos(centavos: number): string {
   return (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
+
+/** "5,60" / "5.60" (R$) → centavos. Com vírgula, o ponto é milhar ("1.234,56"). */
+export function parseValorCentavos(texto: string): number | null {
+  const limpo = texto.trim()
+  if (!limpo) return null
+  const normalizado = limpo.includes(',') ? limpo.replace(/\./g, '').replace(',', '.') : limpo
+  const n = Number(normalizado)
+  if (!isFinite(n) || n < 0) return null
+  return Math.round(n * 100)
+}
+
+/** Centavos → texto de input ("200" → "2,00"; 0/null → ""). */
+export function textoValorReais(centavos: number | null | undefined): string {
+  if (!centavos) return ''
+  return (centavos / 100).toFixed(2).replace('.', ',')
+}
