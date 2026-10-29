@@ -4,7 +4,7 @@ import {
   escopoSugerido,
   paresDaEscala,
   avisoBilheteIncompativel,
-  avisoCartaoDoTrajeto,
+  avisoIntegracaoDoTrajeto,
   descricaoCartaoDosBilhetes,
   ROTULO_CARTAO_NECESSARIO,
 } from '@/lib/vt/trajetos'
@@ -278,46 +278,42 @@ describe('descricaoCartaoDosBilhetes', () => {
   })
 })
 
-describe('avisoCartaoDoTrajeto', () => {
-  it('bilhete e cartão da pessoa combinam: sem aviso', () => {
-    expect(avisoCartaoDoTrajeto([BUI], 'bui')).toBeNull()
-    expect(avisoCartaoDoTrajeto([BUI, BUI], 'bui')).toBeNull()
-    expect(avisoCartaoDoTrajeto([TREM], 'comum')).toBeNull()
+describe('avisoIntegracaoDoTrajeto (decisão da gestora, 28/10/2026 — o cartão é o mesmo; o que manda é a integração ativada)', () => {
+  it('trajeto sem integração: sem aviso, mesmo sem BU consultado', () => {
+    expect(avisoIntegracaoDoTrajeto([TREM], null, null)).toBeNull()
+    expect(avisoIntegracaoDoTrajeto([TREM], false, 'Não possui BU')).toBeNull()
+    expect(avisoIntegracaoDoTrajeto([], null, null)).toBeNull()
+    expect(avisoIntegracaoDoTrajeto([null, undefined], undefined, undefined)).toBeNull()
   })
 
-  it('trajeto pede BUI e a pessoa tem BUN: avisa a troca de cartão', () => {
-    expect(avisoCartaoDoTrajeto([BUI], 'bun')).toBe(
-      'Este trajeto pede o cartão BUI (intermunicipal); o cadastro diz que o dela é BUN (Niterói) — se for isso mesmo, providenciar o cartão BUI (intermunicipal), senão o valor não cobre o trajeto'
+  it('integração + BU ativado: sem aviso (caso Acacio — trajeto BU Niterói, cadastro BUI, BU ativado)', () => {
+    expect(avisoIntegracaoDoTrajeto([BUI], true, 'Ativado')).toBeNull()
+    expect(avisoIntegracaoDoTrajeto([BU_NITEROI], true, 'Ativado')).toBeNull()
+  })
+
+  it('integração + BU NÃO ativado: aviso com a situação do site', () => {
+    expect(avisoIntegracaoDoTrajeto([BUI], false, 'Suspenso Setrans')).toBe(
+      "Este trajeto depende de integração (Bilhete Único), mas no site da Riocard o BU dele consta como 'Suspenso Setrans' — sem a ativação, o valor carregado não cobre o trajeto. Providenciar a ativação ou trocar o bilhete."
     )
   })
 
-  it('trajeto pede cartão e a pessoa tem comum: "ela não tem cartão de integração"', () => {
-    const aviso = avisoCartaoDoTrajeto([JAE], 'comum')
-    expect(aviso).toContain('pede o cartão JAE (RJ)')
-    expect(aviso).toContain('ela não tem cartão de integração')
-  })
-
-  it('trajeto com 2 bilhetes: qualquer divergência avisa; todos combinando, não', () => {
-    expect(avisoCartaoDoTrajeto([BUI, BU_NITEROI], 'bui')).toContain('pede o cartão BUN (Niterói)')
-    expect(avisoCartaoDoTrajeto([BUI, BU_NITEROI], 'bun')).toContain('pede o cartão BUI (intermunicipal)')
-    expect(avisoCartaoDoTrajeto([BUI, BUI], 'bui')).toBeNull()
-  })
-
-  it('pessoa sem cartão cadastrado: aviso próprio', () => {
-    expect(avisoCartaoDoTrajeto([BUI], null)).toBe(
-      'Cadastro sem o tipo de cartão — confira qual cartão ela tem'
+  it('integração + BU não ativado sem situação: omite o trecho do meio', () => {
+    const aviso = avisoIntegracaoDoTrajeto([BUI], false, null)
+    expect(aviso).toBe(
+      'Este trajeto depende de integração (Bilhete Único) — sem a ativação, o valor carregado não cobre o trajeto. Providenciar a ativação ou trocar o bilhete.'
     )
+    expect(avisoIntegracaoDoTrajeto([BUI], false, '  ')).toBe(aviso)
   })
 
-  it('bilhete sem classificação (ou sem bilhete): sem aviso — catálogo ainda não classificado', () => {
-    expect(avisoCartaoDoTrajeto([{ nome: 'X', cartao_necessario: null, usa_integracao: false }], 'bun')).toBeNull()
-    expect(avisoCartaoDoTrajeto([], 'bun')).toBeNull()
-    expect(avisoCartaoDoTrajeto([null, undefined], null)).toBeNull()
+  it('integração + situação não consultada (null/undefined): aviso para conferir antes de gravar', () => {
+    expect(avisoIntegracaoDoTrajeto([BUI], null, null)).toBe(
+      'Este trajeto depende de integração (Bilhete Único) e a situação do BU dele ainda não foi consultada na Riocard — confira antes de gravar a carga.'
+    )
+    expect(avisoIntegracaoDoTrajeto([BU_NITEROI], undefined, undefined)).toContain('não foi consultada')
   })
 
-  it('bilhete sem classificação + classificado: vale o classificado', () => {
-    expect(
-      avisoCartaoDoTrajeto([{ nome: 'X', cartao_necessario: null, usa_integracao: false }, BUI], 'bun')
-    ).toContain('pede o cartão BUI (intermunicipal)')
+  it('com 2 bilhetes, basta um com integração para a regra valer', () => {
+    expect(avisoIntegracaoDoTrajeto([TREM, BUI], false, 'Suspenso Setrans')).toContain("'Suspenso Setrans'")
+    expect(avisoIntegracaoDoTrajeto([TREM, JAE], true, 'Ativado')).toBeNull()
   })
 })
