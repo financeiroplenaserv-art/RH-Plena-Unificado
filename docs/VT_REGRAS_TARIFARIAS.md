@@ -1,4 +1,4 @@
-# VT — Regras tarifárias oficiais (pesquisa na web, 28/10/2026)
+# VT — Regras tarifárias oficiais (pesquisa na web, 02/11/2026)
 
 > Referência para o motor de classificação de bilhetes do módulo VT.
 > As regras da operação (valores dos 9 bilhetes do catálogo `vt_bilhetes`,
@@ -22,7 +22,7 @@
 - **Integração: até 2 integrações em até 3 horas, desde que pelo menos 1 seja
   intermunicipal** — [VTA Benefícios](https://vtabeneficios.com.br/bilhete-unico-intermunicipal-bui-o-beneficio-que-barateia-o-trajeto-de-quem-cruza-cidades/).
 - **Teto de renda do benefício: R$ 3.205,20** (quem passa disso perde o BUI) —
-  mesma fonte. **Isto explica os 11 "Suspenso Setrans" da Riocard** (28/10/2026):
+  mesma fonte. **Isto explica os 11 "Suspenso Setrans" da Riocard** (02/11/2026):
   a Setrans suspende o BUI quando a renda declarada passa do teto ou o
   cadastro vence — por isso a reativação é na Setrans.
 - Ônibus + Metrô no RJ aceita Jaé **ou Riocard habilitado no BUI**, janela de

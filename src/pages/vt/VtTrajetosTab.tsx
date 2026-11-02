@@ -491,7 +491,7 @@ export function VtTrajetosTab({
                     [valores.b1, valores.b2].map((id) => bilhetes.find((b) => b.id === id)?.nome),
                   )
                   // Integração do trajeto × situação do BU na Riocard (decisão
-                  // da gestora, 28/10/2026 — migration 167): o cartão físico é o
+                  // da gestora, 02/11/2026 — migration 167): o cartão físico é o
                   // mesmo para todos; o que manda é a integração estar ATIVADA.
                   // Só aviso, nunca bloqueia.
                   const bilhetesDaLinha = [valores.b1, valores.b2].map((id) =>
@@ -499,7 +499,7 @@ export function VtTrajetosTab({
                   )
                   const descricaoCartao = descricaoCartaoDosBilhetes(bilhetesDaLinha)
                   const avisoCartao = avisoIntegracaoDoTrajeto(bilhetesDaLinha, linha.buAtivado, linha.buSituacao)
-                  // CEP × cidade cadastrada (28/10/2026 — casos Thiago e José
+                  // CEP × cidade cadastrada (02/11/2026 — casos Thiago e José
                   // Orlando: cidade errada no cadastro derruba o bilhete).
                   const avisoCep = avisoCidadeDivergeDoCep(linha.cidadeCasa, linha.cepCasa)
                   return (

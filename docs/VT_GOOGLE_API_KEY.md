@@ -1,6 +1,6 @@
 # VT — Como criar a chave do Google Cloud (Routes API)
 
-> Passo a passo para a gestora/ti (28/10/2026). Tempo estimado: 10 minutos.
+> Passo a passo para a gestora/ti (02/11/2026). Tempo estimado: 10 minutos.
 > A chave é **paga por uso, mas com franquia gratuita mensal** que cobre o
 > nosso volume (~250 trajetos na 1ª rodada, depois só trajetos novos) — o
 > custo esperado é **R$ 0**. Mesmo assim o Google exige cartão cadastrado.

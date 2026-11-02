@@ -1,8 +1,8 @@
 // Lógica pura do módulo VT — motor de classificação de bilhete a partir da
 // ROTA REAL (pernas da rota: modal × município × cruza divisa), não mais da
-// comparação cidade×cidade (que errou Joyce/Thiago/José Orlando — 28/10/2026).
+// comparação cidade×cidade (que errou Joyce/Thiago/José Orlando — 02/11/2026).
 //
-// Regras tarifárias oficiais pesquisadas em 28/10/2026 (docs/VT_REGRAS_TARIFARIAS.md):
+// Regras tarifárias oficiais pesquisadas em 02/11/2026 (docs/VT_REGRAS_TARIFARIAS.md):
 // - BUN Niterói: R$ 5,60/perna (VT empresa), integração de 2 conduções em 1h.
 // - BUI: R$ 9,40/perna, até 2 modais em 3h com pelo menos 1 intermunicipal;
 //   EXIGE cartão com integração ativada (fato da Riocard — migration 167) e

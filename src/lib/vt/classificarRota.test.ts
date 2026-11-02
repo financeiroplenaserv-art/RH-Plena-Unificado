@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BILHETE, classificarRota, type PernaRota } from './classificarRota'
 
-// Motor de classificação de bilhete pela ROTA REAL (28/10/2026). Os casos
+// Motor de classificação de bilhete pela ROTA REAL (02/11/2026). Os casos
 // usam as pessoas reais que motivaram a mudança: Joyce, Adalto, Thiago,
 // José Orlando (BU suspenso) e Marco Antônio.
 

@@ -171,7 +171,7 @@ export function VtCargaTab({
 
   // Ao voltar à aba sem nada carregado, restaura o rascunho do relatório
   // salvo no aparelho (27/10/2026 — sair da tela apagava o cálculo importado).
-  // Desde 28/10/2026 (migration 168) o cálculo também vira rascunho no BANCO.
+  // Desde 02/11/2026 (migration 168) o cálculo também vira rascunho no BANCO.
   const restaurouRef = useRef(false)
   useEffect(() => {
     if (restaurouRef.current || competencia || !dadosProntos) return
@@ -195,7 +195,7 @@ export function VtCargaTab({
     [colaboradores, feristaId]
   )
   /**
-   * Aviso na hora de registrar a cobertura (28/10/2026 — as 15 coberturas sem
+   * Aviso na hora de registrar a cobertura (02/11/2026 — as 15 coberturas sem
    * trajeto confirmado travaram a carga de novembro): ferista × posto sem
    * trajeto confirmado deixa a carga dele pendente; avisar já no dialog.
    */
@@ -299,7 +299,7 @@ export function VtCargaTab({
   }, [coberturaGeral])
   const [mostrarTodosGeral, setMostrarTodosGeral] = useState(false)
 
-  // Pendências (ex-portão): desde 28/10/2026 NÃO bloqueiam a gravação
+  // Pendências (ex-portão): desde 02/11/2026 NÃO bloqueiam a gravação
   // (decisão da gestora: "grave o que está pronto sem bloquear") — o banner
   // lista o que falta e a gravação confirma só quem está pronto; os demais
   // ficam como rascunho no banco até a pendência ser resolvida.

@@ -1,6 +1,6 @@
 -- Migração 168: VT — rascunho da carga no banco + auditoria das tabelas vt_*
 --
--- Decisão da gestora em 28/10/2026, após o incidente de 25/10/2026: a mesa
+-- Decisão da gestora em 02/11/2026, após o incidente de 25/10/2026: a mesa
 -- calculou a carga de novembro/2026 e NADA foi gravado (vt_cargas ficou vazia)
 -- porque o cálculo só existia na tela até o "Gravar carga" — e o botão estava
 -- bloqueado pelo portão de pendências. Duas mudanças de desenho aprovadas:

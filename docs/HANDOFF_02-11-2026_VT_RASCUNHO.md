@@ -1,6 +1,6 @@
-# HANDOFF 28/10/2026 (noite) — VT: rascunho no banco, fim do portão, auditoria, caso Joyce
+# HANDOFF 02/11/2026 — VT: rascunho no banco, fim do portão, auditoria, caso Joyce
 
-> Escrito para o próximo agente. Sessão da noite de 28/10/2026 (continuação do
+> Escrito para o próximo agente. Sessão de 02/11/2026 (continuação do
 > handoff da auditoria). Working copy na branch `vt-fase1`.
 
 ## 1. O pedido da gestora
@@ -23,7 +23,7 @@ sem bloquear**." + reclamação do Google roteirizando mal e do caso Joyce
 ## 3. O que foi implementado (migration 168 + código)
 
 - **Migration 168** (`168_vt_carga_rascunho_e_auditoria.sql`, APLICADA via
-  Management API em 28/10/2026; backup `dados-locais/backup_vt_168_2026-10-28/`;
+  Management API em 02/11/2026; backup `dados-locais/backup_vt_168_2026-10-28/`;
   testada em transação desfeita): `vt_cargas.status` ('rascunho'/'gravada',
   default 'rascunho') + `confirmada_em`/`confirmada_por` + triggers
   `auditar_operacao` nas 5 tabelas vt_*.

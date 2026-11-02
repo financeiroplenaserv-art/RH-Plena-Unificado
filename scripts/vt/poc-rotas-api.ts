@@ -1,5 +1,5 @@
 /**
- * POC — Google Routes API × classificador de bilhetes (VT, 28/10/2026).
+ * POC — Google Routes API × classificador de bilhetes (VT, 02/11/2026).
  *
  * Roteiriza os trajetos de amostra pela Routes API (modo TRANSIT), converte as
  * pernas para o formato neutro e classifica o bilhete com o motor de regras
@@ -33,7 +33,8 @@ carregarEnv('.env')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  // O .env local usa SUPABASE_SERVICE_KEY; aceita também o nome do AGENTS.md.
+  (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY)!
 )
 const API_KEY = process.env.GOOGLE_MAPS_API_KEY
 if (!API_KEY) {
@@ -78,7 +79,33 @@ interface TransitStepGoogle {
   }
 }
 
+/**
+ * Empresa operadora da linha → escopo da perna (POC 02/11/2026 — caso 516M:
+ * o Google sugere linha intermunicipal no meio de trajeto "municipal" e a
+ * perna cobra tarifa intermunicipal; classificar pela cidade da casa errou).
+ * Empresas intermunicipais conhecidas da região (Rio Ita, Auto Litoral,
+ * Nossa Senhora da Penha etc. operam SG/Maricá/Itaboraí ↔ Niterói/RJ).
+ * Desconhecida: null — a perna vai como está e o relatório marca "revisar".
+ */
+const EMPRESAS_INTERMUNICIPAIS = /semove|rio ita|auto litoral|litoral rio|1001|nossa senhora|santo antonio|inbornsa|esperan[cç]a|intermunicipal/i
+const EMPRESAS_MUNICIPAIS_NITEROI = /prefeitura de niter/i
+const EMPRESAS_MUNICIPAIS_RIO = /prefeitura (do|de) rio|riocard|ja[eé]/i
+
+function escopoDaPerna(agencia: string | undefined): { intermunicipal: boolean | null; municipio: string } {
+  if (!agencia) return { intermunicipal: null, municipio: '' }
+  if (EMPRESAS_INTERMUNICIPAIS.test(agencia)) return { intermunicipal: true, municipio: '' }
+  if (EMPRESAS_MUNICIPAIS_NITEROI.test(agencia)) return { intermunicipal: false, municipio: 'Niterói' }
+  if (EMPRESAS_MUNICIPAIS_RIO.test(agencia)) return { intermunicipal: false, municipio: 'Rio de Janeiro' }
+  return { intermunicipal: null, municipio: '' }
+}
+
 async function rotear(origem: string, destino: string) {
+  // Horário fixo (segunda 06:00 de Brasília): a malha de transporte muda com
+  // o horário — sem isso, cada rodada da POC traz alternativas diferentes.
+  const agora = new Date()
+  const diasAteSegunda = (8 - agora.getDay()) % 7 || 7
+  const segunda = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + diasAteSegunda, 6, 0, 0)
+  const partida = new Date(segunda.getTime() - 3 * 60 * 60 * 1000) // 06:00 BRT = 09:00 UTC
   const resp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
     method: 'POST',
     headers: {
@@ -91,7 +118,8 @@ async function rotear(origem: string, destino: string) {
       origin: { address: origem },
       destination: { address: destino },
       travelMode: 'TRANSIT',
-      computeAlternativeRoutes: false,
+      departureTime: partida.toISOString(),
+      computeAlternativeRoutes: true,
     }),
   })
   if (!resp.ok) {
@@ -125,7 +153,7 @@ async function main() {
   // Amostra: ids explícitos ou os N primeiros trajetos confirmados.
   let query = supabase
     .from('vt_trajetos')
-    .select('id, status, escopo, bilhete_id, colaborador_id, departamento_id, colaboradores(nome_completo, cidade, endereco, cep, vt_bu_ativado, vt_bu_situacao), departamentos(nome_curto, nome, cidade, endereco, cep), vt_bilhetes(nome)')
+    .select('id, status, escopo, bilhete_id, colaborador_id, departamento_id, colaboradores(nome_completo, cidade, endereco, cep, vt_bu_ativado, vt_bu_situacao), departamentos(nome_curto, nome, cidade, endereco, cep), vt_bilhetes!vt_trajetos_bilhete_id_fkey(nome)')
     .eq('status', 'confirmado')
   if (IDS) query = query.in('id', IDS)
   else query = query.limit(N)
@@ -142,24 +170,47 @@ async function main() {
     const destino = textoDestinoPosto(d)
     try {
       const rota = await rotear(origem, destino)
-      const steps: TransitStepGoogle[] = rota?.routes?.[0]?.legs?.[0]?.steps ?? []
-      const pernas: PernaRota[] = steps
-        .filter((s) => s.travelMode === 'TRANSIT' && s.transitDetails)
-        .map((s) => ({
-          modal: modalDoVeiculo(s.transitDetails?.transitLine?.vehicle?.type),
-          // O Google não informa o município da linha — na POC usamos a cidade
-          // de origem do trajeto; intermunicipal = casa e posto em cidades
-          // diferentes (aproximação assumida, conferida no relatório).
-          municipio: c?.cidade ?? '',
-          intermunicipal: norm(c?.cidade) !== norm(d?.cidade),
-        }))
+      // Transporte público muda com o horário: classificamos pela UNIÃO das
+      // alternativas devolvidas (dedup por linha), não só pela 1ª rota.
+      const rotas: { legs?: { steps?: TransitStepGoogle[] }[] }[] = rota?.routes ?? []
+      const steps: TransitStepGoogle[] = rotas.flatMap((r) => r.legs?.[0]?.steps ?? [])
+      const cidadesDiferentes = norm(c?.cidade) !== norm(d?.cidade)
+      let agenciasDesconhecidas = 0
+      const pernasVistas = new Set<string>()
+      const pernas: PernaRota[] = []
+      for (const s of steps) {
+        if (s.travelMode !== 'TRANSIT' || !s.transitDetails) continue
+        const l = s.transitDetails.transitLine
+        const nome = l?.nameShort ?? l?.name ?? '?'
+        if (pernasVistas.has(nome)) continue
+        pernasVistas.add(nome)
+        const agencia = l?.agencies?.[0]?.name
+        const escopo = escopoDaPerna(agencia)
+        if (escopo.intermunicipal === null) agenciasDesconhecidas++
+        pernas.push({
+          modal: modalDoVeiculo(l?.vehicle?.type),
+          // Escopo da perna pela EMPRESA operadora (caso 516M, 02/11/2026:
+          // linha intermunicipal no meio de trajeto "municipal" cobra
+          // intermunicipal). Empresa desconhecida: cai para casa×posto.
+          municipio: escopo.municipio || c?.cidade || '',
+          intermunicipal: escopo.intermunicipal ?? cidadesDiferentes,
+        })
+      }
       const cls = classificarRota(pernas, { buAtivado: c?.vt_bu_ativado ?? null, buSituacao: c?.vt_bu_situacao })
+      const vistosTexto = new Set<string>()
       const linhasTexto = steps
         .filter((s) => s.travelMode === 'TRANSIT')
-        .map((s) => s.transitDetails?.transitLine?.nameShort ?? s.transitDetails?.transitLine?.name ?? '?')
+        .map((s) => {
+          const l = s.transitDetails?.transitLine
+          const nome = l?.nameShort ?? l?.name ?? '?'
+          const agencia = l?.agencies?.[0]?.name
+          return agencia ? `${nome} [${agencia}]` : nome
+        })
+        .filter((texto) => (vistosTexto.has(texto) ? false : (vistosTexto.add(texto), true)))
       const bate = classificacaoBate(bilheteAtual, cls.bilhetes) ? 'OK' : 'DIVERGE'
       console.log(`${bate} | ${c?.nome_completo} | atual: ${bilheteAtual} | sugerido: ${cls.bilhetes.join(' + ') || '—'} (${cls.confianca})`)
       console.log(`      pernas: ${linhasTexto.join(' → ') || 'sem transporte público'}`)
+      if (agenciasDesconhecidas > 0) console.log(`      atenção: ${agenciasDesconhecidas} perna(s) com empresa fora da tabela — escopo inferido por casa×posto`)
       for (const a of cls.avisos) console.log(`      aviso: ${a}`)
       linhas.push(
         [bate, c?.nome_completo, origem, destino, bilheteAtual, cls.bilhetes.join(' + '), cls.confianca, linhasTexto.join(' → '), cls.avisos.join(' | ')].join(';')

@@ -88,7 +88,7 @@ export function ufDoCep(cep: string | null | undefined): string | null {
 
 // Faixas de CEP por município da nossa região de operação (Correios) —
 // determinístico, não é palpite. Fora dessas faixas: null (sem aviso).
-// Caso real (28/10/2026): Thiago Lontra cadastrado em "Niterói" com endereço
+// Caso real (02/11/2026): Thiago Lontra cadastrado em "Niterói" com endereço
 // no Jardim Catarina (CEP 244xx = São Gonçalo) e José Orlando Targino idem
 // (Tribobó, 24750) — a cidade errada derrubou o bilhete no lote de 24/10.
 const FAIXAS_CEP_CIDADE: Array<[number, number, string]> = [

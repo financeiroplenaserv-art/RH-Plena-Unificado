@@ -421,7 +421,7 @@ export function prontaParaGravar(r: {
 /**
  * Situação do que está no banco para a competência (migration 168): o cálculo
  * é salvo como rascunho logo após a importação e o "Gravar carga" confirma
- * quem está pronto (sem portão tudo-ou-nada — decisão da gestora, 28/10/2026).
+ * quem está pronto (sem portão tudo-ou-nada — decisão da gestora, 02/11/2026).
  * Compara CONJUNTOS, não contagens (contagens iguais com pessoas diferentes
  * significam cálculo mudado).
  * - nao_gravada: nada no banco (nem rascunho) — o cálculo existe só na tela.

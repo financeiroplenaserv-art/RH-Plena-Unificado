@@ -154,7 +154,7 @@ describe('linkGoogleMapsTransito', () => {
   })
 })
 
-describe('cidadeDoCep / avisoCidadeDivergeDoCep (CEP × cidade — casos Thiago e José Orlando, 28/10/2026)', () => {
+describe('cidadeDoCep / avisoCidadeDivergeDoCep (CEP × cidade — casos Thiago e José Orlando, 02/11/2026)', () => {
   it('município pelas faixas da região de operação', () => {
     expect(cidadeDoCep('24315-060')).toBe('NITEROI') // Ititioca
     expect(cidadeDoCep('24365-278')).toBe('NITEROI') // São Francisco

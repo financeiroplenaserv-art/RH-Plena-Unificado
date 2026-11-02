@@ -44,7 +44,7 @@ import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 // coberto, inclusive em folga/vazio do relatório dele (o Flit não mostra o
 // destino — por isso o registro existe). Posto sem trajeto confirmado e dia
 // sem posto identificado NUNCA ganham custo inventado: aparecem como pendência
-// e ficam fora da confirmação (desde 28/10/2026 a pendência NÃO bloqueia os
+// e ficam fora da confirmação (desde 02/11/2026 a pendência NÃO bloqueia os
 // demais — "grava o que está pronto", decisão da gestora). O cálculo é salvo
 // como RASCUNHO no banco logo após a importação (migration 168) e o "Gravar
 // carga" confirma (status 'gravada') quem está pronto.
@@ -218,7 +218,7 @@ export function useVtCarga() {
 
   /**
    * Salva o cálculo como RASCUNHO no banco (migration 168 — decisão da
-   * gestora, 28/10/2026; incidente de 25/10: o cálculo só existia na tela e
+   * gestora, 02/11/2026; incidente de 25/10: o cálculo só existia na tela e
    * se perdeu). O trabalho não depende mais da aba aberta nem do aparelho.
    * Linha já 'gravada' NUNCA é rebaixada nem sobrescrita pelo rascunho;
    * rascunho de quem saiu do cálculo é apagado. Optante fora do relatório
@@ -625,7 +625,7 @@ export function useVtCarga() {
   /**
    * CONFIRMA a carga: upsert por (colaborador_id, competencia) com status
    * 'gravada' + confirmada_em/por (migration 168). Sem portão tudo-ou-nada
-   * (decisão da gestora, 28/10/2026): grava quem passa no filtro único
+   * (decisão da gestora, 02/11/2026): grava quem passa no filtro único
    * `prontaParaGravar` (sem trajeto pendente, sem dia sem posto identificado
    * e presente no relatório); os demais ficam como rascunho até resolver.
    */
