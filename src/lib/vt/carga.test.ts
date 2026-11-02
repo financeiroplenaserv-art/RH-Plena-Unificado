@@ -505,20 +505,28 @@ describe('resolverPostoDoRelatorio (texto antigo do Flit → linha ATIVA)', () =
   })
 })
 
-describe('situacaoGravacaoCarga (banner "a carga está gravada?" — incidente de 25/10/2026)', () => {
-  it('nada no banco = não gravada, mesmo com cálculo pronto', () => {
-    expect(situacaoGravacaoCarga([], ['a', 'b'])).toBe('nao_gravada')
-    expect(situacaoGravacaoCarga([], [])).toBe('nao_gravada')
+describe('situacaoGravacaoCarga (banner "a carga está gravada?" — incidente de 25/10/2026; rascunho da migration 168)', () => {
+  it('nada no banco (nem rascunho) = não gravada, mesmo com cálculo pronto', () => {
+    expect(situacaoGravacaoCarga([], [], ['a', 'b'])).toBe('nao_gravada')
+    expect(situacaoGravacaoCarga([], [], [])).toBe('nao_gravada')
   })
 
-  it('mesmo conjunto de colaboradores = gravada (ordem não importa)', () => {
-    expect(situacaoGravacaoCarga(['a', 'b', 'c'], ['c', 'a', 'b'])).toBe('gravada')
+  it('só rascunho no banco = rascunho (trabalho salvo, nada confirmado)', () => {
+    expect(situacaoGravacaoCarga([], ['a', 'b'], ['a', 'b'])).toBe('rascunho')
+    expect(situacaoGravacaoCarga([], ['a'], ['a', 'b'])).toBe('rascunho')
   })
 
-  it('conjuntos diferentes = parcial, mesmo com a MESMA contagem', () => {
-    expect(situacaoGravacaoCarga(['a', 'b'], ['a', 'c'])).toBe('parcial')
-    expect(situacaoGravacaoCarga(['a'], ['a', 'b'])).toBe('parcial')
-    expect(situacaoGravacaoCarga(['a', 'b'], ['a'])).toBe('parcial')
+  it('todo o cálculo confirmado = gravada (ordem não importa)', () => {
+    expect(situacaoGravacaoCarga(['a', 'b', 'c'], [], ['c', 'a', 'b'])).toBe('gravada')
+  })
+
+  it('parte confirmada = parcial, mesmo com a MESMA contagem', () => {
+    expect(situacaoGravacaoCarga(['a', 'b'], ['c'], ['a', 'c'])).toBe('parcial')
+    expect(situacaoGravacaoCarga(['a'], ['b'], ['a', 'b'])).toBe('parcial')
+  })
+
+  it('gravada a mais que saiu do cálculo não atrapalha: vale o cálculo atual', () => {
+    expect(situacaoGravacaoCarga(['a', 'b'], [], ['a'])).toBe('gravada')
   })
 })
 

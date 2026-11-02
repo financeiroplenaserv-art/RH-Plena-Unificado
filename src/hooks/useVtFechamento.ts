@@ -86,11 +86,12 @@ export function useVtFechamento() {
   const [loading, setLoading] = useState(false)
   const [processando, setProcessando] = useState(false)
 
-  /** Competências que têm carga gravada (mais recente primeiro). */
+  /** Competências que têm carga GRAVADA (confirmada — migration 168), mais recente primeiro. */
   const listarCompetencias = useCallback(async (): Promise<void> => {
     const { data, error } = await supabase
       .from('vt_cargas')
       .select('competencia')
+      .eq('status', 'gravada')
       .order('competencia', { ascending: false })
     if (error) {
       console.error('Erro ao listar competências de VT:', error.message)
@@ -105,7 +106,7 @@ export function useVtFechamento() {
     setLoading(true)
     setPrevias([])
     const [{ data: linhas, error: erroCargas }, { data: fechados }] = await Promise.all([
-      supabase.from('vt_cargas').select('*').eq('competencia', competencia),
+      supabase.from('vt_cargas').select('*').eq('competencia', competencia).eq('status', 'gravada'),
       supabase.from('vt_fechamentos').select('colaborador_id, updated_at').eq('competencia', competencia),
     ])
     if (erroCargas) {
