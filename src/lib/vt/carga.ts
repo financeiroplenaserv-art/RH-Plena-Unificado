@@ -401,14 +401,14 @@ export function valorDaCarga(necessidadeCentavos: number, ajusteCentavos: number
 }
 
 /** Situação da gravação da carga no banco (banner da aba Carga). */
-export type SituacaoGravacaoCarga = 'gravada' | 'parcial' | 'nao_gravada'
+export type SituacaoGravacaoCarga = 'gravada' | 'parcial' | 'rascunho' | 'nao_gravada'
 
 /**
  * Filtro ÚNICO de "pronto para gravar" (usado pelo gravarCargas, pela tela e
  * pelo Excel — nunca divergir): sem trajeto pendente, sem dia sem posto
  * identificado e presente no relatório (!semEscala). Com o !semEscala, o
- * optante fora do relatório deixa de gravar carga 0 — o portão já bloqueia;
- * aqui é defesa em profundidade.
+ * optante fora do relatório deixa de gravar carga 0 — a lista de pendências
+ * já o sinaliza; aqui é defesa em profundidade.
  */
 export function prontaParaGravar(r: {
   pendentes: readonly unknown[]
@@ -419,20 +419,24 @@ export function prontaParaGravar(r: {
 }
 
 /**
- * Compara o CONJUNTO do que está gravado no banco com o do cálculo atual da
- * tela (não as contagens — contagens iguais com pessoas diferentes significam
- * cálculo mudado). A carga calculada existe só na memória da aba até o
- * "Gravar carga" — incidente de 25/10/2026: o operador saiu da tela achando
- * que a carga estava salva e o banco ficou vazio. `idsProntos` usa o MESMO
- * filtro do gravarCargas (`prontaParaGravar`).
+ * Situação do que está no banco para a competência (migration 168): o cálculo
+ * é salvo como rascunho logo após a importação e o "Gravar carga" confirma
+ * quem está pronto (sem portão tudo-ou-nada — decisão da gestora, 28/10/2026).
+ * Compara CONJUNTOS, não contagens (contagens iguais com pessoas diferentes
+ * significam cálculo mudado).
+ * - nao_gravada: nada no banco (nem rascunho) — o cálculo existe só na tela.
+ * - rascunho: há rascunho salvo, mas ninguém confirmado ainda.
+ * - parcial: parte confirmada, parte pendente (rascunho ou fora do banco).
+ * - gravada: todo mundo do cálculo atual está confirmado.
  */
 export function situacaoGravacaoCarga(
   idsGravados: readonly string[],
-  idsProntos: readonly string[]
+  idsRascunho: readonly string[],
+  idsCalculados: readonly string[]
 ): SituacaoGravacaoCarga {
-  if (idsGravados.length === 0) return 'nao_gravada'
+  if (idsGravados.length === 0 && idsRascunho.length === 0) return 'nao_gravada'
   const gravados = new Set(idsGravados)
-  const conjuntosIguais =
-    gravados.size === idsProntos.length && idsProntos.every((id) => gravados.has(id))
-  return conjuntosIguais ? 'gravada' : 'parcial'
+  const pendentes = idsCalculados.filter((id) => !gravados.has(id)).length
+  if (pendentes === 0 && idsCalculados.length > 0) return 'gravada'
+  return idsGravados.length > 0 ? 'parcial' : 'rascunho'
 }

@@ -44,7 +44,10 @@ import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 // coberto, inclusive em folga/vazio do relatório dele (o Flit não mostra o
 // destino — por isso o registro existe). Posto sem trajeto confirmado e dia
 // sem posto identificado NUNCA ganham custo inventado: aparecem como pendência
-// e seguram a gravação (portão na tela).
+// e ficam fora da confirmação (desde 28/10/2026 a pendência NÃO bloqueia os
+// demais — "grava o que está pronto", decisão da gestora). O cálculo é salvo
+// como RASCUNHO no banco logo após a importação (migration 168) e o "Gravar
+// carga" confirma (status 'gravada') quem está pronto.
 
 export interface ResultadoCargaColaborador {
   colaborador_id: string
@@ -92,12 +95,16 @@ export interface ApoioCarga {
 export interface GravacaoCarga {
   /** Competência verificada — a tela só mostra o banner se bater com a atual. */
   competencia: string
-  /** Quantas linhas de vt_cargas existem para a competência. */
+  /** Linhas de vt_cargas da competência (rascunho + gravada). */
   total: number
-  /** Colaboradores gravados — o banner compara o CONJUNTO com o cálculo. */
-  ids: string[]
+  /** Confirmadas pelo operador (status 'gravada') — migration 168. */
+  idsGravados: string[]
+  /** Salvas automaticamente após o cálculo, ainda não confirmadas. */
+  idsRascunho: string[]
   /** gerada_em mais recente (ISO) — null se a tabela não tem a data. */
   ultimaEm: string | null
+  /** confirmada_em mais recente (ISO) — null se nada confirmado ainda. */
+  ultimaConfirmadaEm: string | null
 }
 
 /**
@@ -175,30 +182,121 @@ export function useVtCarga() {
   const verificarGravacao = useCallback(async (comp: string) => {
     const { data, error } = await supabase
       .from('vt_cargas')
-      .select('colaborador_id, gerada_em')
+      .select('colaborador_id, gerada_em, status, confirmada_em')
       .eq('competencia', comp)
     if (error) {
       console.error('Erro ao verificar a carga gravada:', error.message)
       return
     }
-    const linhas = (data ?? []) as { colaborador_id: string; gerada_em: string | null }[]
+    const linhas = (data ?? []) as {
+      colaborador_id: string
+      gerada_em: string | null
+      status: string | null
+      confirmada_em: string | null
+    }[]
     const ultima =
       linhas
         .map((l) => l.gerada_em)
         .filter((e): e is string => !!e)
         .sort()
         .pop() ?? null
-    setGravacao({ competencia: comp, total: linhas.length, ids: linhas.map((l) => l.colaborador_id), ultimaEm: ultima })
+    const ultimaConfirmada =
+      linhas
+        .map((l) => l.confirmada_em)
+        .filter((e): e is string => !!e)
+        .sort()
+        .pop() ?? null
+    setGravacao({
+      competencia: comp,
+      total: linhas.length,
+      idsGravados: linhas.filter((l) => l.status === 'gravada').map((l) => l.colaborador_id),
+      idsRascunho: linhas.filter((l) => l.status !== 'gravada').map((l) => l.colaborador_id),
+      ultimaEm: ultima,
+      ultimaConfirmadaEm: ultimaConfirmada,
+    })
   }, [])
+
+  /**
+   * Salva o cálculo como RASCUNHO no banco (migration 168 — decisão da
+   * gestora, 28/10/2026; incidente de 25/10: o cálculo só existia na tela e
+   * se perdeu). O trabalho não depende mais da aba aberta nem do aparelho.
+   * Linha já 'gravada' NUNCA é rebaixada nem sobrescrita pelo rascunho;
+   * rascunho de quem saiu do cálculo é apagado. Optante fora do relatório
+   * (semEscala) não tem o que salvar. Best-effort: falha avisa por toast,
+   * mas não derruba o cálculo na tela.
+   */
+  const salvarRascunho = useCallback(
+    async (comp: string, lista: ResultadoCargaColaborador[], usuarioId: string): Promise<void> => {
+      const salvaveis = lista.filter((r) => !r.semEscala)
+      try {
+        // Rascunho de quem saiu do cálculo (ex.: deixou de ser optante) é lixo.
+        let limpeza = supabase
+          .from('vt_cargas')
+          .delete()
+          .eq('competencia', comp)
+          .eq('status', 'rascunho')
+        limpeza =
+          salvaveis.length > 0
+            ? limpeza.not('colaborador_id', 'in', `(${salvaveis.map((r) => r.colaborador_id).join(',')})`)
+            : limpeza
+        const { error: erroLimpeza } = await limpeza
+        if (erroLimpeza) console.error('Erro ao limpar rascunhos antigos da carga:', erroLimpeza.message)
+
+        // Quem já está 'gravada' não é tocado — o rascunho nunca rebaixa.
+        const { data: existentes, error: erroLeitura } = await supabase
+          .from('vt_cargas')
+          .select('colaborador_id, status')
+          .eq('competencia', comp)
+        if (erroLeitura) throw erroLeitura
+        const gravados = new Set(
+          ((existentes ?? []) as { colaborador_id: string; status: string }[])
+            .filter((l) => l.status === 'gravada')
+            .map((l) => l.colaborador_id)
+        )
+        const linhas = salvaveis
+          .filter((r) => !gravados.has(r.colaborador_id))
+          .map((r) => ({
+            colaborador_id: r.colaborador_id,
+            competencia: comp,
+            detalhe: r.detalhe,
+            necessidade_centavos: r.necessidade_centavos,
+            ajuste_centavos: r.ajuste_centavos,
+            valor_centavos: r.valor_centavos,
+            status: 'rascunho' as const,
+            gerada_por: usuarioId,
+            gerada_em: new Date().toISOString(),
+          }))
+        if (linhas.length === 0) return
+        const { data, error } = await supabase
+          .from('vt_cargas')
+          .upsert(linhas, { onConflict: 'colaborador_id,competencia' })
+          .select('id')
+        if (error) throw error
+        if ((data?.length ?? 0) !== linhas.length) {
+          toast.warning(`O rascunho salvou só ${data?.length ?? 0} de ${linhas.length} (permissão) — confira antes de sair`)
+        }
+      } catch (err) {
+        console.error('Erro ao salvar o rascunho da carga:', err)
+        toast.warning('O cálculo está na tela, mas o rascunho não foi salvo no sistema — não saia sem gravar')
+      }
+    },
+    []
+  )
 
   /**
    * Pipeline da carga sobre as pessoas JÁ parseadas do relatório — usado pela
    * importação do arquivo e pela restauração do rascunho (27/10/2026: sair da
    * aba perdia tudo). Devolve a competência ('AAAA-MM') no sucesso, null na
-   * falha. Não liga o loading — quem chama gerencia.
+   * falha. Não liga o loading — quem chama gerencia. Com `usuarioId`, salva o
+   * rascunho no banco ao final (migration 168).
    */
   const processarPessoas = useCallback(
-    async (pessoas: PessoaRelatorio[], nomeArq: string | null, apoio: ApoioCarga): Promise<string | null> => {
+    async (
+      pessoas: PessoaRelatorio[],
+      nomeArq: string | null,
+      apoio: ApoioCarga,
+      usuarioId?: string
+    ): Promise<string | null> => {
       // Auditoria C1: os estados só são PUBLICADOS no final, no sucesso —
       // antes, uma query que falhava no meio deixava os resultados do
       // relatório ANTERIOR com a competência nova (o "Gravar carga" gravaria
@@ -425,6 +523,9 @@ export function useVtCarga() {
         setCoberturaGeral(todos)
         setResultados(lista)
         setLoading(false)
+        // Rascunho no banco ANTES da verificação — o banner já reflete o
+        // rascunho salvo (migration 168: o trabalho não fica só na tela).
+        if (usuarioId) await salvarRascunho(comp, lista, usuarioId)
         await verificarGravacao(comp)
         return comp
       } catch (err) {
@@ -434,7 +535,7 @@ export function useVtCarga() {
         return null
       }
     },
-    [limparEstado, verificarGravacao]
+    [limparEstado, verificarGravacao, salvarRascunho]
   )
 
   /**
@@ -444,18 +545,18 @@ export function useVtCarga() {
    * senão o portão destrava e os valores VELHOS da tabela são gravados).
    */
   const reprocessar = useCallback(
-    async (apoio: ApoioCarga): Promise<boolean> => {
+    async (apoio: ApoioCarga, usuarioId?: string): Promise<boolean> => {
       const pessoas = pessoasRef.current
       if (!pessoas) return false
       setLoading(true)
-      const comp = await processarPessoas(pessoas, nomeArquivoRef.current, apoio)
+      const comp = await processarPessoas(pessoas, nomeArquivoRef.current, apoio, usuarioId)
       return comp != null
     },
     [processarPessoas]
   )
 
   const importarRelatorio = useCallback(
-    async (arquivo: File, apoio: ApoioCarga): Promise<boolean> => {
+    async (arquivo: File, apoio: ApoioCarga, usuarioId?: string): Promise<boolean> => {
       setLoading(true)
       try {
         const XLSX = await import('@e965/xlsx')
@@ -464,7 +565,7 @@ export function useVtCarga() {
         const planilha = workbook.Sheets['data'] ?? workbook.Sheets[workbook.SheetNames[0]]
         const linhasBrutas = XLSX.utils.sheet_to_json(planilha, { header: 1, defval: '' }) as unknown[][]
         const pessoas = parseGestaoEscalas(linhasBrutas)
-        const comp = await processarPessoas(pessoas, arquivo.name, apoio)
+        const comp = await processarPessoas(pessoas, arquivo.name, apoio, usuarioId)
         if (comp) {
           try {
             localStorage.setItem(
@@ -493,7 +594,7 @@ export function useVtCarga() {
    * e fechamentos novos entram sozinhos. Rascunho inválido é descartado.
    */
   const restaurarRascunho = useCallback(
-    async (apoio: ApoioCarga): Promise<boolean> => {
+    async (apoio: ApoioCarga, usuarioId?: string): Promise<boolean> => {
       let rascunho: RascunhoCargaVt | null = null
       try {
         const texto = localStorage.getItem(CHAVE_RASCUNHO_CARGA_VT)
@@ -510,7 +611,7 @@ export function useVtCarga() {
         return false
       }
       setLoading(true)
-      const comp = await processarPessoas(rascunho.pessoas, rascunho.nomeArquivo, apoio)
+      const comp = await processarPessoas(rascunho.pessoas, rascunho.nomeArquivo, apoio, usuarioId)
       if (comp) {
         toast.info(
           `Relatório "${rascunho.nomeArquivo ?? 'importado antes'}" restaurado — cálculo refeito com os dados atuais`
@@ -522,10 +623,11 @@ export function useVtCarga() {
   )
 
   /**
-   * Upsert por (colaborador_id, competencia) — regera a carga do mês sem
-   * duplicar. Só grava quem passa no filtro único `prontaParaGravar` (sem
-   * trajeto pendente, sem dia sem posto identificado e presente no
-   * relatório); os demais ficam de fora e são contados.
+   * CONFIRMA a carga: upsert por (colaborador_id, competencia) com status
+   * 'gravada' + confirmada_em/por (migration 168). Sem portão tudo-ou-nada
+   * (decisão da gestora, 28/10/2026): grava quem passa no filtro único
+   * `prontaParaGravar` (sem trajeto pendente, sem dia sem posto identificado
+   * e presente no relatório); os demais ficam como rascunho até resolver.
    */
   const gravarCargas = useCallback(
     async (
@@ -538,6 +640,7 @@ export function useVtCarga() {
       if (prontos.length === 0) {
         return { gravadas: 0, puladas }
       }
+      const agora = new Date().toISOString()
       const linhas = prontos.map((r) => ({
         colaborador_id: r.colaborador_id,
         competencia,
@@ -545,10 +648,13 @@ export function useVtCarga() {
         necessidade_centavos: r.necessidade_centavos,
         ajuste_centavos: r.ajuste_centavos,
         valor_centavos: r.valor_centavos,
+        status: 'gravada' as const,
         gerada_por: usuarioId,
         // Carimbo novo a cada regravação — o DEFAULT now() da coluna só vale
         // no INSERT; no upsert ele ficaria com a data da 1ª gravação.
-        gerada_em: new Date().toISOString(),
+        gerada_em: agora,
+        confirmada_em: agora,
+        confirmada_por: usuarioId,
       }))
       const { data, error } = await supabase
         .from('vt_cargas')

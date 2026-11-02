@@ -26,7 +26,7 @@ import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { formatarData, formatarDataHora } from '@/lib/utils'
-import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
+import { nomeCurtoDepartamentoFuzzy, idsGrupoDepartamento } from '@/lib/departamentos'
 import { destinoFerias, prontaParaGravar, rotuloCompetencia, situacaoGravacaoCarga, type FeriasBloco } from '@/lib/vt/carga'
 import { ROTULO_GRUPO_FERISTA, sobreposicoesDeCobertura } from '@/lib/vt/feristas'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
@@ -171,12 +171,13 @@ export function VtCargaTab({
 
   // Ao voltar à aba sem nada carregado, restaura o rascunho do relatório
   // salvo no aparelho (27/10/2026 — sair da tela apagava o cálculo importado).
+  // Desde 28/10/2026 (migration 168) o cálculo também vira rascunho no BANCO.
   const restaurouRef = useRef(false)
   useEffect(() => {
     if (restaurouRef.current || competencia || !dadosProntos) return
     restaurouRef.current = true
-    void restaurarRascunho({ colaboradores, departamentos, trajetos, bilhetes })
-  }, [competencia, dadosProntos, restaurarRascunho, colaboradores, departamentos, trajetos, bilhetes])
+    void restaurarRascunho({ colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
+  }, [competencia, dadosProntos, restaurarRascunho, colaboradores, departamentos, trajetos, bilhetes, usuarioId])
 
   /**
    * Seletor de ferista: QUALQUER ativo (a carga só paga optantes, mas o
@@ -193,6 +194,18 @@ export function VtCargaTab({
     () => colaboradores.find((c) => c.id === feristaId) ?? null,
     [colaboradores, feristaId]
   )
+  /**
+   * Aviso na hora de registrar a cobertura (28/10/2026 — as 15 coberturas sem
+   * trajeto confirmado travaram a carga de novembro): ferista × posto sem
+   * trajeto confirmado deixa a carga dele pendente; avisar já no dialog.
+   */
+  const faltaTrajetoDaCobertura = useMemo(() => {
+    if (!feristaId || !postoId) return false
+    const grupo = idsGrupoDepartamento(departamentos, postoId)
+    return !trajetos.some(
+      (t) => t.colaborador_id === feristaId && t.status === 'confirmado' && grupo.has(t.departamento_id)
+    )
+  }, [feristaId, postoId, trajetos, departamentos])
   const nomeDo = useCallback(
     (colaboradorId: string | null | undefined) =>
       colaboradores.find((c) => c.id === colaboradorId)?.nome_completo ?? '—',
@@ -214,13 +227,13 @@ export function VtCargaTab({
    */
   const recalcular = useCallback(async () => {
     if (dadosProntos) {
-      await reprocessar({ colaboradores, departamentos, trajetos, bilhetes })
+      await reprocessar({ colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
     }
-  }, [reprocessar, dadosProntos, colaboradores, departamentos, trajetos, bilhetes])
+  }, [reprocessar, dadosProntos, colaboradores, departamentos, trajetos, bilhetes, usuarioId])
 
   const aoEscolherArquivo = async (arquivo: File | null) => {
     if (!arquivo) return
-    await importarRelatorio(arquivo, { colaboradores, departamentos, trajetos, bilhetes })
+    await importarRelatorio(arquivo, { colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
   }
 
   /** Destino de cada bloco de férias do relatório (portão da gravação). */
@@ -286,8 +299,10 @@ export function VtCargaTab({
   }, [coberturaGeral])
   const [mostrarTodosGeral, setMostrarTodosGeral] = useState(false)
 
-  // Portão (decisão de 21/10/2026): férias sem destino ou qualquer pendência
-  // de cálculo bloqueiam a gravação; calcular/mostrar segue liberado.
+  // Pendências (ex-portão): desde 28/10/2026 NÃO bloqueiam a gravação
+  // (decisão da gestora: "grave o que está pronto sem bloquear") — o banner
+  // lista o que falta e a gravação confirma só quem está pronto; os demais
+  // ficam como rascunho no banco até a pendência ser resolvida.
   const pendenciasPortao = useMemo(() => {
     const lista: string[] = []
     if (feriasPendentes > 0) lista.push(`${feriasPendentes} férias do mês sem destino — defina quem cobre ou marque sem cobertura`)
@@ -299,7 +314,6 @@ export function VtCargaTab({
     if (semEscala > 0) lista.push(`${semEscala} optante(s) fora do relatório — confira se o relatório está completo`)
     return lista
   }, [feriasPendentes, resultados])
-  const bloqueado = pendenciasPortao.length > 0
 
   /** Prontos com o MESMO filtro do gravarCargas (helper único `prontaParaGravar`). */
   const prontosParaGravar = useMemo(() => resultados.filter(prontaParaGravar), [resultados])
@@ -308,14 +322,16 @@ export function VtCargaTab({
   const situacaoGravacao =
     resultados.length > 0 && gravacao && gravacao.competencia === competencia
       ? situacaoGravacaoCarga(
-          gravacao.ids,
-          prontosParaGravar.map((r) => r.colaborador_id)
+          gravacao.idsGravados,
+          gravacao.idsRascunho,
+          resultados.filter((r) => !r.semEscala).map((r) => r.colaborador_id)
         )
       : null
 
-  // Aviso do navegador ao fechar/recarregar com carga calculada e não gravada.
+  // Aviso do navegador ao fechar/recarregar só quando NADA foi para o banco
+  // (com o rascunho salvo automaticamente, sair não perde mais o trabalho).
   useEffect(() => {
-    if (!situacaoGravacao || situacaoGravacao === 'gravada') return
+    if (situacaoGravacao !== 'nao_gravada') return
     const avisar = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', avisar)
     return () => window.removeEventListener('beforeunload', avisar)
@@ -327,7 +343,7 @@ export function VtCargaTab({
     const { gravadas, puladas } = await gravarCargas(competencia, resultados, usuarioId)
     setGravando(false)
     if (gravadas > 0) toast.success(`${gravadas} carga(s) gravada(s) para ${rotuloCompetencia(competencia)}`)
-    if (puladas > 0) toast.info(`${puladas} optante(s) pulados por pendência`)
+    if (puladas > 0) toast.info(`${puladas} optante(s) ficaram como rascunho por pendência — resolva e grave de novo`)
     const comExcedente = resultados.filter((r) => r.ajusteExcedenteCentavos > 0).length
     if (gravadas > 0 && comExcedente > 0) {
       toast.warning(`${comExcedente} colaborador(es) com desconto maior que a carga do mês — valor limitado a R$ 0,00 (conferir na coluna Total)`)
@@ -509,11 +525,19 @@ export function VtCargaTab({
                   size="sm"
                   variant="outline"
                   onClick={gravar}
-                  disabled={loading || gravando || bloqueado || resultados.length === 0}
-                  title={bloqueado ? 'Resolva as pendências do banner para gravar' : undefined}
+                  disabled={loading || gravando || resultados.length === 0}
+                  title={
+                    pendenciasPortao.length > 0
+                      ? 'Grava quem está pronto; quem tem pendência fica como rascunho'
+                      : undefined
+                  }
                 >
                   <Save className="size-4" />
-                  {gravando ? 'Gravando...' : 'Gravar carga'}
+                  {gravando
+                    ? 'Gravando...'
+                    : pendenciasPortao.length > 0
+                      ? `Gravar quem está pronto (${prontosParaGravar.length})`
+                      : 'Gravar carga'}
                 </ModuleButton>
                 <ModuleButton
                   size="sm"
@@ -550,23 +574,37 @@ export function VtCargaTab({
         {situacaoGravacao === 'nao_gravada' && (
           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
             <p className="font-semibold">
-              A carga de {rotuloCompetencia(competencia)} AINDA NÃO está gravada no sistema.
+              A carga de {rotuloCompetencia(competencia)} AINDA NÃO está salva no sistema.
             </p>
             <p className="mt-1">
-              O cálculo abaixo existe só nesta tela — se você sair, ele se perde. Clique em{' '}
-              <strong>Gravar carga</strong> (se o botão estiver desabilitado, resolva antes as pendências do banner
-              amarelo) e confira o aviso verde de confirmação.
+              O cálculo abaixo existe só nesta tela — se você sair, ele se perde. O rascunho deveria ter sido salvo
+              automaticamente; se este aviso persiste, clique em <strong>Gravar carga</strong> e confira o aviso verde
+              de confirmação.
+            </p>
+          </div>
+        )}
+        {situacaoGravacao === 'rascunho' && gravacao && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            <p className="font-semibold">
+              Rascunho salvo no sistema{gravacao.ultimaEm ? ` em ${formatarDataHora(gravacao.ultimaEm)}` : ''} — falta
+              confirmar.
+            </p>
+            <p className="mt-1">
+              O trabalho não se perde mais se você sair. Quando estiver tudo certo, clique em{' '}
+              <strong>Gravar carga</strong> para confirmar ({gravacao.idsRascunho.length} colaborador(es) em rascunho).
             </p>
           </div>
         )}
         {situacaoGravacao === 'parcial' && gravacao && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-            <p className="font-semibold">A carga gravada não bate com o cálculo atual.</p>
+            <p className="font-semibold">Carga confirmada em parte.</p>
             <p className="mt-1">
-              O cálculo atual é diferente do que está gravado ({gravacao.total} gravada(s)
-              {gravacao.ultimaEm ? `, última em ${formatarDataHora(gravacao.ultimaEm)},` : ''} ×{' '}
-              {prontosParaGravar.length} pronta(s) agora) — se a mudança é esperada, clique em{' '}
-              <strong>Gravar carga</strong> de novo.
+              {gravacao.idsGravados.length} confirmada(s)
+              {gravacao.ultimaConfirmadaEm ? `, última em ${formatarDataHora(gravacao.ultimaConfirmadaEm)},` : ''} e{' '}
+              {gravacao.idsRascunho.length > 0
+                ? `${gravacao.idsRascunho.length} como rascunho`
+                : 'o restante fora do banco'}{' '}
+              — resolva as pendências listadas abaixo e clique em <strong>Gravar carga</strong> de novo.
             </p>
           </div>
         )}
@@ -574,14 +612,18 @@ export function VtCargaTab({
           <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-[13px] text-green-800">
             <p className="font-semibold">
               Carga gravada no sistema
-              {gravacao.ultimaEm ? ` em ${formatarDataHora(gravacao.ultimaEm)}` : ''} — {gravacao.total}{' '}
-              colaborador(es).
+              {gravacao.ultimaConfirmadaEm
+                ? ` em ${formatarDataHora(gravacao.ultimaConfirmadaEm)}`
+                : gravacao.ultimaEm
+                  ? ` em ${formatarDataHora(gravacao.ultimaEm)}`
+                  : ''}{' '}
+              — {gravacao.idsGravados.length} colaborador(es) confirmados.
             </p>
           </div>
         )}
-        {bloqueado && (
+        {pendenciasPortao.length > 0 && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-            <p className="font-semibold">A gravação está bloqueada:</p>
+            <p className="font-semibold">Pendências (não bloqueiam — a gravação salva só quem está pronto):</p>
             <ul className="mt-1 list-disc pl-5">
               {pendenciasPortao.map((p) => (
                 <li key={p}>{p}</li>
@@ -1017,6 +1059,13 @@ export function VtCargaTab({
                 clearLabel="Selecione o posto"
                 placeholder="Buscar posto..."
               />
+              {faltaTrajetoDaCobertura && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                  <strong>{feristaSelecionado?.nome_completo ?? 'Ele'}</strong> não tem trajeto confirmado para este
+                  posto — sem o trajeto, a carga dele fica como rascunho (sem VT) até o trajeto ser confirmado na aba{' '}
+                  <strong>Trajetos</strong>.
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

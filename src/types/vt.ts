@@ -100,6 +100,13 @@ export interface VtCarga {
   valor_centavos: number
   gerada_por: string | null
   gerada_em?: string
+  /**
+   * migration 168: rascunho = salvo automaticamente após o cálculo; gravada =
+   * confirmada pelo operador (só 'gravada' vale para o fechamento).
+   */
+  status?: 'rascunho' | 'gravada'
+  confirmada_em?: string | null
+  confirmada_por?: string | null
 }
 
 /** Fechamento de um colaborador × competência (migration 161 — Fase 2b). */
