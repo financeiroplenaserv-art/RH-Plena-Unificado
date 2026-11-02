@@ -84,3 +84,37 @@ sem bloquear**." + reclamação do Google roteirizando mal e do caso Joyce
 - Google Maps "não roteiriza bem": pedir à gestora exemplos concretos de
   trajetos errados para avaliar (os links já levam UF+CEP desde 27/10).
 - Teste do MateriaisCompras quebrado por data (mockar `hojeBrasil`).
+
+## 7. POC da Google Routes API (02/11/2026 — chave criada pela gestora)
+
+Chave criada pela gestora (projeto `corh-vt`, chave restrita à Routes API,
+orçamento de alerta ~R$ 10/mês; chave no `.env` local como GOOGLE_MAPS_API_KEY,
+NUNCA commitada — em produção vai para secret do Supabase).
+
+Script: `scripts/vt/poc-rotas-api.ts` (horário fixo segunda 06:00 BRT,
+computeAlternativeRoutes, classifica pela MELHOR rota; alternativa com linha
+intermunicipal vira aviso). Relatório: `dados-locais/poc_rotas_api_2026-11-02.csv`.
+
+Aprendizados:
+- **O Google devolve a EMPRESA da linha** (`transitLine.agencies`): "Prefeitura
+  de Niterói" = municipal Niterói; "Prefeitura do Rio - *" = municipal Rio
+  (Jaé); "Semove - Intermunicipal" = intermunicipal do estado (Semove é a
+  federação, não operadora — gestora, 02/11/2026); "Semove - São Gonçalo" =
+  municipal SG. Linha intermunicipal no meio de trajeto municipal cobra tarifa
+  intermunicipal (caso 516M da Joyce — ela estava certa, o trajeto é BUI).
+- **União cega das alternativas marca BUI em massa** (107 falsos positivos) —
+  classificar pela melhor rota e avisar da alternativa intermunicipal.
+- **Regra nova da gestora (02/11/2026)**: quem trabalha no Rio usa Jaé;
+  morando em Niterói/SG = Riocard (BUI) + Jaé (2 bilhetes no trajeto).
+- DUOCONNECT fica SEM endereço de propósito (elas rodam filiais) — trajetos
+  dela ficam manuais.
+
+Resultado final (249 trajetos): **120 OK × 129 para revisar**. Vereditos:
+Joyce BUI ✓ (a rota usa Semove intermunicipal — a correção manual estava
+certa), Thiago BUI ✓, Adalto/Michelle/Izequias ✓. **Marco Antônio Antunes de
+Oliveira: DIVERGE com confiança alta — a melhor rota dele USA linha
+intermunicipal; provável downgrade errado do lote de 24/10 (confirmar e virar
+para BUI).** Priscila Barcelos: BU Niterói → JAE RJ (mora e trabalha no Rio —
+erro real). Amanda: TREM → JAE (revisar). Grupos: 58 BU Nit→BUI (suspeitos de
+downgrade errado), 20 BU Nit→Sem integração (BU suspenso/sem BU — Setrans),
+13 sem rota (endereço), 12 BUI→BU Nit (pagando a mais?), 7 Passagem SG→BU Nit.
