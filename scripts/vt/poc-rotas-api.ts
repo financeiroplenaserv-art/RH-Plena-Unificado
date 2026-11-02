@@ -176,35 +176,38 @@ async function main() {
     const destino = textoDestinoPosto(d)
     try {
       const rota = await rotear(origem, destino)
-      // Transporte público muda com o horário: classificamos pela UNIÃO das
-      // alternativas devolvidas (dedup por linha), não só pela 1ª rota.
       const rotas: { legs?: { steps?: TransitStepGoogle[] }[] }[] = rota?.routes ?? []
-      const steps: TransitStepGoogle[] = rotas.flatMap((r) => r.legs?.[0]?.steps ?? [])
       const cidadesDiferentes = norm(c?.cidade) !== norm(d?.cidade)
+      // Classifica POR ROTA: a sugestão vale pela melhor rota (routes[0]); a
+      // alternativa com linha intermunicipal vira aviso (as linhas da Semove
+      // cortam Niterói e aparecem como alternativa em trajetos municipais —
+      // a união cega marcava BUI em 107 trajetos, falso positivo em massa).
       let agenciasDesconhecidas = 0
-      const pernasVistas = new Set<string>()
-      const pernas: PernaRota[] = []
-      for (const s of steps) {
-        if (s.travelMode !== 'TRANSIT' || !s.transitDetails) continue
-        const l = s.transitDetails.transitLine
-        const nome = l?.nameShort ?? l?.name ?? '?'
-        if (pernasVistas.has(nome)) continue
-        pernasVistas.add(nome)
-        const agencia = l?.agencies?.[0]?.name
-        const escopo = escopoDaPerna(agencia)
-        if (escopo.intermunicipal === null) agenciasDesconhecidas++
-        pernas.push({
-          modal: modalDoVeiculo(l?.vehicle?.type),
-          // Escopo da perna pela EMPRESA operadora (caso 516M, 02/11/2026:
-          // linha intermunicipal no meio de trajeto "municipal" cobra
-          // intermunicipal). Empresa desconhecida: cai para casa×posto.
-          municipio: escopo.municipio || c?.cidade || '',
-          intermunicipal: escopo.intermunicipal ?? cidadesDiferentes,
-        })
+      const pernasPorRota: PernaRota[][] = rotas.map((r) => {
+        const pernas: PernaRota[] = []
+        for (const s of r.legs?.[0]?.steps ?? []) {
+          if (s.travelMode !== 'TRANSIT' || !s.transitDetails) continue
+          const agencia = s.transitDetails.transitLine?.agencies?.[0]?.name
+          const escopo = escopoDaPerna(agencia)
+          if (escopo.intermunicipal === null) agenciasDesconhecidas++
+          pernas.push({
+            modal: modalDoVeiculo(s.transitDetails.transitLine?.vehicle?.type),
+            municipio: escopo.municipio || c?.cidade || '',
+            intermunicipal: escopo.intermunicipal ?? cidadesDiferentes,
+          })
+        }
+        return pernas
+      })
+      const cls = classificarRota(pernasPorRota[0] ?? [], { buAtivado: c?.vt_bu_ativado ?? null, buSituacao: c?.vt_bu_situacao })
+      const melhorSemInter = !(pernasPorRota[0] ?? []).some((p) => p.intermunicipal)
+      const alternativaInter = pernasPorRota.slice(1).some((pernas) => pernas.some((p) => p.intermunicipal))
+      if (melhorSemInter && alternativaInter && cls.bilhetes.length > 0) {
+        cls.avisos.push('Há alternativa de rota por linha INTERMUNICIPAL (Semove/Rio Ita) — se a pessoa pega essa linha, o bilhete é o BUI. Confirme.')
+        cls.confianca = 'media'
       }
-      const cls = classificarRota(pernas, { buAtivado: c?.vt_bu_ativado ?? null, buSituacao: c?.vt_bu_situacao })
       const vistosTexto = new Set<string>()
-      const linhasTexto = steps
+      const linhasTexto = rotas
+        .flatMap((r) => r.legs?.[0]?.steps ?? [])
         .filter((s) => s.travelMode === 'TRANSIT')
         .map((s) => {
           const l = s.transitDetails?.transitLine
