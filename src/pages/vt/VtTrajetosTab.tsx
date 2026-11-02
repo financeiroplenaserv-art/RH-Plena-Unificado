@@ -33,7 +33,7 @@ import {
   avisoIntegracaoDoTrajeto,
   descricaoCartaoDosBilhetes,
 } from '@/lib/vt/trajetos'
-import { linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
+import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { EscopoTrajetoVT, TipoCartaoVT, VtBilhete } from '@/types/vt'
 
@@ -499,6 +499,9 @@ export function VtTrajetosTab({
                   )
                   const descricaoCartao = descricaoCartaoDosBilhetes(bilhetesDaLinha)
                   const avisoCartao = avisoIntegracaoDoTrajeto(bilhetesDaLinha, linha.buAtivado, linha.buSituacao)
+                  // CEP × cidade cadastrada (28/10/2026 — casos Thiago e José
+                  // Orlando: cidade errada no cadastro derruba o bilhete).
+                  const avisoCep = avisoCidadeDivergeDoCep(linha.cidadeCasa, linha.cepCasa)
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-3 py-2.5 font-medium text-foreground">
@@ -559,6 +562,12 @@ export function VtTrajetosTab({
                             <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
                               <AlertTriangle className="mt-0.5 size-3 shrink-0" />
                               {avisoCartao}
+                            </p>
+                          )}
+                          {avisoCep && (
+                            <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
+                              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                              {avisoCep}
                             </p>
                           )}
                           {avisoBilhete && (

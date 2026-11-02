@@ -4,6 +4,7 @@
 // texto ("LT 59", "53 FUNDOS", "CS 3"), rua dupla grudada. Para geocodificar
 // (fase futura) e para montar o link do Google Maps, o endereço é limpo antes.
 
+import { removerAcentos } from '@/lib/utils'
 import type { PrecisaoOrigemVT } from '@/types/vt'
 
 // Complemento de lote/quadra/bloco/casa/apartamento é lixo para geocodificar:
@@ -83,6 +84,46 @@ export function ufDoCep(cep: string | null | undefined): string | null {
   if (!formatado) return null
   const prefixo = Number(formatado.slice(0, 5))
   return FAIXAS_CEP_UF.find(([de, ate]) => prefixo >= de && prefixo <= ate)?.[2] ?? null
+}
+
+// Faixas de CEP por município da nossa região de operação (Correios) —
+// determinístico, não é palpite. Fora dessas faixas: null (sem aviso).
+// Caso real (28/10/2026): Thiago Lontra cadastrado em "Niterói" com endereço
+// no Jardim Catarina (CEP 244xx = São Gonçalo) e José Orlando Targino idem
+// (Tribobó, 24750) — a cidade errada derrubou o bilhete no lote de 24/10.
+const FAIXAS_CEP_CIDADE: Array<[number, number, string]> = [
+  [20000, 23999, 'RIO DE JANEIRO'],
+  [24000, 24399, 'NITEROI'],
+  [24400, 24799, 'SAO GONCALO'],
+  [24800, 24899, 'ITABORAI'],
+  [24900, 24999, 'MARICA'],
+  [25000, 25299, 'DUQUE DE CAXIAS'],
+  [26000, 26299, 'NOVA IGUACU'],
+  [26500, 26599, 'NILOPOLIS'],
+  [27900, 27999, 'MACAE'],
+]
+
+/** Município pela faixa do CEP (só a região de operação); null quando fora ou inválido. */
+export function cidadeDoCep(cep: string | null | undefined): string | null {
+  const formatado = cepFormatado(cep)
+  if (!formatado) return null
+  const prefixo = Number(formatado.slice(0, 5))
+  return FAIXAS_CEP_CIDADE.find(([de, ate]) => prefixo >= de && prefixo <= ate)?.[2] ?? null
+}
+
+/**
+ * Aviso quando a cidade cadastrada diverge do município do CEP (cadastro
+ * errado roteiriza errado — o link do Maps e a classificação de bilhete
+ * partem da cidade). Null quando confere ou quando não há base (CEP fora da
+ * região mapeada). Só aviso — nunca bloqueia.
+ */
+export function avisoCidadeDivergeDoCep(cidade: string | null, cep: string | null | undefined): string | null {
+  const doCep = cidadeDoCep(cep)
+  if (!doCep || !cidade?.trim()) return null
+  const cadastro = removerAcentos(cidade.trim()).toUpperCase()
+  if (cadastro === doCep) return null
+  const nome = doCep.charAt(0) + doCep.slice(1).toLowerCase()
+  return `O CEP da casa é de ${nome}, mas o cadastro diz ${cidade.trim()} — confira o endereço (o trajeto é calculado pela cidade).`
 }
 
 // "cidade - UF, 00000-000": sem UF e CEP o Google confunde ruas de nome comum

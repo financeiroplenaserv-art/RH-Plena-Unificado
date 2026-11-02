@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  avisoCidadeDivergeDoCep,
   cepFormatado,
+  cidadeDoCep,
   linkGoogleMapsTransito,
   normalizarEnderecoCasa,
   precisaoDoEndereco,
@@ -149,5 +151,39 @@ describe('linkGoogleMapsTransito', () => {
       'https://www.google.com/maps/dir/?api=1&origin=CARAMUJO%2C%20Niter%C3%B3i' +
         '&destination=RUA%20X%2C%201%2C%20CENTRO%2C%20Niter%C3%B3i&travelmode=transit',
     )
+  })
+})
+
+describe('cidadeDoCep / avisoCidadeDivergeDoCep (CEP × cidade — casos Thiago e José Orlando, 28/10/2026)', () => {
+  it('município pelas faixas da região de operação', () => {
+    expect(cidadeDoCep('24315-060')).toBe('NITEROI') // Ititioca
+    expect(cidadeDoCep('24365-278')).toBe('NITEROI') // São Francisco
+    expect(cidadeDoCep('24750-235')).toBe('SAO GONCALO') // Tribobó
+    expect(cidadeDoCep('24435-000')).toBe('SAO GONCALO') // Jardim Catarina
+    expect(cidadeDoCep('24944-236')).toBe('MARICA') // Spar Inoã
+    expect(cidadeDoCep('22071-900')).toBe('RIO DE JANEIRO')
+    expect(cidadeDoCep('27910-000')).toBe('MACAE')
+  })
+
+  it('fora da região mapeada ou inválido: null (sem palpite)', () => {
+    expect(cidadeDoCep('30130-000')).toBeNull() // Belo Horizonte
+    expect(cidadeDoCep('00000-000')).toBeNull()
+    expect(cidadeDoCep(null)).toBeNull()
+  })
+
+  it('cidade confere com o CEP: sem aviso', () => {
+    expect(avisoCidadeDivergeDoCep('Niterói', '24315-060')).toBeNull()
+    expect(avisoCidadeDivergeDoCep('São Gonçalo', '24750-235')).toBeNull()
+  })
+
+  it('cidade diverge do CEP: aviso nomeando as duas', () => {
+    const aviso = avisoCidadeDivergeDoCep('Niterói', '24750-235')
+    expect(aviso).toContain('Sao goncalo')
+    expect(aviso).toContain('Niterói')
+  })
+
+  it('sem cidade ou sem CEP mapeado: sem aviso', () => {
+    expect(avisoCidadeDivergeDoCep(null, '24315-060')).toBeNull()
+    expect(avisoCidadeDivergeDoCep('Niterói', '30130-000')).toBeNull()
   })
 })
