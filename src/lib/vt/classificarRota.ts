@@ -128,13 +128,18 @@ export function classificarRota(pernas: PernaRota[], ctx: ContextoClassificacao)
 
   // VLT no Rio: integração ônibus × VLT exige Jaé.
   if (temVlt) {
-    if (inter.length > 0) avisos.push('A perna intermunicipal é coberta pelo BUI; o VLT no Rio exige o cartão Jaé — confirme se o cartão da pessoa valida no VLT.')
+    if (inter.length > 0) {
+      return {
+        bilhetes: [BILHETE.bui, BILHETE.onibusVlt],
+        explicacao:
+          'Travessia intermunicipal (BUI) + VLT no Rio (Jaé — o Riocard não valida no VLT desde ago/2025).',
+        confianca: 'media',
+        avisos: ['A pessoa precisa ter os DOIS cartões: Riocard (BUI) e Jaé.'],
+      }
+    }
     return {
-      bilhetes: [inter.length > 0 ? BILHETE.bui : BILHETE.onibusVlt],
-      explicacao:
-        inter.length > 0
-          ? 'Intermunicipal com VLT no Rio: BUI cobre a travessia; a integração com o VLT depende do Jaé.'
-          : 'Ônibus + VLT no Rio com integração (exige Jaé).',
+      bilhetes: [BILHETE.onibusVlt],
+      explicacao: 'Ônibus + VLT no Rio com integração (exige Jaé).',
       confianca: 'media',
       avisos,
     }
@@ -168,8 +173,17 @@ export function classificarRota(pernas: PernaRota[], ctx: ContextoClassificacao)
     if (ctx.buAtivado === null) {
       avisos.push('Situação do Bilhete Único não consultada na Riocard — o BUI exige a integração ativada.')
     }
+    // Trabalha no Rio e usa modal municipal lá: Jaé é OBRIGATÓRIO desde
+    // ago/2025 (o Riocard não valida nos modais municipais do Rio) — regra da
+    // gestora, 02/11/2026: Riocard (BUI) + Jaé.
     if (rio.length > 0) {
-      avisos.push('A rota termina em modal municipal do Rio — desde ago/2025 esses modais exigem o Jaé na validação; confirme se o cartão dela passa.')
+      return {
+        bilhetes: [BILHETE.bui, BILHETE.jaeRj],
+        explicacao:
+          'Travessia intermunicipal (BUI) + modal municipal do Rio (Jaé — o Riocard não é mais aceito nos ônibus/BRT municipais do Rio).',
+        confianca: 'media',
+        avisos: [...avisos, 'A pessoa precisa ter os DOIS cartões: Riocard (BUI) e Jaé.'],
+      }
     }
     if (pernas.length > 4) {
       avisos.push('Mais de 2 conduções por sentido: a integração do BUI cobre 2 modais em 3h — o excedente cobra tarifa cheia.')

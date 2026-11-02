@@ -94,13 +94,22 @@ describe('classificarRota', () => {
     expect(r.bilhetes).toEqual([BILHETE.onibusVlt])
   })
 
-  it('intermunicipal + VLT no Rio → BUI com aviso do Jaé no VLT', () => {
+  it('intermunicipal + VLT no Rio → BUI + Ônibus e VLT (regra da gestora, 02/11/2026: Riocard + Jaé)', () => {
     const r = classificarRota(
       [inter('Niterói'), { modal: 'vlt', municipio: 'Rio de Janeiro', intermunicipal: false }],
       { buAtivado: true }
     )
-    expect(r.bilhetes).toEqual([BILHETE.bui])
-    expect(r.avisos.join(' ')).toContain('Jaé')
+    expect(r.bilhetes).toEqual([BILHETE.bui, BILHETE.onibusVlt])
+    expect(r.avisos.join(' ')).toContain('DOIS cartões')
+  })
+
+  it('intermunicipal + ônibus municipal do Rio → BUI + Jaé (Michelle: SG → Telex no Rio)', () => {
+    const r = classificarRota(
+      [inter('São Gonçalo'), { modal: 'onibus', municipio: 'Rio de Janeiro', intermunicipal: false }],
+      { buAtivado: true }
+    )
+    expect(r.bilhetes).toEqual([BILHETE.bui, BILHETE.jaeRj])
+    expect(r.explicacao).toContain('Jaé')
   })
 
   it('trem sozinho → TREM; ônibus + trem → Ônibus, Trem e Metrô', () => {

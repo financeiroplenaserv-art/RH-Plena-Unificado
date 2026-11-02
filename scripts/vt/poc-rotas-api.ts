@@ -87,12 +87,18 @@ interface TransitStepGoogle {
  * Nossa Senhora da Penha etc. operam SG/Maricá/Itaboraí ↔ Niterói/RJ).
  * Desconhecida: null — a perna vai como está e o relatório marca "revisar".
  */
-const EMPRESAS_INTERMUNICIPAIS = /semove|rio ita|auto litoral|litoral rio|1001|nossa senhora|santo antonio|inbornsa|esperan[cç]a|intermunicipal/i
+// Semove = a federação das empresas de ônibus do estado (não é operadora):
+// no Google ela publica os feeds como "Semove - Intermunicipal" (linhas
+// intermunicipais) e "Semove - São Gonçalo" (municipais de SG). "Semove" sozinho
+// é ambíguo — fica desconhecida. (Gestora, 02/11/2026.)
+const EMPRESAS_INTERMUNICIPAIS = /semove - intermunicipal|rio ita|auto litoral|litoral rio|1001|nossa senhora|santo antonio|inbornsa|esperan[cç]a|intermunicipal/i
 const EMPRESAS_MUNICIPAIS_NITEROI = /prefeitura de niter/i
 const EMPRESAS_MUNICIPAIS_RIO = /prefeitura (do|de) rio|riocard|ja[eé]/i
+const EMPRESAS_MUNICIPAIS_SG = /semove - s[aã]o gon/i
 
 function escopoDaPerna(agencia: string | undefined): { intermunicipal: boolean | null; municipio: string } {
   if (!agencia) return { intermunicipal: null, municipio: '' }
+  if (EMPRESAS_MUNICIPAIS_SG.test(agencia)) return { intermunicipal: false, municipio: 'São Gonçalo' }
   if (EMPRESAS_INTERMUNICIPAIS.test(agencia)) return { intermunicipal: true, municipio: '' }
   if (EMPRESAS_MUNICIPAIS_NITEROI.test(agencia)) return { intermunicipal: false, municipio: 'Niterói' }
   if (EMPRESAS_MUNICIPAIS_RIO.test(agencia)) return { intermunicipal: false, municipio: 'Rio de Janeiro' }
