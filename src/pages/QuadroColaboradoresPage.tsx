@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertTriangle, Crop, Eye, Printer, RotateCcw, UserPlus, Users, X } from 'lucide-react'
+import { AlertTriangle, Crop, Eye, Megaphone, Printer, RotateCcw, UserPlus, Users, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Dialog,
@@ -33,6 +34,11 @@ import {
   textoHorarioEscala,
   type ColaboradorQuadro,
 } from '@/lib/ceu/quadro'
+import {
+  montarDocumentoInformativo,
+  primeiroNomeSobrenome,
+  textoPadraoApresentacao,
+} from '@/lib/ceu/informativoApresentacao'
 import type { FocoFotoQuadro } from '@/types/database'
 
 interface ColabQuadro {
@@ -102,18 +108,23 @@ async function carregarColaboradoresQuadro(): Promise<{ lista: ColabQuadro[]; mi
   return { lista, migrationPendente }
 }
 
-/** Logo do cabeçalho: logo da empresa na cracha_config; fallback = logo padrão do app. */
-async function logoDataUrlCabecalho(config: ConfigCracha, empresaId: string | null): Promise<string> {
-  const daEmpresa = logoDaEmpresa(config, empresaId)
-  if (daEmpresa) return daEmpresa
-  const resp = await fetch('/logo_plena_cab.jpg')
+/** Asset de public/ como data URL (o documento de impressão não busca nada da internet). */
+async function buscarDataUrlPublica(caminho: string): Promise<string> {
+  const resp = await fetch(caminho)
   const blob = await resp.blob()
   return await new Promise<string>((resolve, reject) => {
     const leitor = new FileReader()
     leitor.onload = () => resolve(leitor.result as string)
-    leitor.onerror = () => reject(new Error('Falha ao ler o logo padrão'))
+    leitor.onerror = () => reject(new Error(`Falha ao ler ${caminho}`))
     leitor.readAsDataURL(blob)
   })
+}
+
+/** Logo do cabeçalho: logo da empresa na cracha_config; fallback = logo padrão do app. */
+async function logoDataUrlCabecalho(config: ConfigCracha, empresaId: string | null): Promise<string> {
+  const daEmpresa = logoDaEmpresa(config, empresaId)
+  if (daEmpresa) return daEmpresa
+  return buscarDataUrlPublica('/logo_plena_cab.jpg')
 }
 
 export function QuadroColaboradoresPage() {
@@ -138,6 +149,11 @@ export function QuadroColaboradoresPage() {
   const [htmlPrevia, setHtmlPrevia] = useState<string | null>(null)
   const [focoAlvo, setFocoAlvo] = useState<string | null>(null)
   const [horarioRapido, setHorarioRapido] = useState('')
+  // ---- informativo de apresentação (folha A4 por colaborador, nos elevadores) ----
+  const [informativoId, setInformativoId] = useState<string | null>(null)
+  const [formInfo, setFormInfo] = useState({ nome: '', funcao: '', texto: '' })
+  const [htmlInfo, setHtmlInfo] = useState<string | null>(null) // prévia dentro do dialog
+  const [assetsInfo, setAssetsInfo] = useState<{ p: string; logo30: string | null } | null>(null)
 
   const postos = useMemo(
     () => postosIds.map((id) => departamentos.find((d) => d.id === id)).filter((d): d is DepartamentoFuzzy => !!d),
@@ -530,6 +546,77 @@ export function QuadroColaboradoresPage() {
   const normaisCount = itens.filter((i) => !i.colaborador.ferista_faltista).length
   const feristasCount = itens.length - normaisCount
   const itemFoco = itens.find((i) => i.colaborador.id === focoAlvo) ?? null
+  const itemInformativo = itens.find((i) => i.colaborador.id === informativoId) ?? null
+
+  // ---------------- informativo de apresentação ----------------
+
+  /** Abre o dialog com o texto padrão preenchido; carrega o "P" e o selo 30 anos uma vez. */
+  const abrirInformativo = (item: ItemQuadro) => {
+    const c = item.colaborador
+    const funcao = item.funcao.trim() || (c.cargo ?? '').trim()
+    setFormInfo({
+      nome: primeiroNomeSobrenome(c.nome_completo),
+      funcao,
+      texto: textoPadraoApresentacao({ funcao, nomeCompleto: c.nome_completo, cliente }),
+    })
+    setHtmlInfo(null)
+    setInformativoId(c.id)
+    if (!assetsInfo) {
+      void Promise.all([
+        buscarDataUrlPublica('/plena_p_fotos.jpg'),
+        buscarDataUrlPublica('/logo_plena_30anos_redonda.png').catch(() => null),
+      ])
+        .then(([p, logo30]) => setAssetsInfo({ p, logo30 }))
+        .catch(() => toast.error('Não consegui carregar as imagens do informativo'))
+    }
+  }
+
+  const montarHtmlInformativo = async (): Promise<string | null> => {
+    const item = itemInformativo
+    if (!item) return null
+    if (!assetsInfo) {
+      toast.warning('As imagens do informativo ainda estão carregando — tente de novo em um instante')
+      return null
+    }
+    const logo = await logoDataUrlCabecalho(config ?? { logos: {}, fundos: {} }, empresaCabecalho)
+    return montarDocumentoInformativo({
+      nomeExibicao: formInfo.nome.trim() || primeiroNomeSobrenome(item.colaborador.nome_completo),
+      funcao: formInfo.funcao.trim(),
+      cliente,
+      texto: formInfo.texto,
+      fotoDataUrl: item.fotoDataUrl,
+      foco: item.colaborador.foto_foco,
+      logoDataUrl: logo,
+      pFotosDataUrl: assetsInfo.p,
+      logo30DataUrl: assetsInfo.logo30,
+    })
+  }
+
+  const preverInformativo = async () => {
+    setGerando(true)
+    try {
+      const html = await montarHtmlInformativo()
+      if (html) setHtmlInfo(html)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao gerar o informativo')
+    } finally {
+      setGerando(false)
+    }
+  }
+
+  const imprimirInformativo = async () => {
+    setGerando(true)
+    try {
+      // htmlInfo só existe no modo prévia; na edição é sempre regenerado
+      const html = htmlInfo ?? (await montarHtmlInformativo())
+      if (!html) return
+      await imprimirDocumentoHtml(html)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao imprimir o informativo')
+    } finally {
+      setGerando(false)
+    }
+  }
 
   if (!podeEmitir) return null
 
@@ -793,7 +880,17 @@ export function QuadroColaboradoresPage() {
                         </p>
                       )}
 
-                      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                      <div className="mt-auto flex flex-col gap-1.5 pt-1">
+                        <ModuleButton
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => abrirInformativo(item)}
+                        >
+                          <Megaphone className="size-3.5" />
+                          Informativo de apresentação
+                        </ModuleButton>
+                        <div className="flex items-center justify-between gap-2">
                         <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-medium">
                           <input
                             type="checkbox"
@@ -806,6 +903,7 @@ export function QuadroColaboradoresPage() {
                         <ModuleButton variant="ghost" size="sm" onClick={() => removerItem(c.id)} aria-label={`Remover ${c.nome_completo} do quadro`}>
                           <X className="size-3.5" />
                         </ModuleButton>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -857,6 +955,79 @@ export function QuadroColaboradoresPage() {
               Imprimir
             </ModuleButton>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={informativoId !== null} onOpenChange={(aberto) => !aberto && setInformativoId(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              Informativo de apresentação
+              {itemInformativo ? ` — ${itemInformativo.colaborador.nome_completo}` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Folha A4 para os elevadores. O texto já vem pronto com os dados do cadastro — ajuste se precisar
+              (**trecho** vira negrito; linha em branco separa parágrafos). Imprima em &quot;Tamanho real&quot; / 100%
+              com &quot;Gráficos de segundo plano&quot; ativados.
+            </DialogDescription>
+          </DialogHeader>
+          {htmlInfo === null ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label className="mb-1 block text-[11px] text-muted-foreground">Nome sob a foto</Label>
+                  <Input value={formInfo.nome} onChange={(e) => setFormInfo({ ...formInfo, nome: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="mb-1 block text-[11px] text-muted-foreground">Função</Label>
+                  <Input value={formInfo.funcao} onChange={(e) => setFormInfo({ ...formInfo, funcao: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <Label className="mb-1 block text-[11px] text-muted-foreground">Texto do informativo</Label>
+                <Textarea
+                  rows={8}
+                  value={formInfo.texto}
+                  onChange={(e) => setFormInfo({ ...formInfo, texto: e.target.value })}
+                />
+              </div>
+              {itemInformativo && !itemInformativo.fotoDataUrl && !itemInformativo.carregandoFoto && (
+                <p className="flex items-center gap-1 text-[12px] text-amber-700">
+                  <AlertTriangle className="size-3.5" /> Sem foto cadastrada — o informativo sai com a moldura vazia.
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <ModuleButton variant="outline" onClick={() => setInformativoId(null)}>
+                  Fechar
+                </ModuleButton>
+                <ModuleButton variant="outline" onClick={() => void preverInformativo()} disabled={gerando}>
+                  <Eye className="size-4" />
+                  Pré-visualizar
+                </ModuleButton>
+                <ModuleButton onClick={() => void imprimirInformativo()} disabled={gerando}>
+                  <Printer className="size-4" />
+                  Imprimir
+                </ModuleButton>
+              </div>
+            </div>
+          ) : (
+            <>
+              <iframe
+                title="Pré-visualização do informativo"
+                srcDoc={htmlInfo}
+                className="h-[65vh] w-full rounded border border-border"
+              />
+              <div className="flex justify-end gap-2">
+                <ModuleButton variant="outline" onClick={() => setHtmlInfo(null)}>
+                  Voltar e editar
+                </ModuleButton>
+                <ModuleButton onClick={() => void imprimirInformativo()} disabled={gerando}>
+                  <Printer className="size-4" />
+                  Imprimir
+                </ModuleButton>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

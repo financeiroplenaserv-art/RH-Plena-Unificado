@@ -24,6 +24,12 @@ const perfil = (): Perfil => ({
 })
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: perfil(), loading: false }) }))
+// Fixa o "hoje" no mês dos dados mockados (out/2026) — a página abre no mês
+// corrente e o aviso de janela da compra só aparece quando os dois coincidem.
+vi.mock('@/lib/utils', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/utils')>()),
+  hojeBrasil: () => '2026-10-18',
+}))
 vi.mock('@/hooks/useMateriaisFornecedores', () => ({
   useMateriaisFornecedores: () => ({
     fornecedores: [
