@@ -1,65 +1,213 @@
-# VT — Regras tarifárias oficiais (pesquisa na web, 02/11/2026)
+# VT — Matriz de regras tarifárias e pendências
 
-> Referência para o motor de classificação de bilhetes do módulo VT.
-> As regras da operação (valores dos 9 bilhetes do catálogo `vt_bilhetes`,
-> definidos pela gestora) continuam valendo — este documento registra o que as
-> fontes oficiais dizem, para fundamentar a classificação automática a partir
-> da rota real (Google Routes API).
+> Revisada em 14/11/2026 após pesquisa principal, duas validações independentes e confronto das divergências com a página atual do Rio Bilhete Único. Esta matriz separa fato oficial, regra operacional da Plena e pontos ainda não decididos. Ela não autoriza alteração automática de trajetos ou valores.
 
-## Niterói (municipal)
+## 1. Três valores que não podem ser misturados
 
-- Fonte oficial: MobNit (prefeitura de Niterói) — <https://mobnit.niteroi.rj.gov.br/itinerarios>
-- Tarifa normal e bilhete municipal com **1 integração grátis em até 1 hora**.
-- Na operação Plena, o cartão é VT personalizado **empresa**: vale a tarifa da
-  gestora, **R$ 5,60 por perna** (não os R$ 4,45 de pessoa física) — regra já
-  registrada no plano (§10.6).
+1. **Cobrança na catraca:** o que o passageiro paga ao usar os serviços.
+2. **Base legal do VT:** o valor que a empresa calcula para o deslocamento residência–trabalho.
+3. **Pacote operacional Plena:** o bilhete com valor diário que a operação decidiu carregar.
 
-## BUI — Bilhete Único Intermunicipal (Região Metropolitana do RJ)
+O simulador de catraca informa e questiona. A política confirmada pela Plena decide o pacote carregado.
 
-- Lei estadual 5.628/2009 (institui o BUI na RM-RJ).
-- **Valor máximo R$ 9,40 por perna desde 19/12/2025** (antes R$ 8,55) —
-  [Revista Ferroviária](https://revistaferroviaria.com.br/2026/01/passagem-de-trem-nao-tera-reajuste-em-2026-confirma-supervia/).
-- **Integração: até 2 integrações em até 3 horas, desde que pelo menos 1 seja
-  intermunicipal** — [VTA Benefícios](https://vtabeneficios.com.br/bilhete-unico-intermunicipal-bui-o-beneficio-que-barateia-o-trajeto-de-quem-cruza-cidades/).
-- **Teto de renda do benefício: R$ 3.205,20** (quem passa disso perde o BUI) —
-  mesma fonte. **Isto explica os 11 "Suspenso Setrans" da Riocard** (02/11/2026):
-  a Setrans suspende o BUI quando a renda declarada passa do teto ou o
-  cadastro vence — por isso a reativação é na Setrans.
-- Ônibus + Metrô no RJ aceita Jaé **ou Riocard habilitado no BUI**, janela de
-  120 min — [MetrôRio — Meios e Tarifas](https://www.metrorio.com.br/como-pagar/meios-e-tarifas).
+## 2. Legislação federal do VT
 
-## Jaé (Rio de Janeiro, municipal)
+**Fato oficial:** a [Lei 7.418/1985](https://www.planalto.gov.br/ccivil_03/leis/l7418.htm) e o [Decreto 10.854/2021, arts. 107, 112, 114–117 e 124–125](https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/decreto/d10854.htm) estabelecem:
 
-- **Desde ago/2025 o Jaé é OBRIGATÓRIO nos modais municipais do Rio** (ônibus,
-  BRT, VLT, vans autorizadas); o Riocard saiu dos modais municipais —
-  [Agenda do Poder](https://agendadopoder.com.br/jae-obrigatorio-filas-duvidas-e-correria-marcam-vespera-de-mudanca-nos-transportes-do-rio/),
-  [Folha da Terra](https://folhadaterradigital.com.br/geral/implementacao/).
-- A integração do Bilhete Único Carioca (ônibus × BRT) **exige o Jaé**.
-- Tarifa de referência R$ 5,00 (site oficial) — <https://jae.com.br/integracoes/>.
-- **Consequência para o módulo:** quem trabalha no Rio precisa de Jaé — o
-  bilhete "CARTÃO JAE RJ" do catálogo cobre isso. Quem vai de Niterói/SG para o
-  Rio e pega modal municipal no Rio precisa de **2 bilhetes** (ex.: BUI + JAE).
+- VT para o deslocamento residência–trabalho–residência, inclusive com mais de um meio.
+- Quantidade e tipo adequados ao deslocamento informado.
+- Cálculo pela tarifa integral, mesmo quando existe desconto local.
+- **Reduções decorrentes de integração de serviços não são consideradas desconto** e podem ser consideradas no cálculo.
+- Participação do empregado, em regra, até 6% do salário básico, com as regras de proporcionalidade e opção previstas nos arts. 114–117.
 
-## Trem / Metrô / VLT
+**Pendência jurídica:** quando o BUI reduz uma única linha intermunicipal, sem transbordo, não localizamos orientação específica que classifique essa redução como integração ou desconto social para a base patronal. Não automatizar essa substituição antes de decisão do DP/jurídico ou orientação formal da Riocard.
 
-- Trem SuperVia: sem reajuste em 2026 (fonte Revista Ferroviária, acima).
-- MetrôRio: R$ 7,90 com Jaé; integrações ônibus municipal (Jaé ou Riocard+BUI,
-  120 min), BRT e vans — [MetrôRio](https://www.metrorio.com.br/como-pagar/meios-e-tarifas).
+## 3. Niterói — BUN e tarifa municipal
 
-## Google Routes API (a "roteirização de verdade")
+### Elegibilidade e cartão
 
-- Endpoint `computeRoutes` com `travelMode: TRANSIT` devolve as pernas da
-  rota: linhas de ônibus, modais (ônibus/trem/metrô/VLT/barca) e municípios
-  cruzados — é o MESMO dado do link do Google Maps, mas estruturado.
-- Preço: Compute Routes Basic ~US$ 5/1.000, Advanced ~US$ 10/1.000; desde
-  mar/2025 há franquia gratuita por produto (milhares de chamadas/mês) —
-  [blog.afi.io](https://blog.afi.io/blog/a-developers-guide-to-the-google-routes-api/),
-  [scrap.io](https://scrap.io/google-routes-api-pricing).
-  **Nosso volume (~250 trajetos na 1ª carga, depois só novos/mudanças) cabe na
-  franquia gratuita** — mas exige conta de faturamento (cartão) no Google Cloud.
-- As tarifas NÃO vêm do Google (não confiável no Brasil): o motor classifica
-  bilhetes pelas regras acima a partir das pernas; o valor vem do nosso
-  catálogo `vt_bilhetes`.
-- Limite conhecido: cobertura do Google Transit no RJ é boa na capital e
-  Niterói/SG, fraca no interior (POC de 21/10/2026: Macaé sem cobertura) —
-  trajeto sem cobertura cai para confirmação humana, como hoje.
+**Fato oficial:**
+
+- Não exige residência em Niterói nem declaração de renda.
+- Exige cartão Riocard Mais vinculado ao CPF.
+- BUN e BUI podem coexistir no mesmo Riocard.
+- O VT Personalizado Usuário pode receber benefícios tarifários. “Comprado pela empresa” não é sinônimo de “Personalizado Empresa”; é necessário conferir o modelo real.
+
+Fontes: [não morador](http://www.riocardmais.com.br/duvidas-frequentes/nao-sou-morador-de-niteroi-posso-utilizar-o-beneficio-do-bilhete-unico-niteroi-1146.html), [declaração de renda](http://www.riocardmais.com.br/duvidas-frequentes/para-ter-o-bilhete-unico-niteroi-preciso-declarar-minha-renda-1145.html), [BUN](http://www.riocardmais.com.br/BUN), [BUN+BUI](http://www.riocardmais.com.br/duvidas-frequentes/possuo-outro-cartao-habilitado-para-bilhete-unico-intermunicipal-bui-e-sou-morador-de-niteroi-preciso-trocar-de-cartao-para-ter-o-bilhete-unico-niteroi-bun-1148.html) e [produto VT](http://www.riocardmais.com.br/produto/vale-transporte).
+
+### Integração ônibus–ônibus
+
+**Fato oficial:**
+
+- Dois ônibus/micro-ônibus municipais convencionais de **linhas diferentes e no mesmo sentido**.
+- Até **1 hora entre validações**.
+- Benefício até **2 vezes ao dia**, normalmente ida e volta, com intervalo mínimo de 1 hora entre elas.
+- Mesma linha ou sentidos incompatíveis não caracterizam integração.
+- Após esgotar o limite, viagens adicionais cobram tarifa cheia.
+
+Fontes: [BUN](https://site.riobilheteunico.com.br/bilhete-unico-niteroi/), [intervalos](https://www.riocardmais.com.br/duvidas-frequentes/qual-o-tempo-de-intervalo-para-realizar-a-integracao-do-bilhete-unico-niteroi-bun-1149.html) e [limite diário](https://www.riocardmais.com.br/duvidas-frequentes/quantas-vezes-por-dia-meu-cartao-pode-fazer-a-integracao-do-bilhete-unico-niteroi-bun-1152.html).
+
+### Valores
+
+- Tarifa integral: **R$ 5,60**.
+- BUN com subsídio municipal: **R$ 4,45** na catraca.
+- Base legal do VT da Plena: **R$ 5,60 por sentido**, pois R$ 4,45 é subsídio/desconto social; a integração válida pode eliminar a segunda tarifa.
+
+Fontes: [Prefeitura de Niterói](https://niteroi.rj.gov.br/prefeitura-mantem-tarifa-reduzida-para-usuarios-do-bilhete-unico-municipal/) e [Riocard — tarifas](http://www.riocardmais.com.br/Tarifas).
+
+### Barcas
+
+Existe integração BUN com barcas, com pontos e tarifas próprios; não é simplesmente “a segunda condução é grátis”. A tabela atual da Riocard informa:
+
+- Municipal de Niterói + Araribóia/Praça XV: **R$ 5,45**.
+- Municipal de Niterói + Charitas: **R$ 8,15**.
+
+A tabela e a vigência devem ser consultadas antes de automatizar.
+
+## 4. BUI — Bilhete Único Intermunicipal
+
+### Elegibilidade e habilitação
+
+**Fato oficial, pela página atual do programa:**
+
+- Idade de **6 a 64 anos completos**.
+- Residência no Estado do RJ.
+- Renda mensal total declarada **inferior ou igual a R$ 3.205,20**.
+- Um cartão por CPF, pessoal e intransferível.
+- Cartões Expresso ou **VT Personalizado Usuário**. Personalizado Empresa/Ao Portador não habilita.
+- No VT vinculado à empresa, o empregador declara a renda e habilita.
+- Situação atual deve ser consultada; “Suspenso Setrans” pode decorrer de idade, renda ou uso indevido, não apenas renda.
+
+Fontes: [Rio Bilhete Único — BUI](https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/), [modelos habilitáveis](http://www.riocardmais.com.br/duvidas-frequentes/o-que-e-o-bilhete-unico-intermunicipal-bui-1181.html), [habilitação pelo empregador](http://www.riocardmais.com.br/duvidas-frequentes/como-habilitar-o-bilhete-unico-intermunicipal-em-um-cartao-1131.html) e [suspensão](http://www.riocardmais.com.br/aplicativo-riocard-mais/habilitar-bilhete-unico-intermunicipal-no-app/o-que-significa-a-mensagem-bui-suspenso-setram-1513.html).
+
+Páginas antigas divergem sobre idade e “inferior” versus “inferior ou igual”. Para novos desenvolvimentos, vale a página atual do programa; casos-limite continuam sujeitos à consulta real do cartão.
+
+### Uso e cobrança
+
+- Até **2 meios/serviços por viagem**, pelo menos um intermunicipal.
+- Até **3 horas entre transbordos**, ressalvadas janelas específicas do produto/modal.
+- Até **2 usos ao dia**, normalmente ida e volta, com intervalo mínimo de 1 hora.
+- Mesma linha não caracteriza integração; serviços devem ser elegíveis e convencionais.
+- Valor vigente: **R$ 9,40 por viagem integrada**, desde 19/12/2025, não “por condução física”.
+- A terceira condução não está coberta pela mesma integração e exige cálculo separado.
+- Não escolher BUI automaticamente quando a alternativa comum for mais barata ou a soma não justificar o benefício.
+
+Fontes: [BUI atual](https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/), [intervalos](http://www.riocardmais.com.br/duvidas-frequentes/qual-o-tempo-de-intervalo-para-realizar-a-integracao-do-bui-1142.html), [limite diário](http://www.riocardmais.com.br/duvidas-frequentes/quantas-vezes-por-dia-meu-cartao-pode-fazer-a-integracao-do-bilhete-unico-intermunicipal-bui-1139.html) e [tarifas](http://www.riocardmais.com.br/Tarifas).
+
+### Exceção de Niterói
+
+A página atual do BUI diz expressamente:
+
+> Válido para todos os ônibus municipais que integram o sistema de bilhetagem Riocard, **exceto os ônibus municipais de Niterói**, cuja integração é feita exclusivamente pelo BUN.
+
+Portanto, intermunicipal + municipal de Niterói não deve ser presumido como uma única integração BUI. A parte de Niterói é calculada separadamente pelo BUN/tarifa aplicável. A tabela genérica “municipal da RM” não elimina a exceção específica publicada na página do programa.
+
+Fonte: [Rio Bilhete Único — BUI](https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/).
+
+## 5. Rio de Janeiro — Jaé, Riocard+BUI e modais
+
+**Regra segura:**
+
+- Somente transporte municipal comum do Rio: **Jaé**.
+- Intermunicipal + municipal dentro de integração BUI válida: **Riocard+BUI**, sem acrescentar Jaé automaticamente.
+- Sem BUI, combinando modal estadual/intermunicipal com municipal do Rio: podem ser necessários **Riocard + Jaé**, com tarifas separadas.
+- BUC municipal segue regras próprias do Jaé, distintas do BUI.
+
+O [MetrôRio](https://www.metrorio.com.br/jaeouriocard) informa que BUI/Tarifa Social continuam no Riocard e que pode ser necessário usar Riocard e Jaé conforme o trajeto.
+
+### Exceções e janelas específicas
+
+Pela página de [meios e tarifas do MetrôRio](https://www.metrorio.com.br/como-pagar/meios-e-tarifas):
+
+- Integrações com modais intermunicipais: Riocard+BUI.
+- Integrações com ônibus municipal: Jaé ou Riocard+BUI, conforme o produto.
+- Integrações Metrô+BRT/van: somente Jaé.
+- Janela das integrações publicadas pelo MetrôRio: **120 minutos**, não a janela genérica de 3 horas.
+
+A tabela atual da Riocard prevê, com BUI, **R$ 9,40** para:
+
+- Ônibus intermunicipal + ônibus municipal da RM, ressalvada a exceção de Niterói.
+- Intermunicipal + barcas.
+- Intermunicipal + metrô ou trem.
+- Trem + metrô.
+- Trem + ônibus municipal.
+- VLT + ônibus intermunicipal ou barcas.
+
+Fonte: [Riocard — tarifas](http://www.riocardmais.com.br/Tarifas).
+
+## 6. São Gonçalo ↔ Niterói
+
+**Não existe uma tarifa única para todo o par.** A [Portaria DETRO/PRES 1.960/2026](https://www.sindpass.com.br/wp-content/uploads/2026/02/Portaria-DETRO-Reajuste-2026.pdf), vigente desde 15/02/2026, mostra exemplos:
+
+| Linha/trecho | Tarifa comum |
+|---|---:|
+| 484M — Niterói–Alcântara via Tribobó | R$ 7,10 |
+| 483M — Jardim Catarina–Niterói via Tribobó | R$ 9,10 |
+| 492M — Niterói–Jardim Catarina via BR-101 | R$ 9,10 |
+| 100D — Niterói–Candelária | R$ 10,40 |
+
+Decisão:
+
+- Identificar linha, variante e seção antes do preço.
+- Nas linhas de R$ 7,10 ou R$ 9,10, a tarifa direta é inferior ao BUI de R$ 9,40.
+- Acima de R$ 9,40, o BUI pode reduzir a cobrança na catraca se elegível; a base patronal sem transbordo permanece pendente conforme §2.
+- Com municipal de São Gonçalo + intermunicipal, pode haver BUI se todos os requisitos forem atendidos.
+- Com municipal de Niterói, aplicar a exceção BUN da §4, não presumir BUI cobrindo a perna.
+
+## 7. Trem, metrô, barca e VLT
+
+A tabela atual da Riocard informa:
+
+- **Trem: R$ 7,60.**
+- **Metrô: R$ 7,90.**
+
+Não tratar os dois como uma única tarifa. Não retornar “sem integração” antes de avaliar BUI/BUN e as exceções por estação/produto.
+
+O bilhete operacional “TREM” da Plena precisa de revisão de preço e significado antes de qualquer alteração de dados.
+
+## 8. Dados mínimos para automatizar uma sugestão
+
+Por sentido e por perna:
+
+- sequência, linha, variante, operadora e modal;
+- serviço municipal/intermunicipal e categoria urbano convencional/executivo;
+- origem, destino e sentido da viagem;
+- embarque, desembarque e ponto de transferência;
+- horários previstos de validação;
+- tarifa e vigência;
+- sistema tarifário e regras específicas do produto.
+
+Da pessoa/cartão:
+
+- modelo do cartão e vínculo ao CPF;
+- situação BUI/BUN e data da consulta;
+- disponibilidade de Jaé quando necessário;
+- usos já realizados no dia, quando relevantes.
+
+Sem os dados exigidos pela regra, o resultado é `parcial` ou `indeterminado`, nunca confiança alta.
+
+## 9. Erros conhecidos do classificador legado
+
+`src/lib/vt/classificarRota.ts` é experimental e não deve ser integrado à aba:
+
+- impõe BUI+Jaé indevidamente no Rio/VLT;
+- retorna antes do BUI para trilhos e barcas;
+- não trata a exceção do municipal de Niterói;
+- generaliza tarifa de SG sem destino/linha;
+- presume integração de Niterói sem linha, sentido e horário;
+- mistura trem com metrô;
+- avisa excedente BUI só acima de quatro pernas em vez de a partir da terceira;
+- usa confiança alta sem evidência suficiente.
+
+Os testes desse arquivo caracterizam o comportamento antigo; não são especificação do novo motor.
+
+## 10. Pendências de decisão
+
+- BUI direto sem transbordo na base patronal: DP/jurídico/Riocard.
+- Política quando pacote Plena e cotação de catraca divergirem: gestora.
+- Reajuste no meio da competência: gestora.
+- Evidência do posto real para crédito fora da carga: gestora.
+- Compra Riocard separada por CNPJ/empresa: gestora/Riocard.
+- Modelo físico/lógico dos cartões usados pela Plena: conferência cadastral.
+
+Enquanto pendentes, esses casos ficam fora da confirmação automática.

@@ -1,0 +1,134 @@
+import { removerAcentos } from '@/lib/utils'
+import type { VtBilhete, VtTrajeto } from '@/types/vt'
+import type {
+  ComponentePacoteVT,
+  CotacaoCatraca,
+  DecisaoPacoteTrajetoVT,
+  PacoteBeneficioVT,
+  RequisitoFinanciamentoVT,
+  VersaoPrecoPacoteVT,
+} from '@/lib/vt/contratosTarifarios'
+
+export interface PacotesLegadosAdaptados {
+  pacotes: PacoteBeneficioVT[]
+  versoes: VersaoPrecoPacoteVT[]
+  componentes: ComponentePacoteVT[]
+  requisitos: RequisitoFinanciamentoVT[]
+  pacoteIdPorBilheteId: ReadonlyMap<string, string>
+}
+
+function slug(nome: string): string {
+  return removerAcentos(nome).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+}
+
+function diaAnterior(data: string): string {
+  const [ano, mes, dia] = data.split('-').map(Number)
+  return new Date(Date.UTC(ano, mes - 1, dia - 1)).toISOString().slice(0, 10)
+}
+
+export function adaptarPacotesLegados(bilhetes: readonly VtBilhete[]): PacotesLegadosAdaptados {
+  const pacotes: PacoteBeneficioVT[] = []
+  const versoes: VersaoPrecoPacoteVT[] = []
+  const componentes: ComponentePacoteVT[] = []
+  const requisitos: RequisitoFinanciamentoVT[] = []
+  const pacoteIdPorBilheteId = new Map<string, string>()
+  const nomes = [...new Set(bilhetes.map((bilhete) => bilhete.nome))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+
+  for (const nome of nomes) {
+    const pacoteId = `legado_${slug(nome)}`
+    const linhas = bilhetes
+      .filter((bilhete) => bilhete.nome === nome)
+      .sort((a, b) => a.vigente_desde.localeCompare(b.vigente_desde))
+    pacotes.push({ id: pacoteId, nome, ativo: linhas.some((bilhete) => bilhete.ativo) })
+    componentes.push({ id: `${pacoteId}_componente`, pacoteId, descricao: nome, ordem: 1 })
+
+    for (const [indice, bilhete] of linhas.entries()) {
+      const seguinte = linhas[indice + 1]
+      versoes.push({
+        id: bilhete.id,
+        pacoteId,
+        valorDiarioCentavos: bilhete.valor_diario_centavos,
+        vigenteDesde: bilhete.vigente_desde,
+        vigenteAte: seguinte ? diaAnterior(seguinte.vigente_desde) : null,
+      })
+      pacoteIdPorBilheteId.set(bilhete.id, pacoteId)
+      if (bilhete.cartao_necessario) {
+        const cartao = {
+          bun: 'riocard_bun',
+          bui: 'riocard_bui',
+          jae: 'jae',
+          comum: 'comum',
+        } as const
+        requisitos.push({ pacoteId, cartao: cartao[bilhete.cartao_necessario], obrigatorio: true })
+      }
+    }
+  }
+  return { pacotes, versoes, componentes, requisitos, pacoteIdPorBilheteId }
+}
+
+export function adaptarDecisoesTrajetoLegado(
+  trajeto: VtTrajeto,
+  pacoteIdPorBilheteId: ReadonlyMap<string, string>,
+  cotacaoId: string | null = null,
+): DecisaoPacoteTrajetoVT[] {
+  const ids = [trajeto.bilhete_id, trajeto.bilhete_2_id].filter((id): id is string => !!id)
+  return ids.flatMap((bilheteId, indice) => {
+    const pacoteId = pacoteIdPorBilheteId.get(bilheteId)
+    if (!pacoteId) return []
+    return [{
+      id: `${trajeto.id}:pacote:${indice + 1}`,
+      colaboradorId: trajeto.colaborador_id,
+      departamentoId: trajeto.departamento_id,
+      pacoteId,
+      cotacaoId,
+      status: trajeto.status === 'confirmado' ? 'confirmada' : 'sugerida',
+      confirmadaPor: trajeto.confirmado_por,
+      confirmadaEm: trajeto.confirmado_em,
+      vigenteDesde: trajeto.created_at?.slice(0, 10) ?? null,
+      vigenteAte: null,
+    }]
+  })
+}
+
+export interface ComparacaoShadowVT {
+  status: 'mesmo_valor' | 'divergente' | 'revisar' | 'sem_cotacao'
+  valorAtualCentavos: number
+  valorCotadoDiaCentavos: number | null
+  diferencaCentavos: number | null
+  explicacao: string
+  basePatronalPendente: boolean
+}
+
+export function compararPacoteLegadoComCotacao(
+  valorAtualCentavos: number,
+  cotacao: CotacaoCatraca,
+  idaEVoltaEspelhadas = true,
+): ComparacaoShadowVT {
+  if (cotacao.totalEstimadoCentavos == null) {
+    return {
+      status: 'sem_cotacao',
+      valorAtualCentavos,
+      valorCotadoDiaCentavos: null,
+      diferencaCentavos: null,
+      explicacao: 'O novo motor não encontrou dados suficientes para cotar o trajeto.',
+      basePatronalPendente: false,
+    }
+  }
+  const valorCotadoDiaCentavos = cotacao.totalEstimadoCentavos * (idaEVoltaEspelhadas ? 2 : 1)
+  const basePatronalPendente = cotacao.alternativaEscolhidaId === 'bui_direto'
+  const status = cotacao.status !== 'confirmavel'
+    ? 'revisar'
+    : valorCotadoDiaCentavos === valorAtualCentavos ? 'mesmo_valor' : 'divergente'
+  return {
+    status,
+    valorAtualCentavos,
+    valorCotadoDiaCentavos,
+    diferencaCentavos: valorCotadoDiaCentavos - valorAtualCentavos,
+    explicacao: status === 'mesmo_valor'
+      ? 'O valor diário da cotação coincide com o pacote atual.'
+      : status === 'divergente'
+        ? 'A cotação da catraca difere do pacote atual; revisar regra e política Plena, sem alterar o dado automaticamente.'
+        : 'Há estimativa, mas a confirmação depende das pendências da cotação.',
+    basePatronalPendente,
+  }
+}

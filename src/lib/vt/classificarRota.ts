@@ -1,3 +1,7 @@
+// LEGADO EXPERIMENTAL — usado apenas em testes e POC; não integrar à aba VT.
+// A especificação nova está em docs/VT_ARQUITETURA_ALVO.md e
+// docs/VT_REGRAS_TARIFARIAS.md; os testes deste motor não são regra oficial.
+//
 // Lógica pura do módulo VT — motor de classificação de bilhete a partir da
 // ROTA REAL (pernas da rota: modal × município × cruza divisa), não mais da
 // comparação cidade×cidade (que errou Joyce/Thiago/José Orlando — 02/11/2026).

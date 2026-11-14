@@ -1,3 +1,5 @@
+// Caracterização do motor LEGADO experimental. Estes casos não são a
+// especificação do novo núcleo tarifário (docs/VT_ARQUITETURA_ALVO.md).
 import { describe, expect, it } from 'vitest'
 import { BILHETE, classificarRota, type PernaRota } from './classificarRota'
 
