@@ -211,3 +211,14 @@ Os testes desse arquivo caracterizam o comportamento antigo; não são especific
 - Modelo físico/lógico dos cartões usados pela Plena: conferência cadastral.
 
 Enquanto pendentes, esses casos ficam fora da confirmação automática.
+
+
+## 11. Linhas DETRO conferidas em 16/11/2026
+
+Fonte oficial: [Portaria DETRO/PRES 1.960/2026](https://www.sindpass.com.br/wp-content/uploads/2026/02/Portaria-DETRO-Reajuste-2026.pdf), vigente desde 15/02/2026.
+
+- **536R** — Niterói × Várzea das Moças (via Maria Paula): **R$ 9,10**.
+- **542R** — Niterói × Anaia: **R$ 7,10**.
+- **770D/771D** — Itaipu/Pendotiba × Candelária: **R$ 14,25**.
+
+Essas tarifas alimentam `tarifaLinhaDetro` e `REGRA_DETRO_2026`. A comparação do caso Alcemir mostrou que a primeira alternativa do Google (536R + 35, R$ 14,70 por sentido) é a mais rápida, mas não a mais barata: 62 + 39A pelo Centro custa R$ 11,20 por sentido, com transferência válida de 18 minutos e duração total de 60 minutos. Com BUN ativo, a segunda condução é coberta pela integração e o sentido fica R$ 5,60 (R$ 11,20/dia); com BUN não confirmado, vale a tarifa integral de R$ 11,20 por sentido (R$ 22,40/dia). 542R + 39A custa R$ 12,70; 62 + 771D/770D custa R$ 19,85. A alternativa só pode ser escolhida depois de conferir desembarque, caminhada, horário real e situação do BUN.

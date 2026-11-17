@@ -1,4 +1,5 @@
 import type { HistoricoImportacao } from '@/types/econtador'
+import type { LoteCargaVT } from '@/lib/vt/contratosLoteCarga'
 import type {
   ContratoAdicional,
   VinculoAdicional,
@@ -13,7 +14,24 @@ import type {
 } from '@/types/materiais'
 import type { BiAnalise, BiChecklist, BiChecklistQa, BiColeta, BiEvento, BiLocal, BiSyncLog } from '@/types/bi'
 import type { FeriasFuncao, FeriasSolicitacao, FeriasFerista, FeriasAlocacao, FeriasRegra } from '@/types/ferias'
-import type { VtBilhete, VtTrajeto, VtGeocodeCache, VtCarga, VtCobertura, VtFechamento } from '@/types/vt'
+import type {
+  VtBilhete,
+  VtTrajeto,
+  VtGeocodeCache,
+  VtCarga,
+  VtCobertura,
+  VtFechamento,
+  VtPacote,
+  VtPacoteComponente,
+  VtPacotePreco,
+  VtPacoteRequisito,
+  VtTrajetoDecisao,
+  VtItinerario,
+  VtTrajetoDecisaoComponente,
+  VtBeneficioAjuste,
+  VtCargaLoteRow,
+  VtLoteAprovacao,
+} from '@/types/vt'
 
 export type NivelAcesso =
   | 'admin' // legado, equivalente a adm
@@ -986,6 +1004,67 @@ export type Database = {
         Update: Partial<VtCobertura> & Record<string, unknown>
         Relationships: []
       }
+      // Identidade estável, preços e decisões versionadas (migration 169)
+      vt_pacotes: {
+        Row: VtPacote & Record<string, unknown>
+        Insert: Partial<VtPacote> & Record<string, unknown>
+        Update: Partial<VtPacote> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_pacote_componentes: {
+        Row: VtPacoteComponente & Record<string, unknown>
+        Insert: Partial<VtPacoteComponente> & Record<string, unknown>
+        Update: Partial<VtPacoteComponente> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_pacote_precos: {
+        Row: VtPacotePreco & Record<string, unknown>
+        Insert: Partial<VtPacotePreco> & Record<string, unknown>
+        Update: Partial<VtPacotePreco> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_pacote_requisitos: {
+        Row: VtPacoteRequisito & Record<string, unknown>
+        Insert: Partial<VtPacoteRequisito> & Record<string, unknown>
+        Update: Partial<VtPacoteRequisito> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_trajeto_decisoes: {
+        Row: VtTrajetoDecisao & Record<string, unknown>
+        Insert: Partial<VtTrajetoDecisao> & Record<string, unknown>
+        Update: Partial<VtTrajetoDecisao> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_itinerarios: {
+        Row: VtItinerario & Record<string, unknown>
+        Insert: Partial<VtItinerario> & Record<string, unknown>
+        Update: Partial<VtItinerario> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_trajeto_decisao_componentes: {
+        Row: VtTrajetoDecisaoComponente & Record<string, unknown>
+        Insert: Partial<VtTrajetoDecisaoComponente> & Record<string, unknown>
+        Update: Partial<VtTrajetoDecisaoComponente> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_beneficio_ajustes: {
+        Row: VtBeneficioAjuste & Record<string, unknown>
+        Insert: Partial<VtBeneficioAjuste> & Record<string, unknown>
+        Update: Partial<VtBeneficioAjuste> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_carga_lotes: {
+        Row: VtCargaLoteRow & Record<string, unknown>
+        Insert: Partial<VtCargaLoteRow> & Record<string, unknown>
+        Update: Partial<VtCargaLoteRow> & Record<string, unknown>
+        Relationships: []
+      }
+      vt_lote_aprovacoes: {
+        Row: VtLoteAprovacao & Record<string, unknown>
+        Insert: Partial<VtLoteAprovacao> & Record<string, unknown>
+        Update: Partial<VtLoteAprovacao> & Record<string, unknown>
+        Relationships: []
+      }
     }
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Views: {}
@@ -1191,6 +1270,27 @@ export type Database = {
           p_motivo?: string | null
         }
         Returns: void
+      }
+      vt_salvar_rascunho_lote: {
+        Args: { p_lote: LoteCargaVT; p_versao_esperada: number }
+        Returns: LoteCargaVT
+      }
+      vt_aprovar_divergencia: {
+        Args: { p_anterior_id: string; p_novo_id: string; p_colaborador_id: string }
+        Returns: string
+      }
+      vt_confirmar_lote: {
+        Args: { p_lote_id: string; p_versao_esperada: number }
+        Returns: LoteCargaVT
+      }
+      vt_confirmar_substituto: {
+        Args: {
+          p_anterior_id: string
+          p_versao_esperada_anterior: number
+          p_novo_id: string
+          p_versao_esperada_novo: number
+        }
+        Returns: LoteCargaVT
       }
     }
   }

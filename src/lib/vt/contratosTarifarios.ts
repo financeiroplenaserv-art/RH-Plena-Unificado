@@ -27,12 +27,18 @@ export interface PernaItinerarioVT {
   tarifaVigenteDesde: string | null
 }
 
+export interface AjusteManualItinerarioVT {
+  tipo: 'remocao_perna'
+  perna: PernaItinerarioVT
+}
+
 export interface ItinerarioVT {
   pernas: PernaItinerarioVT[]
   provedor: 'google_routes' | 'manual' | 'importado' | 'outro'
   consultadoEm: string
   precisao: 'exata' | 'parcial' | 'bairro' | 'manual'
   evidenciaHash: string | null
+  ajustesManuais?: AjusteManualItinerarioVT[]
 }
 
 export interface FonteOficialVT {
@@ -128,6 +134,7 @@ export interface VersaoPrecoPacoteVT {
   valorDiarioCentavos: number
   vigenteDesde: string
   vigenteAte: string | null
+  bilheteLegadoId?: string | null
 }
 
 export interface RequisitoFinanciamentoVT {
@@ -136,17 +143,27 @@ export interface RequisitoFinanciamentoVT {
   obrigatorio: boolean
 }
 
-export interface DecisaoPacoteTrajetoVT {
+export interface DecisaoTrajetoVT {
   id: string
+  trajetoLegadoId: string | null
   colaboradorId: string
   departamentoId: string
-  pacoteId: string
+  revisao: number
   cotacaoId: string | null
   status: 'sugerida' | 'confirmada' | 'indeterminada'
   confirmadaPor: string | null
   confirmadaEm: string | null
   vigenteDesde: string | null
   vigenteAte: string | null
+  origem?: 'manual' | 'legado'
+  referenciasLegadasNaoResolvidas: string[]
+}
+
+export interface ComponenteDecisaoTrajetoVT {
+  id: string
+  decisaoTrajetoId: string
+  pacoteId: string
+  ordem: number
 }
 
 export interface AjusteBeneficioVT {
@@ -154,7 +171,8 @@ export interface AjusteBeneficioVT {
   decisaoTrajetoId: string
   valorDiarioCentavos: number
   motivo: string
-  autorId: string
-  vigenteDesde: string
+  autorId: string | null
+  vigenteDesde: string | null
   vigenteAte: string | null
+  origem?: 'manual' | 'legado'
 }

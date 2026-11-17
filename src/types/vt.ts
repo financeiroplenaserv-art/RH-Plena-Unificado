@@ -166,3 +166,136 @@ export interface VtCobertura {
   registrado_por: string | null
   created_at?: string
 }
+
+
+/** Pacote operacional estável (migration 169; independente das versões de preço). */
+export interface VtPacote {
+  id: string
+  nome: string
+  ativo: boolean
+  legado_nome: string | null
+  created_at?: string
+}
+
+export interface VtPacoteComponente {
+  id: string
+  pacote_id: string
+  descricao: string
+  ordem: number
+  created_at?: string
+}
+
+export interface VtPacotePreco {
+  id: string
+  pacote_id: string
+  valor_diario_centavos: number
+  vigente_desde: string
+  vigente_ate: string | null
+  bilhete_legado_id: string | null
+  created_at?: string
+}
+
+export interface VtPacoteRequisito {
+  id: string
+  pacote_id: string
+  cartao: 'riocard_bui' | 'riocard_bun' | 'jae' | 'comum' | 'outro'
+  obrigatorio: boolean
+  created_at?: string
+}
+
+export interface VtTrajetoDecisao {
+  id: string
+  trajeto_legado_id: string | null
+  colaborador_id: string
+  departamento_id: string
+  revisao: number
+  cotacao_id: string | null
+  status: 'sugerida' | 'confirmada' | 'indeterminada'
+  confirmado_por: string | null
+  confirmado_em: string | null
+  vigente_desde: string | null
+  vigente_ate: string | null
+  origem: 'manual' | 'legado'
+  referencias_legadas_nao_resolvidas: string[]
+  itinerario_id?: string | null
+  created_at?: string
+}
+
+export interface VtItinerario {
+  id: string
+  colaborador_id: string
+  departamento_id: string
+  provedor: 'google_routes' | 'manual' | 'importado' | 'outro'
+  alternativa_id: string
+  itinerario: import('@/lib/vt/contratosTarifarios').ItinerarioVT
+  distancia_metros: number | null
+  duracao_segundos: number | null
+  consultado_em: string
+  evidencia_hash: string
+  chave_idempotencia: string
+  created_by: string | null
+  created_at?: string
+}
+
+export interface VtTrajetoDecisaoComponente {
+  id: string
+  decisao_trajeto_id: string
+  pacote_id: string
+  ordem: number
+  created_at?: string
+}
+
+export interface VtBeneficioAjuste {
+  id: string
+  decisao_trajeto_id: string
+  valor_diario_centavos: number
+  motivo: string
+  autor_id: string | null
+  vigente_desde: string | null
+  vigente_ate: string | null
+  origem: 'manual' | 'legado'
+  created_at?: string
+}
+
+
+/** Snapshot persistido do lote de carga (migration 170). */
+export interface VtConfirmacaoLote {
+  versaoConteudo: number
+  conteudoHash: string
+  confirmadaPor: string
+  confirmadaEm: string
+}
+
+export interface VtCargaLoteRow {
+  id: string
+  competencia: string
+  status: 'rascunho' | 'confirmado' | 'substituido'
+  versao_conteudo: number
+  conteudo_hash: string
+  versao_calculo: string
+  versao_regras: Record<string, string>
+  fonte: {
+    tipo: 'gestao_escalas_flit'
+    nomeArquivo: string | null
+    conteudoHash: string
+    importadoEm: string
+  }
+  linhas: unknown[]
+  totais_por_colaborador: unknown[]
+  pendencias: unknown[]
+  necessidade_centavos: number
+  ajuste_centavos: number
+  valor_centavos: number | null
+  confirmacao: VtConfirmacaoLote | null
+  lote_substituido_id: string | null
+  created_at?: string
+}
+
+export interface VtLoteAprovacao {
+  id: string
+  lote_id: string
+  colaborador_id: string
+  divergencia_hash: string
+  aprovada_por: string
+  aprovada_em: string
+}

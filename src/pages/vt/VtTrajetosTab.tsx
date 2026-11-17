@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ExternalLink, Route, Trash2, AlertTriangle } from 'lucide-react'
+import { ExternalLink, Route, Trash2, AlertTriangle, GitBranch } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,31 +34,18 @@ import {
   descricaoCartaoDosBilhetes,
 } from '@/lib/vt/trajetos'
 import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
+import { VtRevisaoRotaShadow } from '@/pages/vt/VtRevisaoRotaShadow'
+import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
-import type { EscopoTrajetoVT, TipoCartaoVT, VtBilhete } from '@/types/vt'
+import type { VtBilhete } from '@/types/vt'
 
 // Aba Trajetos do VT (Fase 1): uma linha por par colaborador × posto. A
 // precificação é por bilhete nomeado com valor diário (modelo de 21/10/2026,
 // plano §2d; "combinação" virou "bilhete" — migration 156): bilhete 1
 // obrigatório + bilhete 2 opcional, custo = soma. O trajeto só entra no
 // cálculo depois de confirmado pelo RH — "importação nunca grava palpite"
-// (AGENTS.md §12, plano §4). O escopo é apenas um selo informacional das
-// cidades casa × posto (não precifica).
-
-/** Selo somente leitura do escopo: Niterói / Intermunicipal / cidade da casa. */
-function seloEscopo(escopo: EscopoTrajetoVT, cidadeCasa: string | null): string {
-  if (escopo === 'niteroi_municipal') return 'Niterói'
-  if (escopo === 'intermunicipal') return 'Intermunicipal'
-  return cidadeCasa?.trim() || 'Outra cidade'
-}
-
-/** Rótulo curto do cartão que a pessoa TEM (cadastro) — selo ao lado do nome. */
-const ROTULO_CARTAO: Record<TipoCartaoVT, string> = {
-  bun: 'BUN',
-  bui: 'BUI',
-  jae: 'JAE',
-  comum: 'Comum',
-}
+// (AGENTS.md §12, plano §4). O escopo é informacional e não aparece como fato
+// quando a cidade do posto está ausente.
 
 interface LinhaTrajeto {
   chave: string
@@ -76,8 +63,6 @@ interface LinhaTrajeto {
   cepCasa: string | null
   enderecoPosto: string | null
   cidadePosto: string | null
-  /** Cartão que a pessoa TEM (cadastro; null para colaborador fora da lista de ativos) — exibido ao lado do nome: o valor pago vem do bilhete do trajeto, não do cartão (decisão da gestora, 24/10/2026). */
-  tipoCartao: TipoCartaoVT | null
   /** Situação do BU na Riocard (migration 167; null = não consultado ou colaborador fora da lista de ativos). */
   buAtivado: boolean | null
   buSituacao: string | null
@@ -123,6 +108,7 @@ export function VtTrajetosTab({
   // ocupa a tela de todo mundo). Padrão: visível só quando o trajeto gravado
   // já tem bilhete_2_id (dado gravado nunca é escondido).
   const [mostrarB2, setMostrarB2] = useState<Record<string, boolean>>({})
+  const [editandoComposicao, setEditandoComposicao] = useState<Record<string, boolean>>({})
   const [dialogAberto, setDialogAberto] = useState(false)
   const [excluindo, setExcluindo] = useState<LinhaTrajeto | null>(null)
   const [novoColaboradorId, setNovoColaboradorId] = useState('')
@@ -132,6 +118,7 @@ export function VtTrajetosTab({
   const [novoExtra, setNovoExtra] = useState('')
   const [temB2, setTemB2] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [revisando, setRevisando] = useState<LinhaTrajeto | null>(null)
 
   // Opções dos selects: os vigentes hoje. Bilhete referenciado por trajeto
   // gravado que saiu de vigor continua aparecendo (selo "vigência antiga")
@@ -167,7 +154,6 @@ export function VtTrajetosTab({
         cepCasa: colab?.cep ?? null,
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
-        tipoCartao: colab?.vt_tipo_cartao ?? null,
         buAtivado: colab?.vt_bu_ativado ?? null,
         buSituacao: colab?.vt_bu_situacao ?? null,
         trajeto: t,
@@ -195,7 +181,6 @@ export function VtTrajetosTab({
         cepCasa: c.cep ?? null,
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
-        tipoCartao: c.vt_tipo_cartao ?? null,
         buAtivado: c.vt_bu_ativado ?? null,
         buSituacao: c.vt_bu_situacao ?? null,
         trajeto: null,
@@ -419,11 +404,12 @@ export function VtTrajetosTab({
 
   return (
     <div className="space-y-4">
+      {import.meta.env.DEV && <VtRevisaoRotaShadow />}
       <ModuleCard>
         <p className="text-[13px] text-muted-foreground">
-          Abra a rota no Google Maps, veja o trajeto que a pessoa faz, escolha o bilhete de VT
-          correspondente e confirme — a maioria usa um bilhete só; se a pessoa precisa de dois,
-          clique em + 2º bilhete. Só trajetos <strong>confirmados</strong> entram no custo do dia.
+          Abra a rota no Google Maps e confira o trajeto real. Use <strong>Editar composição</strong> para
+          escolher um ou dois bilhetes e, se necessário, um valor extra. Depois confirme o trajeto:
+          somente os <strong>confirmados pelo RH</strong> entram no custo do dia.
         </p>
       </ModuleCard>
 
@@ -455,10 +441,9 @@ export function VtTrajetosTab({
                 <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <th className="px-3 py-3">Colaborador</th>
                   <th className="px-3 py-3">Posto</th>
-                  <th className="px-3 py-3">Escopo</th>
                   <th className="px-3 py-3">Bilhete</th>
                   <th className="px-3 py-3 text-right">Custo/dia</th>
-                  <th className="px-3 py-3">Precisão</th>
+                  <th className="px-3 py-3">Endereço</th>
                   <th className="px-3 py-3">Status</th>
                   <th className="px-3 py-3 text-right">Ações</th>
                 </tr>
@@ -469,10 +454,10 @@ export function VtTrajetosTab({
                   const opcoes = opcoesDa(linha)
                   const custo = custoDaLinha(linha)
                   const extraLinha = extraDaLinha(linha, valores)
-                  const escopo = linha.trajeto?.escopo ?? escopoSugerido(linha.cidadeCasa, linha.cidadePosto)
                   const precisao = linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)
                   const confirmado = linha.trajeto?.status === 'confirmado'
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
+                  const emEdicao = editandoComposicao[linha.chave] ?? false
                   // Mudança de posto: trajeto GRAVADO para um posto diferente
                   // do cadastro atual — a mesma pessoa aparece 2× (esta linha
                   // + a sugestão do posto novo). Só aviso, nunca bloqueia.
@@ -507,14 +492,6 @@ export function VtTrajetosTab({
                       <td className="px-3 py-2.5 font-medium text-foreground">
                         <span className="inline-flex items-center gap-2">
                           {linha.nomeColaborador}
-                          {linha.tipoCartao && (
-                            <span
-                              className="text-[11px] font-medium text-muted-foreground"
-                              title="Cartão que a pessoa tem (cadastro). O valor pago por dia vem do bilhete do trajeto, não do cartão."
-                            >
-                              cartão: {ROTULO_CARTAO[linha.tipoCartao]}
-                            </span>
-                          )}
                           {linha.statusColaborador && (
                             <StatusBadge variant="warning" dot={false}>
                               {linha.statusColaborador}
@@ -524,6 +501,11 @@ export function VtTrajetosTab({
                       </td>
                       <td className="px-3 py-2.5 text-muted-foreground">
                         {linha.nomePosto}
+                        <p className={`mt-1 text-[11px] ${linha.cidadePosto?.trim() ? 'text-muted-foreground' : 'font-medium text-amber-600'}`}>
+                          {linha.cidadePosto?.trim()
+                            ? `Cidade: ${linha.cidadePosto.trim()}`
+                            : 'Cidade do posto não informada — necessária para revisar o trajeto.'}
+                        </p>
                         {nomePostoAtual && (
                           <p className="mt-1 flex items-start gap-1 text-[11px] font-medium text-amber-600">
                             <AlertTriangle className="mt-0.5 size-3 shrink-0" />
@@ -533,28 +515,75 @@ export function VtTrajetosTab({
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <StatusBadge variant="info" dot={false}>
-                          {seloEscopo(escopo, linha.cidadeCasa)}
-                        </StatusBadge>
-                      </td>
-                      <td className="px-3 py-2.5">
                         <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5">
-                            {selectBilhete(linha, 'b1', valores.b1, opcoes)}
-                            {podeGerenciar && !b2Visivel && (
-                              <button
-                                type="button"
-                                className="shrink-0 rounded-md px-1.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
-                                title="Adicionar segundo bilhete — poucos colaboradores usam"
-                                onClick={() =>
-                                  setMostrarB2((atual) => ({ ...atual, [linha.chave]: true }))
-                                }
+                          {podeGerenciar && emEdicao ? (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                {selectBilhete(linha, 'b1', valores.b1, opcoes)}
+                                {!b2Visivel && (
+                                  <button
+                                    type="button"
+                                    className="shrink-0 rounded-md px-1.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
+                                    title="Adicionar segundo bilhete — poucos colaboradores usam"
+                                    onClick={() =>
+                                      setMostrarB2((atual) => ({ ...atual, [linha.chave]: true }))
+                                    }
+                                  >
+                                    + 2º bilhete
+                                  </button>
+                                )}
+                              </div>
+                              {b2Visivel && selectBilhete(linha, 'b2', valores.b2, opcoes)}
+                              <div className="flex items-center gap-1.5">
+                                <label
+                                  htmlFor={`extra-${linha.chave}`}
+                                  className="text-[11px] text-muted-foreground"
+                                  title="Valor manual a mais por dia (ex.: acordo pontual) — soma ao custo do dia"
+                                >
+                                  Extra/dia R$
+                                </label>
+                                <Input
+                                  id={`extra-${linha.chave}`}
+                                  className="h-7 w-20 text-[12px] tabular-nums"
+                                  inputMode="decimal"
+                                  placeholder="0,00"
+                                  value={valores.extra}
+                                  disabled={salvando}
+                                  onChange={(e) => editarExtra(linha, e.target.value)}
+                                  onBlur={() => salvarExtra(linha)}
+                                />
+                              </div>
+                              <ModuleButton
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditandoComposicao((atual) => ({ ...atual, [linha.chave]: false }))}
                               >
-                                + 2º bilhete
-                              </button>
-                            )}
-                          </div>
-                          {b2Visivel && selectBilhete(linha, 'b2', valores.b2, opcoes)}
+                                Concluir edição
+                              </ModuleButton>
+                            </>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-foreground">
+                                {valores.b1
+                                  ? bilhetes.find((bilhete) => bilhete.id === valores.b1)?.nome ?? 'Bilhete não encontrado'
+                                  : 'Nenhum bilhete escolhido'}
+                              </span>
+                              {valores.b2 && (
+                                <span className="text-muted-foreground">
+                                  + {bilhetes.find((bilhete) => bilhete.id === valores.b2)?.nome ?? 'Bilhete não encontrado'}
+                                </span>
+                              )}
+                              {podeGerenciar && (
+                                <ModuleButton
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditandoComposicao((atual) => ({ ...atual, [linha.chave]: true }))}
+                                >
+                                  Editar composição
+                                </ModuleButton>
+                              )}
+                            </div>
+                          )}
                           {descricaoCartao && (
                             <p className="text-[11px] text-muted-foreground">{descricaoCartao}</p>
                           )}
@@ -576,27 +605,6 @@ export function VtTrajetosTab({
                               {avisoBilhete}
                             </p>
                           )}
-                          {podeGerenciar && (
-                            <div className="flex items-center gap-1.5">
-                              <label
-                                htmlFor={`extra-${linha.chave}`}
-                                className="text-[11px] text-muted-foreground"
-                                title="Valor manual a mais por dia (ex.: acordo pontual) — soma ao custo do dia"
-                              >
-                                Extra/dia R$
-                              </label>
-                              <Input
-                                id={`extra-${linha.chave}`}
-                                className="h-7 w-20 text-[12px] tabular-nums"
-                                inputMode="decimal"
-                                placeholder="0,00"
-                                value={valores.extra}
-                                disabled={salvando}
-                                onChange={(e) => editarExtra(linha, e.target.value)}
-                                onBlur={() => salvarExtra(linha)}
-                              />
-                            </div>
-                          )}
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
@@ -607,15 +615,15 @@ export function VtTrajetosTab({
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <StatusBadge variant={precisao === 'exato' ? 'success' : 'warning'}>
-                          {precisao === 'exato' ? 'exato' : 'bairro'}
-                        </StatusBadge>
+                      <td className="px-3 py-2.5 text-[12px] text-muted-foreground">
+                        <span title="Informa apenas se o cadastro contém rua e número; não é validação geográfica.">
+                          {precisao === 'exato' ? 'Rua e número' : 'Somente bairro'}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5">
                         {linha.trajeto ? (
                           <StatusBadge variant={confirmado ? 'success' : 'warning'}>
-                            {confirmado ? 'Confirmado' : 'A confirmar'}
+                            {confirmado ? 'Confirmado pelo RH' : 'A confirmar'}
                           </StatusBadge>
                         ) : (
                           <span title="O sistema montou do cadastro; confirme para valer ou ignore.">
@@ -627,6 +635,16 @@ export function VtTrajetosTab({
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1">
+                          {podeGerenciar && linha.trajeto && (
+                            <button
+                              type="button"
+                              className="rounded-md p-1.5 text-primary hover:bg-accent"
+                              title="Revisar itinerário com Google"
+                              onClick={() => setRevisando(linha)}
+                            >
+                              <GitBranch className="size-4" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="rounded-md p-1.5 text-primary hover:bg-accent"
@@ -665,6 +683,49 @@ export function VtTrajetosTab({
           </div>
         )}
       </ModuleCard>
+
+      {revisando?.trajeto && (
+        <Dialog open={!!revisando} onOpenChange={(aberto) => { if (!aberto) setRevisando(null) }}>
+          <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Revisar itinerário — {revisando.nomeColaborador}</DialogTitle>
+              <DialogDescription>
+                Casa → {revisando.nomePosto}. Se a decisão atual estiver confirmada, uma nova revisão será criada somente ao salvar.
+              </DialogDescription>
+            </DialogHeader>
+            <VtRevisaoRota
+              contextoReal={{
+                trajetoLegadoId: revisando.trajeto.id,
+                colaboradorId: revisando.colaboradorId,
+                departamentoId: revisando.departamentoId,
+                usuarioId,
+                origem: textoOrigemCasa(revisando.enderecoCasa, revisando.cidadeCasa, revisando.cepCasa),
+                destino: (() => {
+                  const dep = departamentos.find((item) => item.id === revisando.departamentoId)
+                  return dep
+                    ? textoDestinoPosto(dep)
+                    : [revisando.enderecoPosto, revisando.cidadePosto].filter(Boolean).join(', ') || revisando.nomePosto
+                })(),
+                municipioOrigem: revisando.cidadeCasa ?? 'desconhecida',
+                municipioDestino: revisando.cidadePosto ?? 'desconhecida',
+                precisao: revisando.trajeto.precisao_origem === 'exato' ? 'exata' : 'bairro',
+                cartao: {
+                  personalizacao: 'desconhecida',
+                  vinculadoCpf: null,
+                  bui: revisando.buSituacao === 'Ativado'
+                    ? 'ativo'
+                    : revisando.buSituacao === 'Não possui BU'
+                      ? 'nao_possui'
+                      : revisando.buAtivado === false ? 'suspenso' : 'nao_consultado',
+                  bun: 'nao_consultado',
+                  jae: 'nao_informado',
+                  situacaoConsultadaEm: null,
+                },
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent>

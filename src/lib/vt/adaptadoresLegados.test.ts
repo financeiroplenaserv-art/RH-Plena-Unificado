@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adaptarDecisoesTrajetoLegado, adaptarPacotesLegados, compararPacoteLegadoComCotacao } from '@/lib/vt/adaptadoresLegados'
+import { adaptarDecisaoTrajetoLegado, adaptarPacotesLegados, compararPacoteLegadoComCotacao } from '@/lib/vt/adaptadoresLegados'
 import { cotarCatraca } from '@/lib/vt/cotarCatraca'
 import { REGRAS_OFICIAIS_VT } from '@/lib/vt/regrasOficiais'
 import type { VtBilhete, VtTrajeto } from '@/types/vt'
@@ -33,7 +33,7 @@ describe('adaptarPacotesLegados', () => {
     expect(adaptado.requisitos[0].cartao).toBe('riocard_bun')
   })
 
-  it('adapta os dois pacotes do trajeto sem inventar vigência desconhecida', () => {
+  it('adapta os pacotes do trajeto somente a partir de um corte explícito', () => {
     const adaptado = adaptarPacotesLegados([
       bilhete({ id: 'b1' }),
       bilhete({ id: 'b2', nome: 'TREM', cartao_necessario: 'comum', usa_integracao: false }),
@@ -52,13 +52,44 @@ describe('adaptarPacotesLegados', () => {
       observacao: null,
       confirmado_por: 'u1',
       confirmado_em: '2026-11-01T10:00:00Z',
+      created_at: '2026-10-21T10:00:00Z',
     }
-    const decisoes = adaptarDecisoesTrajetoLegado(trajeto, adaptado.pacoteIdPorBilheteId, 'cotacao-1')
+    const adaptacao = adaptarDecisaoTrajetoLegado(trajeto, adaptado.pacoteIdPorBilheteId, 'cotacao-1', '2026-11-15')
 
-    expect(decisoes).toHaveLength(2)
-    expect(decisoes[0].cotacaoId).toBe('cotacao-1')
-    expect(decisoes[0].vigenteDesde).toBeNull()
-    expect(decisoes.every((decisao) => decisao.status === 'confirmada')).toBe(true)
+    expect(adaptacao.componentes).toHaveLength(2)
+    expect(adaptacao.decisao.cotacaoId).toBe('cotacao-1')
+    expect(adaptacao.decisao.vigenteDesde).toBe('2026-11-15')
+    expect(adaptacao.decisao.status).toBe('confirmada')
+    expect(adaptacao.decisao.referenciasLegadasNaoResolvidas).toEqual([])
+  })
+
+  it('preserva referência sem pacote e valor extra em vez de descartá-los', () => {
+    const adaptado = adaptarPacotesLegados([bilhete({ id: 'b1' })])
+    const adaptacao = adaptarDecisaoTrajetoLegado({
+      id: 'tr2',
+      colaborador_id: 'c1',
+      departamento_id: 'd1',
+      bilhete_id: 'b1',
+      bilhete_2_id: 'bilhete-ausente',
+      escopo: 'niteroi_municipal',
+      precisao_origem: 'bairro',
+      origem: 'manual',
+      status: 'confirmado',
+      valor_extra_centavos: 250,
+      observacao: 'Complemento confirmado pela operação',
+      confirmado_por: 'u1',
+      confirmado_em: '2026-11-01T10:00:00Z',
+      created_at: '2026-10-21T10:00:00Z',
+    }, adaptado.pacoteIdPorBilheteId, null, '2026-11-15')
+
+    expect(adaptacao.componentes).toHaveLength(1)
+    expect(adaptacao.decisao.referenciasLegadasNaoResolvidas).toEqual(['bilhete-ausente'])
+    expect(adaptacao.ajustes).toHaveLength(1)
+    expect(adaptacao.ajustes[0]).toMatchObject({
+      valorDiarioCentavos: 250,
+      motivo: 'Complemento confirmado pela operação',
+      vigenteDesde: '2026-11-15',
+    })
   })
 })
 

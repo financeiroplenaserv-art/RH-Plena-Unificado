@@ -1,3 +1,5 @@
+import type { AjusteBeneficioVT } from '@/lib/vt/contratosTarifarios'
+
 export interface FonteLoteCargaVT {
   tipo: 'gestao_escalas_flit'
   nomeArquivo: string | null
@@ -13,6 +15,15 @@ export interface PendenciaLoteCargaVT {
   impeditivaConfirmacao: boolean
 }
 
+export interface ComponentePrecoLoteCargaVT {
+  componenteId: string
+  pacoteId: string
+  versaoPrecoId: string
+  valorCentavos: number
+  vigenteDesde: string
+  vigenteAte: string | null
+}
+
 export interface LinhaLoteCargaVT {
   id: string
   colaboradorId: string
@@ -20,8 +31,9 @@ export interface LinhaLoteCargaVT {
   data: string
   origemDia: 'escala' | 'cobertura' | 'treinamento'
   decisaoTrajetoId: string | null
-  pacoteId: string | null
-  versaoPrecoPacoteId: string | null
+  decisaoRevisao: number | null
+  componentes: ComponentePrecoLoteCargaVT[]
+  ajustes: AjusteBeneficioVT[]
   custoDiaCentavos: number | null
   pendenciaIds: string[]
 }
@@ -33,19 +45,32 @@ export interface ConfirmacaoLoteCargaVT {
   confirmadaEm: string
 }
 
+export interface TotalColaboradorLoteCargaVT {
+  colaboradorId: string
+  status: 'completo' | 'parcial'
+  necessidadeCentavos: number
+  ajusteCentavos: number
+  valorCentavos: number | null
+  excedenteTruncadoCentavos: number | null
+  lancamentoAjusteIds: string[]
+  pendenciaIds: string[]
+}
+
 export interface LoteCargaVT {
   id: string
   competencia: string
   status: 'rascunho' | 'confirmado' | 'substituido'
   versaoConteudo: number
+  conteudoHash: string
   versaoCalculo: string
   versaoRegras: Readonly<Record<string, string>>
   fonte: FonteLoteCargaVT
   linhas: LinhaLoteCargaVT[]
+  totaisPorColaborador: TotalColaboradorLoteCargaVT[]
   pendencias: PendenciaLoteCargaVT[]
   necessidadeCentavos: number
   ajusteCentavos: number
-  valorCentavos: number
+  valorCentavos: number | null
   confirmacao: ConfirmacaoLoteCargaVT | null
   loteSubstituidoId: string | null
 }
@@ -73,6 +98,7 @@ export interface LancamentoAjusteVT {
   evidencia: string
   criadoPor: string
   criadoEm: string
+  consumidoPorLoteId: string | null
 }
 
 export type ReconciliarLoteCarga = (

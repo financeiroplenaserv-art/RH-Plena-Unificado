@@ -33,6 +33,7 @@ import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { useVtCarga, type ResultadoCargaColaborador } from '@/hooks/useVtCarga'
 import { useVtCoberturas } from '@/hooks/useVtCoberturas'
 import { InstrucoesCarga } from '@/pages/vt/InstrucoesArquivosVt'
+import { VtLoteCargaShadow } from '@/pages/vt/VtLoteCargaShadow'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
@@ -494,22 +495,26 @@ export function VtCargaTab({
 
   if (!competencia) {
     return (
-      <ModuleCard>
-        <EmptyState
-          icon={<FileUp className="size-6" />}
-          title="Carga pela Gestão de escalas"
-          description='Importe o relatório "Gestão de escalas" do Flit (Excel, gerado com o mês seguinte programado) para calcular a carga de VT.'
-        />
-        <div className="flex justify-center">{botaoImportar('Importar Gestão de escalas (Flit)')}</div>
-        <div className="mt-4">
-          <InstrucoesCarga />
-        </div>
-      </ModuleCard>
+      <div className="space-y-4">
+        {import.meta.env.DEV && <VtLoteCargaShadow />}
+        <ModuleCard>
+          <EmptyState
+            icon={<FileUp className="size-6" />}
+            title="Carga pela Gestão de escalas"
+            description='Importe o relatório "Gestão de escalas" do Flit (Excel, gerado com o mês seguinte programado) para calcular a carga de VT.'
+          />
+          <div className="flex justify-center">{botaoImportar('Importar Gestão de escalas (Flit)')}</div>
+          <div className="mt-4">
+            <InstrucoesCarga />
+          </div>
+        </ModuleCard>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
+      {import.meta.env.DEV && <VtLoteCargaShadow />}
       <ModuleCard>
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-[13px] text-muted-foreground">

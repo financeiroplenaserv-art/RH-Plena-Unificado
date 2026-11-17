@@ -1,4 +1,5 @@
 import { removerAcentos } from '@/lib/utils'
+import { tarifaLinhaDetro } from '@/lib/vt/tarifasOficiais'
 import {
   REGRA_BUI,
   REGRA_BUI_EXCECAO_NITEROI,
@@ -8,6 +9,7 @@ import {
   REGRA_METRORIO,
   REGRA_RIOCARD_TARIFAS,
   REGRA_VT_FEDERAL,
+  REGRAS_OFICIAIS_VT,
 } from '@/lib/vt/regrasOficiais'
 import type {
   AlternativaCotacaoVT,
@@ -55,25 +57,15 @@ function ehRioMunicipal(perna: PernaItinerarioVT): boolean {
   return perna.escopo === 'municipal' && norm(perna.municipioOrigem) === norm('Rio de Janeiro')
 }
 
-function tarifaLinhaDetro(linha: string | null): number | null {
-  const codigo = norm(linha ?? '').replace(/\s+/g, '')
-  const tarifas: Record<string, number> = {
-    '484M': 710,
-    '483M': 910,
-    '492M': 910,
-    '100D': 1040,
-    '515M': 710,
-    '516M': 710,
-  }
-  return tarifas[codigo] ?? null
-}
-
-export function tarifaIntegralPerna(perna: PernaItinerarioVT): number | null {
+export function tarifaIntegralPerna(
+  perna: PernaItinerarioVT,
+  regras: readonly RegraOficialVT[] = REGRAS_OFICIAIS_VT,
+): number | null {
   if (perna.tarifaCentavos != null) return perna.tarifaCentavos
   if (perna.modal === 'trem') return 760
   if (perna.modal === 'metro') return 790
   if (perna.modal === 'barca') return norm(perna.embarque.local).includes('CHARITAS') ? 770 : 500
-  if (perna.escopo === 'intermunicipal') return tarifaLinhaDetro(perna.linha)
+  if (perna.escopo === 'intermunicipal') return tarifaLinhaDetro(perna.linha, regras)
   if (perna.escopo !== 'municipal') return null
   if (ehMunicipal(perna, 'Niterói') && ehOnibus(perna)) return 560
   if (ehMunicipal(perna, 'São Gonçalo') && ehOnibus(perna)) return 555
@@ -91,9 +83,9 @@ function cartoesTarifaIntegral(pernas: PernaItinerarioVT[]): AlternativaCotacaoV
   return [...cartoes]
 }
 
-function alternativaIntegral(pernas: PernaItinerarioVT[]): AlternativaInterna {
+function alternativaIntegral(pernas: PernaItinerarioVT[], regras: readonly RegraOficialVT[]): AlternativaInterna {
   const cobrancas = pernas.map((perna) => {
-    const tarifa = tarifaIntegralPerna(perna)
+    const tarifa = tarifaIntegralPerna(perna, regras)
     return {
       sequencia: perna.sequencia,
       tarifaIntegralCentavos: tarifa,
@@ -149,7 +141,7 @@ function problemaSequencia(pernas: PernaItinerarioVT[]): PendenciaCotacaoVT | nu
   return null
 }
 
-function avaliarBun(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT): AlternativaInterna | null {
+function avaliarBun(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT, regras: readonly RegraOficialVT[]): AlternativaInterna | null {
   if (pernas.length !== 2 || !pernas.every(ehNiteroiMunicipal)) return null
   const regraId = REGRA_BUN_ONIBUS
   if (cartao.bun === 'nao_possui' || cartao.vinculadoCpf === false || ['empresa', 'ao_portador'].includes(cartao.personalizacao)) {
@@ -167,8 +159,8 @@ function avaliarBun(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT): Alterna
   if (cartao.bun === 'nao_consultado' || cartao.vinculadoCpf == null || cartao.personalizacao === 'desconhecida') {
     pendencias.push(pendencia('BUN_NAO_CONFIRMADO', 'Confirme o BUN ativo e o vínculo do cartão ao CPF.'))
   }
-  const primeira = tarifaIntegralPerna(pernas[0])
-  const segunda = tarifaIntegralPerna(pernas[1])
+  const primeira = tarifaIntegralPerna(pernas[0], regras)
+  const segunda = tarifaIntegralPerna(pernas[1], regras)
   if (primeira == null || segunda == null) {
     pendencias.push(pendencia('TARIFA_DESCONHECIDA', 'A integração BUN exige a tarifa integral das duas pernas.'))
   }
@@ -185,7 +177,7 @@ function avaliarBun(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT): Alterna
     },
     pernas: pernas.map((perna, indice) => ({
       sequencia: perna.sequencia,
-      tarifaIntegralCentavos: tarifaIntegralPerna(perna),
+      tarifaIntegralCentavos: tarifaIntegralPerna(perna, regras),
       cobradoEstimadoCentavos: indice === 0 ? primeira : 0,
       integracaoAplicadaId: regraId,
       motivo: indice === 0 ? 'Primeira condução pela tarifa integral do VT.' : 'Segunda condução coberta pela integração BUN.',
@@ -210,10 +202,10 @@ function podeAvaliarBui(cartao: FatosCartaoVT): boolean {
     && cartao.vinculadoCpf !== false
 }
 
-function avaliarBuiDireto(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT): AlternativaInterna | null {
+function avaliarBuiDireto(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT, regras: readonly RegraOficialVT[]): AlternativaInterna | null {
   if (pernas.length !== 1 || pernas[0].escopo !== 'intermunicipal' || !ehOnibus(pernas[0]) || !podeAvaliarBui(cartao)) return null
   const perna = pernas[0]
-  const tarifa = tarifaIntegralPerna(perna)
+  const tarifa = tarifaIntegralPerna(perna, regras)
   if (tarifa == null || tarifa <= TARIFA_BUI) return null
   const pendencias: PendenciaCotacaoVT[] = []
   const elegibilidade = pendenciaElegibilidadeBui(cartao)
@@ -241,7 +233,7 @@ function avaliarBuiDireto(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT): A
   }
 }
 
-function avaliarBuiIntegracao(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT): AlternativaInterna | null {
+function avaliarBuiIntegracao(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT, regras: readonly RegraOficialVT[]): AlternativaInterna | null {
   if (pernas.length !== 2 || !pernas.some((perna) => perna.escopo === 'intermunicipal') || !podeAvaliarBui(cartao)) return null
   if (pernas.some(ehNiteroiMunicipal)) return null
   if (pernas.some((perna) => perna.modal === 'metro') && pernas.some((perna) => ['brt', 'van'].includes(perna.modal))) return null
@@ -261,8 +253,8 @@ function avaliarBuiIntegracao(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT
   const elegibilidade = pendenciaElegibilidadeBui(cartao)
   if (elegibilidade) pendencias.push(elegibilidade)
 
-  const primeira = tarifaIntegralPerna(pernas[0])
-  const segunda = tarifaIntegralPerna(pernas[1])
+  const primeira = tarifaIntegralPerna(pernas[0], regras)
+  const segunda = tarifaIntegralPerna(pernas[1], regras)
   if (primeira == null || segunda == null) {
     pendencias.push(pendencia('TARIFA_DESCONHECIDA', 'A integração BUI exige a tarifa integral e a ordem das duas pernas.'))
   }
@@ -311,7 +303,7 @@ export function cotarCatraca(
   const vigentes = regras.filter((regra) => regra.vigenteDesde <= dataServico && (!regra.vigenteAte || regra.vigenteAte >= dataServico))
   const ids = new Set(vigentes.map((regra) => regra.id))
   const pernas = [...itinerario.pernas].sort((a, b) => a.sequencia - b.sequencia)
-  const integral = alternativaIntegral(pernas)
+  const integral = alternativaIntegral(pernas, vigentes)
   const alternativas: AlternativaInterna[] = [integral]
   const integracoes: IntegracaoCotadaVT[] = []
   const pendencias: PendenciaCotacaoVT[] = []
@@ -346,14 +338,14 @@ export function cotarCatraca(
     integracoes.push({ regraId: REGRA_BUI, pernas: pernas.map((perna) => perna.sequencia), aceita: false, motivo: 'A mesma integração não cobre mais de dois serviços.' })
   } else {
     if (ids.has(REGRA_BUN_ONIBUS)) {
-      const bun = avaliarBun(pernas, cartao)
+      const bun = avaliarBun(pernas, cartao, vigentes)
       if (bun) {
         alternativas.push(bun)
         if (bun.integracao) integracoes.push(bun.integracao)
       }
     }
     if (ids.has(REGRA_BUI)) {
-      const bui = pernas.length === 1 ? avaliarBuiDireto(pernas, cartao) : avaliarBuiIntegracao(pernas, cartao)
+      const bui = pernas.length === 1 ? avaliarBuiDireto(pernas, cartao, vigentes) : avaliarBuiIntegracao(pernas, cartao, vigentes)
       if (bui) {
         alternativas.push(bui)
         if (bui.integracao) integracoes.push(bui.integracao)
