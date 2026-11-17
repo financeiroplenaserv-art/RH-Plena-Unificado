@@ -14,6 +14,7 @@ import {
 import { atualizarConteudoHashLote } from '@/lib/vt/loteConteudo'
 
 export interface RepositorioLoteCargaAplicacao extends RepositorioSubstituicaoLoteCarga {
+  obterUltimoPorCompetencia(competencia: string): Promise<LoteCargaVT | null>
   salvarRascunho(lote: LoteCargaVT, versaoEsperada: number): Promise<LoteCargaVT>
   aprovarDivergencia(anteriorId: string, novoId: string, colaboradorId: string): Promise<string>
 }
@@ -45,6 +46,16 @@ export function useVtLoteCarga(
       setLoading(false)
     }
   }, [])
+
+  const carregar = useCallback(async (competencia: string) => {
+    return executar(async () => {
+      const encontrado = await repositorio.obterUltimoPorCompetencia(competencia)
+      setLote(encontrado)
+      setDivergencias([])
+      setAprovacoes([])
+      return encontrado
+    })
+  }, [executar, repositorio])
 
   const construir = useCallback(async (entrada: EntradaConstruirLote) => {
     return executar(async () => {
@@ -138,6 +149,7 @@ export function useVtLoteCarga(
     aprovacoes,
     loading,
     erro,
+    carregar,
     construir,
     confirmar,
     aprovar,

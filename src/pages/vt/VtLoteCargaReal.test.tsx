@@ -1,0 +1,97 @@
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { VtLoteCargaReal } from '@/pages/vt/VtLoteCargaReal'
+import type { VtColaborador } from '@/hooks/useVt'
+import type { ComponenteDecisaoTrajetoVT, DecisaoTrajetoVT, VersaoPrecoPacoteVT } from '@/lib/vt/contratosTarifarios'
+
+const DECISAO: DecisaoTrajetoVT = {
+  id: 'decisao-1',
+  trajetoLegadoId: 'trajeto-1',
+  colaboradorId: 'pessoa-1',
+  departamentoId: 'posto-1',
+  revisao: 1,
+  cotacaoId: null,
+  status: 'confirmada',
+  confirmadaPor: 'usuario-1',
+  confirmadaEm: '2026-01-01T10:00:00Z',
+  vigenteDesde: '2026-01-01',
+  vigenteAte: null,
+  referenciasLegadasNaoResolvidas: [],
+}
+
+const COMPONENTE: ComponenteDecisaoTrajetoVT = {
+  id: 'componente-1',
+  decisaoTrajetoId: DECISAO.id,
+  pacoteId: 'pacote-1',
+  ordem: 1,
+}
+
+const PRECO: VersaoPrecoPacoteVT = {
+  id: 'preco-1',
+  pacoteId: 'pacote-1',
+  valorDiarioCentavos: 1000,
+  vigenteDesde: '2026-01-01',
+  vigenteAte: null,
+}
+
+vi.mock('@/lib/vt/carregarDominioLote', () => ({
+  carregarDominioLote: vi.fn(async () => ({
+    decisoes: [DECISAO],
+    componentes: [COMPONENTE],
+    versoesPreco: [PRECO],
+    ajustesBeneficio: [],
+  })),
+}))
+vi.mock('@/lib/vt/repositorioLoteSupabase', async () => {
+  const { RepositorioLoteCargaEmMemoria } = await import('@/lib/vt/confirmarLote')
+  return { RepositorioLoteCargaSupabase: RepositorioLoteCargaEmMemoria }
+})
+
+const COLABORADORES: VtColaborador[] = [
+  {
+    id: 'pessoa-1',
+    nome_completo: 'Pessoa Trabalhou',
+    departamento: 'POSTO',
+    departamento_id: 'posto-1',
+    cidade: 'Niterói',
+    endereco: null,
+    vt_optante: true,
+    vt_tipo_cartao: 'bun',
+    cargo: null,
+  },
+  {
+    id: 'pessoa-sem-dias',
+    nome_completo: 'Pessoa Sem Dias',
+    departamento: 'POSTO',
+    departamento_id: 'posto-1',
+    cidade: 'Niterói',
+    endereco: null,
+    vt_optante: true,
+    vt_tipo_cartao: 'bun',
+    cargo: null,
+  },
+]
+
+describe('vertical real do lote', () => {
+  it('constrói, inclui optante sem dias, confirma e libera o Excel', async () => {
+    render(
+      <VtLoteCargaReal
+        competencia="2026-11"
+        dias={[{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-11-10', origemDia: 'escala' }]}
+        colaboradores={COLABORADORES}
+        nomeArquivo="escalas.xlsx"
+        usuarioId="usuario-1"
+      />,
+    )
+
+    const botaoConstruir = screen.getByRole('button', { name: 'Construir rascunho' })
+    await waitFor(() => expect(botaoConstruir).toBeEnabled())
+    fireEvent.click(botaoConstruir)
+    expect(await screen.findByText('Pessoa Sem Dias')).toBeInTheDocument()
+    expect(screen.getByText('rascunho')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar lote' }))
+    expect(await screen.findByText('confirmado')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Baixar Excel do lote' })).toBeInTheDocument()
+  })
+})

@@ -37,6 +37,8 @@ CREATE INDEX IF NOT EXISTS vt_carga_lotes_competencia_idx
   ON public.vt_carga_lotes (competencia, status);
 CREATE INDEX IF NOT EXISTS vt_carga_lotes_substituido_idx
   ON public.vt_carga_lotes (lote_substituido_id);
+CREATE UNIQUE INDEX IF NOT EXISTS vt_carga_lotes_competencia_confirmada_unica_idx
+  ON public.vt_carga_lotes (competencia) WHERE status = 'confirmado';
 
 CREATE TABLE IF NOT EXISTS public.vt_lote_aprovacoes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

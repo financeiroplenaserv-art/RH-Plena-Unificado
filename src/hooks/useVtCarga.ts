@@ -32,6 +32,7 @@ import {
   type RascunhoCargaVt,
 } from '@/lib/vt/cargaRascunho'
 import { ajusteDoFechamento, competenciaAnterior } from '@/lib/vt/fechamento'
+import type { DiaPlanejadoLoteVT } from '@/lib/vt/construirLote'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
@@ -134,6 +135,7 @@ function fimDoMes(competencia: string): string {
 
 export function useVtCarga() {
   const [resultados, setResultados] = useState<ResultadoCargaColaborador[]>([])
+  const [diasLote, setDiasLote] = useState<DiaPlanejadoLoteVT[]>([])
   const [ferias, setFerias] = useState<FeriasBloco[]>([])
   const [competencia, setCompetencia] = useState<string | null>(null)
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null)
@@ -164,6 +166,7 @@ export function useVtCarga() {
     nomeArquivoRef.current = null
     setCompetencia(null)
     setResultados([])
+    setDiasLote([])
     setFerias([])
     setCoberturaGeral([])
     setNomesSemMatch([])
@@ -382,6 +385,16 @@ export function useVtCarga() {
           }
         }
         const linhasComCobertura = aplicarCoberturas(linhas, coberturas, rotuloDoDepartamento, marcasPorDia)
+        const diasParaLote = linhasComCobertura.flatMap((linha): DiaPlanejadoLoteVT[] => {
+          const departamentoId = linha.cobertura?.departamento_id ?? resolver(linha.local_nome_curto ?? linha.local_nome ?? '')?.id
+          if (!departamentoId) return []
+          return [{
+            colaboradorId: linha.colaborador_id,
+            departamentoId,
+            data: linha.data,
+            origemDia: linha.cobertura?.tipo === 'treinamento' ? 'treinamento' : linha.cobertura ? 'cobertura' : 'escala',
+          }]
+        })
         const { porColaborador, naoIdentificados } = agruparDiasPorPosto(linhasComCobertura, resolver)
 
         // Blocos [FR] do relatório = as férias do mês (dirigem o portão).
@@ -521,6 +534,7 @@ export function useVtCarga() {
         setForaDoVt(foraDoVtN)
         setFerias(blocos)
         setCoberturaGeral(todos)
+        setDiasLote(diasParaLote)
         setResultados(lista)
         setLoading(false)
         // Rascunho no banco ANTES da verificação — o banner já reflete o
@@ -714,6 +728,7 @@ export function useVtCarga() {
 
   return {
     resultados,
+    diasLote,
     ferias,
     competencia,
     nomeArquivo,

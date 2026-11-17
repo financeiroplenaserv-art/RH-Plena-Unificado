@@ -34,6 +34,7 @@ import { useVtCarga, type ResultadoCargaColaborador } from '@/hooks/useVtCarga'
 import { useVtCoberturas } from '@/hooks/useVtCoberturas'
 import { InstrucoesCarga } from '@/pages/vt/InstrucoesArquivosVt'
 import { VtLoteCargaShadow } from '@/pages/vt/VtLoteCargaShadow'
+import { VtLoteCargaReal } from '@/pages/vt/VtLoteCargaReal'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { TipoCoberturaVT, VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
@@ -130,6 +131,7 @@ export function VtCargaTab({
 }: VtCargaTabProps) {
   const {
     resultados,
+    diasLote,
     ferias,
     competencia,
     nomeArquivo,
@@ -148,6 +150,7 @@ export function VtCargaTab({
 
   const inputArquivoRef = useRef<HTMLInputElement>(null)
   const [gravando, setGravando] = useState(false)
+  const [novoFluxo, setNovoFluxo] = useState(false)
 
   // Dialog de cobertura (avulsa ou vinculada a férias do relatório)
   const [dialogAberto, setDialogAberto] = useState(false)
@@ -169,6 +172,10 @@ export function VtCargaTab({
   useEffect(() => {
     listarCoberturas()
   }, [listarCoberturas])
+
+  useEffect(() => {
+    setNovoFluxo(false)
+  }, [competencia])
 
   // Ao voltar à aba sem nada carregado, restaura o rascunho do relatório
   // salvo no aparelho (27/10/2026 — sair da tela apagava o cálculo importado).
@@ -523,8 +530,13 @@ export function VtCargaTab({
             <strong className="text-foreground tabular-nums">{rotuloCompetencia(competencia)}</strong>
           </div>
           <div className="ml-auto flex gap-2">
-            {botaoImportar('Importar outro relatório', true)}
             {podeGerenciar && (
+              <ModuleButton size="sm" variant={novoFluxo ? 'primary' : 'outline'} onClick={() => setNovoFluxo((atual) => !atual)}>
+                {novoFluxo ? 'Voltar ao fluxo legado' : 'Usar novo fluxo'}
+              </ModuleButton>
+            )}
+            {botaoImportar('Importar outro relatório', true)}
+            {podeGerenciar && !novoFluxo && (
               <>
                 <ModuleButton
                   size="sm"
@@ -637,6 +649,16 @@ export function VtCargaTab({
           </div>
         )}
       </ModuleCard>
+
+      {novoFluxo && (
+        <VtLoteCargaReal
+          competencia={competencia}
+          dias={diasLote}
+          colaboradores={colaboradores}
+          nomeArquivo={nomeArquivo}
+          usuarioId={usuarioId}
+        />
+      )}
 
       <ModuleCard
         title="Férias no mês"

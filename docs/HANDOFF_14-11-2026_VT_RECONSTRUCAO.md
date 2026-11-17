@@ -946,3 +946,51 @@ Este é o ponto de partida para a próxima sessão. As seções 1–31 documenta
 ### Retomada rápida
 
 > “Continue o VT pelo handoff `docs/HANDOFF_14-11-2026_VT_RECONSTRUCAO.md`, seção 38. Migrations 169/171 aplicadas; 170 não. Persistência, restauração, remoção de condução, revisão de confirmados e catálogo oficial estão prontos (313 VT/1.540 total). Há 4 evidências, 3 vinculadas. Sem commit/deploy. Primeiro validar visualmente, depois organizar o pacote VT e o deploy controlado.”
+
+
+
+---
+
+## 39. Commit e deploy de produção verificados — 17/11/2026
+
+- Pacote revisado com 66 arquivos do VT e validado: **1.540 testes**, TypeScript, lint, RLS e build.
+- Commit criado na `main`: **`9488de4 — VT: revisa itinerários e cataloga tarifas oficiais`**.
+- Deploy de produção no site correto `plena-corh`: **6afc84e6ce817fae7ba1c46e**.
+- URL: https://plena-corh.netlify.app
+- Bundle publicado e conferido: **`assets/index-BZl17evq.js`**, idêntico local e remoto (`confere: true`).
+- `MODULO_FERIAS_LIBERADO = false` foi conferido; `MODULO_VT_LIBERADO = true` mantido.
+- O deploy foi feito de uma árvore temporária limpa no commit da `main`, removida ao final. Arquivos locais não relacionados foram preservados.
+- A `main` está 1 commit à frente de `origin/main`; **não houve push**. As tentativas anteriores de configuração falharam antes de publicar e não geraram deploy.
+- Migration 170 continua NÃO aplicada. Próximo: validar a revisão de itinerários em produção e só depois iniciar a Etapa 4.
+
+
+
+---
+
+## 40. Vertical financeira mínima pronta para piloto — 17/11/2026
+
+Quatro revisões independentes foram feitas depois da percepção de correções isoladas sem avanço. O diagnóstico convergiu: o problema não era cada dado, mas duas escritas sem reconciliação (`vt_trajetos`/`vt_bilhetes` × `vt_trajeto_decisoes`/`vt_itinerarios`), além de ausência de ciclo real integrado. Foi escolhida uma vertical curta em vez de mais análise ou reset: **Flit → lote confirmado → Excel do snapshot**. Sem reset geral, sem reescrita e sem TXT Riocard/fechamento ainda.
+
+### Infraestrutura
+
+- Backup: `dados-locais/backup_vt_170_aplicacao_2026-11-17/vt_dados.json`.
+- **Migration 170 APLICADA**, com índice único parcial `vt_carga_lotes_competencia_confirmada_unica_idx`: uma única carga confirmada por competência.
+- Suíte SQL com rollback passou, inclusive recusa de segunda confirmação independente. Executor novo para não reaplicar a 169: `scripts/vt/testar-170-somente-transacao.ps1`.
+- Verificação: **0 lotes, 0 aprovações, índice presente**.
+
+### Aplicação
+
+- `useVtCarga` agora expõe os dias já resolvidos do relatório/coberturas como `diasLote`.
+- `carregarDominioLote` lê decisões, componentes, preços e ajustes da 169.
+- `selecionarProntosLote` exclui pessoas com qualquer pendência de decisão/preço sem escondê-las; `construirRascunhoLoteCarga` aceita IDs elegíveis para manter optantes sem dias com **R$ 0**.
+- `useVtLoteCarga.carregar` e `obterUltimoPorCompetencia` restauram o lote ao abrir.
+- `VtLoteCargaReal` constrói/confirma o lote no Supabase, mostra pendências fora do snapshot e relê o banco após confirmar.
+- `excelLote` relê o lote pelo ID, exige `confirmado` e recalcula o hash antes de gerar Excel. Nunca usa o cálculo da tela.
+- A aba Carga tem o botão **“Usar novo fluxo”**. Quando ativo, as ações financeiras legadas da competência ficam desabilitadas para evitar dois escritores.
+- A primeira versão não recalcula lote já confirmado nem exporta TXT; fechamento/ajustes ficam para depois do piloto.
+
+### Verificação
+
+- Testes de seleção de prontos, valor zero, hash/adulteração e fluxo completo da interface (construir → confirmar → liberar Excel).
+- **1.548 testes na suíte completa passaram**, além de TypeScript, lint, RLS e build.
+- O piloto real com relatório da operação ainda precisa ser feito pela gestora em produção. Não foi apagado nenhum dado.

@@ -30,6 +30,7 @@ export async function construirRascunhoLoteCarga({
   versaoRegras,
   fonte,
   dias,
+  colaboradorIds: colaboradorIdsInformados = [],
   decisoes,
   componentes,
   versoesPreco,
@@ -44,6 +45,7 @@ export async function construirRascunhoLoteCarga({
   versaoRegras: Readonly<Record<string, string>>
   fonte: FonteLoteCargaVT
   dias: readonly DiaPlanejadoLoteVT[]
+  colaboradorIds?: readonly string[]
   decisoes: readonly DecisaoTrajetoVT[]
   componentes: readonly ComponenteDecisaoTrajetoVT[]
   versoesPreco: readonly VersaoPrecoPacoteVT[]
@@ -101,6 +103,7 @@ export async function construirRascunhoLoteCarga({
   }
 
   const colaboradorIds = [...new Set([
+    ...colaboradorIdsInformados,
     ...linhas.map((linha) => linha.colaboradorId),
     ...ajustesAnteriores.map((ajuste) => ajuste.colaboradorId),
   ])].sort()

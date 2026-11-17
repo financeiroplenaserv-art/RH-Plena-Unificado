@@ -92,6 +92,21 @@ BEGIN
   END IF;
 END $$;
 
+-- 1b) Duas cargas independentes não podem ficar confirmadas na mesma competência.
+DO $$
+DECLARE ok boolean := false;
+BEGIN
+  PERFORM public.vt_salvar_rascunho_lote(
+    pg_temp.t170_lote('10000000-0000-4000-8000-000000000103', 900, 1, NULL, 'completo'), 0
+  );
+  BEGIN
+    PERFORM public.vt_confirmar_lote('10000000-0000-4000-8000-000000000103', 1);
+  EXCEPTION WHEN unique_violation THEN
+    ok := true;
+  END;
+  IF NOT ok THEN RAISE EXCEPTION 'FALHOU: segunda carga independente foi confirmada na mesma competência'; END IF;
+END $$;
+
 SELECT public.vt_salvar_rascunho_lote(
   pg_temp.t170_lote(
     '10000000-0000-4000-8000-000000000101', 1200, 1,

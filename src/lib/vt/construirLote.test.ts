@@ -160,3 +160,22 @@ describe('construção do lote por data de serviço', () => {
       .rejects.toThrow('não pertence à competência')
   })
 })
+
+
+
+describe('optantes sem dias no lote', () => {
+  it('mantém pessoa sem dias com total zero quando os IDs elegíveis são informados', async () => {
+    const lote = await construirRascunhoLoteCarga(entrada({
+      colaboradorIds: ['pessoa-1', 'pessoa-sem-dias'],
+      dias: [dia('2026-11-10')],
+    }))
+
+    const semDias = lote.totaisPorColaborador.find((total) => total.colaboradorId === 'pessoa-sem-dias')
+    expect(semDias).toMatchObject({
+      status: 'completo',
+      necessidadeCentavos: 0,
+      ajusteCentavos: 0,
+      valorCentavos: 0,
+    })
+  })
+})
