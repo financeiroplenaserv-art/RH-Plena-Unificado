@@ -1052,3 +1052,30 @@ A fronteira foi tratada antes de continuar a carga, seguindo a reclamação cent
 
 - **1.551 testes na suíte completa passaram**, TypeScript, lint, RLS e build.
 - Próximo: validação visual pela gestora antes de retomar a carga. Nenhum reset foi feito.
+
+
+
+---
+
+## 43. Fronteira do trajeto publicada — 17/11/2026
+
+- Commit: **`c112e90 — VT: unifica trajetos, escopos e confirmação`**.
+- Deploy `6afcad3c65e2b6209fa1c220` no site `plena-corh`.
+- Bundle local/remoto: **`assets/index-CsOmvIa2.js`** (`confere: true`).
+- Suíte final: **1.551 testes**, TypeScript, lint, RLS e build.
+- Migration 172 aplicada; Aluisio → EXCLUSIVE criado como sugerido e PLENA TECH com Niterói; decisões antigas preservadas.
+- `main` 3 commits à frente do origin, **sem push**. Arquivos alheios preservados e árvore temporária removida.
+
+Próximo passo: a gestora revisar os quatro casos e o botão **“Confirmar trajeto e preço”** em produção. A carga só deve ser retomada depois dessa validação visual. Fechamento/ajustes e TXT continuam fora desta etapa.
+
+
+
+---
+
+## 44. Situação do BU em coluna curta — 17/11/2026
+
+A apresentação longa “o pacote pode exigir integração...” foi substituída pela coluna **BU na Riocard** em Trajetos. Ela mostra o fato oficial de forma curta: por exemplo, **Suspenso Setrans**, Ativado ou “não consultado”. O alerta longo equivalente foi removido da coluna Bilhete.
+
+Motivo: situação oficial do cartão não deve ser confundida com o tipo de bilhete usado para precificar. O status continua vindo de `colaboradores.vt_bu_situacao` e `vt_bu_ativado`, com data de consulta separada.
+
+Teste adicionado para “Suspenso Setrans” e ausência do aviso longo. Sem alteração de dados ou regra de cálculo.

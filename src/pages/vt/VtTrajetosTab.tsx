@@ -31,7 +31,6 @@ import {
   custoDiaTrajetoCentavos,
   escopoSugerido,
   avisoBilheteIncompativel,
-  avisoIntegracaoDoTrajeto,
   descricaoCartaoDosBilhetes,
 } from '@/lib/vt/trajetos'
 import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
@@ -457,6 +456,7 @@ export function VtTrajetosTab({
                   <th className="px-3 py-3">Colaborador</th>
                   <th className="px-3 py-3">Posto</th>
                   <th className="px-3 py-3">Bilhete</th>
+                  <th className="px-3 py-3">BU na Riocard</th>
                   <th className="px-3 py-3 text-right">Custo/dia</th>
                   <th className="px-3 py-3">Endereço</th>
                   <th className="px-3 py-3">Status</th>
@@ -498,7 +498,6 @@ export function VtTrajetosTab({
                     bilhetes.find((b) => b.id === id)
                   )
                   const descricaoCartao = descricaoCartaoDosBilhetes(bilhetesDaLinha)
-                  const avisoCartao = avisoIntegracaoDoTrajeto(bilhetesDaLinha, linha.buAtivado, linha.buSituacao)
                   // CEP × cidade cadastrada (02/11/2026 — casos Thiago e José
                   // Orlando: cidade errada no cadastro derruba o bilhete).
                   const avisoCep = avisoCidadeDivergeDoCep(linha.cidadeCasa, linha.cepCasa)
@@ -602,12 +601,6 @@ export function VtTrajetosTab({
                           {descricaoCartao && (
                             <p className="text-[11px] text-muted-foreground">{descricaoCartao}</p>
                           )}
-                          {avisoCartao && (
-                            <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
-                              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-                              {avisoCartao}
-                            </p>
-                          )}
                           {avisoCep && (
                             <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
                               <AlertTriangle className="mt-0.5 size-3 shrink-0" />
@@ -621,6 +614,15 @@ export function VtTrajetosTab({
                             </p>
                           )}
                         </div>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {linha.buSituacao ? (
+                          <StatusBadge variant={linha.buAtivado === false ? 'warning' : 'success'}>
+                            {linha.buSituacao}
+                          </StatusBadge>
+                        ) : (
+                          <span className="text-[12px] text-muted-foreground">não consultado</span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {custo == null ? '—' : formatarCentavos(custo)}

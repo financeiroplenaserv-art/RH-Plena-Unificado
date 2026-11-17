@@ -744,3 +744,9 @@ Consulte `docs/REGRAS_NEGOCIO.md` para detalhes. Destaques:
 
 
 - **VT — fronteira do trajeto estabilizada (17/11/2026)**: ausência de cidade vira `desconhecido` (migration 172 aplicada); uma condução não gera alerta de integração; inativos fora da visão padrão com opção de histórico; outro posto vira histórico/cobertura, não exclusão automática. Salvar grava `cotacao_id` e **“Confirmar trajeto e preço”** confirma a mesma revisão; legado fica somente leitura. Aluisio ganhou trajeto sugerido para EXCLUSIVE preservando o antigo; PLENA TECH recebeu Niterói e Amanda/Alessandra ficam `niteroi_municipal`. Backup e rollback testados. **1.551 testes**, TypeScript, lint, RLS e build passaram. Próximo: validação visual antes de retomar a carga.
+
+
+- **VT — fronteira do trajeto publicada (17/11/2026)**: commit `c112e90`, deploy `6afcad3c65e2b6209fa1c220`, bundle `assets/index-CsOmvIa2.js` local=remoto. Escopo desconhecido, alerta por condução real, inativos ocultos por padrão e legado somente leitura. Salvar grava `cotacao_id` e “Confirmar trajeto e preço” confirma a mesma revisão. Aluisio → EXCLUSIVE sugerido e PLENA TECH com Niterói aplicados com backup/rollback. **1.551 testes**, TypeScript, lint, RLS e build passaram. `main` 3 commits à frente, sem push. Próximo: validação visual da fronteira antes de retomar a carga.
+
+
+- **VT — situação oficial do BU em coluna curta (17/11/2026)**: a aba Trajetos ganhou a coluna **BU na Riocard**, mostrando “Suspenso Setrans”, Ativado ou “não consultado”, em vez do texto longo “o pacote pode exigir integração...”. Isso separa a situação oficial do cartão da regra de preço do bilhete. Sem alteração de cálculo ou dados. Teste cobre o texto curto e a remoção do aviso longo.

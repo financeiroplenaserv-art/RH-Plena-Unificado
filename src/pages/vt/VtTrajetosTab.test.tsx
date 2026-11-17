@@ -140,6 +140,14 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.getByText('Revisão assistida de itinerário')).toBeInTheDocument()
   })
 
+  it('mostra a situação oficial do BU em coluna curta, sem o aviso longo', () => {
+    const pessoa = { ...COLABORADOR, vt_bu_ativado: false, vt_bu_situacao: 'Suspenso Setrans' }
+    setup(true, { ...TRAJETO, colaborador: pessoa }, { colaboradores: [pessoa] })
+
+    expect(screen.getByText('Suspenso Setrans')).toBeInTheDocument()
+    expect(screen.queryByText(/pode exigir integração/)).not.toBeInTheDocument()
+  })
+
   it('inativo fica fora por padrão e aparece somente ao pedir histórico', () => {
     setup(true, { ...TRAJETO, colaborador: null }, {
       colaboradores: [],
