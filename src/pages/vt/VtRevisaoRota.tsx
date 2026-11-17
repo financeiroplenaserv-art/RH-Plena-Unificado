@@ -72,7 +72,9 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
   const [carregandoGoogle, setCarregandoGoogle] = useState(false)
   const [erroGoogle, setErroGoogle] = useState<string | null>(null)
   const [decisaoRealId, setDecisaoRealId] = useState<string | null>(null)
+  const [decisaoRealStatus, setDecisaoRealStatus] = useState<'sugerida' | 'confirmada' | 'indeterminada' | null>(null)
   const [carregandoDecisao, setCarregandoDecisao] = useState(false)
+  const [confirmandoDecisao, setConfirmandoDecisao] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
   const [evidenciaSalva, setEvidenciaSalva] = useState<VtItinerario | null>(null)
@@ -91,6 +93,7 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
       .then(async (decisao) => {
         if (!ativo) return
         setDecisaoRealId(decisao?.id ?? null)
+        setDecisaoRealStatus(decisao?.status ?? null)
         if (!decisao) {
           setErroPersistencia('Nenhuma decisão foi encontrada para este trajeto.')
           return
@@ -210,8 +213,10 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
         departamentoId: contextoReal.departamentoId,
         usuarioId: contextoReal.usuarioId,
         alternativa: selecionada,
+        cotacaoId: cotacao?.alternativaEscolhidaId ?? null,
       }, contextoReal.trajetoLegadoId, hojeBrasil())
       setDecisaoRealId(resultado.decisaoId)
+      setDecisaoRealStatus((atual) => atual === 'confirmada' ? atual : 'sugerida')
       setEvidenciaSalva(resultado.evidencia)
       setSalvo(true)
       toast.success(resultado.repetido ? 'Este itinerário já estava salvo.' : 'Itinerário salvo com sucesso.')
@@ -220,6 +225,25 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
       setErroPersistencia(erro instanceof Error ? erro.message : 'Erro ao salvar o itinerário.')
     } finally {
       setSalvando(false)
+    }
+  }
+
+  const confirmarDecisao = async () => {
+    if (!contextoReal || !decisaoRealId) return
+    setConfirmandoDecisao(true)
+    setErroPersistencia(null)
+    try {
+      const decisao = await repositorio.confirmarDecisaoAberta(
+        decisaoRealId,
+        contextoReal.usuarioId,
+        new Date().toISOString(),
+      )
+      setDecisaoRealStatus(decisao.status)
+      toast.success('Trajeto e preço confirmados nesta revisão.')
+    } catch (erro) {
+      setErroPersistencia(erro instanceof Error ? erro.message : 'Erro ao confirmar o trajeto e o preço.')
+    } finally {
+      setConfirmandoDecisao(false)
     }
   }
 
@@ -437,6 +461,20 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
               >
                 {salvando ? 'Salvando...' : salvo ? 'Itinerário salvo' : 'Salvar itinerário escolhido'}
               </ModuleButton>
+              {contextoReal && salvo && decisaoRealStatus !== 'confirmada' && (
+                <ModuleButton
+                  type="button"
+                  size="sm"
+                  className="ml-2"
+                  disabled={confirmandoDecisao}
+                  onClick={() => void confirmarDecisao()}
+                >
+                  {confirmandoDecisao ? 'Confirmando...' : 'Confirmar trajeto e preço'}
+                </ModuleButton>
+              )}
+              {contextoReal && decisaoRealStatus === 'confirmada' && (
+                <span className="ml-2 text-[12px] font-semibold text-emerald-700">Trajeto e preço confirmados</span>
+              )}
               <p className="mt-2 text-[12px] text-muted-foreground">
                 {contextoReal
                   ? carregandoDecisao ? 'Carregando a decisão do trajeto...' : 'A evidência fica vinculada à revisão aberta; uma decisão confirmada nunca é alterada.'

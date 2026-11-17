@@ -203,5 +203,17 @@ describe('salvar escolha com nova revisão', () => {
     expect(tabelas.vt_trajeto_decisao_componentes).toHaveLength(2)
     expect(tabelas.vt_beneficio_ajustes).toHaveLength(2)
     expect(tabelas.vt_itinerarios).toHaveLength(1)
+
+    const confirmada = await repositorio.confirmarDecisaoAberta(
+      primeiro.decisaoId,
+      IDS.usuario,
+      '2026-11-17T12:00:00Z',
+    )
+    expect(confirmada).toMatchObject({
+      id: primeiro.decisaoId,
+      status: 'confirmada',
+      cotacao_id: 'cotacao-atual',
+    })
+    expect(tabelas.vt_trajeto_decisoes[0]).toEqual(antes)
   })
 })

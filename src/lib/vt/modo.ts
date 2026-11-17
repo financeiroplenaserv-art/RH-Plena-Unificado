@@ -1,0 +1,1 @@
+export const LEGADO_TRAJETO_SOMENTE_LEITURA = true

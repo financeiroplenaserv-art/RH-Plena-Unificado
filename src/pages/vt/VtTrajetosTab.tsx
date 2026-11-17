@@ -25,6 +25,7 @@ import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { hojeBrasil } from '@/lib/utils'
+import { LEGADO_TRAJETO_SOMENTE_LEITURA } from '@/lib/vt/modo'
 import { bilhetesVigentes, custoDiaBilhetesCentavos, formatarCentavos, parseValorCentavos, textoValorReais } from '@/lib/vt/bilhetes'
 import {
   custoDiaTrajetoCentavos,
@@ -101,6 +102,7 @@ export function VtTrajetosTab({
   removerTrajeto,
   recarregarTrajetos,
 }: VtTrajetosTabProps) {
+  const podeEditarLegado = podeGerenciar && !LEGADO_TRAJETO_SOMENTE_LEITURA
   const hoje = hojeBrasil()
   // Edições por linha: bilhetes + valor extra (texto do input, "2,00").
   const [edicoes, setEdicoes] = useState<Record<string, { b1: string; b2: string; extra: string }>>({})
@@ -119,6 +121,7 @@ export function VtTrajetosTab({
   const [temB2, setTemB2] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [revisando, setRevisando] = useState<LinhaTrajeto | null>(null)
+  const [mostrarHistorico, setMostrarHistorico] = useState(false)
 
   // Opções dos selects: os vigentes hoje. Bilhete referenciado por trajeto
   // gravado que saiu de vigor continua aparecendo (selo "vigência antiga")
@@ -186,11 +189,12 @@ export function VtTrajetosTab({
         trajeto: null,
       })
     }
-    return Array.from(porChave.values()).sort((a, b) =>
-      a.nomeColaborador.localeCompare(b.nomeColaborador, 'pt-BR')
+    return Array.from(porChave.values())
+      .filter((linha) => mostrarHistorico || linha.statusColaborador !== 'Inativo')
+      .sort((a, b) => a.nomeColaborador.localeCompare(b.nomeColaborador, 'pt-BR')
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trajetos, colaboradores, departamentos, extrasTrajeto])
+  }, [trajetos, colaboradores, departamentos, extrasTrajeto, mostrarHistorico])
 
   const valoresDa = (linha: LinhaTrajeto) =>
     edicoes[linha.chave] ?? {
@@ -239,7 +243,7 @@ export function VtTrajetosTab({
     // O 2º nunca repete o 1º (CHECK bilhete_2_id <> bilhete_id).
     if (valores.b1 && valores.b1 === valores.b2) valores.b2 = ''
     setEdicoes((atual) => ({ ...atual, [linha.chave]: valores }))
-    if (linha.trajeto && podeGerenciar && valores.b1) {
+    if (linha.trajeto && podeEditarLegado && valores.b1) {
       const t = linha.trajeto
       const bilheteMudou = t.bilhete_id !== valores.b1 || (t.bilhete_2_id ?? '') !== valores.b2
       salvarTrajeto(dadosDaLinha(linha, valores), {
@@ -271,7 +275,7 @@ export function VtTrajetosTab({
     }
     // Normaliza a exibição ("2" → "2,00").
     setEdicoes((atual) => ({ ...atual, [linha.chave]: { ...valores, extra: textoValorReais(extraCent) } }))
-    if (!linha.trajeto || !podeGerenciar || !valores.b1) return
+    if (!linha.trajeto || !podeEditarLegado || !valores.b1) return
     const t = linha.trajeto
     if ((t.valor_extra_centavos ?? 0) === extraCent) return
     salvarTrajeto(dadosDaLinha(linha, { ...valores, extra: textoValorReais(extraCent) }), {
@@ -282,6 +286,7 @@ export function VtTrajetosTab({
   }
 
   const confirmar = async (linha: LinhaTrajeto) => {
+    if (LEGADO_TRAJETO_SOMENTE_LEITURA) return
     const valores = valoresDa(linha)
     if (!linha.trajeto && !valores.b1) return
     const textoExtra = valores.extra.trim()
@@ -324,6 +329,7 @@ export function VtTrajetosTab({
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante), [colaboradores])
 
   const salvarNovo = async () => {
+    if (LEGADO_TRAJETO_SOMENTE_LEITURA) return
     const colab = colaboradores.find((c) => c.id === novoColaboradorId)
     if (!colab || !novoDepartamentoId || !novoB1) return
     const textoExtra = novoExtra.trim()
@@ -362,7 +368,7 @@ export function VtTrajetosTab({
   }
 
   const confirmarExclusao = async () => {
-    if (!excluindo?.trajeto) return
+    if (LEGADO_TRAJETO_SOMENTE_LEITURA || !excluindo?.trajeto) return
     const ok = await removerTrajeto(excluindo.trajeto.id)
     if (ok) await recarregarTrajetos()
     setExcluindo(null)
@@ -376,7 +382,7 @@ export function VtTrajetosTab({
   ) => (
     <Select
       value={campo === 'b2' ? valor || NENHUM : valor}
-      disabled={!podeGerenciar || salvando}
+      disabled={!podeEditarLegado || salvando}
       onValueChange={(v) => {
         editar(linha, { [campo]: v === NENHUM ? '' : v })
         // "Nenhum" no 2º recolhe o select — volta ao estado simples da linha.
@@ -417,14 +423,23 @@ export function VtTrajetosTab({
         title="Trajetos casa → posto"
         description={`${linhas.filter((l) => l.trajeto?.status === 'confirmado').length} confirmados de ${linhas.length} pares`}
       >
-        {podeGerenciar && (
-          <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={mostrarHistorico}
+              onChange={(event) => setMostrarHistorico(event.target.checked)}
+            />
+            Mostrar histórico e inativos
+          </label>
+          {podeEditarLegado && (
             <ModuleButton size="sm" onClick={() => setDialogAberto(true)}>
               <Route className="size-4" />
               Adicionar trajeto
             </ModuleButton>
-          </div>
-        )}
+          )}
+        </div>
         {linhas.length === 0 ? (
           <EmptyState
             icon={<Route className="size-6" />}
@@ -509,14 +524,14 @@ export function VtTrajetosTab({
                         {nomePostoAtual && (
                           <p className="mt-1 flex items-start gap-1 text-[11px] font-medium text-amber-600">
                             <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-                            O cadastro dele hoje aponta outro posto ({nomePostoAtual}) — se ele
-                            mudou de posto, confirme a linha sugerida e exclua este trajeto.
+                            O cadastro atual aponta outro posto ({nomePostoAtual}). Esta linha pode ser
+                            histórico ou cobertura; revise antes de encerrar o trajeto antigo.
                           </p>
                         )}
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex flex-col gap-1.5">
-                          {podeGerenciar && emEdicao ? (
+                          {podeEditarLegado && emEdicao ? (
                             <>
                               <div className="flex items-center gap-1.5">
                                 {selectBilhete(linha, 'b1', valores.b1, opcoes)}
@@ -573,7 +588,7 @@ export function VtTrajetosTab({
                                   + {bilhetes.find((bilhete) => bilhete.id === valores.b2)?.nome ?? 'Bilhete não encontrado'}
                                 </span>
                               )}
-                              {podeGerenciar && (
+                              {podeEditarLegado && (
                                 <ModuleButton
                                   size="sm"
                                   variant="ghost"
@@ -653,7 +668,7 @@ export function VtTrajetosTab({
                           >
                             <ExternalLink className="size-4" />
                           </button>
-                          {podeGerenciar && !confirmado && (
+                          {podeEditarLegado && !confirmado && (
                             <ModuleButton
                               size="sm"
                               variant="outline"
@@ -663,7 +678,7 @@ export function VtTrajetosTab({
                               Confirmar
                             </ModuleButton>
                           )}
-                          {podeGerenciar && linha.trajeto && (
+                          {podeEditarLegado && linha.trajeto && (
                             <button
                               type="button"
                               className="rounded-md p-1.5 text-red-600 hover:bg-red-50"

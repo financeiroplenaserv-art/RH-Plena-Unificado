@@ -10,6 +10,7 @@ export interface EscolhaItinerarioVT {
   departamentoId: string
   usuarioId: string
   alternativa: AlternativaRotaGoogleVT
+  cotacaoId?: string | null
 }
 
 export type NovaEvidenciaItinerario = Omit<VtItinerario, 'id' | 'created_at'>

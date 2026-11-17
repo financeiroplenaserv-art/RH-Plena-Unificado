@@ -5,7 +5,7 @@
 // "combinação" virou "bilhete", termo da operação).
 
 /** Escopo do trajeto: classificação INFORMACIONAL auto-sugerida (não precifica). */
-export type EscopoTrajetoVT = 'niteroi_municipal' | 'intermunicipal' | 'municipal_outra'
+export type EscopoTrajetoVT = 'niteroi_municipal' | 'intermunicipal' | 'municipal_outra' | 'desconhecido'
 
 /** Tipo de bilhete do colaborador (cadastro manual — a API da Alterdata não expõe VT).
  *  'jae' = cartão do RJ (migration 165 — decisão da gestora, 27/10/2026). */

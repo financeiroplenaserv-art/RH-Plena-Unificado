@@ -4,10 +4,11 @@ import { VtRevisaoRotaShadow, type ContextoRevisaoRotaReal } from './VtRevisaoRo
 import { sugerirRotasGoogle } from '@/services/vtRotaApi'
 import { RESPOSTA_ACACIO } from '@/lib/vt/googleRoutesFixture'
 
-const { buscarDecisaoMock, buscarItinerarioMock, salvarEscolhaMock } = vi.hoisted(() => ({
+const { buscarDecisaoMock, buscarItinerarioMock, salvarEscolhaMock, confirmarDecisaoMock } = vi.hoisted(() => ({
   buscarDecisaoMock: vi.fn(),
   buscarItinerarioMock: vi.fn(),
   salvarEscolhaMock: vi.fn(),
+  confirmarDecisaoMock: vi.fn(),
 }))
 
 vi.mock('@/services/vtRotaApi', () => ({ sugerirRotasGoogle: vi.fn() }))
@@ -16,6 +17,7 @@ vi.mock('@/lib/vt/repositorioItinerarioSupabase', () => ({
     buscarDecisaoPorTrajeto = buscarDecisaoMock
     buscarItinerarioPorId = buscarItinerarioMock
     salvarEscolhaComRevisao = salvarEscolhaMock
+    confirmarDecisaoAberta = confirmarDecisaoMock
   },
 }))
 const consultaMock = vi.mocked(sugerirRotasGoogle)
@@ -53,13 +55,19 @@ beforeEach(() => {
   buscarDecisaoMock.mockReset()
   buscarItinerarioMock.mockReset()
   salvarEscolhaMock.mockReset()
+  confirmarDecisaoMock.mockReset()
   buscarDecisaoMock.mockResolvedValue({
     id: '10000000-0000-4000-8000-000000000001',
     status: 'sugerida',
     itinerario_id: null,
   })
   buscarItinerarioMock.mockResolvedValue(EVIDENCIA_MOCK)
-  salvarEscolhaMock.mockResolvedValue({ repetido: false, evidencia: EVIDENCIA_MOCK })
+  salvarEscolhaMock.mockResolvedValue({
+    decisaoId: '10000000-0000-4000-8000-000000000001',
+    repetido: false,
+    evidencia: EVIDENCIA_MOCK,
+  })
+  confirmarDecisaoMock.mockResolvedValue({ id: '10000000-0000-4000-8000-000000000001', status: 'confirmada' })
 })
 
 describe('VtRevisaoRotaShadow', () => {
@@ -203,6 +211,15 @@ describe('VtRevisaoRotaShadow — trajeto real', () => {
       destination: CONTEXTO_REAL.destino,
     }))
     expect(screen.getByRole('button', { name: 'Itinerário salvo' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar trajeto e preço' }))
+    await waitFor(() => expect(confirmarDecisaoMock).toHaveBeenCalledOnce())
+    expect(confirmarDecisaoMock).toHaveBeenCalledWith(
+      '10000000-0000-4000-8000-000000000001',
+      CONTEXTO_REAL.usuarioId,
+      expect.any(String),
+    )
+    expect(screen.getByText('Trajeto e preço confirmados')).toBeInTheDocument()
   })
 
   it('restaura a evidência existente ao reabrir sem consultar o Google', async () => {

@@ -22,6 +22,7 @@ import { StatusBadge } from '@/components/corh/StatusBadge'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
 import { formatarData, hojeBrasil } from '@/lib/utils'
+import { LEGADO_TRAJETO_SOMENTE_LEITURA } from '@/lib/vt/modo'
 import { formatarCentavos, parseValorCentavos } from '@/lib/vt/bilhetes'
 import type { NovoBilheteVT } from '@/hooks/useVt'
 import type { TipoCartaoVT, VtBilhete } from '@/types/vt'
@@ -62,6 +63,7 @@ export function VtBilhetesTab({
   desativarBilhete,
   recarregarBilhetes,
 }: VtBilhetesTabProps) {
+  const podeEditarLegado = podeGerenciar && !LEGADO_TRAJETO_SOMENTE_LEITURA
   const [dialogAberto, setDialogAberto] = useState(false)
   const [nome, setNome] = useState('')
   const [valor, setValor] = useState('')
@@ -143,7 +145,7 @@ export function VtBilhetesTab({
       title="Bilhetes de VT"
       description="Valor diário fechado (ida+volta) de cada trajeto-tipo — reajuste = nova vigência; o histórico nunca é editado"
     >
-      {podeGerenciar && (
+      {podeEditarLegado && (
         <div className="mb-4 flex justify-end">
           <ModuleButton size="sm" onClick={abrirDialog}>
             <Plus className="size-4" />
@@ -165,7 +167,7 @@ export function VtBilhetesTab({
                 <th className="px-4 py-3 text-right">Valor/dia</th>
                 <th className="px-4 py-3">Vigente desde</th>
                 <th className="px-4 py-3">Ativo</th>
-                {podeGerenciar && <th className="px-4 py-3 text-right">Ações</th>}
+                {podeEditarLegado && <th className="px-4 py-3 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -183,7 +185,7 @@ export function VtBilhetesTab({
                       {b.ativo ? 'Ativo' : 'Inativo'}
                     </StatusBadge>
                   </td>
-                  {podeGerenciar && (
+                  {podeEditarLegado && (
                     <td className="px-4 py-2.5 text-right">
                       {b.ativo && (
                         <button

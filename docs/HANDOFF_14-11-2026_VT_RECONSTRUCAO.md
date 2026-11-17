@@ -994,3 +994,61 @@ Quatro revisões independentes foram feitas depois da percepção de correções
 - Testes de seleção de prontos, valor zero, hash/adulteração e fluxo completo da interface (construir → confirmar → liberar Excel).
 - **1.548 testes na suíte completa passaram**, além de TypeScript, lint, RLS e build.
 - O piloto real com relatório da operação ainda precisa ser feito pela gestora em produção. Não foi apagado nenhum dado.
+
+
+
+---
+
+## 41. Vertical publicada para o piloto real — 17/11/2026
+
+- Commit: **`3ea5dc6 — VT: integra lote real e exporta snapshot confirmado`**.
+- Deploy `6afc9f59415ff2a404125b61` no site `plena-corh`.
+- Bundle local/remoto: **`assets/index-AK0p2BWB.js`** (`confere: true`).
+- Suíte final: **1.548 testes**, TypeScript, lint, RLS e build passaram.
+- Migration 170 aplicada e índice único ativo; nenhuma carga foi criada pelo agente.
+- A `main` está 2 commits à frente do origin, **sem push**. Arquivos alheios preservados e árvore temporária removida.
+
+### Roteiro do piloto real
+
+1. Em VT → Carga, importar o relatório “Gestão de escalas” do Flit.
+2. Clicar em **“Usar novo fluxo”**. As ações financeiras legadas ficam desabilitadas nessa competência.
+3. Clicar em **“Construir rascunho”** e conferir pessoas, pendências e total.
+4. Clicar em **“Confirmar lote”**, depois em **“Baixar Excel do lote”**.
+5. Fechar/reabrir a aba e conferir que o lote e o hash reaparecem.
+6. Conferir no banco `vt_carga_lotes`: status `confirmado`, competência correta e totais iguais ao Excel.
+
+Só depois desse aceite: fechamento/ajustes e TXT Riocard. Não apagar dados nem voltar a usar os dois fluxos na mesma competência.
+
+
+
+---
+
+## 42. Fronteira do trajeto estabilizada — 17/11/2026
+
+A fronteira foi tratada antes de continuar a carga, seguindo a reclamação central e as revisões independentes.
+
+### Modelo e apresentação
+
+- `escopoSugerido` retorna **desconhecido** quando falta cidade; nunca mais intermunicipal presumido. Migration **172 APLICADA**, com CHECK atualizado e correção do metadado inválido.
+- `avisoIntegracaoDoTrajeto` aceita quantidade de conduções: **uma condução não gera alerta obrigatório**; sem quantidade conhecida, a mensagem é cautelosa (“pode exigir”), não afirma dependência.
+- A visão padrão esconde inativos e tem checkbox **“Mostrar histórico e inativos”**.
+- Trajeto de outro posto é tratado como possível histórico/cobertura, sem orientação automática de exclusão.
+
+### Decisão unificada
+
+- Salvar itinerário grava também `cotacao_id` na revisão.
+- Nova ação **“Confirmar trajeto e preço”** confirma a mesma revisão que contém evidência, pacotes e cotação. A decisão confirmada permanece imutável.
+- A interface legada está em leitura (`LEGADO_TRAJETO_SOMENTE_LEITURA`): edição, confirmação e vigências antigas não escrevem no caminho antigo.
+- Revisões abertas são reutilizadas e a confirmação exige linha retornada pelo banco.
+
+### Casos reais
+
+- **Aluisio:** cadastro já estava EXCLUSIVE; criado novo trajeto sugerido para EXCLUSIVE, com decisão revisão 1 e composição copiada. O trajeto antigo PLENA EA permanece confirmado como histórico.
+- **Amanda e Alessandra:** PLENA TECH recebeu cidade Niterói e seus escopos foram corrigidos para `niteroi_municipal`, com BU Niterói. O alerta de integração de uma condução foi corrigido pela regra.
+- **Anderson:** inativo fica fora da visão padrão, mas continua consultável como histórico.
+- Backup antes das correções: `dados-locais/backup_vt_172_2026-11-17/`. Teste com rollback e verificação pós-aplicação concluídos.
+
+### Verificação
+
+- **1.551 testes na suíte completa passaram**, TypeScript, lint, RLS e build.
+- Próximo: validação visual pela gestora antes de retomar a carga. Nenhum reset foi feito.

@@ -64,13 +64,14 @@ function normalizarCidade(cidade: string | null): string {
  * mesma cidade Niterói -> municipal Niterói (BUN); mesma cidade, outra ->
  * municipal de outra cidade; cidades diferentes -> intermunicipal (BUI).
  * Classificação INFORMACIONAL (não precifica mais — §2d do plano).
- * Cidade vazia dos dois lados não é "igual": sem dado, cai em intermunicipal
- * (o trajeto sempre passa por confirmação humana antes de entrar no cálculo).
+ * Cidade vazia é ausência de evidência: retorna 'desconhecido', nunca
+ * intermunicipal presumido (o trajeto sempre passa por confirmação humana).
  */
 export function escopoSugerido(cidadeCasa: string | null, cidadePosto: string | null): EscopoTrajetoVT {
   const casa = normalizarCidade(cidadeCasa)
   const posto = normalizarCidade(cidadePosto)
-  if (casa && casa === posto) {
+  if (!casa || !posto) return 'desconhecido'
+  if (casa === posto) {
     return casa === 'NITEROI' ? 'niteroi_municipal' : 'municipal_outra'
   }
   return 'intermunicipal'
@@ -165,14 +166,23 @@ export function avisoIntegracaoDoTrajeto(
   bilhetes: (Pick<VtBilhete, 'usa_integracao' | 'nome'> | null | undefined)[],
   buAtivado: boolean | null | undefined,
   buSituacao: string | null | undefined,
+  quantidadeConducoes?: number,
 ): string | null {
+  if (quantidadeConducoes === 1) return null
   const dependeDeIntegracao = bilhetes.some((b) => b?.usa_integracao === true)
   if (!dependeDeIntegracao) return null
   if (buAtivado === true) return null
+  const incerteza = quantidadeConducoes == null
   if (buAtivado === false) {
     const situacao = buSituacao?.trim()
     const trecho = situacao ? `, mas no site da Riocard o BU dele consta como '${situacao}'` : ''
+    if (incerteza) {
+      return `O pacote pode exigir integração (Bilhete Único)${trecho}. Confirme o itinerário e a ativação antes de gravar a carga.`
+    }
     return `Este trajeto depende de integração (Bilhete Único)${trecho} — sem a ativação, o valor carregado não cobre o trajeto. Providenciar a ativação ou trocar o bilhete.`
+  }
+  if (incerteza) {
+    return 'O pacote pode exigir integração (Bilhete Único). Confirme o itinerário e a situação do BU na Riocard antes de gravar a carga.'
   }
   return 'Este trajeto depende de integração (Bilhete Único) e a situação do BU dele ainda não foi consultada na Riocard — confira antes de gravar a carga.'
 }

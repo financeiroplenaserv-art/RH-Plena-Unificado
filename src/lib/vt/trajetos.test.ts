@@ -154,9 +154,10 @@ describe('escopoSugerido', () => {
     expect(escopoSugerido('Niterói', 'Maricá')).toBe('intermunicipal')
   })
 
-  it('cidade vazia não é "igual": cai em intermunicipal', () => {
-    expect(escopoSugerido(null, null)).toBe('intermunicipal')
-    expect(escopoSugerido('', 'Niterói')).toBe('intermunicipal')
+  it('cidade vazia é desconhecida, nunca intermunicipal presumida', () => {
+    expect(escopoSugerido(null, null)).toBe('desconhecido')
+    expect(escopoSugerido('', 'Niterói')).toBe('desconhecido')
+    expect(escopoSugerido('Niterói', null)).toBe('desconhecido')
   })
 })
 
@@ -279,6 +280,11 @@ describe('descricaoCartaoDosBilhetes', () => {
 })
 
 describe('avisoIntegracaoDoTrajeto (decisão da gestora, 28/10/2026 — o cartão é o mesmo; o que manda é a integração ativada)', () => {
+  it('uma condução não gera alerta de integração obrigatória', () => {
+    expect(avisoIntegracaoDoTrajeto([BU_NITEROI], null, null, 1)).toBeNull()
+    expect(avisoIntegracaoDoTrajeto([BUI], false, 'Suspenso Setrans', 1)).toBeNull()
+  })
+
   it('trajeto sem integração: sem aviso, mesmo sem BU consultado', () => {
     expect(avisoIntegracaoDoTrajeto([TREM], null, null)).toBeNull()
     expect(avisoIntegracaoDoTrajeto([TREM], false, 'Não possui BU')).toBeNull()
@@ -292,28 +298,33 @@ describe('avisoIntegracaoDoTrajeto (decisão da gestora, 28/10/2026 — o cartã
   })
 
   it('integração + BU NÃO ativado: aviso com a situação do site', () => {
-    expect(avisoIntegracaoDoTrajeto([BUI], false, 'Suspenso Setrans')).toBe(
+    expect(avisoIntegracaoDoTrajeto([BUI], false, 'Suspenso Setrans', 2)).toBe(
       "Este trajeto depende de integração (Bilhete Único), mas no site da Riocard o BU dele consta como 'Suspenso Setrans' — sem a ativação, o valor carregado não cobre o trajeto. Providenciar a ativação ou trocar o bilhete."
     )
   })
 
   it('integração + BU não ativado sem situação: omite o trecho do meio', () => {
-    const aviso = avisoIntegracaoDoTrajeto([BUI], false, null)
+    const aviso = avisoIntegracaoDoTrajeto([BUI], false, null, 2)
     expect(aviso).toBe(
       'Este trajeto depende de integração (Bilhete Único) — sem a ativação, o valor carregado não cobre o trajeto. Providenciar a ativação ou trocar o bilhete.'
     )
-    expect(avisoIntegracaoDoTrajeto([BUI], false, '  ')).toBe(aviso)
+    expect(avisoIntegracaoDoTrajeto([BUI], false, '  ', 2)).toBe(aviso)
   })
 
   it('integração + situação não consultada (null/undefined): aviso para conferir antes de gravar', () => {
-    expect(avisoIntegracaoDoTrajeto([BUI], null, null)).toBe(
+    expect(avisoIntegracaoDoTrajeto([BUI], null, null, 2)).toBe(
       'Este trajeto depende de integração (Bilhete Único) e a situação do BU dele ainda não foi consultada na Riocard — confira antes de gravar a carga.'
     )
-    expect(avisoIntegracaoDoTrajeto([BU_NITEROI], undefined, undefined)).toContain('não foi consultada')
+    expect(avisoIntegracaoDoTrajeto([BU_NITEROI], undefined, undefined, 2)).toContain('não foi consultada')
+  })
+
+  it('sem quantidade de conduções, usa cautela em vez de afirmar dependência', () => {
+    expect(avisoIntegracaoDoTrajeto([BUI], null, null)).toContain('pode exigir integração')
+    expect(avisoIntegracaoDoTrajeto([BUI], false, 'Suspenso Setrans')).toContain('pode exigir integração')
   })
 
   it('com 2 bilhetes, basta um com integração para a regra valer', () => {
-    expect(avisoIntegracaoDoTrajeto([TREM, BUI], false, 'Suspenso Setrans')).toContain("'Suspenso Setrans'")
+    expect(avisoIntegracaoDoTrajeto([TREM, BUI], false, 'Suspenso Setrans', 2)).toContain("'Suspenso Setrans'")
     expect(avisoIntegracaoDoTrajeto([TREM, JAE], true, 'Ativado')).toBeNull()
   })
 })

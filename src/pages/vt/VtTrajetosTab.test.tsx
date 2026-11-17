@@ -68,14 +68,21 @@ const TRAJETO: VtTrajetoComDetalhes = {
   departamento: DEPARTAMENTO,
 }
 
-function setup(podeGerenciar = true, trajeto: VtTrajetoComDetalhes = TRAJETO) {
+function setup(
+  podeGerenciar = true,
+  trajeto: VtTrajetoComDetalhes = TRAJETO,
+  opcoes?: {
+    colaboradores?: VtColaborador[]
+    extrasTrajeto?: Map<string, { nome_completo: string; status: string }>
+  },
+) {
   return render(
     <VtTrajetosTab
-      colaboradores={[COLABORADOR]}
+      colaboradores={opcoes?.colaboradores ?? [COLABORADOR]}
       departamentos={[DEPARTAMENTO]}
       bilhetes={[BILHETE]}
       trajetos={[trajeto]}
-      extrasTrajeto={new Map()}
+      extrasTrajeto={opcoes?.extrasTrajeto ?? new Map()}
       loading={false}
       usuarioId="usuario-id"
       podeGerenciar={podeGerenciar}
@@ -107,16 +114,12 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.getByTitle('Revisar itinerário com Google')).toBeInTheDocument()
   })
 
-  it('abre a edição da composição somente sob demanda', () => {
+  it('legado fica somente leitura e a revisão nova continua disponível', () => {
     setup()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Editar composição' }))
-    expect(screen.getByRole('button', { name: '+ 2º bilhete' })).toBeInTheDocument()
-    expect(screen.getByText('Extra/dia R$')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Concluir edição' }))
-    expect(screen.queryByRole('button', { name: '+ 2º bilhete' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Extra/dia R$')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Editar composição' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
+    expect(screen.getByTitle('Revisar itinerário com Google')).toBeInTheDocument()
   })
 
   it('perfil somente leitura não abre edição', () => {
@@ -135,5 +138,16 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.getByText(/Casa → PLENA TECH ADMINISTRATIVO/)).toBeInTheDocument()
     expect(screen.getByText(/nova revisão será criada somente ao salvar/)).toBeInTheDocument()
     expect(screen.getByText('Revisão assistida de itinerário')).toBeInTheDocument()
+  })
+
+  it('inativo fica fora por padrão e aparece somente ao pedir histórico', () => {
+    setup(true, { ...TRAJETO, colaborador: null }, {
+      colaboradores: [],
+      extrasTrajeto: new Map([['amanda-id', { nome_completo: COLABORADOR.nome_completo, status: 'Inativo' }]]),
+    })
+
+    expect(screen.queryByText(COLABORADOR.nome_completo)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Mostrar histórico e inativos'))
+    expect(screen.getByText(COLABORADOR.nome_completo)).toBeInTheDocument()
   })
 })
