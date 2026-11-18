@@ -1192,3 +1192,17 @@ Foi corrigida a ruptura apontada de forma independente pelos cinco revisores: a 
 ### Banco e limites
 
 `173_vt_preco_confirmado_decisao.sql` foi **APLICADA via Management API em 17/11/2026**, com autorização específica da gestora. Backup prévio em `dados-locais/backup_vt_173_2026-11-17/vt_dados.json` (9 bilhetes, 257 trajetos, 475 cargas, 263 decisões, 9 itinerários, 0 lotes). Antes, `scripts/vt/testar-173-transacao.ps1` executou migration + testes + rollback com sucesso: preço positivo aceito e zero recusado; `verificacao_rollback.json` confirmou coluna ausente e contagens preservadas. Depois, `verificacao_aplicacao.json` confirmou coluna e CHECK presentes, 0 decisões com preço revisado e todas as contagens preservadas. Nenhum trajeto, preço ou carga recebeu valor automaticamente. Nenhum commit ou deploy foi feito.
+
+
+
+---
+
+## 49. Limpeza e ligação de preço publicadas — 17/11/2026
+
+- Commit do pacote VT: **`4083a92 — VT: limpa experimentos e liga preco revisado a carga`**.
+- Deploy de produção no site correto `plena-corh`: **`6afde17f7aabdf44f6bf7666`**.
+- Bundle local/remoto conferido: **`assets/index-DOdylkzC.js`**.
+- Deploy feito uma única vez, com `--no-build`, a partir de árvore temporária limpa no commit da `main`; a árvore foi removida depois.
+- `MODULO_FERIAS_LIBERADO = false` e `MODULO_VT_LIBERADO = true` conferidos.
+- A migration 173 já estava aplicada antes do frontend; nenhum trajeto, preço ou carga recebeu valor automaticamente.
+- A `main` está 6 commits à frente de `origin/main`, **sem push**. Arquivos alheios continuam preservados e fora do pacote.
