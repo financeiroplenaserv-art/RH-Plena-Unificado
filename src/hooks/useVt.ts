@@ -34,6 +34,8 @@ export interface VtColaborador {
   vt_bu_ativado?: boolean | null
   /** Texto cru do site da Riocard ("Ativado", "Suspenso Setrans"...). */
   vt_bu_situacao?: string | null
+  /** Data do arquivo da Riocard em que a situação do BU foi lida (migration 167; YYYY-MM-DD). */
+  vt_bu_consultado_em?: string | null
   /** Cargo do cadastro — resolve a função ao adicionar à carteira de feristas pela tela do VT. */
   cargo?: string | null
 }
@@ -94,7 +96,7 @@ export interface NovoTrajetoVT {
 }
 
 const COLUNAS_COLABORADOR_VT =
-  'id, nome_completo, departamento, departamento_id, cidade, endereco, cep, vt_optante, vt_tipo_cartao, vt_bu_ativado, vt_bu_situacao, cargo'
+  'id, nome_completo, departamento, departamento_id, cidade, endereco, cep, vt_optante, vt_tipo_cartao, vt_bu_ativado, vt_bu_situacao, vt_bu_consultado_em, cargo'
 const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, endereco, cidade, cep'
 // Sem embed: o tipo Database não declara os relacionamentos de vt_trajetos e a
 // página já tem colaboradores/departamentos carregados para resolver o join.

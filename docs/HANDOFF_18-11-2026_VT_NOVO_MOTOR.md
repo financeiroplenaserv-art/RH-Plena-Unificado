@@ -52,3 +52,26 @@
 4. Carga e fechamento num fluxo só, alimentados pelo motor; fechar os buracos L1–L3 (dia sem posto, optante fora do relatório, fechamento anterior).
 5. Dezembro em paralelo: motor × planilha × módulo antigo, pessoa a pessoa; cada diferença explicada por regra.
 6. Só então desligar o fluxo antigo (dados antigos ficam para consulta). Depois: linhas/modais do Rio; corrigir 5721D/721D e aposentar os valores à mão de `regrasOficiais.ts`/`cotarCatraca.ts`.
+
+## 6. Motor ligado à revisão (18/11/2026)
+
+> Sem deploy (frontend ou Edge Function), sem migration, sem gravação no banco, sem commit.
+
+**O que foi feito**
+
+- **Adaptador Google → motor** `src/lib/vt/motor/adaptadorItinerario.ts` (+ `adaptadorItinerario.test.ts`): converte cada perna de `ItinerarioVT` (saída de `googleRoutes.ts`) em `PernaMotor` (modal, linha, embarque ISO com fuso, operadora; seção = null). Mapeamento: ônibus DETRO intermunicipal → `onibus_intermunicipal` (inclui a correção 3 dígitos + letra da "Prefeitura de Niterói" = 422M/570D); municipal Niterói/SG/Rio só quando operadora + município batem; trem, metrô, barca, VLT, BRT, van diretos; **micro-ônibus, operadora desconhecida e veículo desconhecido → "outro"** (o motor devolve indeterminado). Horário sem fuso é descartado com aviso (nunca lido no fuso da máquina). `fatosCartaoDoCadastro(vt_bu_situacao, vt_bu_consultado_em)` monta `FatosCartaoMotor`; texto desconhecido = sem consulta.
+- **Ida e volta** `src/lib/vt/motor/idaVolta.ts`: cálculo por sentido (`calcularAlternativaSentido`), ordenação por custo com indeterminado no fim, `calcularDiaIdaVolta` (= `calcularDia`) e `combinarIdaVolta`, que junta ida + volta numa única evidência: pernas com `sentido` ('ida'/'volta', sequência reiniciada por sentido) e o resultado do motor em `itinerario.calculoMotor` (versão `motor_v1`, data do serviço, status, valores ida/volta/dia, situação do BU, pendências). Tudo dentro do JSON e do hash da evidência — **cabe na `vt_itinerarios` atual, sem migration** (o CHECK só exige objeto com array `pernas` não vazio). `ItinerarioVT` ganhou o campo opcional `calculoMotor`.
+- **Tela** `src/pages/vt/VtRevisaoRota.tsx` não usa mais `cotarCatraca` (o arquivo continua no projeto para os testes legados): duas seções, **Ida (casa → posto)** e **Volta (posto → casa)**, cada uma com horário editável (padrão 06:00 e 18:00, HH:MM, próxima segunda em Brasília — `src/lib/vt/partidaRota.ts`) e botão próprio de consulta. Cada alternativa mostra valor por sentido, status (Confirmado/Pendente/Indeterminado) e "Mais em conta" sem escolher; a selecionada mostra conduções com tarifa integral do motor, "Tirar condução", avisos, pendências com a seção da regra e a explicação passo a passo. Resumo **Ida + Volta = Total do dia**. Salvar só com status do dia `confirmado` e valor > 0; caso contrário o motivo aparece embaixo do botão.
+- **Gravação**: `custo_diario_centavos` = valor do DIA do motor (ida + volta); `cotacao_id = 'motor_v1'` (coluna `text` sem CHECK — 169); a evidência é a alternativa combinada (`alternativa_id = "ida:google-N|volta:google-M"`). O repositório não mudou.
+- **Fatos do cartão reais**: `useVt` passou a ler `vt_bu_consultado_em`; a aba Trajetos entrega `fatosCartaoDoCadastro(...)` à revisão (antes era um objeto fixo com BUN "não consultado"). `bunConfirmadoNoPortal` vai sempre `null` (não há coluna).
+- **Edge Function `vt-rota`**: **não precisou de mudança** — já aceita origem, destino e `departureTime` livres; a volta é só a chamada com origem/destino invertidos e outro horário.
+
+**O que falta**
+
+- Registrar "BUN conferido no Portal" (`bunConfirmadoNoPortal`): exige coluna nova (migration) e tela. Sem isso, "Suspenso Setrans" com 2 ônibus de Niterói sempre fica pendente.
+- `vt_itinerarios` guarda ida + volta numa linha só; se a gestão quiser consultar a volta separadamente (ex.: relatório por sentido), avaliar coluna/linha própria (migration).
+- A data do serviço usada no cálculo é hoje (Brasília); a carga do mês ainda NÃO usa o motor (passo 4 do §5).
+- Evidências antigas (só ida, `cotacao_id` legado) continuam válidas; a tela mostra "Volta: não registrada nesta evidência".
+- Rodar a tela no navegador com a gestora (consulta real ao Google) antes de qualquer deploy.
+
+**Verificação**: `npx vitest run src/lib/vt src/pages/vt src/hooks src/services` 43 arquivos / 383 testes ok; `npm test` 128 arquivos / **1.578 testes** ok (eram 1.563; +10 do adaptador/ida-volta, +5 da tela); `npx tsc -p tsconfig.app.json --noEmit` ok; `npx eslint src/lib/vt src/pages/vt src/services src/hooks/useVt.ts` ok; `npm run build` ok.

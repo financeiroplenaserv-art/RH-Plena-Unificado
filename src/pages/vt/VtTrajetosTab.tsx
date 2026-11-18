@@ -35,6 +35,7 @@ import {
 } from '@/lib/vt/trajetos'
 import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
+import { fatosCartaoDoCadastro } from '@/lib/vt/motor/adaptadorItinerario'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { VtBilhete } from '@/types/vt'
 
@@ -65,6 +66,8 @@ interface LinhaTrajeto {
   /** Situação do BU na Riocard (migration 167; null = não consultado ou colaborador fora da lista de ativos). */
   buAtivado: boolean | null
   buSituacao: string | null
+  /** Data da consulta da Riocard (colaboradores.vt_bu_consultado_em). */
+  buConsultadoEm: string | null
   trajeto: VtTrajetoComDetalhes | null // null = sugestão ainda não gravada
 }
 
@@ -157,6 +160,7 @@ export function VtTrajetosTab({
         cidadePosto: dep?.cidade ?? null,
         buAtivado: colab?.vt_bu_ativado ?? null,
         buSituacao: colab?.vt_bu_situacao ?? null,
+        buConsultadoEm: cadastro?.vt_bu_consultado_em ?? null,
         trajeto: t,
       })
     }
@@ -184,6 +188,7 @@ export function VtTrajetosTab({
         cidadePosto: dep?.cidade ?? null,
         buAtivado: c.vt_bu_ativado ?? null,
         buSituacao: c.vt_bu_situacao ?? null,
+        buConsultadoEm: c.vt_bu_consultado_em ?? null,
         trajeto: null,
       })
     }
@@ -724,18 +729,7 @@ export function VtTrajetosTab({
                 municipioOrigem: revisando.cidadeCasa ?? 'desconhecida',
                 municipioDestino: revisando.cidadePosto ?? 'desconhecida',
                 precisao: revisando.trajeto.precisao_origem === 'exato' ? 'exata' : 'bairro',
-                cartao: {
-                  personalizacao: 'desconhecida',
-                  vinculadoCpf: null,
-                  bui: revisando.buSituacao === 'Ativado'
-                    ? 'ativo'
-                    : revisando.buSituacao === 'Não possui BU'
-                      ? 'nao_possui'
-                      : revisando.buAtivado === false ? 'suspenso' : 'nao_consultado',
-                  bun: 'nao_consultado',
-                  jae: 'nao_informado',
-                  situacaoConsultadaEm: null,
-                },
+                cartao: fatosCartaoDoCadastro(revisando.buSituacao, revisando.buConsultadoEm),
               }}
             />
           </DialogContent>

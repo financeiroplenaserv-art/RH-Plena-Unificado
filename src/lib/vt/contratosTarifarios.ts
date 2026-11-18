@@ -39,6 +39,21 @@ export interface ItinerarioVT {
   precisao: 'exata' | 'parcial' | 'bairro' | 'manual'
   evidenciaHash: string | null
   ajustesManuais?: AjusteManualItinerarioVT[]
+  /** Resultado do motor novo (src/lib/vt/motor) gravado junto com a evidência de ida + volta. */
+  calculoMotor?: CalculoMotorItinerarioVT
+}
+
+export interface CalculoMotorItinerarioVT {
+  versao: 'motor_v1'
+  dataServico: string
+  status: 'confirmado' | 'pendente' | 'indeterminado'
+  valorDiaCentavos: number | null
+  idaCentavos: number | null
+  voltaCentavos: number | null
+  alternativaIdaId: string
+  alternativaVoltaId: string
+  cartao: { situacaoBu: string | null; consultadoEm: string | null }
+  pendencias: string[]
 }
 
 export interface FonteOficialVT {
