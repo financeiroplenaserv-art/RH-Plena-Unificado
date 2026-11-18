@@ -105,6 +105,28 @@ describe('adaptarRotasGoogle', () => {
     expect(alternativas[0].avisos.join(' ')).toContain('operadora sem classificação tarifária')
     expect(alternativas[0].itinerario.pernas[0].sistemaTarifario).toBe('desconhecido')
   })
+
+  it('422M e 570D são intermunicipais mesmo quando o Google informa Prefeitura de Niterói', () => {
+    for (const linha of ['422M', '570D']) {
+      const alternativa = adaptarRotasGoogle({
+        routes: [{
+          legs: [{
+            steps: [{
+              travelMode: 'TRANSIT',
+              transitDetails: {
+                transitLine: { nameShort: linha, vehicle: { type: 'BUS' }, agencies: [{ name: 'Prefeitura de Niterói' }] },
+              },
+            }],
+          }],
+        }],
+      }, CONTEXTO)[0]
+      const cotacao = cotarCatraca(alternativa.itinerario, CARTAO_ATIVO, REGRAS_OFICIAIS_VT, '2026-11-23')
+
+      expect(alternativa.itinerario.pernas[0]).toMatchObject({ escopo: 'intermunicipal', sistemaTarifario: 'detro' })
+      expect(cotacao.status).toBe('indeterminado')
+      expect(cotacao.totalEstimadoCentavos).toBeNull()
+    }
+  })
 })
 
 

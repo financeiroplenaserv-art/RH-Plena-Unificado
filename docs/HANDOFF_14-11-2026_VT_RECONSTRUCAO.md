@@ -1239,3 +1239,19 @@ O script `validar-preco-revisao-producao.ts` passou a aceitar `--decisao=<uuid>`
 Todas ficaram `confirmada`, `cotacao_id = tarifa_integral`, `custo_diario_centavos = 1120`. A segunda consulta ao banco conferiu os valores e o resolvedor devolveu o mesmo preço, sem componentes antigos e sem pendências. Incluindo o Acacio, são **6 casos reais concluídos**.
 
 O pedido de 20 casos adicionais **não foi completado com inferências**: restam **14** sem evidência humana suficiente. Everaldo foi recusado no dry-run por `BUN_NAO_CONFIRMADO` (o arquivo confirma BU, não BUN ativo/vínculo ao CPF); Alcemir continua fora por endereço pendente. Nenhum novo deploy foi necessário.
+
+
+
+---
+
+## 52. Escopo intermunicipal corrigido e seleção automática interrompida — 18/11/2026
+
+A tentativa de ampliar os casos revelou um erro real no processo: o adaptador usava somente a operadora para classificar a perna. Quando o Google informava “Prefeitura de Niterói”, 422M e 570D eram marcadas como municipais, embora sejam intermunicipais.
+
+- Adriana e Agostinho receberam sugestões indevidas de R$ 11,20, **mas nenhuma foi confirmada**.
+- As novas revisões `ef058334-b3d3-4d03-b081-26a5cf8264f6` e `7ae64b42-11d4-499e-8b55-d253f0435a59` foram corrigidas para `cotacao_id = NULL` e `custo_diario_centavos = NULL`.
+- Aluizio e Ronaldo também permanecem apenas sugeridos. O total confirmado continua **6 casos**.
+- `googleRoutes.ts` agora reconhece código de 3 dígitos + letra da operadora Niterói como intermunicipal/DETRO; sem tarifa oficial, o motor devolve `indeterminado`.
+- O teste de regressão cobre 422M e 570D e passou, junto com **1.527 testes**, TypeScript, lint escopado e build.
+- O script que escolhia automaticamente a alternativa mais barata foi removido. A alternativa mais barata não é necessariamente a rota real.
+- Nenhum novo deploy foi feito.

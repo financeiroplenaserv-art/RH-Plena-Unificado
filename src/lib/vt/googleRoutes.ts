@@ -76,7 +76,7 @@ function duracaoSegundos(duracao: string | undefined): number | null {
   return Number.isFinite(segundos) ? segundos : null
 }
 
-function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoRotaGoogle): {
+function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoRotaGoogle, codigoLinha: string | undefined): {
   escopo: PernaItinerarioVT['escopo']
   sistemaTarifario: SistemaTarifarioVT
   municipioOrigem: string
@@ -102,6 +102,15 @@ function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoR
     }
   }
   if (/semove - intermunicipal|rio ita|auto litoral|litoral rio|1001|nossa senhora|santo antonio|inbornsa|intermunicipal/.test(texto)) {
+    return {
+      escopo: 'intermunicipal',
+      sistemaTarifario: 'detro',
+      municipioOrigem: contexto.municipioOrigem,
+      municipioDestino: contexto.municipioDestino,
+      conhecida: true,
+    }
+  }
+  if (/prefeitura de niter/.test(texto) && /^\d{3}[A-Z]$/.test(codigoLinha?.trim().toUpperCase() ?? '')) {
     return {
       escopo: 'intermunicipal',
       sistemaTarifario: 'detro',
@@ -140,7 +149,7 @@ function pernaDoPasso(
   const detalhe = passo.transitDetails
   const linha = detalhe?.transitLine
   const agencia = linha?.agencies?.[0]?.name
-  const tarifaria = classificacaoTarifaria(agencia, contexto)
+  const tarifaria = classificacaoTarifaria(agencia, contexto, linha?.nameShort ?? linha?.name)
   const veiculo = modalDoVeiculo(linha?.vehicle?.type)
 
   if (!linha?.nameShort && !linha?.name) avisos.push(`Condução ${sequencia}: linha não identificada pelo Google.`)
