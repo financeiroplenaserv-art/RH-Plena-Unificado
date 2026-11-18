@@ -13,26 +13,6 @@ import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSup
 import type { FatosCartaoVT, ItinerarioVT } from '@/lib/vt/contratosTarifarios'
 import type { VtItinerario } from '@/types/vt'
 
-const CARTAO_DESCONHECIDO: FatosCartaoVT = {
-  personalizacao: 'desconhecida',
-  vinculadoCpf: null,
-  bui: 'nao_consultado',
-  bun: 'nao_consultado',
-  jae: 'nao_informado',
-  situacaoConsultadaEm: null,
-}
-
-export interface CenarioRevisaoRotaShadow {
-  id: string
-  rotulo: string
-  resposta: RespostaGoogleRoutes
-  origem: string
-  destino: string
-  municipioOrigem: string
-  municipioDestino: string
-  cartao: FatosCartaoVT
-}
-
 export interface ContextoRevisaoRotaReal {
   trajetoLegadoId: string
   colaboradorId: string
@@ -48,8 +28,7 @@ export interface ContextoRevisaoRotaReal {
 }
 
 interface VtRevisaoRotaProps {
-  contextoReal?: ContextoRevisaoRotaReal
-  cenariosShadow?: readonly CenarioRevisaoRotaShadow[]
+  contextoReal: ContextoRevisaoRotaReal
 }
 
 function resumoAlternativa(alternativa: AlternativaRotaGoogleVT): string {
@@ -63,12 +42,11 @@ function partidaProximaSegunda06BRT(): string {
   return new Date(segunda.getTime() - 3 * 60 * 60 * 1000).toISOString()
 }
 
-export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRotaProps) {
-  const [cenarioId, setCenarioId] = useState(cenariosShadow[0]?.id ?? '')
+export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [selecionadaId, setSelecionadaId] = useState<string | null>(null)
   const [pernasRemovidas, setPernasRemovidas] = useState<Record<string, number[]>>({})
   const [respostaAoVivo, setRespostaAoVivo] = useState<RespostaGoogleRoutes | null>(null)
-  const [consultadoEm, setConsultadoEm] = useState('2026-11-16T12:00:00Z')
+  const [consultadoEm, setConsultadoEm] = useState('')
   const [carregandoGoogle, setCarregandoGoogle] = useState(false)
   const [erroGoogle, setErroGoogle] = useState<string | null>(null)
   const [decisaoRealId, setDecisaoRealId] = useState<string | null>(null)
@@ -80,10 +58,8 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
   const [evidenciaSalva, setEvidenciaSalva] = useState<VtItinerario | null>(null)
   const [erroPersistencia, setErroPersistencia] = useState<string | null>(null)
   const repositorio = useMemo(() => new RepositorioItinerarioSupabase(), [])
-  const cenario = cenariosShadow.find((item) => item.id === cenarioId) ?? cenariosShadow[0] ?? null
 
   useEffect(() => {
-    if (!contextoReal) return
     let ativo = true
     setCarregandoDecisao(true)
     setErroPersistencia(null)
@@ -116,23 +92,15 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
   }, [contextoReal, repositorio])
 
   const alternativas = useMemo(() => adaptarRotasGoogle(
-    respostaAoVivo ?? (contextoReal ? {} : cenario?.resposta ?? {}),
+    respostaAoVivo ?? {},
     {
       consultadoEm,
-      precisao: contextoReal?.precisao ?? 'exata',
+      precisao: contextoReal.precisao,
       sentido: 'ida',
-      municipioOrigem: contextoReal?.municipioOrigem ?? cenario?.municipioOrigem ?? 'desconhecida',
-      municipioDestino: contextoReal?.municipioDestino ?? cenario?.municipioDestino ?? 'desconhecida',
+      municipioOrigem: contextoReal.municipioOrigem,
+      municipioDestino: contextoReal.municipioDestino,
     },
-  ), [cenario, consultadoEm, contextoReal, respostaAoVivo])
-
-  const alterarCenario = (novo: string) => {
-    setCenarioId(novo)
-    setSelecionadaId(null)
-    setPernasRemovidas({})
-    setRespostaAoVivo(null)
-    setErroGoogle(null)
-  }
+  ), [consultadoEm, contextoReal, respostaAoVivo])
 
   const consultarGoogle = async () => {
     setCarregandoGoogle(true)
@@ -144,8 +112,8 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
     const dataConsulta = new Date().toISOString()
     try {
       const resposta = await sugerirRotasGoogle({
-        origin: contextoReal?.origem ?? cenario?.origem ?? '',
-        destination: contextoReal?.destino ?? cenario?.destino ?? '',
+        origin: contextoReal.origem,
+        destination: contextoReal.destino,
         departureTime: partidaProximaSegunda06BRT(),
       })
       setConsultadoEm(dataConsulta)
@@ -163,9 +131,9 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
         .reduce((atual, sequencia) => removerPernaAlternativa(atual, sequencia), original)
       const cotacao = cotarCatraca(
         alternativa.itinerario,
-        contextoReal?.cartao ?? cenario?.cartao ?? CARTAO_DESCONHECIDO,
+        contextoReal.cartao,
         REGRAS_OFICIAIS_VT,
-        contextoReal ? hojeBrasil() : '2026-11-23',
+        hojeBrasil(),
       )
       return {
         ...alternativa,
@@ -175,7 +143,7 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
     })
     .sort((a, b) =>
       (a.totalDia ?? Number.MAX_SAFE_INTEGER) - (b.totalDia ?? Number.MAX_SAFE_INTEGER) || a.numero - b.numero
-    ), [alternativas, cenario, contextoReal, pernasRemovidas])
+    ), [alternativas, contextoReal, pernasRemovidas])
   const selecionada = alternativasComCotacao.find((alternativa) => alternativa.id === selecionadaId) ?? null
   const cotacao = selecionada?.cotacao ?? null
   const totalDia = selecionada?.totalDia ?? null
@@ -203,7 +171,7 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
   }
 
   const salvar = async () => {
-    if (!contextoReal || !decisaoRealId || !selecionada) return
+    if (!decisaoRealId || !selecionada) return
     setSalvando(true)
     setErroPersistencia(null)
     try {
@@ -214,6 +182,8 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
         usuarioId: contextoReal.usuarioId,
         alternativa: selecionada,
         cotacaoId: cotacao?.alternativaEscolhidaId ?? null,
+        cotacaoStatus: cotacao?.status,
+        custoDiarioCentavos: totalDia,
       }, contextoReal.trajetoLegadoId, hojeBrasil())
       setDecisaoRealId(resultado.decisaoId)
       setDecisaoRealStatus((atual) => atual === 'confirmada' ? atual : 'sugerida')
@@ -229,7 +199,7 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
   }
 
   const confirmarDecisao = async () => {
-    if (!contextoReal || !decisaoRealId) return
+    if (!decisaoRealId) return
     setConfirmandoDecisao(true)
     setErroPersistencia(null)
     try {
@@ -252,28 +222,14 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
       title={
         <>
           <GitBranch className="size-4" />
-          {contextoReal ? 'Revisão assistida de itinerário' : 'Revisão assistida de itinerário — shadow'}
+          Revisão assistida de itinerário
         </>
       }
-      description={contextoReal
-        ? 'Escolha a rota que a pessoa realmente usa. Salvar registra a evidência, não confirma o pacote patronal.'
-        : respostaAoVivo
-          ? 'Resposta ao vivo da vt-rota; nenhuma decisão é persistida.'
-          : 'Somente desenvolvimento. Alternativas arquivadas da Routes API; nenhuma decisão é persistida.'}
+      description="Escolha a rota que a pessoa realmente usa. Salvar registra a evidência, não confirma o pacote patronal."
       className="border-violet-200"
     >
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          {!contextoReal && cenariosShadow.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`rounded-lg px-3 py-2 text-[13px] font-semibold ${cenario?.id === item.id ? 'bg-primary text-white' : 'bg-accent text-primary'}`}
-              onClick={() => alterarCenario(item.id)}
-            >
-              {item.rotulo}
-            </button>
-          ))}
           <ModuleButton size="sm" variant="outline" disabled={carregandoGoogle || carregandoDecisao} onClick={() => void consultarGoogle()}>
             {carregandoGoogle ? 'Consultando...' : 'Consultar Google agora'}
           </ModuleButton>
@@ -289,7 +245,7 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
           Compare o custo por dia e selecione a alternativa que a pessoa realmente usa. A mais em conta fica marcada, mas a escolha continua sendo sua.
         </div>
 
-        {contextoReal && evidenciaSalva && (
+        {evidenciaSalva && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge variant="success" dot={false}>Itinerário salvo neste trajeto</StatusBadge>
@@ -338,7 +294,7 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
 
         {!selecionada && (
           <p className="text-[13px] text-muted-foreground">
-            {contextoReal && !respostaAoVivo ? 'Consulte o Google para receber alternativas.' : 'Nenhuma alternativa selecionada.'}
+            {!respostaAoVivo ? 'Consulte o Google para receber alternativas.' : 'Nenhuma alternativa selecionada.'}
           </p>
         )}
 
@@ -455,13 +411,13 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
               <ModuleButton
                 type="button"
                 size="sm"
-                disabled={!contextoReal || !decisaoRealId || salvando || salvo}
-                title={contextoReal ? 'Gravar a evidência da alternativa escolhida' : 'Disponível somente em um trajeto real'}
-                onClick={contextoReal ? () => void salvar() : undefined}
+                disabled={!decisaoRealId || salvando || salvo || cotacao.status !== 'confirmavel' || totalDia == null}
+                title="Gravar a evidência da alternativa escolhida"
+                onClick={() => void salvar()}
               >
                 {salvando ? 'Salvando...' : salvo ? 'Itinerário salvo' : 'Salvar itinerário escolhido'}
               </ModuleButton>
-              {contextoReal && salvo && decisaoRealStatus !== 'confirmada' && (
+              {salvo && decisaoRealStatus !== 'confirmada' && (
                 <ModuleButton
                   type="button"
                   size="sm"
@@ -472,13 +428,13 @@ export function VtRevisaoRota({ contextoReal, cenariosShadow = [] }: VtRevisaoRo
                   {confirmandoDecisao ? 'Confirmando...' : 'Confirmar trajeto e preço'}
                 </ModuleButton>
               )}
-              {contextoReal && decisaoRealStatus === 'confirmada' && (
+              {decisaoRealStatus === 'confirmada' && (
                 <span className="ml-2 text-[12px] font-semibold text-emerald-700">Trajeto e preço confirmados</span>
               )}
               <p className="mt-2 text-[12px] text-muted-foreground">
-                {contextoReal
-                  ? carregandoDecisao ? 'Carregando a decisão do trajeto...' : 'A evidência fica vinculada à revisão aberta; uma decisão confirmada nunca é alterada.'
-                  : 'A gravação está disponível somente ao revisar um trajeto real.'}
+                {carregandoDecisao
+                  ? 'Carregando a decisão do trajeto...'
+                  : 'A evidência fica vinculada à revisão aberta; uma decisão confirmada nunca é alterada.'}
               </p>
             </div>
           </div>

@@ -45,6 +45,7 @@ const DECISAO: DecisaoTrajetoVT = {
   departamentoId: IDS.posto,
   revisao: 1,
   cotacaoId: null,
+  custoDiarioCentavos: null,
   status: 'confirmada',
   confirmadaPor: IDS.usuario,
   confirmadaEm: '2026-11-01T10:00:00Z',

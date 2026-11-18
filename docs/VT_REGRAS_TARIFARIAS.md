@@ -188,7 +188,7 @@ Sem os dados exigidos pela regra, o resultado é `parcial` ou `indeterminado`, n
 
 ## 9. Erros conhecidos do classificador legado
 
-`src/lib/vt/classificarRota.ts` é experimental e não deve ser integrado à aba:
+O antigo `src/lib/vt/classificarRota.ts` e seu teste foram removidos na limpeza estática. Estes erros conhecidos ficam registrados para não serem reintroduzidos:
 
 - impõe BUI+Jaé indevidamente no Rio/VLT;
 - retorna antes do BUI para trilhos e barcas;
@@ -198,8 +198,6 @@ Sem os dados exigidos pela regra, o resultado é `parcial` ou `indeterminado`, n
 - mistura trem com metrô;
 - avisa excedente BUI só acima de quatro pernas em vez de a partir da terceira;
 - usa confiança alta sem evidência suficiente.
-
-Os testes desse arquivo caracterizam o comportamento antigo; não são especificação do novo motor.
 
 ## 10. Pendências de decisão
 

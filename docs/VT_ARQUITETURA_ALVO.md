@@ -182,7 +182,7 @@ Essas pendências ficam fora da automação até decisão expressa da gestora, D
 
 ## 7. O que não fazer
 
-- Integrar o classificador atual à aba Trajetos.
+- Reintroduzir o classificador experimental removido na limpeza estática.
 - Adicionar novas exceções em `if`s do classificador antigo.
 - Corrigir trajetos/cargas em lote com base em POC.
 - Usar nome do bilhete como identidade ou `hojeBrasil()` como data do preço.

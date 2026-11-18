@@ -4,7 +4,6 @@ import type {
   AjusteBeneficioVT,
   ComponenteDecisaoTrajetoVT,
   ComponentePacoteVT,
-  CotacaoCatraca,
   DecisaoTrajetoVT,
   PacoteBeneficioVT,
   RequisitoFinanciamentoVT,
@@ -130,47 +129,4 @@ export function adaptarDecisaoTrajetoLegado(
     origem: 'legado',
   }]
   return { decisao, componentes, ajustes }
-}
-
-export interface ComparacaoShadowVT {
-  status: 'mesmo_valor' | 'divergente' | 'revisar' | 'sem_cotacao'
-  valorAtualCentavos: number
-  valorCotadoDiaCentavos: number | null
-  diferencaCentavos: number | null
-  explicacao: string
-  basePatronalPendente: boolean
-}
-
-export function compararPacoteLegadoComCotacao(
-  valorAtualCentavos: number,
-  cotacao: CotacaoCatraca,
-  idaEVoltaEspelhadas = true,
-): ComparacaoShadowVT {
-  if (cotacao.totalEstimadoCentavos == null) {
-    return {
-      status: 'sem_cotacao',
-      valorAtualCentavos,
-      valorCotadoDiaCentavos: null,
-      diferencaCentavos: null,
-      explicacao: 'O novo motor não encontrou dados suficientes para cotar o trajeto.',
-      basePatronalPendente: false,
-    }
-  }
-  const valorCotadoDiaCentavos = cotacao.totalEstimadoCentavos * (idaEVoltaEspelhadas ? 2 : 1)
-  const basePatronalPendente = cotacao.alternativaEscolhidaId === 'bui_direto'
-  const status = cotacao.status !== 'confirmavel'
-    ? 'revisar'
-    : valorCotadoDiaCentavos === valorAtualCentavos ? 'mesmo_valor' : 'divergente'
-  return {
-    status,
-    valorAtualCentavos,
-    valorCotadoDiaCentavos,
-    diferencaCentavos: valorCotadoDiaCentavos - valorAtualCentavos,
-    explicacao: status === 'mesmo_valor'
-      ? 'O valor diário da cotação coincide com o pacote atual.'
-      : status === 'divergente'
-        ? 'A cotação da catraca difere do pacote atual; revisar regra e política Plena, sem alterar o dado automaticamente.'
-        : 'Há estimativa, mas a confirmação depende das pendências da cotação.',
-    basePatronalPendente,
-  }
 }

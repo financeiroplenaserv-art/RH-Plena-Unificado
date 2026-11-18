@@ -4,6 +4,8 @@ import { adaptarRotasGoogle } from '@/lib/vt/googleRoutes'
 import { RESPOSTA_ACACIO } from '@/lib/vt/googleRoutesFixture'
 import type { EscolhaItinerarioVT } from '@/lib/vt/itinerarioEvidencia'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
+import { decisaoDeLinha } from '@/lib/vt/adaptadoresSql'
+import { resolverCustoDiarioNaData } from '@/lib/vt/temporalidade'
 import type { Database } from '@/types/database'
 import type { VtTrajetoDecisao } from '@/types/vt'
 
@@ -52,6 +54,8 @@ function entrada(): EscolhaItinerarioVT {
       municipioOrigem: 'Niterói',
       municipioDestino: 'Niterói',
     })[0],
+    cotacaoStatus: 'confirmavel',
+    custoDiarioCentavos: 1120,
   }
 }
 
@@ -215,5 +219,15 @@ describe('salvar escolha com nova revisão', () => {
       cotacao_id: 'cotacao-atual',
     })
     expect(tabelas.vt_trajeto_decisoes[0]).toEqual(antes)
+
+    const resolucao = resolverCustoDiarioNaData({
+      colaboradorId: IDS.pessoa,
+      departamentoId: IDS.posto,
+      dataServico: '2026-11-18',
+      decisoes: tabelas.vt_trajeto_decisoes.map((linha) => decisaoDeLinha(linha as unknown as VtTrajetoDecisao)),
+      componentes: [],
+      versoesPreco: [],
+    })
+    expect(resolucao).toMatchObject({ status: 'resolvido', totalCentavos: 1120 })
   })
 })

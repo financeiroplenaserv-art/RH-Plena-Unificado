@@ -150,6 +150,7 @@ export interface DecisaoTrajetoVT {
   departamentoId: string
   revisao: number
   cotacaoId: string | null
+  custoDiarioCentavos?: number | null
   status: 'sugerida' | 'confirmada' | 'indeterminada'
   confirmadaPor: string | null
   confirmadaEm: string | null

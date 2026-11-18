@@ -21,7 +21,7 @@ export interface EscolhaItinerarioSalva {
 
 export type DecisaoParaItinerario = Pick<
   Database['public']['Tables']['vt_trajeto_decisoes']['Row'],
-  'id' | 'trajeto_legado_id' | 'colaborador_id' | 'departamento_id' | 'revisao' | 'cotacao_id' | 'status' | 'itinerario_id'
+  'id' | 'trajeto_legado_id' | 'colaborador_id' | 'departamento_id' | 'revisao' | 'cotacao_id' | 'custo_diario_centavos' | 'status' | 'itinerario_id'
 >
 
 export class RepositorioItinerarioSupabase {
@@ -34,7 +34,7 @@ export class RepositorioItinerarioSupabase {
   async buscarDecisaoPorTrajeto(trajetoLegadoId: string): Promise<DecisaoParaItinerario | null> {
     const { data, error } = await this.cliente
       .from('vt_trajeto_decisoes')
-      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, status, itinerario_id')
+      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, custo_diario_centavos, status, itinerario_id')
       .eq('trajeto_legado_id', trajetoLegadoId)
       .order('revisao', { ascending: false })
       .limit(1)
@@ -68,7 +68,7 @@ export class RepositorioItinerarioSupabase {
     const { data: nova, error } = await this.cliente
       .from('vt_trajeto_decisoes')
       .insert(novaRevisaoDeDecisao(completa, vigenteDesde))
-      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, status, itinerario_id')
+      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, custo_diario_centavos, status, itinerario_id')
       .single()
     if (error) {
       if (error.code !== '23505') throw error
@@ -167,10 +167,19 @@ export class RepositorioItinerarioSupabase {
   }
 
   async salvarEscolha(entrada: EscolhaItinerarioVT): Promise<EscolhaItinerarioSalva> {
+    if (
+      entrada.cotacaoStatus !== 'confirmavel' ||
+      typeof entrada.custoDiarioCentavos !== 'number' ||
+      !Number.isInteger(entrada.custoDiarioCentavos) ||
+      entrada.custoDiarioCentavos <= 0
+    ) {
+      throw new Error('Só é possível salvar uma cotação confirmável com custo diário inteiro e positivo.')
+    }
+    const custoDiarioCentavos = entrada.custoDiarioCentavos
     const nova = await prepararEvidenciaItinerario(entrada)
     const { data: decisao, error: erroDecisao } = await this.cliente
       .from('vt_trajeto_decisoes')
-      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, status, itinerario_id')
+      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, custo_diario_centavos, status, itinerario_id')
       .eq('id', entrada.decisaoId)
       .maybeSingle()
     if (erroDecisao) throw erroDecisao
@@ -180,16 +189,22 @@ export class RepositorioItinerarioSupabase {
     }
 
     const evidencia = await this.gravarOuRecuperar(nova)
-    if (decisao.status === 'confirmada' && decisao.itinerario_id !== evidencia.id) {
-      throw new Error('A decisão confirmada é imutável; crie uma nova revisão para trocar o itinerário.')
+    const mudouEvidencia = decisao.itinerario_id !== evidencia.id
+    const mudouPreco = decisao.custo_diario_centavos !== custoDiarioCentavos
+    if (decisao.status === 'confirmada' && (mudouEvidencia || mudouPreco)) {
+      throw new Error('A decisão confirmada é imutável; crie uma nova revisão para trocar o itinerário ou o preço.')
     }
-    if (decisao.itinerario_id === evidencia.id) {
+    if (!mudouEvidencia && !mudouPreco) {
       return { decisaoId: decisao.id, evidencia, repetido: true }
     }
 
     const { data: atualizada, error: erroAtualizacao } = await this.cliente
       .from('vt_trajeto_decisoes')
-      .update({ itinerario_id: evidencia.id, cotacao_id: entrada.cotacaoId ?? decisao.cotacao_id })
+      .update({
+        itinerario_id: evidencia.id,
+        cotacao_id: entrada.cotacaoId ?? decisao.cotacao_id,
+        custo_diario_centavos: custoDiarioCentavos,
+      })
       .eq('id', decisao.id)
       .select('id, itinerario_id')
       .maybeSingle()
@@ -207,7 +222,7 @@ export class RepositorioItinerarioSupabase {
   ): Promise<DecisaoParaItinerario> {
     const { data: decisao, error: erroLeitura } = await this.cliente
       .from('vt_trajeto_decisoes')
-      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, status, itinerario_id')
+      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, custo_diario_centavos, status, itinerario_id')
       .eq('id', decisaoId)
       .maybeSingle()
     if (erroLeitura) throw erroLeitura
@@ -216,12 +231,15 @@ export class RepositorioItinerarioSupabase {
     if (!decisao.itinerario_id) {
       throw new Error('Salve o itinerário antes de confirmar o trajeto e o preço.')
     }
+    if (decisao.custo_diario_centavos == null) {
+      throw new Error('Salve um preço confirmável antes de confirmar o trajeto.')
+    }
 
     const { data: atualizada, error } = await this.cliente
       .from('vt_trajeto_decisoes')
       .update({ status: 'confirmada', confirmado_por: usuarioId, confirmado_em: confirmadaEm })
       .eq('id', decisaoId)
-      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, status, itinerario_id')
+      .select('id, trajeto_legado_id, colaborador_id, departamento_id, revisao, cotacao_id, custo_diario_centavos, status, itinerario_id')
       .maybeSingle()
     if (error) throw error
     if (!atualizada) throw new Error('Nenhuma decisão foi confirmada; confira permissões e o estado atual.')

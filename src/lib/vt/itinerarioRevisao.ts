@@ -14,6 +14,7 @@ export function novaRevisaoDeDecisao(
     departamento_id: atual.departamento_id,
     revisao: atual.revisao + 1,
     cotacao_id: atual.cotacao_id,
+    custo_diario_centavos: null,
     status: 'sugerida',
     confirmado_por: null,
     confirmado_em: null,

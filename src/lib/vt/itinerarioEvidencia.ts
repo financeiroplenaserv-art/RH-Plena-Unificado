@@ -11,6 +11,8 @@ export interface EscolhaItinerarioVT {
   usuarioId: string
   alternativa: AlternativaRotaGoogleVT
   cotacaoId?: string | null
+  cotacaoStatus?: 'confirmavel' | 'parcial' | 'indeterminado'
+  custoDiarioCentavos?: number | null
 }
 
 export type NovaEvidenciaItinerario = Omit<VtItinerario, 'id' | 'created_at'>

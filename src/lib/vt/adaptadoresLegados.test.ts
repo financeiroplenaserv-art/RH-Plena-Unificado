@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { adaptarDecisaoTrajetoLegado, adaptarPacotesLegados, compararPacoteLegadoComCotacao } from '@/lib/vt/adaptadoresLegados'
-import { cotarCatraca } from '@/lib/vt/cotarCatraca'
-import { REGRAS_OFICIAIS_VT } from '@/lib/vt/regrasOficiais'
+import { adaptarDecisaoTrajetoLegado, adaptarPacotesLegados } from '@/lib/vt/adaptadoresLegados'
 import type { VtBilhete, VtTrajeto } from '@/types/vt'
-import type { FatosCartaoVT, PernaItinerarioVT } from '@/lib/vt/contratosTarifarios'
 
 function bilhete(parcial: Partial<VtBilhete>): VtBilhete {
   return {
@@ -90,43 +87,5 @@ describe('adaptarPacotesLegados', () => {
       motivo: 'Complemento confirmado pela operação',
       vigenteDesde: '2026-11-15',
     })
-  })
-})
-
-describe('compararPacoteLegadoComCotacao', () => {
-  const cartao: FatosCartaoVT = {
-    personalizacao: 'usuario', vinculadoCpf: true, bui: 'ativo', bun: 'ativo', jae: 'disponivel', situacaoConsultadaEm: '2026-11-14',
-  }
-  const perna100D: PernaItinerarioVT = {
-    sequencia: 1,
-    linha: '100D',
-    variante: null,
-    operadora: 'Detro',
-    modal: 'onibus',
-    categoriaServico: 'urbano_convencional',
-    sistemaTarifario: 'detro',
-    escopo: 'intermunicipal',
-    municipioOrigem: 'Niterói',
-    municipioDestino: 'Rio de Janeiro',
-    sentido: 'ida',
-    embarque: { local: 'A', dataHoraPrevista: '2026-11-16T09:00:00Z' },
-    desembarque: { local: 'B', dataHoraPrevista: '2026-11-16T10:00:00Z' },
-    tarifaCentavos: null,
-    tarifaVigenteDesde: '2026-02-15',
-  }
-
-  it('compara ida e volta e sinaliza separadamente a pendência patronal do BUI direto', () => {
-    const cotacao = cotarCatraca(
-      { pernas: [perna100D], provedor: 'manual', consultadoEm: '2026-11-14', precisao: 'manual', evidenciaHash: 'x' },
-      cartao,
-      REGRAS_OFICIAIS_VT,
-      '2026-11-16',
-    )
-    const comparacao = compararPacoteLegadoComCotacao(1420, cotacao)
-
-    expect(comparacao.status).toBe('divergente')
-    expect(comparacao.valorCotadoDiaCentavos).toBe(1880)
-    expect(comparacao.diferencaCentavos).toBe(460)
-    expect(comparacao.basePatronalPendente).toBe(true)
   })
 })

@@ -222,4 +222,31 @@ describe('identidade e temporalidade do VT', () => {
     expect(versaoPrecoPacoteNaData(versoes, 'pacote-1', '2026-11-10')).toBeNull()
     expect(resolver('2026-11-10', versoes).pendencias[0].codigo).toBe('preco_ambiguo')
   })
+
+  it('usa o preço confirmado na revisão em vez do pacote antigo, mesmo sem componentes', () => {
+    const revisada: DecisaoTrajetoVT = {
+      ...DECISAO,
+      cotacaoId: 'tarifa_integral',
+      custoDiarioCentavos: 2940,
+    }
+
+    const resultado = resolver('2026-11-10', [], { decisoes: [revisada], componentes: [] })
+
+    expect(resultado).toMatchObject({ status: 'resolvido', totalCentavos: 2940, componentes: [] })
+  })
+
+  it('soma ajustes vigentes ao preço confirmado na revisão', () => {
+    const revisada: DecisaoTrajetoVT = { ...DECISAO, custoDiarioCentavos: 2940 }
+    const ajustes: AjusteBeneficioVT[] = [{
+      id: 'ajuste-1',
+      decisaoTrajetoId: revisada.id,
+      valorDiarioCentavos: 200,
+      motivo: 'Complemento autorizado',
+      autorId: 'usuario-1',
+      vigenteDesde: '2026-01-01',
+      vigenteAte: null,
+    }]
+
+    expect(resolver('2026-11-10', [], { decisoes: [revisada], componentes: [], ajustes }).totalCentavos).toBe(3140)
+  })
 })

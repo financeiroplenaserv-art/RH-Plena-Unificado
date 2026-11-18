@@ -1079,3 +1079,116 @@ A apresentação longa “o pacote pode exigir integração...” foi substituí
 Motivo: situação oficial do cartão não deve ser confundida com o tipo de bilhete usado para precificar. O status continua vindo de `colaboradores.vt_bu_situacao` e `vt_bu_ativado`, com data de consulta separada.
 
 Teste adicionado para “Suspenso Setrans” e ausência do aviso longo. Sem alteração de dados ou regra de cálculo.
+
+
+
+---
+
+## 45. Coluna BU na Riocard publicada — 17/11/2026
+
+- Commit: **`7b1adb6 — VT: mostra situação do BU na Riocard em coluna curta`**.
+- Deploy `6afcb7e40b92f2cc53b33c3f` no site `plena-corh`.
+- Bundle local/remoto: **`assets/index-4iZttGhx.js`** (`confere: true`).
+- A aba Trajetos mostra “Suspenso Setrans”, Ativado ou “não consultado” na coluna **BU na Riocard**, sem o aviso longo.
+- Suíte final: **1.552 testes**, TypeScript, lint, RLS e build.
+- `main` 4 commits à frente do origin, **sem push**. Árvore temporária removida e arquivos alheios preservados.
+
+
+
+---
+
+## 46. Pausa para retomada — dúvidas de apresentação, BU e Alcemir — 17/11/2026
+
+A gestora pediu para interromper e retomar no dia seguinte. Também pediu explicitamente menos rodeio e resolução objetiva. **Não iniciar nova arquitetura, deploy ou alteração de dados ao retomar: responder primeiro às perguntas pendentes e apresentar a correção concreta.**
+
+### O que foi feito nesta continuação
+
+- Foram consultados, sem alteração de dados, os oito casos das capturas da aba Trajetos: Andressa, Angelo, Cleonice, Everaldo, José Robson, Rejane, Ronald e Vanderlei.
+- Foi explicado que o aviso “o cadastro atual aponta outro posto” pode indicar histórico ou cobertura; não significa, por si só, erro.
+- Foi confirmado que “Confirmado pelo RH” se refere ao trajeto/composição, não à ativação do BU.
+- A coluna **BU na Riocard** mostra o último arquivo importado, não uma consulta ao vivo. Nos oito casos, `vt_bu_consultado_em = 2026-10-28`.
+- José Robson e Ronald estavam com `vt_optante = false` na consulta; portanto, não entram na carga enquanto não optantes.
+- Vanderlei tinha trajeto atual ABAETÉ confirmado com BU Niterói, mas BU “Suspenso Setrans” no arquivo de 28/10: precisa de revisão antes da próxima carga.
+- Foi recomendada rotina mensal da Riocard antes da carga: arquivo completo → dry-run → relatório de mudanças/exceções → aplicação com backup → revisão humana. Sem trocar bilhete, preço ou carga automaticamente e sem cron enquanto a origem for um Excel exportado manualmente.
+- Melhorias propostas, **não implementadas**: exigir a data do arquivo no importador, relatar optantes ausentes do arquivo, mostrar a data da consulta na tela e marcar consulta com mais de 31 dias.
+
+Consultas e resultados preservados em:
+
+- `dados-locais/vt_producao_2026-11-17/casos_revisao_final.sql` e `.json`;
+- `dados-locais/vt_producao_2026-11-17/alcemir_recorrencia_endereco.sql` e `.json`;
+- `dados-locais/vt_producao_2026-11-17/alcemir_itinerario.sql` e `.json`.
+
+### Alcemir — fatos confirmados
+
+- Cadastro consultado: **ALCEMIR BRAZ GENTIL**, matrícula 000852, ativo.
+- O banco está hoje com endereço “Travessa Travessa Cosme e Damião, 0, CASA 05, Neves (Neves)”, cidade **São Gonçalo**, CEP 24425-700.
+- A auditoria mostra que, antes de 30/10, o cadastro estava em Niterói, Travessa Cosme Damião, Fonseca, CEP 24130-330. Em **30/10/2026 às 06:30 UTC**, um UPDATE com `usuario_id = null` no horário do sync gravou São Gonçalo/Neves/24425-700.
+- O sync mapeia diretamente `f.rua + f.numero + f.complemento + f.bairro` para `endereco` e `f.cidade/f.cep` para os demais campos, tanto em `useEContador` quanto na Edge Function. A API da Alterdata **não foi consultada ao vivo nesta continuação**; portanto, a origem atual na Alterdata ainda deve ser confirmada antes de afirmar que ela continua errada.
+- Não há na auditoria posterior uma correção do cadastro de volta para Niterói. Em 16/11, o agente anterior alterou somente o escopo do trajeto para `intermunicipal` e a observação; **o endereço não foi corrigido**. Assim, não se deve dizer que o dado foi corrigido no banco e “voltou”: a correção anterior foi apenas do trajeto, e a resposta sobre São Gonçalo repetiu o cadastro sem validar o endereço real.
+- O trajeto GREAT e a decisão nova continuam **sugeridos**, sem confirmação de preço.
+- Existe evidência Google salva em 17/11 às 12:23 UTC com as linhas **62 → 39A**. A captura apresentada pela gestora mostra outra origem em Niterói e as linhas **15 → 48**. São evidências divergentes; a captura não é a rota gravada.
+- A evidência persistida guarda as pernas, mas não grava explicitamente o texto de origem/destino enviado ao Google. Isso dificulta provar qual endereço gerou a alternativa e precisa ser tratado na revisão da solução.
+- Nenhum dado foi alterado nesta investigação.
+
+### Pergunta deixada pela gestora e ainda NÃO respondida
+
+Na aba **VT → Colaboradores**, ela perguntou: **“De onde vem a informação da última coluna (‘Tipo de bilhete’)? Ela é fidedigna?”**
+
+Ao retomar, verificar no código (`VtColaboradoresTab`, `useVt` e a carga inicial) e explicar diretamente a origem exata, quem altera o campo e sua relação — ou falta de relação — com a situação oficial `vt_bu_situacao`. Não presumir que seja dado ao vivo da Riocard nem que comprove o bilhete necessário para o trajeto.
+
+### Retomada objetiva sugerida
+
+1. Responder primeiro à pergunta sobre **Tipo de bilhete**, com origem e limites de confiabilidade comprovados no código/dados.
+2. Confirmar com a gestora qual é o endereço verdadeiro do Alcemir. Se for Niterói, corrigir na **Alterdata** e reimportar; alterar apenas o CORH permitiria que o sync sobrescrevesse novamente.
+3. Revisar a evidência GREAT depois do endereço correto e não confirmar preço com as evidências divergentes atuais.
+4. Para impedir repetição, avaliar guarda objetiva: persistir origem/destino usados na consulta e exigir nova revisão quando o endereço mudar ou quando a evidência contrariar o município cadastral.
+5. Só depois retomar a rotina mensal da Riocard e a carga.
+
+Estado anterior mantido: `main` 4 commits à frente de `origin/main`, sem push; migrations 169–172 aplicadas; último deploy `6afcb7e40b92f2cc53b33c3f`, bundle `assets/index-4iZttGhx.js`. Nesta continuação houve apenas consultas e este registro documental, sem testes, build ou deploy.
+
+
+
+---
+
+## 47. Limpeza estática dos experimentos — 17/11/2026
+
+Com autorização da gestora, foi feita uma limpeza fechada, sem alterar cálculo, tarifas, migrations, banco ou produção:
+
+- removidas as telas e fixtures shadow de lote e revisão de rota, junto com seus testes de interface;
+- removidos `classificarRota.ts` e seu teste, além dos scripts de POC `poc-rotas-api.ts`, `triagem-poc.ts` e `shadow-cotacao.ts`;
+- removido o helper `compararPacoteLegadoComCotacao`, que só era usado pela POC;
+- `VtRevisaoRota` agora recebe somente o contexto real, sem cenários fictícios ou ramificações shadow;
+- as abas Carga e Trajetos não montam mais painéis experimentais;
+- `googleRoutesFixture.ts` permanece porque é usado pelos testes do adaptador Google e dos repositórios reais.
+
+Nenhum arquivo local não relacionado foi tocado. Verificação final: **125 arquivos e 1.522 testes passaram**, além de TypeScript do app, lint escopado, build de produção e `git diff --check`. O bundle não contém referências shadow nem ao classificador removido. Sem commit, deploy ou alteração de banco.
+
+
+
+---
+
+## 48. Preço da revisão passa a alimentar a carga — 17/11/2026
+
+Foi corrigida a ruptura apontada de forma independente pelos cinco revisores: a revisão exibia uma cotação, mas o lote continuava usando somente os pacotes antigos.
+
+### Implementado
+
+- `vt_trajeto_decisoes.custo_diario_centavos` recebe o custo diário ida+volta da alternativa escolhida;
+- salvar exige cotação `confirmavel` e preço inteiro positivo;
+- confirmar exige itinerário e preço;
+- nova revisão começa com preço NULL, sem herdar o da anterior;
+- `resolverCustoDiarioNaData` prioriza o preço da revisão e usa os pacotes somente quando ele não existe, preservando o fallback legado;
+- ajustes manuais vigentes continuam sendo somados ao preço confirmado.
+
+### Provas
+
+- teste de integração salva/confirma a revisão e verifica o mesmo valor no resolvedor do lote;
+- preço revisado de 2.940 centavos vence pacote antigo mesmo sem componentes;
+- ajuste vigente é somado ao preço revisado;
+- cotação parcial é recusada antes de gravar evidência;
+- confirmação sem preço é recusada;
+- **125 arquivos e 1.526 testes passaram**, além de TypeScript, lint escopado, RLS, build e `git diff --check`.
+
+### Banco e limites
+
+`173_vt_preco_confirmado_decisao.sql` foi **APLICADA via Management API em 17/11/2026**, com autorização específica da gestora. Backup prévio em `dados-locais/backup_vt_173_2026-11-17/vt_dados.json` (9 bilhetes, 257 trajetos, 475 cargas, 263 decisões, 9 itinerários, 0 lotes). Antes, `scripts/vt/testar-173-transacao.ps1` executou migration + testes + rollback com sucesso: preço positivo aceito e zero recusado; `verificacao_rollback.json` confirmou coluna ausente e contagens preservadas. Depois, `verificacao_aplicacao.json` confirmou coluna e CHECK presentes, 0 decisões com preço revisado e todas as contagens preservadas. Nenhum trajeto, preço ou carga recebeu valor automaticamente. Nenhum commit ou deploy foi feito.

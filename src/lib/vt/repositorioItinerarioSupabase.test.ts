@@ -28,6 +28,8 @@ function entrada(): EscolhaItinerarioVT {
       municipioOrigem: 'Niterói',
       municipioDestino: 'Niterói',
     })[0],
+    cotacaoStatus: 'confirmavel',
+    custoDiarioCentavos: 1120,
   }
 }
 
@@ -37,9 +39,10 @@ function clienteFalso() {
       id: IDS.decisao,
       colaborador_id: IDS.pessoa,
       departamento_id: IDS.posto,
+      custo_diario_centavos: null,
       status: 'sugerida',
       itinerario_id: null,
-    } as Pick<VtTrajetoDecisao, 'id' | 'colaborador_id' | 'departamento_id' | 'status' | 'itinerario_id'>,
+    } as Pick<VtTrajetoDecisao, 'id' | 'colaborador_id' | 'departamento_id' | 'custo_diario_centavos' | 'status' | 'itinerario_id'>,
     evidencia: null as VtItinerario | null,
     insercoes: 0,
     atualizacoes: 0,
@@ -72,8 +75,9 @@ function clienteFalso() {
         }
         return {
           select: vi.fn(() => selecao),
-          update: vi.fn(() => {
+          update: vi.fn((registro: { custo_diario_centavos: number }) => {
             estado.atualizacoes += 1
+            estado.decisao.custo_diario_centavos = registro.custo_diario_centavos
             return atualizacao
           }),
         }
@@ -187,5 +191,24 @@ describe('RepositorioItinerarioSupabase', () => {
     await expect(repositorio.salvarEscolha(entrada())).rejects.toThrow('não pertence')
     expect(estado.insercoes).toBe(0)
     expect(estado.atualizacoes).toBe(0)
+  })
+
+  it('recusa cotação parcial antes de gravar a evidência', async () => {
+    const { cliente, estado } = clienteFalso()
+    const repositorio = new RepositorioItinerarioSupabase(cliente)
+
+    await expect(repositorio.salvarEscolha({ ...entrada(), cotacaoStatus: 'parcial' }))
+      .rejects.toThrow('cotação confirmável')
+    expect(estado.insercoes).toBe(0)
+    expect(estado.atualizacoes).toBe(0)
+  })
+
+  it('não confirma uma revisão sem preço confirmável', async () => {
+    const { cliente, estado } = clienteFalso()
+    estado.decisao.itinerario_id = IDS.itinerario
+    const repositorio = new RepositorioItinerarioSupabase(cliente)
+
+    await expect(repositorio.confirmarDecisaoAberta(IDS.decisao, IDS.usuario, '2026-11-17T12:00:00Z'))
+      .rejects.toThrow('preço confirmável')
   })
 })

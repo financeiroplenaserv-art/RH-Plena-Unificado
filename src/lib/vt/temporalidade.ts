@@ -133,13 +133,16 @@ export function resolverCustoDiarioNaData({
     })
   }
 
-  const componentesDaDecisao = componentes
-    .filter((componente) => componente.decisaoTrajetoId === decisao.id)
-    .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
-  if (componentesDaDecisao.length === 0) {
+  const precoConfirmado = decisao.custoDiarioCentavos ?? null
+  const componentesDaDecisao = precoConfirmado == null
+    ? componentes
+      .filter((componente) => componente.decisaoTrajetoId === decisao.id)
+      .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
+    : []
+  if (precoConfirmado == null && componentesDaDecisao.length === 0) {
     pendencias.push({
       codigo: 'componentes_ausentes',
-      mensagem: 'A decisão vigente não tem nenhum pacote associado.',
+      mensagem: 'A decisão vigente não tem pacote nem preço confirmado associado.',
       pacoteId: null,
     })
   }
@@ -185,7 +188,7 @@ export function resolverCustoDiarioNaData({
     })
   }
 
-  const total = resolvidos.reduce((soma, componente) => soma + componente.valorCentavos, 0) +
+  const total = (precoConfirmado ?? resolvidos.reduce((soma, componente) => soma + componente.valorCentavos, 0)) +
     ajustesVigentes.reduce((soma, ajuste) => soma + ajuste.valorDiarioCentavos, 0)
   if (pendencias.length === 0 && total < 0) {
     pendencias.push({

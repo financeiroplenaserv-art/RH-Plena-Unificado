@@ -210,6 +210,7 @@ export interface VtTrajetoDecisao {
   departamento_id: string
   revisao: number
   cotacao_id: string | null
+  custo_diario_centavos?: number | null
   status: 'sugerida' | 'confirmada' | 'indeterminada'
   confirmado_por: string | null
   confirmado_em: string | null

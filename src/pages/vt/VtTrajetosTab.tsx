@@ -34,7 +34,6 @@ import {
   descricaoCartaoDosBilhetes,
 } from '@/lib/vt/trajetos'
 import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
-import { VtRevisaoRotaShadow } from '@/pages/vt/VtRevisaoRotaShadow'
 import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { VtBilhete } from '@/types/vt'
@@ -409,7 +408,6 @@ export function VtTrajetosTab({
 
   return (
     <div className="space-y-4">
-      {import.meta.env.DEV && <VtRevisaoRotaShadow />}
       <ModuleCard>
         <p className="text-[13px] text-muted-foreground">
           Abra a rota no Google Maps e confira o trajeto real. Use <strong>Editar composição</strong> para
