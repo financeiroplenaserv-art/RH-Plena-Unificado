@@ -4,7 +4,8 @@ import type { Database } from '../../src/types/database'
 import type { FatosCartaoVT, ItinerarioVT } from '../../src/lib/vt/contratosTarifarios'
 import type { VtTrajetoDecisao } from '../../src/types/vt'
 
-const DECISAO_ID = 'c4b4370e-42de-4a17-8657-f6cf3bd7058e'
+const DECISAO_ID = process.argv.find((arg) => arg.startsWith('--decisao='))?.slice('--decisao='.length)
+  ?? 'c4b4370e-42de-4a17-8657-f6cf3bd7058e'
 const APLICAR = process.argv.includes('--aplicar')
 const SAIDA = 'dados-locais/validacao_preco_revisao_173'
 

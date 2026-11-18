@@ -1221,3 +1221,21 @@ Foi validada em produção a revisão `c4b4370e-42de-4a17-8657-f6cf3bd7058e` (Ac
 - Depois de `--aplicar`: status `confirmada`, `cotacao_id = tarifa_integral`, `custo_diario_centavos = 1120`.
 - Uma segunda consulta ao banco conferiu status e preço; `resolverCustoDiarioNaData` devolveu **1.120**, com **0 componentes antigos** e **0 pendências**.
 - Nenhum outro trajeto foi alterado. O script é repetível e preserva backup antes da escrita.
+
+
+
+---
+
+## 51. Cinco novas confirmações reais — 18/11/2026
+
+O script `validar-preco-revisao-producao.ts` passou a aceitar `--decisao=<uuid>`. Foram simulados todos os casos com evidência disponível e somente os válidos foram confirmados, cada um com backup próprio em `dados-locais/validacao_preco_revisao_173/`:
+
+- Alceir — 39A;
+- Alexandra — 33;
+- Angelo — 46;
+- Carlos Eduardo — 39A;
+- Alessandra — 62.
+
+Todas ficaram `confirmada`, `cotacao_id = tarifa_integral`, `custo_diario_centavos = 1120`. A segunda consulta ao banco conferiu os valores e o resolvedor devolveu o mesmo preço, sem componentes antigos e sem pendências. Incluindo o Acacio, são **6 casos reais concluídos**.
+
+O pedido de 20 casos adicionais **não foi completado com inferências**: restam **14** sem evidência humana suficiente. Everaldo foi recusado no dry-run por `BUN_NAO_CONFIRMADO` (o arquivo confirma BU, não BUN ativo/vínculo ao CPF); Alcemir continua fora por endereço pendente. Nenhum novo deploy foi necessário.
