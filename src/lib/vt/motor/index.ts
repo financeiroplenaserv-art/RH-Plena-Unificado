@@ -1,0 +1,6 @@
+export * from '@/lib/vt/motor/tipos'
+export * from '@/lib/vt/motor/cartao'
+export * from '@/lib/vt/motor/tarifas'
+export { precificarPerna, rotuloPerna } from '@/lib/vt/motor/precificarPerna'
+export { calcularSentido } from '@/lib/vt/motor/calcularSentido'
+export { calcularDia } from '@/lib/vt/motor/calcularDia'

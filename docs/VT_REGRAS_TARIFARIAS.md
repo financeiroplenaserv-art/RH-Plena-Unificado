@@ -35,6 +35,22 @@ O simulador de catraca informa e questiona. A política confirmada pela Plena de
 
 Fontes: [não morador](http://www.riocardmais.com.br/duvidas-frequentes/nao-sou-morador-de-niteroi-posso-utilizar-o-beneficio-do-bilhete-unico-niteroi-1146.html), [declaração de renda](http://www.riocardmais.com.br/duvidas-frequentes/para-ter-o-bilhete-unico-niteroi-preciso-declarar-minha-renda-1145.html), [BUN](http://www.riocardmais.com.br/BUN), [BUN+BUI](http://www.riocardmais.com.br/duvidas-frequentes/possuo-outro-cartao-habilitado-para-bilhete-unico-intermunicipal-bui-e-sou-morador-de-niteroi-preciso-trocar-de-cartao-para-ter-o-bilhete-unico-niteroi-bun-1148.html) e [produto VT](http://www.riocardmais.com.br/produto/vale-transporte).
 
+### Habilitação automática do BUN (conferido em 18/11/2026)
+
+**Fato, por duas fontes independentes de 26/11/2024 que reproduzem o comunicado do lançamento:**
+
+- Quem já está cadastrado no **BUI** "não precisa fazer nada": o Riocard Mais "já estará automaticamente habilitado para o Bilhete Único de Niterói".
+- Cartões **Vale-Transporte vinculados ao CPF (personalizado usuário)** "também estão automaticamente habilitados".
+- **Não podem ser habilitados:** cartão Empresarial, Vale-Transporte ao portador, tipo empresa sem CPF e Cartão Digital.
+
+Fontes: [Diário do Transporte](https://diariodotransporte.com.br/2024/11/26/passageiros-ja-podem-habilitar-o-bilhete-unico-de-niteroi-para-manter-tarifa-reduzida/) e [Super Rádio Tupi](https://www.tupi.fm/rio/confira-como-habilitar-o-bu-de-niteroi-no-riocard-mais-e-garantir-o-subsidio-na-tarifa-de-transporte/). As páginas oficiais da Riocard Mais e do Rio Bilhete Único recusaram acesso automatizado (HTTP 403) em 18/11/2026; reconferir nelas quando possível. O guia da Riocard Mais para empresas cita a consulta/solicitação em **Portal da empresa → Usuários → Gerenciar Bilhete Único** (liberação em até 48 h).
+
+**Regra operacional derivada (para o cálculo):**
+
+- BU **Ativado** no arquivo da Riocard ⇒ cartão habilitado ao BUI ⇒ **BUN habilitado**.
+- **Suspenso Setrans** ⇒ o cartão foi cadastrado no BUI, portanto é vinculado ao CPF; o BUN não depende de renda, então é **provável**, mas não comprovado pelo arquivo — conferir no Portal da empresa antes de aplicar a integração BUN.
+- **Não possui BU / Desativado / sem consulta** ⇒ BUN **não comprovado** ⇒ tarifa integral de cada condução, pendência "conferir BUN".
+
 ### Integração ônibus–ônibus
 
 **Fato oficial:**
