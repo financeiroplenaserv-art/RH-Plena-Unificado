@@ -1206,3 +1206,18 @@ Foi corrigida a ruptura apontada de forma independente pelos cinco revisores: a 
 - `MODULO_FERIAS_LIBERADO = false` e `MODULO_VT_LIBERADO = true` conferidos.
 - A migration 173 já estava aplicada antes do frontend; nenhum trajeto, preço ou carga recebeu valor automaticamente.
 - A `main` está 6 commits à frente de `origin/main`, **sem push**. Arquivos alheios continuam preservados e fora do pacote.
+
+
+
+---
+
+## 50. Primeira confirmação real preço → carga — 18/11/2026
+
+Foi validada em produção a revisão `c4b4370e-42de-4a17-8657-f6cf3bd7058e` (Acacio, uma condução municipal 39A), já sugerida e com itinerário salvo pela operação. O caso Alcemir não foi usado porque o endereço continua pendente.
+
+- Executor: `scripts/vt/validar-preco-revisao-producao.ts`, via `npx vite-node` (o `tsx` não fornece `import.meta.env` aos módulos).
+- Dry-run sem escrita: cotação `confirmavel`, custo **1.120 centavos/dia**, sem pendências.
+- Backup anterior à escrita em `dados-locais/validacao_preco_revisao_173/`.
+- Depois de `--aplicar`: status `confirmada`, `cotacao_id = tarifa_integral`, `custo_diario_centavos = 1120`.
+- Uma segunda consulta ao banco conferiu status e preço; `resolverCustoDiarioNaData` devolveu **1.120**, com **0 componentes antigos** e **0 pendências**.
+- Nenhum outro trajeto foi alterado. O script é repetível e preserva backup antes da escrita.
