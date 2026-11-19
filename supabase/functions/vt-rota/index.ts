@@ -86,9 +86,13 @@ Deno.serve(async (req: Request) => {
     const origem = texto(corpo?.origin, 500)
     const destino = texto(corpo?.destination, 500)
     const partida = texto(corpo?.departureTime, 40)
-    if (!origem || !destino || !partida || !Number.isFinite(Date.parse(partida))) {
+    const chegada = texto(corpo?.arrivalTime, 40)
+    // Exatamente um dos dois: partir às X (departureTime) OU chegar até X (arrivalTime).
+    const horarioValido = (partida ? 1 : 0) + (chegada ? 1 : 0) === 1
+      && Number.isFinite(Date.parse(partida || chegada))
+    if (!origem || !destino || !horarioValido) {
       return Response.json(
-        { error: 'Informe origin, destination e departureTime (ISO) válidos.' },
+        { error: 'Informe origin, destination e um (somente um) entre departureTime e arrivalTime (ISO) válidos.' },
         { status: 400, headers: cors },
       )
     }
@@ -109,7 +113,9 @@ Deno.serve(async (req: Request) => {
         origin: { address: origem },
         destination: { address: destino },
         travelMode: 'TRANSIT',
-        departureTime: new Date(partida).toISOString(),
+        ...(chegada
+          ? { arrivalTime: new Date(chegada).toISOString() }
+          : { departureTime: new Date(partida).toISOString() }),
         computeAlternativeRoutes: true,
       }),
       signal: AbortSignal.timeout(30_000),

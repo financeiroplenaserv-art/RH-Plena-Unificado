@@ -62,6 +62,21 @@ export interface CalculoMotorItinerarioVT {
   /** Aviso de regularizar o cartão no momento do cálculo (ausente em evidências antigas). */
   regularizarCartao?: boolean
   pendencias: string[]
+  /** Horário usado para consultar as rotas (ausente em evidências antigas). */
+  horarioReferencia?: HorarioReferenciaVT
+}
+
+export interface HorarioReferenciaVT {
+  origem: 'turno_escala' | 'manual'
+  /** HH:MM — a ida chega até esta hora. */
+  entrada: string
+  /** HH:MM — a volta sai nesta hora (no dia seguinte quando noturno). */
+  saida: string
+  /** Texto do turno na escala ("07:00 às 15:20") ou o horário manual. */
+  texto: string
+  noturno?: boolean
+  /** Como a ida foi consultada: chegar até (turno), saída com margem (function antiga) ou saída informada. */
+  modoIda?: 'chegada' | 'saida_com_margem' | 'saida'
 }
 
 export interface FonteOficialVT {

@@ -763,6 +763,7 @@ export function VtTrajetosTab({
                     ? textoDestinoPosto(dep)
                     : [revisando.enderecoPosto, revisando.cidadePosto].filter(Boolean).join(', ') || revisando.nomePosto
                 })(),
+                departamentosApoio: departamentos,
                 municipioOrigem: revisando.cidadeCasa ?? 'desconhecida',
                 municipioDestino: revisando.cidadePosto ?? 'desconhecida',
                 precisao: revisando.trajeto.precisao_origem === 'exato' ? 'exata' : 'bairro',

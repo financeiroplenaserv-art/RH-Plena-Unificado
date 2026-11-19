@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { supabase } from '@/lib/supabase'
-import { sugerirRotasGoogle } from './vtRotaApi'
+import { ErroConsultaRota, sugerirRotasGoogle } from './vtRotaApi'
 
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { getSession: vi.fn() } },
@@ -68,5 +68,27 @@ describe('sugerirRotasGoogle', () => {
       destination: 'Destino',
       departureTime: '2026-11-23T09:00:00Z',
     })).rejects.toThrow('Sessão inválida')
+  })
+
+  it('envia arrivalTime (chegar até) sem departureTime', async () => {
+    const corpos: unknown[] = []
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      corpos.push(JSON.parse(String(init?.body)))
+      return new Response(JSON.stringify({ routes: [] }), { status: 200 })
+    }) as typeof fetch
+
+    await sugerirRotasGoogle({ origin: 'Origem', destination: 'Destino', arrivalTime: '2026-11-23T10:00:00Z' })
+
+    expect(corpos[0]).toEqual({ origin: 'Origem', destination: 'Destino', arrivalTime: '2026-11-23T10:00:00Z' })
+  })
+
+  it('o erro carrega o status HTTP (a tela usa o 400 para cair na hora de saída)', async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ error: 'Informe origin, destination e departureTime (ISO) válidos.' }), { status: 400 }),
+    ) as typeof fetch
+
+    const erro = await sugerirRotasGoogle({ origin: 'O', destination: 'D', arrivalTime: '2026-11-23T10:00:00Z' }).catch((e) => e)
+    expect(erro).toBeInstanceOf(ErroConsultaRota)
+    expect(erro.status).toBe(400)
   })
 })

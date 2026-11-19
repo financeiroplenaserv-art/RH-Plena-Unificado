@@ -1,5 +1,5 @@
 import type { AlternativaRotaGoogleVT } from '@/lib/vt/googleRoutes'
-import type { CalculoMotorItinerarioVT, PernaItinerarioVT } from '@/lib/vt/contratosTarifarios'
+import type { CalculoMotorItinerarioVT, HorarioReferenciaVT, PernaItinerarioVT } from '@/lib/vt/contratosTarifarios'
 import { calcularDia } from '@/lib/vt/motor/calcularDia'
 import { calcularSentido } from '@/lib/vt/motor/calcularSentido'
 import { pernasMotorDoItinerario } from '@/lib/vt/motor/adaptadorItinerario'
@@ -79,6 +79,7 @@ export function combinarIdaVolta(
   resultado: ResultadoDiaMotor,
   cartao: FatosCartaoMotor,
   dataServico: string,
+  horarioReferencia?: HorarioReferenciaVT,
 ): AlternativaRotaGoogleVT {
   const calculoMotor: CalculoMotorItinerarioVT = {
     versao: MOTOR_COTACAO_ID,
@@ -97,6 +98,7 @@ export function combinarIdaVolta(
     },
     regularizarCartao: resultado.regularizarCartao,
     pendencias: resultado.pendencias.map((p) => p.mensagem),
+    ...(horarioReferencia ? { horarioReferencia } : {}),
   }
   const ajustes = [...(ida.itinerario.ajustesManuais ?? []), ...(volta.itinerario.ajustesManuais ?? [])]
   return {

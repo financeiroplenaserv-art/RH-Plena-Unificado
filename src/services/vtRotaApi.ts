@@ -3,10 +3,22 @@ import type { RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
 
 const REQUEST_TIMEOUT_MS = 45_000
 
+/** Informe `departureTime` (partir às X) OU `arrivalTime` (chegar até X) — nunca os dois. */
 export interface EntradaSugestaoRotas {
   origin: string
   destination: string
-  departureTime: string
+  departureTime?: string
+  arrivalTime?: string
+}
+
+/** Erro da consulta com o status HTTP, para a tela decidir se vale uma segunda tentativa. */
+export class ErroConsultaRota extends Error {
+  readonly status: number
+  constructor(mensagem: string, status: number) {
+    super(mensagem)
+    this.name = 'ErroConsultaRota'
+    this.status = status
+  }
 }
 
 export async function sugerirRotasGoogle(entrada: EntradaSugestaoRotas): Promise<RespostaGoogleRoutes> {
@@ -30,7 +42,7 @@ export async function sugerirRotasGoogle(entrada: EntradaSugestaoRotas): Promise
     })
     if (!response.ok) {
       const corpo = (await response.json().catch(() => ({}))) as { error?: string; message?: string }
-      throw new Error(corpo.error || corpo.message || 'Não foi possível consultar o Google Routes')
+      throw new ErroConsultaRota(corpo.error || corpo.message || 'Não foi possível consultar o Google Routes', response.status)
     }
     return (await response.json()) as RespostaGoogleRoutes
   } finally {

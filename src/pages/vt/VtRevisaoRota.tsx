@@ -1,12 +1,15 @@
 import { avisoRegularizarCartao, politicaDoCartao } from '@/lib/vt/motor/cartao'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { GitBranch, MapPinned } from 'lucide-react'
 import { toast } from 'sonner'
 import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { Input } from '@/components/ui/input'
 import { adaptarRotasGoogle, removerPernaAlternativa, rotuloOperadoraExibicao, type AlternativaRotaGoogleVT, type RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
-import { sugerirRotasGoogle } from '@/services/vtRotaApi'
+import { ErroConsultaRota, sugerirRotasGoogle } from '@/services/vtRotaApi'
+import { buscarTurnosDoPosto } from '@/lib/vt/turnosDoPosto'
+import { descreverAlternativo, descreverHorarioDoTurno, escolherHorarioDoTurno, type HorarioReferenciaTurno } from '@/lib/vt/horarioTurno'
+import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { formatarDataHora, hojeBrasil } from '@/lib/utils'
 import { horaMinutoValida, mascararHoraMinuto, partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
@@ -24,7 +27,7 @@ import {
   type AlternativaComMotor,
 } from '@/lib/vt/motor/idaVolta'
 import type { FatosCartaoMotor, PassoExplicacao, PendenciaMotor, StatusMotor } from '@/lib/vt/motor/tipos'
-import type { ItinerarioVT } from '@/lib/vt/contratosTarifarios'
+import type { HorarioReferenciaVT, ItinerarioVT } from '@/lib/vt/contratosTarifarios'
 import type { VtItinerario } from '@/types/vt'
 
 export interface ContextoRevisaoRotaReal {
@@ -39,6 +42,8 @@ export interface ContextoRevisaoRotaReal {
   municipioOrigem: string
   municipioDestino: string
   precisao: ItinerarioVT['precisao']
+  /** Departamentos (sem filtro) para achar o turno da pessoa NESTE posto; sem isso a revisão não busca o turno. */
+  departamentosApoio?: DepartamentoFuzzy[]
   /** Fatos reais do cartão (colaboradores.vt_bu_situacao / vt_bu_consultado_em). */
   cartao: FatosCartaoMotor
   onSalvo?: () => void
@@ -51,6 +56,14 @@ interface VtRevisaoRotaProps {
 }
 
 type Sentido = 'ida' | 'volta'
+
+/** Margem usada quando a function publicada ainda não aceita arrivalTime. */
+const MARGEM_SAIDA_MIN = 90
+
+function minutosDe(hora: string): number {
+  const [h, m] = hora.split(':').map(Number)
+  return h * 60 + m
+}
 
 function resumoPernas(pernas: ItinerarioVT['pernas']): string {
   return pernas.map((perna) => perna.linha ?? 'linha ausente').join(' → ')
@@ -119,13 +132,15 @@ interface SecaoSentidoProps {
   dataServico: string
   salvando: boolean
   nota?: string | null
+  /** Rótulo do horário (ex.: "Chegar até"); padrão = Saída de casa / Saída do posto. */
+  rotuloHora?: string
 }
 
 function SecaoSentido(props: SecaoSentidoProps) {
   const { sentido, alternativas, selecionadaId } = props
   const menor = menorValorComDestaque(props.grupos.map((g) => g.principal.resultado.valorCentavos))
   const selecionada = alternativas.find((x) => x.alternativa.id === selecionadaId) ?? null
-  const rotuloHora = sentido === 'ida' ? 'Saída de casa' : 'Saída do posto'
+  const rotuloHora = props.rotuloHora ?? (sentido === 'ida' ? 'Saída de casa' : 'Saída do posto')
   const horaInvalida = props.hora.length >= 5 && !horaMinutoValida(props.hora)
 
   if (props.recolhida) {
@@ -344,6 +359,12 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [voltaPremarcada, setVoltaPremarcada] = useState(false)
   const [voltaAberta, setVoltaAberta] = useState(false)
   const [salvo, setSalvo] = useState(false)
+  const [turno, setTurno] = useState<HorarioReferenciaTurno | null>(null)
+  const [horarioEditado, setHorarioEditado] = useState(false)
+  const [idaPelaSaida, setIdaPelaSaida] = useState(false)
+  const horarioEditadoRef = useRef(false)
+  const departamentosRef = useRef(contextoReal.departamentosApoio)
+  departamentosRef.current = contextoReal.departamentosApoio
   const [evidenciaSalva, setEvidenciaSalva] = useState<VtItinerario | null>(null)
   const [erroPersistencia, setErroPersistencia] = useState<string | null>(null)
   const repositorio = useMemo(() => new RepositorioItinerarioSupabase(), [])
@@ -380,6 +401,34 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
       })
     return () => { ativo = false }
   }, [contextoReal, repositorio])
+
+  // Turno da pessoa neste posto (últimos 60 dias): preenche os horários, sem sobrescrever edição manual.
+  const { colaboradorId, departamentoId } = contextoReal
+  useEffect(() => {
+    const departamentos = departamentosRef.current
+    setTurno(null)
+    if (!departamentos) return
+    let ativo = true
+    buscarTurnosDoPosto(colaboradorId, departamentoId, departamentos, dataServico)
+      .then((registros) => {
+        if (!ativo) return
+        const escolhido = escolherHorarioDoTurno(registros, dataServico)
+        setTurno(escolhido)
+        if (escolhido && !horarioEditadoRef.current) {
+          setHoraIda(escolhido.entrada)
+          setHoraVolta(escolhido.saida)
+        }
+      })
+      .catch((erro) => console.error('Erro ao buscar o turno da pessoa', erro))
+    return () => { ativo = false }
+  }, [colaboradorId, departamentoId, dataServico])
+
+  const alterarHora = (sentido: Sentido, valor: string) => {
+    horarioEditadoRef.current = true
+    setHorarioEditado(true)
+    if (sentido === 'ida') setHoraIda(valor)
+    else setHoraVolta(valor)
+  }
 
   const alternativasIda = useMemo(
     () => alternativasDoSentido('ida', respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico),
@@ -436,9 +485,14 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
 
   const consultar = async (sentido: Sentido) => {
     setErros((atual) => ({ ...atual, [sentido]: null }))
+    // Com turno: a ida CHEGA até a entrada e a volta SAI na saída (noturno: dia seguinte).
+    // Sem turno: horários editáveis de saída (comportamento anterior).
     let partida: string
     try {
-      partida = partidaProximaSegundaBRT(sentido === 'ida' ? horaIda : horaVolta)
+      const noturno = !!turno && horaMinutoValida(horaIda) && horaMinutoValida(horaVolta) && minutosDe(horaVolta) <= minutosDe(horaIda)
+      partida = sentido === 'ida'
+        ? partidaProximaSegundaBRT(horaIda)
+        : partidaProximaSegundaBRT(horaVolta, noturno ? 1 : 0)
     } catch (erro) {
       setErros((atual) => ({ ...atual, [sentido]: erro instanceof Error ? erro.message : 'Horário inválido.' }))
       return
@@ -450,11 +504,23 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     limparSalvo()
     const dataConsulta = new Date().toISOString()
     try {
-      const resposta = await sugerirRotasGoogle({
-        origin: sentido === 'ida' ? contextoReal.origem : contextoReal.destino,
-        destination: sentido === 'ida' ? contextoReal.destino : contextoReal.origem,
-        departureTime: partida,
-      })
+      const origin = sentido === 'ida' ? contextoReal.origem : contextoReal.destino
+      const destination = sentido === 'ida' ? contextoReal.destino : contextoReal.origem
+      let resposta: RespostaGoogleRoutes
+      if (sentido === 'ida' && turno) {
+        try {
+          resposta = await sugerirRotasGoogle({ origin, destination, arrivalTime: partida })
+          setIdaPelaSaida(false)
+        } catch (erro) {
+          // Function publicada antes do arrivalTime recusa o campo (400): cai para a hora de saída com margem.
+          if (!(erro instanceof ErroConsultaRota) || erro.status !== 400) throw erro
+          const saidaComMargem = new Date(Date.parse(partida) - MARGEM_SAIDA_MIN * 60_000).toISOString()
+          resposta = await sugerirRotasGoogle({ origin, destination, departureTime: saidaComMargem })
+          setIdaPelaSaida(true)
+        }
+      } else {
+        resposta = await sugerirRotasGoogle({ origin, destination, departureTime: partida })
+      }
       setConsultadoEm((atual) => ({ ...atual, [sentido]: dataConsulta }))
       setRespostas((atual) => ({ ...atual, [sentido]: resposta }))
     } catch (erro) {
@@ -480,12 +546,29 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     limparSalvo()
   }
 
+  const horarioReferencia: HorarioReferenciaVT = turno
+    ? {
+        origem: horarioEditado ? 'manual' : 'turno_escala',
+        modoIda: idaPelaSaida ? 'saida_com_margem' : 'chegada',
+        entrada: horaIda,
+        saida: horaVolta,
+        texto: horarioEditado ? `${horaIda} às ${horaVolta}` : turno.texto,
+        noturno: minutosDe(horaVolta) <= minutosDe(horaIda),
+      }
+    : {
+        origem: 'manual',
+        modoIda: 'saida',
+        entrada: horaIda,
+        saida: horaVolta,
+        texto: `saída de casa ${horaIda}, saída do posto ${horaVolta}`,
+      }
+
   const salvar = async () => {
     if (!decisaoRealId || !ida || !volta || !dia || motivoBloqueio) return
     setSalvando(true)
     setErroPersistencia(null)
     try {
-      const combinada = combinarIdaVolta(ida.alternativa, volta.alternativa, dia, contextoReal.cartao, dataServico)
+      const combinada = combinarIdaVolta(ida.alternativa, volta.alternativa, dia, contextoReal.cartao, dataServico, horarioReferencia)
       const resultado = await repositorio.salvarEscolhaComRevisao({
         decisaoId: decisaoRealId,
         colaboradorId: contextoReal.colaboradorId,
@@ -576,6 +659,18 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           <span className="mt-1 block" data-testid="vt-politica-integracao">{textoPolitica}</span>
         </div>
 
+        {turno && (
+          <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] text-sky-900" data-testid="vt-horario-turno">
+            Horário do turno na escala: <strong>{descreverHorarioDoTurno(turno)}</strong>. A ida chega até a entrada e a volta sai na saída{turno.noturno ? ' (turno noturno: a volta é no dia seguinte)' : ''}.
+            {turno.alternativos.length > 0 && (
+              <span className="mt-1 block text-[12px]">Também aparece na escala: {turno.alternativos.map(descreverAlternativo).join('; ')}.</span>
+            )}
+            {idaPelaSaida && (
+              <span className="mt-1 block text-[12px] text-sky-800" role="status">Consulta pela hora de saída (margem de {MARGEM_SAIDA_MIN} min antes da entrada).</span>
+            )}
+          </div>
+        )}
+
         {avisoCartao && (
           <div role="note" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
             <strong>Avisar o colaborador:</strong> {avisoCartao.mensagem}
@@ -616,7 +711,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           titulo="Ida (casa → posto)"
           descricao={`${contextoReal.origem} → ${contextoReal.destino}`}
           hora={horaIda}
-          onHora={setHoraIda}
+          onHora={(v) => alterarHora('ida', v)}
+          rotuloHora={turno ? 'Chegar até' : undefined}
           carregando={carregando.ida}
           bloqueado={carregandoDecisao}
           erro={erros.ida}
@@ -636,7 +732,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           titulo="Volta (posto → casa)"
           descricao={`${contextoReal.destino} → ${contextoReal.origem}`}
           hora={horaVolta}
-          onHora={setHoraVolta}
+          onHora={(v) => alterarHora('volta', v)}
           carregando={carregando.volta}
           bloqueado={carregandoDecisao}
           erro={erros.volta}
