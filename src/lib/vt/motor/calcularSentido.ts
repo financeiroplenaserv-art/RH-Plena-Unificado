@@ -1,11 +1,25 @@
-import { elegibilidadeBui, elegibilidadeBun, type ElegibilidadeCartao } from '@/lib/vt/motor/cartao'
+import {
+  avisoRegularizarCartao,
+  elegibilidadeBui,
+  elegibilidadeBun,
+  politicaDoCartao,
+  type ElegibilidadeCartao,
+} from '@/lib/vt/motor/cartao'
 import { precificarPerna, type PernaPrecificada } from '@/lib/vt/motor/precificarPerna'
-import { normalizarLinha, reais, TARIFA_INTEGRACAO_BUI, vigenteNaData } from '@/lib/vt/motor/tarifas'
+import {
+  normalizarLinha,
+  reais,
+  TARIFA_INTEGRACAO_BUI,
+  TARIFA_NITEROI_BUN,
+  vigenteNaData,
+} from '@/lib/vt/motor/tarifas'
 import type {
+  AvisoMotor,
   EntradaSentidoMotor,
   PassoExplicacao,
   PendenciaMotor,
   PernaMotor,
+  PoliticaIntegracao,
   ResultadoSentidoMotor,
 } from '@/lib/vt/motor/tipos'
 
@@ -85,7 +99,7 @@ function avaliarPar(
     if (mesmaLinha(a, b)) {
       return {
         tipo: 'nao_integra',
-        passo: { regra: 'Regras §3', texto: `${nomePar}: mesma linha — não caracteriza integração BUN; cobra-se a tarifa de cada perna.` },
+        passo: { regra: 'Regras §3', texto: `${nomePar}: é a mesma linha, então não conta como integração. Paga-se cada ônibus.` },
       }
     }
     if (!normalizarLinha(a.linha) || !normalizarLinha(b.linha)) {
@@ -93,7 +107,7 @@ function avaliarPar(
         tipo: 'pendencia',
         pendencia: {
           codigo: 'BUN_LINHA_NAO_INFORMADA',
-          mensagem: `${nomePar}: linha não informada; não é possível provar que são linhas diferentes (integração BUN não aplicada).`,
+          mensagem: `${nomePar}: falta o número da linha, então não dá para saber se são linhas diferentes. Cobrado o valor cheio de cada ônibus; a conferir.`,
           regra: 'Regras §3',
         },
       }
@@ -104,7 +118,7 @@ function avaliarPar(
         tipo: 'pendencia',
         pendencia: {
           codigo: 'BUN_HORARIO_NAO_COMPROVADO',
-          mensagem: `${nomePar}: ${iv.tipo === 'faltando' ? 'horário de embarque não informado' : 'horários de embarque fora de ordem'}; não é possível provar o limite de 1 hora (integração BUN não aplicada).`,
+          mensagem: `${nomePar}: ${iv.tipo === 'faltando' ? 'falta o horário de embarque' : 'os horários de embarque estão fora de ordem'}, então não dá para provar que a troca foi dentro de 1 hora. Cobrado o valor cheio de cada ônibus; a conferir.`,
           regra: 'Regras §3',
         },
       }
@@ -112,7 +126,7 @@ function avaliarPar(
     if (iv.minutos > JANELA_BUN_MIN) {
       return {
         tipo: 'nao_integra',
-        passo: { regra: 'Regras §3', texto: `${nomePar}: ${Math.round(iv.minutos)} min entre validações (limite ${JANELA_BUN_MIN} min) — sem integração BUN; cobra-se a tarifa de cada perna.` },
+        passo: { regra: 'Regras §3', texto: `${nomePar}: passaram ${Math.round(iv.minutos)} min entre um ônibus e o outro (o limite é ${JANELA_BUN_MIN} min), então não há integração. Paga-se cada ônibus.` },
       }
     }
     const valorIntegrado = Math.max(pa.valorCentavos ?? 0, pb.valorCentavos ?? 0)
@@ -132,7 +146,7 @@ function avaliarPar(
   if (niteroiA || niteroiB) {
     return {
       tipo: 'nao_integra',
-      passo: { regra: 'Regras §4 — exceção de Niterói', texto: `${nomePar}: o BUI não cobre ônibus municipal de Niterói (integração só pelo BUN, que exige duas pernas de Niterói); a perna de Niterói é cobrada à parte.` },
+      passo: { regra: 'Regras §4 — exceção de Niterói', texto: `${nomePar}: o Bilhete Único Intermunicipal não vale no ônibus municipal de Niterói (lá só há integração entre dois ônibus de Niterói). O ônibus de Niterói é pago à parte.` },
     }
   }
 
@@ -142,7 +156,7 @@ function avaliarPar(
       tipo: 'pendencia',
       pendencia: {
         codigo: 'COMBINACAO_NAO_DESCRITA',
-        mensagem: `${nomePar}: combinação não descrita nas regras de integração (ex.: Metrô+BRT/van é só Jaé); integração não aplicada, conferir.`,
+        mensagem: `${nomePar}: não sabemos se essa combinação tem integração (ex.: metrô com BRT ou van é só pelo Jaé). Cobrado o valor cheio de cada um; a conferir.`,
         regra: 'Regras §5',
       },
     }
@@ -150,7 +164,7 @@ function avaliarPar(
   if (a.modal === 'onibus_intermunicipal' && b.modal === 'onibus_intermunicipal' && mesmaLinha(a, b)) {
     return {
       tipo: 'nao_integra',
-      passo: { regra: 'Regras §4', texto: `${nomePar}: mesma linha — não caracteriza integração BUI.` },
+      passo: { regra: 'Regras §4', texto: `${nomePar}: é a mesma linha, então não conta como integração.` },
     }
   }
   if (!vigenteNaData(TARIFA_INTEGRACAO_BUI.vigenteDesde, TARIFA_INTEGRACAO_BUI.vigenteAte, c.dataServico)) {
@@ -158,7 +172,7 @@ function avaliarPar(
       tipo: 'pendencia',
       pendencia: {
         codigo: 'BUI_FORA_DA_VIGENCIA',
-        mensagem: `${nomePar}: valor da integração BUI só cadastrado a partir de ${TARIFA_INTEGRACAO_BUI.vigenteDesde}; integração não aplicada.`,
+        mensagem: `${nomePar}: o valor do Bilhete Único Intermunicipal só está cadastrado a partir de ${TARIFA_INTEGRACAO_BUI.vigenteDesde}, então a integração não foi aplicada.`,
         regra: 'Regras §4',
       },
     }
@@ -170,7 +184,7 @@ function avaliarPar(
       tipo: 'pendencia',
       pendencia: {
         codigo: 'BUI_HORARIO_NAO_COMPROVADO',
-        mensagem: `${nomePar}: ${iv.tipo === 'faltando' ? 'horário de embarque não informado' : 'horários de embarque fora de ordem'}; não é possível provar o limite de ${janela / 60} h (integração BUI não aplicada).`,
+        mensagem: `${nomePar}: ${iv.tipo === 'faltando' ? 'falta o horário de embarque' : 'os horários de embarque estão fora de ordem'}, então não dá para provar que a troca foi dentro de ${janela / 60} h. Cobrado o valor cheio de cada um; a conferir.`,
         regra: janela === JANELA_BUI_METRO_MIN ? 'Regras §5' : 'Regras §4',
       },
     }
@@ -178,14 +192,14 @@ function avaliarPar(
   if (iv.minutos > janela) {
     return {
       tipo: 'nao_integra',
-      passo: { regra: janela === JANELA_BUI_METRO_MIN ? 'Regras §5' : 'Regras §4', texto: `${nomePar}: ${Math.round(iv.minutos)} min entre validações (limite ${janela} min) — sem integração BUI.` },
+      passo: { regra: janela === JANELA_BUI_METRO_MIN ? 'Regras §5' : 'Regras §4', texto: `${nomePar}: passaram ${Math.round(iv.minutos)} min entre um e outro (o limite é ${janela} min), então não há integração.` },
     }
   }
   const valorIntegrado = TARIFA_INTEGRACAO_BUI.valorCentavos
   if (soma <= valorIntegrado) {
     return {
       tipo: 'nao_integra',
-      passo: { regra: 'Regras §4', texto: `${nomePar}: soma das tarifas integrais (${reais(soma)}) não supera a integração BUI (${reais(valorIntegrado)}) — BUI não escolhido (alternativa comum mais barata).` },
+      passo: { regra: 'Regras §4', texto: `${nomePar}: pagando cada um separado dá ${reais(soma)}, que não passa do valor da integração (${reais(valorIntegrado)}). Fica o valor separado, que é o mais barato.` },
     }
   }
   return {
@@ -236,42 +250,139 @@ function juntarPendencias(lista: PendenciaMotor[]): PendenciaMotor[] {
   })
 }
 
+interface InfoPolitica {
+  politicaIntegracao: PoliticaIntegracao
+  regularizarCartao: boolean
+  avisos: AvisoMotor[]
+}
+
+function infoPolitica(entrada: EntradaSentidoMotor): InfoPolitica {
+  const aviso = avisoRegularizarCartao(entrada.cartao)
+  return {
+    politicaIntegracao: politicaDoCartao(entrada.cartao),
+    regularizarCartao: aviso !== null,
+    avisos: aviso ? [aviso] : [],
+  }
+}
+
 function resultadoIndeterminado(
   pendencias: PendenciaMotor[],
   explicacao: PassoExplicacao[],
+  politica: InfoPolitica,
+  viagensNiteroiPagas = 0,
 ): ResultadoSentidoMotor {
-  return { valorCentavos: null, status: 'indeterminado', pendencias: juntarPendencias(pendencias), explicacao }
+  return {
+    valorCentavos: null,
+    status: 'indeterminado',
+    pendencias: juntarPendencias(pendencias),
+    explicacao,
+    viagensNiteroiPagas,
+    ...politica,
+  }
+}
+
+/** "Ônibus 62 + 39A" (grupo de ônibus) ou o rótulo da perna avulsa. */
+function rotuloUnidade(precificadas: readonly PernaPrecificada[], u: { i: number; tamanho: 1 | 2 }): string {
+  if (u.tamanho === 1) return precificadas[u.i].rotulo
+  const linhas = [precificadas[u.i], precificadas[u.i + 1]].map((p) => normalizarLinha(p.perna.linha))
+  return linhas.every((l) => l !== '') ? `Ônibus ${linhas.join(' + ')}` : `${precificadas[u.i].rotulo} + ${precificadas[u.i + 1].rotulo}`
+}
+
+/** Uma cobrança do sentido: uma perna avulsa ou um grupo integrado (BUN/BUI). */
+interface Unidade {
+  /** Índice da primeira perna da unidade. */
+  i: number
+  /** Quantas pernas a unidade cobre (1 ou 2). */
+  tamanho: 1 | 2
+  /** Valor integral, sem o limite diário do BUN. */
+  valorCentavos: number
+  /** Valor se passar do limite diário do BUN (tarifa cheia de Niterói). */
+  valorCheiaCentavos: number
+  /** É uma viagem paga em ônibus municipal de Niterói com o valor do BUN? */
+  viagemBun: boolean
+  grupo: Candidato | null
+}
+
+function montarUnidades(precificadas: readonly PernaPrecificada[], escolhidos: readonly Candidato[]): Unidade[] {
+  const unidades: Unidade[] = []
+  for (let i = 0; i < precificadas.length; i++) {
+    const grupo = escolhidos.find((c) => c.i === i) ?? null
+    if (grupo) {
+      const bun = grupo.produto === 'BUN'
+      unidades.push({
+        i,
+        tamanho: 2,
+        valorCentavos: grupo.valorIntegradoCentavos,
+        valorCheiaCentavos: bun
+          ? Math.max(precificadas[i].valorCheiaCentavos ?? 0, precificadas[i + 1].valorCheiaCentavos ?? 0)
+          : grupo.valorIntegradoCentavos,
+        viagemBun: bun,
+        grupo,
+      })
+      i++
+    } else {
+      const p = precificadas[i]
+      unidades.push({
+        i,
+        tamanho: 1,
+        valorCentavos: p.valorCentavos ?? 0,
+        valorCheiaCentavos: p.valorCheiaCentavos ?? p.valorCentavos ?? 0,
+        viagemBun: p.comValorBun,
+        grupo: null,
+      })
+    }
+  }
+  return unidades
 }
 
 /**
  * Calcula o valor de UM sentido (ida ou volta). A volta nunca é presumida igual à ida.
- * Base = tarifa integral de cada perna (Regras §2, §3); integrações BUN/BUI só quando
- * a elegibilidade do cartão está comprovada (Regras §3, §4).
+ * Base = tarifa integral de cada perna (Regras §2, §3); integrações BUN/BUI aplicadas
+ * quando as condições da regra se cumprem (janela, linhas, combinação descrita).
+ * Política da empresa (19/11/2026): a situação do cartão na Riocard não bloqueia a
+ * integração (presumida); a exceção 'tarifa_cheia' desliga toda integração.
  */
 export function calcularSentido(entrada: EntradaSentidoMotor): ResultadoSentidoMotor {
   const { pernas } = entrada
   const prefixo = entrada.rotulo ? `${entrada.rotulo}: ` : ''
+  const politica = infoPolitica(entrada)
+  const tarifaCheia = politica.politicaIntegracao === 'tarifa_cheia'
   if (pernas.length === 0) {
     return resultadoIndeterminado(
-      [{ codigo: 'SEM_PERNAS', mensagem: 'Sentido sem conduções informadas.', regra: 'Regras §8' }],
-      [{ regra: 'Regras §8', texto: `${prefixo}sem conduções informadas: indeterminado.` }],
+      [{ codigo: 'SEM_PERNAS', mensagem: 'Nenhuma condução foi informada neste sentido.', regra: 'Regras §8' }],
+      [{ regra: 'Regras §8', texto: `${prefixo}nenhuma condução informada, então não há valor.` }],
+      politica,
     )
   }
 
-  const precificadas = pernas.map((p, i) => precificarPerna(p, i, entrada.dataServico))
-  const explicacao: PassoExplicacao[] = precificadas.map((p) => ({ ...p.passo, texto: prefixo + p.passo.texto }))
+  const precificadas = pernas.map((p) => precificarPerna(p, entrada.dataServico, politica.politicaIntegracao))
+  const passosPerna: PassoExplicacao[] = precificadas.map((p) => ({ ...p.passo, texto: prefixo + p.passo.texto }))
+  const explicacao: PassoExplicacao[] = []
 
   if (precificadas.some((p) => p.valorCentavos === null)) {
-    explicacao.push({ regra: 'Regras §8', texto: `${prefixo}há perna sem tarifa determinada: valor do sentido indeterminado.` })
-    return resultadoIndeterminado(precificadas.flatMap((p) => p.pendenciasIndeterminado), explicacao)
+    const parcial = [...passosPerna, { regra: 'Regras §8', texto: `${prefixo}falta o valor de pelo menos uma condução, então não dá para calcular este sentido.` }]
+    return resultadoIndeterminado(
+      precificadas.flatMap((p) => p.pendenciasIndeterminado),
+      parcial,
+      politica,
+      precificadas.filter((p) => p.perna.modal === 'onibus_municipal_niteroi').length,
+    )
   }
 
   const pendencias: PendenciaMotor[] = []
   const somaIntegral = precificadas.reduce((s, p) => s + (p.valorCentavos ?? 0), 0)
 
-  // Avalia cada par adjacente.
+  if (tarifaCheia) {
+    const motivo = entrada.cartao.motivoTarifaCheia?.trim()
+    explicacao.push({
+      regra: 'Política da empresa — exceção tarifa cheia',
+      texto: `${prefixo}a empresa decidiu pagar a tarifa cheia para esta pessoa${motivo ? ` (motivo: ${motivo})` : ''}: cada condução é paga pelo valor integral, sem integração.`,
+    })
+  }
+
+  // Avalia cada par adjacente (na exceção tarifa cheia, nenhuma integração é avaliada).
   const candidatos: Candidato[] = []
-  for (let i = 0; i < precificadas.length - 1; i++) {
+  for (let i = 0; !tarifaCheia && i < precificadas.length - 1; i++) {
     const av = avaliarPar(precificadas[i], precificadas[i + 1], i, entrada)
     if (av.tipo === 'candidato') candidatos.push(av.candidato)
     else if (av.tipo === 'nao_integra') explicacao.push({ ...av.passo, texto: prefixo + av.passo.texto })
@@ -285,7 +396,44 @@ export function calcularSentido(entrada: EntradaSentidoMotor): ResultadoSentidoM
   const real = melhorSelecao(candidatos.filter((c) => c.elegibilidade.nivel === 'sim'))
   // Seleção otimista: o que valeria se a elegibilidade fosse provada (gera pendência).
   const otimista = melhorSelecao(candidatos.filter((c) => c.elegibilidade.nivel === 'sim' || c.elegibilidade.pendenciaSeReduziria))
-  const totalReal = somaIntegral - real.economia
+  const economiaPendencia = somaIntegral - real.economia
+
+  // Valor de cada cobrança, com o limite diário do BUN (Regras §3 — Valores).
+  const unidades = montarUnidades(precificadas, real.escolhidos)
+  let restanteComDesconto = Math.max(
+    0,
+    TARIFA_NITEROI_BUN.limiteViagensPorDia - (entrada.viagensNiteroiJaPagasNoDia ?? 0),
+  )
+  let viagensNiteroiPagas = 0
+  let totalReal = 0
+  let alemDoLimite = false
+  const passosGrupo: PassoExplicacao[] = []
+  for (const u of unidades) {
+    let valor = u.valorCentavos
+    let alemDoLimiteDestaViagem = false
+    if (u.viagemBun) {
+      viagensNiteroiPagas++
+      if (restanteComDesconto > 0) {
+        restanteComDesconto--
+      } else {
+        valor = u.valorCheiaCentavos
+        alemDoLimite = true
+        alemDoLimiteDestaViagem = true
+        const texto = `${prefixo}${rotuloUnidade(precificadas, u)}: ${reais(valor)} (tarifa cheia), porque o valor do Bilhete Único de Niterói (${reais(TARIFA_NITEROI_BUN.valorCentavos)}) vale só para as ${TARIFA_NITEROI_BUN.limiteViagensPorDia} primeiras viagens pagas por dia em ônibus de Niterói.`
+        passosPerna[u.i] = { regra: TARIFA_NITEROI_BUN.regra, texto }
+        if (u.tamanho === 2) passosPerna[u.i + 1] = { regra: TARIFA_NITEROI_BUN.regra, texto: '' }
+      }
+    }
+    totalReal += valor
+    if (u.grupo && u.grupo.produto === 'BUN' && !alemDoLimiteDestaViagem) {
+      passosGrupo.push({
+        regra: 'Regras §3 — integração ônibus-ônibus (BUN)',
+        texto: `${prefixo}${rotuloUnidade(precificadas, u)}: ${reais(valor)} no total, porque o segundo ônibus foi pego em até ${JANELA_BUN_MIN / 60} hora.`,
+      })
+    }
+  }
+  const passosPernaFinais = passosPerna.filter((p) => p.texto !== '')
+  explicacao.unshift(...passosPernaFinais)
 
   for (const c of otimista.escolhidos) {
     if (real.escolhidos.some((r) => r.produto === c.produto && r.i === c.i)) continue
@@ -294,7 +442,7 @@ export function calcularSentido(entrada: EntradaSentidoMotor): ResultadoSentidoM
       c.produto === 'BUN'
         ? c.elegibilidade.nivel === 'provavel' ? 'BUN_PROVAVEL_NAO_COMPROVADO' : 'BUN_NAO_COMPROVADO'
         : c.elegibilidade.nivel === 'nao' ? 'BUI_SUSPENSO' : 'BUI_NAO_COMPROVADO'
-    const mensagem = `${par}: integração ${c.produto} não aplicada — ${c.elegibilidade.motivo}. Cobrada a tarifa integral de cada perna; com a integração o sentido ficaria ${reais(somaIntegral - real.economia - c.economiaCentavos)} (em vez de ${reais(totalReal)}). Conferir ${c.produto}.`
+    const mensagem = `${par}: a integração com o ${c.produto === 'BUN' ? 'Bilhete Único de Niterói (BUN)' : 'Bilhete Único Intermunicipal (BUI)'} não foi aplicada porque ${c.elegibilidade.motivo}. Está cobrado o valor cheio de cada um; com a integração, este sentido ficaria ${reais(economiaPendencia - c.economiaCentavos)} em vez de ${reais(economiaPendencia)}. Conferir ${c.produto}.`
     const regra = c.produto === 'BUN' ? 'Regras §3 — habilitação automática do BUN' : 'Regras §4'
     pendencias.push({ codigo, mensagem, regra })
     explicacao.push({ regra, texto: prefixo + mensagem })
@@ -305,25 +453,25 @@ export function calcularSentido(entrada: EntradaSentidoMotor): ResultadoSentidoM
   for (const c of real.escolhidos) {
     cobertas.add(c.i)
     cobertas.add(c.i + 1)
-    const par = `${precificadas[c.i].rotulo} + ${precificadas[c.i + 1].rotulo}`
-    const soma = (precificadas[c.i].valorCentavos ?? 0) + (precificadas[c.i + 1].valorCentavos ?? 0)
-    explicacao.push(
-      c.produto === 'BUN'
-        ? { regra: 'Regras §3 — integração ônibus-ônibus (BUN)', texto: `${prefixo}${par}: linhas diferentes, até ${JANELA_BUN_MIN} min entre validações e BUN comprovado (${c.elegibilidade.motivo}) — paga-se uma tarifa integral, ${reais(c.valorIntegradoCentavos)}, em vez de ${reais(soma)}.` }
-        : { regra: 'Regras §4, §5 — integração BUI', texto: `${prefixo}${par}: BUI comprovado (${c.elegibilidade.motivo}), até 2 meios e dentro da janela — ${reais(c.valorIntegradoCentavos)} por viagem integrada, em vez de ${reais(soma)}.` },
-    )
+    if (c.produto === 'BUI') {
+      const par = `${precificadas[c.i].rotulo} + ${precificadas[c.i + 1].rotulo}`
+      const soma = (precificadas[c.i].valorCentavos ?? 0) + (precificadas[c.i + 1].valorCentavos ?? 0)
+      explicacao.push({ regra: 'Regras §4, §5 — integração BUI', texto: `${prefixo}${par}: ${c.elegibilidade.motivo}, então as duas conduções saem por ${reais(c.valorIntegradoCentavos)} dentro do prazo, em vez de ${reais(soma)}.` })
+    }
   }
+  explicacao.push(...passosGrupo)
 
   // Pernas cobradas à parte: pendências "se cobrada" e BUI direto (Regras §2, §10).
   precificadas.forEach((p, idx) => {
     if (cobertas.has(idx)) return
     pendencias.push(...p.pendenciasSeCobrada)
     if (
+      !tarifaCheia &&
       p.perna.modal === 'onibus_intermunicipal' &&
       p.valorCentavos !== null &&
       p.valorCentavos > TARIFA_INTEGRACAO_BUI.valorCentavos
     ) {
-      const mensagem = `${p.rotulo}: linha intermunicipal única de ${reais(p.valorCentavos)} (acima do BUI de ${reais(TARIFA_INTEGRACAO_BUI.valorCentavos)}) sem baldeação — cobrada a tarifa integral; a redução pelo BUI direto depende de decisão do DP/jurídico.`
+      const mensagem = `${p.rotulo}: é um ônibus direto de ${reais(p.valorCentavos)}, mais caro que a integração (${reais(TARIFA_INTEGRACAO_BUI.valorCentavos)}). Está cobrado o valor cheio; se pode cobrar menos nesse caso ainda precisa ser decidido pelo DP.`
       pendencias.push({ codigo: 'BUI_DIRETO_PENDENTE', mensagem, regra: 'Regras §2, §10' })
       explicacao.push({ regra: 'Regras §2, §10', texto: prefixo + mensagem })
     }
@@ -331,7 +479,7 @@ export function calcularSentido(entrada: EntradaSentidoMotor): ResultadoSentidoM
 
   explicacao.push({
     regra: 'Regras §2, §3',
-    texto: `${prefixo}valor do sentido: ${reais(totalReal)}${real.escolhidos.length ? ` (soma integral ${reais(somaIntegral)} menos economia de integração ${reais(real.economia)})` : ' (soma das tarifas integrais)'}.`,
+    texto: `${prefixo}total: ${reais(totalReal)}${alemDoLimite ? ` (inclui tarifa cheia nas viagens além das ${TARIFA_NITEROI_BUN.limiteViagensPorDia} do dia com o Bilhete Único de Niterói)` : real.escolhidos.length ? ` (${reais(somaIntegral)} se pagasse cada condução, menos ${reais(real.economia)} da integração)` : ' (soma do valor de cada condução)'}.`,
   })
 
   const pendenciasFinais = juntarPendencias(pendencias)
@@ -340,5 +488,7 @@ export function calcularSentido(entrada: EntradaSentidoMotor): ResultadoSentidoM
     status: pendenciasFinais.length > 0 ? 'pendente' : 'confirmado',
     pendencias: pendenciasFinais,
     explicacao,
+    viagensNiteroiPagas,
+    ...politica,
   }
 }

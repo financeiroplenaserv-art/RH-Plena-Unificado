@@ -89,7 +89,13 @@ export function combinarIdaVolta(
     voltaCentavos: resultado.volta.valorCentavos,
     alternativaIdaId: ida.id,
     alternativaVoltaId: volta.id,
-    cartao: { situacaoBu: cartao.situacaoBu, consultadoEm: cartao.consultadoEm ?? null },
+    cartao: {
+      situacaoBu: cartao.situacaoBu,
+      consultadoEm: cartao.consultadoEm ?? null,
+      politicaIntegracao: resultado.politicaIntegracao,
+      ...(resultado.politicaIntegracao === 'tarifa_cheia' ? { motivoTarifaCheia: cartao.motivoTarifaCheia ?? null } : {}),
+    },
+    regularizarCartao: resultado.regularizarCartao,
     pendencias: resultado.pendencias.map((p) => p.mensagem),
   }
   const ajustes = [...(ida.itinerario.ajustesManuais ?? []), ...(volta.itinerario.ajustesManuais ?? [])]

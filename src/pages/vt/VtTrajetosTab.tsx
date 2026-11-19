@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink, Route, Trash2, AlertTriangle, GitBranch } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -31,10 +31,12 @@ import {
   custoDiaTrajetoCentavos,
   escopoSugerido,
   avisoBilheteIncompativel,
-  descricaoCartaoDosBilhetes,
 } from '@/lib/vt/trajetos'
 import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
+import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
+import { linhasOrcadasDoItinerario, type LinhasOrcadasVT } from '@/lib/vt/linhasOrcadas'
+import { BuRiocardBadge } from '@/pages/vt/BuRiocardBadge'
 import { fatosCartaoDoCadastro } from '@/lib/vt/motor/adaptadorItinerario'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { VtBilhete } from '@/types/vt'
@@ -68,6 +70,9 @@ interface LinhaTrajeto {
   buSituacao: string | null
   /** Data da consulta da Riocard (colaboradores.vt_bu_consultado_em). */
   buConsultadoEm: string | null
+  /** Exceção da empresa "pagar tarifa cheia" (migration 174); false = integração presumida. */
+  tarifaCheia: boolean
+  tarifaCheiaMotivo: string | null
   trajeto: VtTrajetoComDetalhes | null // null = sugestão ainda não gravada
 }
 
@@ -123,6 +128,36 @@ export function VtTrajetosTab({
   const [salvando, setSalvando] = useState(false)
   const [revisando, setRevisando] = useState<LinhaTrajeto | null>(null)
   const [mostrarHistorico, setMostrarHistorico] = useState(false)
+  // Linhas orçadas (evidência salva) por trajeto, carregadas em lote.
+  const [linhasOrcadas, setLinhasOrcadas] = useState<Map<string, LinhasOrcadasVT>>(new Map())
+  const chaveTrajetos = useMemo(() => trajetos.map((t) => t.id).sort().join(','), [trajetos])
+  useEffect(() => {
+    let ativo = true
+    const ids = chaveTrajetos ? chaveTrajetos.split(',') : []
+    if (ids.length === 0) {
+      setLinhasOrcadas(new Map())
+      return
+    }
+    new RepositorioItinerarioSupabase()
+      .buscarEvidenciasPorTrajetos(ids)
+      .then((evidencias) => {
+        if (!ativo) return
+        const mapa = new Map<string, LinhasOrcadasVT>()
+        for (const [trajetoId, evidencia] of evidencias) {
+          const linhas = linhasOrcadasDoItinerario(evidencia.itinerario)
+          if (linhas) mapa.set(trajetoId, linhas)
+        }
+        setLinhasOrcadas(mapa)
+      })
+      .catch((erro) => {
+        // Informativo: sem a evidência a tela cai no bilhete legado.
+        console.error('Erro ao carregar as linhas orçadas dos trajetos', erro)
+        if (ativo) setLinhasOrcadas(new Map())
+      })
+    return () => {
+      ativo = false
+    }
+  }, [chaveTrajetos])
 
   // Opções dos selects: os vigentes hoje. Bilhete referenciado por trajeto
   // gravado que saiu de vigor continua aparecendo (selo "vigência antiga")
@@ -161,6 +196,8 @@ export function VtTrajetosTab({
         buAtivado: colab?.vt_bu_ativado ?? null,
         buSituacao: colab?.vt_bu_situacao ?? null,
         buConsultadoEm: cadastro?.vt_bu_consultado_em ?? null,
+        tarifaCheia: cadastro?.vt_tarifa_cheia === true,
+        tarifaCheiaMotivo: cadastro?.vt_tarifa_cheia_motivo ?? null,
         trajeto: t,
       })
     }
@@ -189,11 +226,13 @@ export function VtTrajetosTab({
         buAtivado: c.vt_bu_ativado ?? null,
         buSituacao: c.vt_bu_situacao ?? null,
         buConsultadoEm: c.vt_bu_consultado_em ?? null,
+        tarifaCheia: c.vt_tarifa_cheia === true,
+        tarifaCheiaMotivo: c.vt_tarifa_cheia_motivo ?? null,
         trajeto: null,
       })
     }
     return Array.from(porChave.values())
-      .filter((linha) => mostrarHistorico || linha.statusColaborador !== 'Inativo')
+      .filter((linha) => mostrarHistorico || linha.statusColaborador !== 'Inativo' && linha.statusColaborador !== 'Afastado')
       .sort((a, b) => a.nomeColaborador.localeCompare(b.nomeColaborador, 'pt-BR')
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -433,7 +472,7 @@ export function VtTrajetosTab({
               checked={mostrarHistorico}
               onChange={(event) => setMostrarHistorico(event.target.checked)}
             />
-            Mostrar histórico e inativos
+            Mostrar histórico, afastados e inativos
           </label>
           {podeEditarLegado && (
             <ModuleButton size="sm" onClick={() => setDialogAberto(true)}>
@@ -456,14 +495,13 @@ export function VtTrajetosTab({
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-3 py-3">Colaborador</th>
-                  <th className="px-3 py-3">Posto</th>
-                  <th className="px-3 py-3">Bilhete</th>
-                  <th className="px-3 py-3">BU na Riocard</th>
-                  <th className="px-3 py-3 text-right">Custo/dia</th>
-                  <th className="px-3 py-3">Endereço</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3 text-right">Ações</th>
+                  <th className="w-[20%] px-3 py-3">Colaborador</th>
+                  <th className="w-[20%] px-3 py-3">Posto</th>
+                  <th className="w-[22%] px-3 py-3">Bilhete</th>
+                  <th className="w-[10%] whitespace-nowrap px-3 py-3">BU na Riocard</th>
+                  <th className="w-[8%] whitespace-nowrap px-3 py-3 text-right">Custo/dia</th>
+                  <th className="w-[10%] whitespace-nowrap px-3 py-3">Status</th>
+                  <th className="w-[10%] whitespace-nowrap px-3 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -472,7 +510,9 @@ export function VtTrajetosTab({
                   const opcoes = opcoesDa(linha)
                   const custo = custoDaLinha(linha)
                   const extraLinha = extraDaLinha(linha, valores)
-                  const precisao = linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)
+                  const orcado = linha.trajeto ? linhasOrcadas.get(linha.trajeto.id) ?? null : null
+                  const enderecoIncompleto =
+                    (linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)) === 'bairro'
                   const confirmado = linha.trajeto?.status === 'confirmado'
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
                   const emEdicao = editandoComposicao[linha.chave] ?? false
@@ -493,21 +533,13 @@ export function VtTrajetosTab({
                     linha.cidadePosto,
                     [valores.b1, valores.b2].map((id) => bilhetes.find((b) => b.id === id)?.nome),
                   )
-                  // Integração do trajeto × situação do BU na Riocard (decisão
-                  // da gestora, 02/11/2026 — migration 167): o cartão físico é o
-                  // mesmo para todos; o que manda é a integração estar ATIVADA.
-                  // Só aviso, nunca bloqueia.
-                  const bilhetesDaLinha = [valores.b1, valores.b2].map((id) =>
-                    bilhetes.find((b) => b.id === id)
-                  )
-                  const descricaoCartao = descricaoCartaoDosBilhetes(bilhetesDaLinha)
                   // CEP × cidade cadastrada (02/11/2026 — casos Thiago e José
                   // Orlando: cidade errada no cadastro derruba o bilhete).
                   const avisoCep = avisoCidadeDivergeDoCep(linha.cidadeCasa, linha.cepCasa)
                   return (
                     <tr key={linha.chave} className="border-b border-border last:border-0 hover:bg-accent/40">
-                      <td className="px-3 py-2.5 font-medium text-foreground">
-                        <span className="inline-flex items-center gap-2">
+                      <td className="px-3 py-2.5 align-top font-medium text-foreground">
+                        <span className="inline-flex flex-wrap items-center gap-2">
                           {linha.nomeColaborador}
                           {linha.statusColaborador && (
                             <StatusBadge variant="warning" dot={false}>
@@ -515,8 +547,17 @@ export function VtTrajetosTab({
                             </StatusBadge>
                           )}
                         </span>
+                        {enderecoIncompleto && (
+                          <p
+                            className="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-600"
+                            title="O endereço de casa não tem rua e número; a rota pode sair imprecisa. Corrigir na Alterdata."
+                          >
+                            <AlertTriangle className="size-3 shrink-0" />
+                            Endereço incompleto
+                          </p>
+                        )}
                       </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">
+                      <td className="px-3 py-2.5 align-top text-muted-foreground">
                         {linha.nomePosto}
                         <p className={`mt-1 text-[11px] ${linha.cidadePosto?.trim() ? 'text-muted-foreground' : 'font-medium text-amber-600'}`}>
                           {linha.cidadePosto?.trim()
@@ -526,12 +567,12 @@ export function VtTrajetosTab({
                         {nomePostoAtual && (
                           <p className="mt-1 flex items-start gap-1 text-[11px] font-medium text-amber-600">
                             <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-                            O cadastro atual aponta outro posto ({nomePostoAtual}). Esta linha pode ser
-                            histórico ou cobertura; revise antes de encerrar o trajeto antigo.
+                            Também trabalha em {nomePostoAtual} (posto atual do cadastro). Esta rota
+                            continua valendo para os dias neste posto (ex.: cobertura).
                           </p>
                         )}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2.5 align-top">
                         <div className="flex flex-col gap-1.5">
                           {podeEditarLegado && emEdicao ? (
                             <>
@@ -580,12 +621,19 @@ export function VtTrajetosTab({
                             </>
                           ) : (
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium text-foreground">
-                                {valores.b1
-                                  ? bilhetes.find((bilhete) => bilhete.id === valores.b1)?.nome ?? 'Bilhete não encontrado'
-                                  : 'Nenhum bilhete escolhido'}
+                              <span className="font-medium text-foreground" title={orcado ? 'Linhas do itinerário salvo (revisão com Google)' : undefined}>
+                                {orcado
+                                  ? orcado.texto
+                                  : valores.b1
+                                    ? bilhetes.find((bilhete) => bilhete.id === valores.b1)?.nome ?? 'Bilhete não encontrado'
+                                    : 'Rota ainda não cadastrada para este posto'}
                               </span>
-                              {valores.b2 && (
+                              {orcado && orcado.valorDiaCentavos !== null && (
+                                <span className="text-muted-foreground" title="Valor do dia calculado pelo motor para as linhas orçadas">
+                                  {formatarCentavos(orcado.valorDiaCentavos)}/dia
+                                </span>
+                              )}
+                              {!orcado && valores.b2 && (
                                 <span className="text-muted-foreground">
                                   + {bilhetes.find((bilhete) => bilhete.id === valores.b2)?.nome ?? 'Bilhete não encontrado'}
                                 </span>
@@ -601,9 +649,6 @@ export function VtTrajetosTab({
                               )}
                             </div>
                           )}
-                          {descricaoCartao && (
-                            <p className="text-[11px] text-muted-foreground">{descricaoCartao}</p>
-                          )}
                           {avisoCep && (
                             <p className="flex items-start gap-1 text-[11px] font-medium text-amber-600">
                               <AlertTriangle className="mt-0.5 size-3 shrink-0" />
@@ -618,16 +663,10 @@ export function VtTrajetosTab({
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5">
-                        {linha.buSituacao ? (
-                          <StatusBadge variant={linha.buAtivado === false ? 'warning' : 'success'}>
-                            {linha.buSituacao}
-                          </StatusBadge>
-                        ) : (
-                          <span className="text-[12px] text-muted-foreground">não consultado</span>
-                        )}
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                        <BuRiocardBadge situacao={linha.buSituacao} ativado={linha.buAtivado} />
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
+                      <td className="px-3 py-2.5 text-right align-top whitespace-nowrap tabular-nums">
                         {custo == null ? '—' : formatarCentavos(custo)}
                         {custo != null && extraLinha > 0 && (
                           <div className="text-[11px] font-normal text-muted-foreground">
@@ -635,12 +674,7 @@ export function VtTrajetosTab({
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-[12px] text-muted-foreground">
-                        <span title="Informa apenas se o cadastro contém rua e número; não é validação geográfica.">
-                          {precisao === 'exato' ? 'Rua e número' : 'Somente bairro'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
                         {linha.trajeto ? (
                           <StatusBadge variant={confirmado ? 'success' : 'warning'}>
                             {confirmado ? 'Confirmado pelo RH' : 'A confirmar'}
@@ -648,30 +682,32 @@ export function VtTrajetosTab({
                         ) : (
                           <span title="O sistema montou do cadastro; confirme para valer ou ignore.">
                             <StatusBadge variant="neutral" dot={false}>
-                              Sugestão — não gravada
+                              Não gravada
                             </StatusBadge>
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-3 py-2.5 align-top">
+                        <div className="flex items-center justify-end gap-2">
                           {podeGerenciar && linha.trajeto && (
                             <button
                               type="button"
-                              className="rounded-md p-1.5 text-primary hover:bg-accent"
-                              title="Revisar itinerário com Google"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-primary hover:bg-accent"
+                              title="Revisar itinerário"
+                              aria-label="Revisar itinerário"
                               onClick={() => setRevisando(linha)}
                             >
-                              <GitBranch className="size-4" />
+                              <GitBranch className="h-5 w-5" />
                             </button>
                           )}
                           <button
                             type="button"
-                            className="rounded-md p-1.5 text-primary hover:bg-accent"
-                            title="Ver rota no Google Maps"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-primary hover:bg-accent"
+                            title="Abrir no Google Maps"
+                            aria-label="Abrir no Google Maps"
                             onClick={() => abrirRota(linha)}
                           >
-                            <ExternalLink className="size-4" />
+                            <ExternalLink className="h-5 w-5" />
                           </button>
                           {podeEditarLegado && !confirmado && (
                             <ModuleButton
@@ -686,11 +722,12 @@ export function VtTrajetosTab({
                           {podeEditarLegado && linha.trajeto && (
                             <button
                               type="button"
-                              className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-red-600 hover:bg-red-50"
                               title="Excluir trajeto"
+                              aria-label="Excluir trajeto"
                               onClick={() => setExcluindo(linha)}
                             >
-                              <Trash2 className="size-4" />
+                              <Trash2 className="h-5 w-5" />
                             </button>
                           )}
                         </div>
@@ -729,7 +766,11 @@ export function VtTrajetosTab({
                 municipioOrigem: revisando.cidadeCasa ?? 'desconhecida',
                 municipioDestino: revisando.cidadePosto ?? 'desconhecida',
                 precisao: revisando.trajeto.precisao_origem === 'exato' ? 'exata' : 'bairro',
-                cartao: fatosCartaoDoCadastro(revisando.buSituacao, revisando.buConsultadoEm),
+                cartao: fatosCartaoDoCadastro(revisando.buSituacao, revisando.buConsultadoEm, {
+                  tarifaCheia: revisando.tarifaCheia,
+                  motivo: revisando.tarifaCheiaMotivo,
+                }),
+                onFechar: () => setRevisando(null),
               }}
             />
           </DialogContent>

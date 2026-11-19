@@ -52,7 +52,15 @@ export interface CalculoMotorItinerarioVT {
   voltaCentavos: number | null
   alternativaIdaId: string
   alternativaVoltaId: string
-  cartao: { situacaoBu: string | null; consultadoEm: string | null }
+  cartao: {
+    situacaoBu: string | null
+    consultadoEm: string | null
+    /** Política da empresa usada no cálculo (19/11/2026). Ausente em evidências antigas = cálculo anterior à política. */
+    politicaIntegracao?: 'presumida' | 'tarifa_cheia'
+    motivoTarifaCheia?: string | null
+  }
+  /** Aviso de regularizar o cartão no momento do cálculo (ausente em evidências antigas). */
+  regularizarCartao?: boolean
   pendencias: string[]
 }
 

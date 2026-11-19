@@ -108,14 +108,20 @@ export function situacaoBuDoCadastro(texto: string | null | undefined): Situacao
   return SITUACOES_BU.find((s) => s.toLocaleLowerCase('pt-BR') === limpo) ?? null
 }
 
-/** Fatos do cartão a partir do cadastro (colaboradores.vt_bu_situacao + vt_bu_consultado_em). */
+/** Fatos do cartão a partir do cadastro (colaboradores.vt_bu_situacao + vt_bu_consultado_em + exceção vt_tarifa_cheia). */
 export function fatosCartaoDoCadastro(
   situacaoBu: string | null | undefined,
   consultadoEm: string | null | undefined,
+  excecao?: { tarifaCheia?: boolean | null; motivo?: string | null } | null,
 ): FatosCartaoMotor {
+  const tarifaCheia = excecao?.tarifaCheia === true
   return {
     situacaoBu: situacaoBuDoCadastro(situacaoBu),
     consultadoEm: consultadoEm ?? null,
     bunConfirmadoNoPortal: null,
+    // Política da empresa (19/11/2026): integração presumida, salvo a exceção
+    // por pessoa colaboradores.vt_tarifa_cheia (migration 174).
+    politicaIntegracao: tarifaCheia ? 'tarifa_cheia' : 'presumida',
+    motivoTarifaCheia: tarifaCheia ? (excecao?.motivo ?? null) : null,
   }
 }

@@ -81,6 +81,25 @@ export const TARIFAS_MODAIS: readonly TarifaModal[] = [
   },
 ]
 
+/**
+ * Ônibus municipal de Niterói com o Bilhete Único de Niterói (BUN) habilitado
+ * (decisão da gestora, 19/11/2026; Regras §3 "Valores"). Vale para a viagem paga
+ * e para a integração de 2 ônibus municipais (uma tarifa só), com limite de
+ * 2 viagens por dia por pessoa; da 3ª viagem paga em diante vale a tarifa cheia
+ * (`onibus_municipal_niteroi`, R$ 5,60 — também a do dinheiro e da exceção
+ * "tarifa cheia"). Valor a confirmar com extrato de um cartão VT.
+ */
+export const TARIFA_NITEROI_BUN = {
+  valorCentavos: 445,
+  limiteViagensPorDia: 2,
+  vigenteDesde: '2025-07-06',
+  vigenteAte: null as string | null,
+  fonte:
+    'Lei municipal 3.887/2024 (subsídio tarifário) e Prefeitura de Niterói (04/07/2025): BUN continua a R$ 4,45',
+  url: 'https://niteroi.rj.gov.br/prefeitura-mantem-tarifa-reduzida-para-usuarios-do-bilhete-unico-municipal/',
+  regra: 'Regras §3 — Valores',
+} as const
+
 /** Valor da integração BUI por viagem integrada (Regras §4). */
 export const TARIFA_INTEGRACAO_BUI = {
   valorCentavos: 940,
@@ -154,13 +173,13 @@ export function buscarTarifaDetro(
   if (!linha) {
     return indeterminada(
       'DETRO_LINHA_NAO_INFORMADA',
-      'Linha intermunicipal não informada: tarifa a conferir.',
+      'A linha do ônibus intermunicipal não foi informada: valor a conferir.',
     )
   }
   if (!vigenteNaData(meta.vigenteDesde, meta.vigenteAte, dataServico)) {
     return indeterminada(
       'DETRO_FORA_DA_VIGENCIA',
-      `Tarifa DETRO da linha ${linha} só está cadastrada a partir de ${meta.vigenteDesde}; serviço em ${dataServico} sem tarifa vigente cadastrada.`,
+      `O valor da linha ${linha} só está cadastrado a partir de ${meta.vigenteDesde}, então não há valor para ${dataServico}.`,
     )
   }
 
@@ -168,7 +187,7 @@ export function buscarTarifaDetro(
   if (daLinha.length === 0) {
     return indeterminada(
       'DETRO_LINHA_FORA_DA_TABELA',
-      `Tarifa da linha ${linha} a conferir (linha não consta na Portaria DETRO cadastrada).`,
+      `O valor da linha ${linha} está a conferir: ela não consta na tabela oficial do DETRO que temos.`,
     )
   }
 
@@ -179,14 +198,14 @@ export function buscarTarifaDetro(
     if (Number.isNaN(secaoInformada)) {
       return indeterminada(
         'DETRO_SECAO_INVALIDA',
-        `Seção "${secao}" da linha ${linha} inválida: a conferir.`,
+        `A seção "${secao}" da linha ${linha} não é válida: a conferir.`,
       )
     }
     candidatos = daLinha.filter((r) => r.secao === secaoInformada)
     if (candidatos.length === 0) {
       return indeterminada(
         'DETRO_SECAO_NAO_ENCONTRADA',
-        `Seção ${secaoInformada} da linha ${linha} não consta na Portaria: a conferir. Opções: ${daLinha.map(descreverOpcao).join('; ')}.`,
+        `A seção ${secaoInformada} da linha ${linha} não consta na tabela oficial: a conferir. Opções: ${daLinha.map(descreverOpcao).join('; ')}.`,
       )
     }
   }
@@ -196,7 +215,7 @@ export function buscarTarifaDetro(
     const rotulo = secaoInformada === null ? 'Seção' : 'Variante'
     return indeterminada(
       'DETRO_SECAO_AMBIGUA',
-      `${rotulo} da linha ${linha} a conferir; opções: ${candidatos.map(descreverOpcao).join('; ')}.`,
+      `${rotulo === 'Seção' ? 'A seção' : 'A variante'} da linha ${linha} está a conferir, porque há mais de um valor possível: ${candidatos.map(descreverOpcao).join('; ')}.`,
     )
   }
 

@@ -1,4 +1,5 @@
 import { calcularSentido } from '@/lib/vt/motor/calcularSentido'
+import { reais } from '@/lib/vt/motor/tarifas'
 import type {
   EntradaDiaMotor,
   PendenciaMotor,
@@ -14,7 +15,13 @@ import type {
 export function calcularDia(entrada: EntradaDiaMotor): ResultadoDiaMotor {
   const base = { cartao: entrada.cartao, dataServico: entrada.dataServico }
   const ida = calcularSentido({ ...base, pernas: entrada.itinerario.ida, rotulo: 'Ida' })
-  const volta = calcularSentido({ ...base, pernas: entrada.itinerario.volta, rotulo: 'Volta' })
+  // Limite diário do BUN em Niterói: a volta já sabe quantas viagens a ida usou.
+  const volta = calcularSentido({
+    ...base,
+    pernas: entrada.itinerario.volta,
+    rotulo: 'Volta',
+    viagensNiteroiJaPagasNoDia: ida.viagensNiteroiPagas,
+  })
 
   const vistos = new Set<string>()
   const pendencias: PendenciaMotor[] = []
@@ -36,14 +43,18 @@ export function calcularDia(entrada: EntradaDiaMotor): ResultadoDiaMotor {
     ida,
     volta,
     pendencias,
+    politicaIntegracao: ida.politicaIntegracao,
+    regularizarCartao: ida.regularizarCartao || volta.regularizarCartao,
+    // Mesmo cartão nos dois sentidos: o aviso é um só.
+    avisos: ida.avisos.length ? ida.avisos : volta.avisos,
     explicacao: [
       ...ida.explicacao,
       ...volta.explicacao,
       {
         regra: 'Regras §2',
         texto: indeterminado
-          ? 'Valor do dia indeterminado: algum sentido não tem valor determinado.'
-          : `Valor do dia = ida + volta = ${ida.valorCentavos} + ${volta.valorCentavos} centavos.`,
+          ? 'Não dá para calcular o valor do dia: falta o valor de ida ou de volta.'
+          : `Valor do dia = ida + volta = ${reais(ida.valorCentavos as number)} + ${reais(volta.valorCentavos as number)}.`,
       },
     ],
   }

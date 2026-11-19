@@ -53,7 +53,7 @@ describe('adaptador Google → motor', () => {
       operadora: 'Prefeitura de Niterói',
     }])
     expect(avisos).toEqual([])
-    expect(calcularAlternativaSentido(alt, ATIVADO, DATA).resultado).toMatchObject({ valorCentavos: 560, status: 'confirmado' })
+    expect(calcularAlternativaSentido(alt, ATIVADO, DATA).resultado).toMatchObject({ valorCentavos: 445, status: 'confirmado' })
   })
 
   it('Alcemir: 536R é intermunicipal (DETRO) e 35 é municipal de Niterói', () => {
@@ -64,21 +64,23 @@ describe('adaptador Google → motor', () => {
       ['35', 'onibus_municipal_niteroi'],
     ])
     const r = calcularAlternativaSentido(alt, ATIVADO, DATA).resultado
-    // BUI não cobre municipal de Niterói: 9,10 + 5,60 cobrados à parte.
-    expect(r.valorCentavos).toBe(1470)
+    // BUI não cobre municipal de Niterói: 9,10 + 4,45 (BUN) cobrados à parte.
+    expect(r.valorCentavos).toBe(1355)
   })
 
-  it('Alcemir 62 + 39A: BU Ativado integra pelo BUN (R$ 5,60); Suspenso cobra integral (R$ 11,20) com pendência', () => {
+  it('Alcemir 62 + 39A: integra pelo BUN (R$ 4,45) Ativado ou Suspenso (presumida); exceção cobra R$ 11,20', () => {
     const alt = linhas(RESPOSTA_ALCEMIR).find((a) => a.itinerario.pernas.map((p) => p.linha).join('+') === '62+39A')!
     expect(pernasMotorDoItinerario(alt.itinerario.pernas).pernas.every((p) => p.modal === 'onibus_municipal_niteroi')).toBe(true)
 
     const ativado = calcularAlternativaSentido(alt, ATIVADO, DATA).resultado
-    expect(ativado).toMatchObject({ valorCentavos: 560, status: 'confirmado' })
+    expect(ativado).toMatchObject({ valorCentavos: 445, status: 'confirmado' })
 
     const suspenso = calcularAlternativaSentido(alt, SUSPENSO, DATA).resultado
-    expect(suspenso.valorCentavos).toBe(1120)
-    expect(suspenso.status).toBe('pendente')
-    expect(suspenso.pendencias.map((p) => p.codigo)).toContain('BUN_PROVAVEL_NAO_COMPROVADO')
+    expect(suspenso).toMatchObject({ valorCentavos: 445, status: 'confirmado', regularizarCartao: true })
+    expect(suspenso.pendencias).toEqual([])
+
+    const excecao = calcularAlternativaSentido(alt, { ...SUSPENSO, politicaIntegracao: 'tarifa_cheia' }, DATA).resultado
+    expect(excecao).toMatchObject({ valorCentavos: 1120, status: 'confirmado', regularizarCartao: false })
   })
 
   it('422M e 570D da "Prefeitura de Niterói" viram intermunicipal DETRO', () => {
@@ -126,6 +128,12 @@ describe('adaptador Google → motor', () => {
       situacaoBu: 'Não possui BU',
       consultadoEm: '2026-10-28',
       bunConfirmadoNoPortal: null,
+      politicaIntegracao: 'presumida',
+      motivoTarifaCheia: null,
+    })
+    expect(fatosCartaoDoCadastro('Ativado', null, { tarifaCheia: true, motivo: 'decisão da diretoria' })).toMatchObject({
+      politicaIntegracao: 'tarifa_cheia',
+      motivoTarifaCheia: 'decisão da diretoria',
     })
   })
 })
@@ -136,9 +144,9 @@ describe('ida e volta pelo motor', () => {
 
   it('valor do dia = ida + volta escolhidas (volta diferente da ida)', () => {
     const dia = calcularDiaIdaVolta(alt62(), voltaAlternativa(), ATIVADO, DATA)
-    expect(dia.ida.valorCentavos).toBe(560)
-    expect(dia.volta.valorCentavos).toBe(560)
-    expect(dia).toMatchObject({ valorCentavos: 1120, status: 'confirmado' })
+    expect(dia.ida.valorCentavos).toBe(445)
+    expect(dia.volta.valorCentavos).toBe(445)
+    expect(dia).toMatchObject({ valorCentavos: 890, status: 'confirmado' })
   })
 
   it('evidência combinada guarda as pernas com sentido e o cálculo do motor', () => {
@@ -155,9 +163,9 @@ describe('ida e volta pelo motor', () => {
     ])
     expect(combinada.itinerario.calculoMotor).toMatchObject({
       versao: MOTOR_COTACAO_ID,
-      valorDiaCentavos: 1120,
-      idaCentavos: 560,
-      voltaCentavos: 560,
+      valorDiaCentavos: 890,
+      idaCentavos: 445,
+      voltaCentavos: 445,
       status: 'confirmado',
       cartao: { situacaoBu: 'Ativado', consultadoEm: '2026-10-28' },
     })

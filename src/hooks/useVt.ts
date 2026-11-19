@@ -38,6 +38,14 @@ export interface VtColaborador {
   vt_bu_consultado_em?: string | null
   /** Cargo do cadastro — resolve a função ao adicionar à carteira de feristas pela tela do VT. */
   cargo?: string | null
+  /**
+   * Exceção da empresa "pagar tarifa cheia" (migration 174, decisão da gestora em
+   * 19/11/2026). false/ausente = política padrão: integração presumida.
+   */
+  vt_tarifa_cheia?: boolean | null
+  vt_tarifa_cheia_motivo?: string | null
+  vt_tarifa_cheia_por?: string | null
+  vt_tarifa_cheia_em?: string | null
 }
 
 /** Departamento para resolução (nome_curto fuzzy) + endereço do posto (link do Maps). */
@@ -95,8 +103,17 @@ export interface NovoTrajetoVT {
   observacao?: string | null
 }
 
-const COLUNAS_COLABORADOR_VT =
+const COLUNAS_COLABORADOR_VT_BASE =
   'id, nome_completo, departamento, departamento_id, cidade, endereco, cep, vt_optante, vt_tipo_cartao, vt_bu_ativado, vt_bu_situacao, vt_bu_consultado_em, cargo'
+/** Colunas da exceção tarifa cheia (migration 174). */
+const COLUNAS_TARIFA_CHEIA = 'vt_tarifa_cheia, vt_tarifa_cheia_motivo, vt_tarifa_cheia_por, vt_tarifa_cheia_em'
+const COLUNAS_COLABORADOR_VT = `${COLUNAS_COLABORADOR_VT_BASE}, ${COLUNAS_TARIFA_CHEIA}`
+
+/** Erro de coluna inexistente (migration 174 ainda não aplicada). */
+export function erroColunaTarifaCheiaAusente(erro: { code?: string; message?: string } | null | undefined): boolean {
+  if (!erro) return false
+  return erro.code === '42703' || erro.code === 'PGRST204' || /vt_tarifa_cheia/i.test(erro.message ?? '')
+}
 const COLUNAS_DEPARTAMENTO_VT = 'id, nome, nome_curto, empresa_id, status, endereco, cidade, cep'
 // Sem embed: o tipo Database não declara os relacionamentos de vt_trajetos e a
 // página já tem colaboradores/departamentos carregados para resolver o join.
@@ -114,19 +131,63 @@ export function useVt() {
   const [loading, setLoading] = useState(false)
 
   const listarColaboradores = useCallback(async (): Promise<boolean> => {
-    const { data, error } = await supabase
-      .from('colaboradores')
-      .select(COLUNAS_COLABORADOR_VT)
-      .eq('status', 'Ativo')
-      .order('nome_completo')
+    const consultar = (colunas: string) =>
+      supabase.from('colaboradores').select(colunas).eq('status', 'Ativo').order('nome_completo')
+    let { data, error } = await consultar(COLUNAS_COLABORADOR_VT)
+    // Antes da migration 174 as colunas da exceção não existem: lê sem elas e
+    // trata todo mundo como política padrão (vt_tarifa_cheia = false).
+    if (error && erroColunaTarifaCheiaAusente(error)) {
+      ;({ data, error } = await consultar(COLUNAS_COLABORADOR_VT_BASE))
+    }
     if (error) {
       console.error('Erro ao listar colaboradores do VT:', error.message)
       toast.error('Erro ao carregar os colaboradores')
       return false
     }
-    setColaboradores((data as VtColaborador[]) ?? [])
+    setColaboradores(
+      ((data as unknown as VtColaborador[]) ?? []).map((c) => ({ ...c, vt_tarifa_cheia: c.vt_tarifa_cheia === true }))
+    )
     return true
   }, [])
+
+  /**
+   * Marca/desmarca a exceção "pagar tarifa cheia" (decisão da empresa, com motivo).
+   * Grava autor e data; desmarcar limpa o motivo. Anti-falso-sucesso: .select('id').
+   */
+  const salvarExcecaoTarifaCheia = useCallback(
+    async (id: string, dados: { tarifaCheia: boolean; motivo: string | null }): Promise<boolean> => {
+      const motivo = dados.tarifaCheia ? (dados.motivo ?? '').trim() : null
+      if (dados.tarifaCheia && !motivo) {
+        toast.error('Informe o motivo da exceção')
+        return false
+      }
+      const { data: sessao } = await supabase.auth.getUser()
+      const campos = {
+        vt_tarifa_cheia: dados.tarifaCheia,
+        vt_tarifa_cheia_motivo: motivo,
+        vt_tarifa_cheia_por: sessao?.user?.id ?? null,
+        vt_tarifa_cheia_em: new Date().toISOString(),
+      }
+      const { data, error } = await supabase.from('colaboradores').update(campos as never).eq('id', id).select('id')
+      if (error) {
+        console.error('Erro ao salvar a exceção de tarifa cheia:', error.message)
+        toast.error(
+          erroColunaTarifaCheiaAusente(error)
+            ? 'A exceção de tarifa cheia ainda não está disponível no banco (migration 174 pendente)'
+            : 'Erro ao salvar a exceção de tarifa cheia'
+        )
+        return false
+      }
+      if (!data || data.length === 0) {
+        toast.error('Não foi possível salvar: cadastro não alterado (permissão ou registro ausente)')
+        return false
+      }
+      setColaboradores((atual) => atual.map((c) => (c.id === id ? { ...c, ...campos } : c)))
+      toast.success(dados.tarifaCheia ? 'Exceção registrada: esta pessoa recebe a tarifa cheia' : 'Exceção removida: volta a valer a integração')
+      return true
+    },
+    []
+  )
 
   // Lista SEM filtro de nome_curto: serve para resolução fuzzy do posto
   // (nomeCurtoDepartamentoFuzzy) — AGENTS.md proíbe useDepartamentos.listar()
@@ -394,6 +455,7 @@ export function useVt() {
     listarBilhetes,
     listarTrajetos,
     salvarVtColaborador,
+    salvarExcecaoTarifaCheia,
     novaVigenciaBilhete,
     desativarBilhete,
     salvarTrajeto,

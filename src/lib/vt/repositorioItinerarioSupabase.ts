@@ -166,6 +166,51 @@ export class RepositorioItinerarioSupabase {
     return data
   }
 
+  /**
+   * Evidência do itinerário da revisão mais recente de cada trajeto, em lote
+   * (uma consulta de decisões e uma de itinerários por bloco de ids — sem N+1).
+   * Trajeto sem decisão, ou cuja revisão mais recente não tem itinerário, fica fora do mapa.
+   */
+  async buscarEvidenciasPorTrajetos(trajetoLegadoIds: readonly string[]): Promise<Map<string, VtItinerario>> {
+    const BLOCO = 100
+    const ids = [...new Set(trajetoLegadoIds)]
+    const itinerarioDoTrajeto = new Map<string, string>()
+    const revisaoDoTrajeto = new Map<string, number>()
+    for (let i = 0; i < ids.length; i += BLOCO) {
+      const { data, error } = await this.cliente
+        .from('vt_trajeto_decisoes')
+        .select('trajeto_legado_id, revisao, itinerario_id')
+        .in('trajeto_legado_id', ids.slice(i, i + BLOCO))
+      if (error) throw error
+      for (const d of data ?? []) {
+        if (!d.trajeto_legado_id) continue
+        const atual = revisaoDoTrajeto.get(d.trajeto_legado_id)
+        if (atual !== undefined && atual >= d.revisao) continue
+        revisaoDoTrajeto.set(d.trajeto_legado_id, d.revisao)
+        if (d.itinerario_id) itinerarioDoTrajeto.set(d.trajeto_legado_id, d.itinerario_id)
+        else itinerarioDoTrajeto.delete(d.trajeto_legado_id)
+      }
+    }
+
+    const idsItinerario = [...new Set(itinerarioDoTrajeto.values())]
+    const porId = new Map<string, VtItinerario>()
+    for (let i = 0; i < idsItinerario.length; i += BLOCO) {
+      const { data, error } = await this.cliente
+        .from('vt_itinerarios')
+        .select('*')
+        .in('id', idsItinerario.slice(i, i + BLOCO))
+      if (error) throw error
+      for (const it of data ?? []) porId.set(it.id, it)
+    }
+
+    const resultado = new Map<string, VtItinerario>()
+    for (const [trajetoId, itinerarioId] of itinerarioDoTrajeto) {
+      const evidencia = porId.get(itinerarioId)
+      if (evidencia) resultado.set(trajetoId, evidencia)
+    }
+    return resultado
+  }
+
   async salvarEscolha(entrada: EscolhaItinerarioVT): Promise<EscolhaItinerarioSalva> {
     if (
       entrada.cotacaoStatus !== 'confirmavel' ||

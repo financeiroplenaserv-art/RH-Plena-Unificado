@@ -1,14 +1,17 @@
+import { avisoRegularizarCartao, politicaDoCartao } from '@/lib/vt/motor/cartao'
 import { useEffect, useMemo, useState } from 'react'
 import { GitBranch, MapPinned } from 'lucide-react'
 import { toast } from 'sonner'
 import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { Input } from '@/components/ui/input'
-import { adaptarRotasGoogle, removerPernaAlternativa, type AlternativaRotaGoogleVT, type RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
+import { adaptarRotasGoogle, removerPernaAlternativa, rotuloOperadoraExibicao, type AlternativaRotaGoogleVT, type RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
 import { sugerirRotasGoogle } from '@/services/vtRotaApi'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { formatarDataHora, hojeBrasil } from '@/lib/utils'
-import { partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
+import { horaMinutoValida, mascararHoraMinuto, partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
+import { encontrarAlternativaInversa } from '@/lib/vt/rotaInversa'
+import { agruparAlternativasIguais, menorValorComDestaque, textoSemelhantes, type GrupoAlternativas } from '@/lib/vt/agruparAlternativas'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import { pernaMotorDeItinerario } from '@/lib/vt/motor/adaptadorItinerario'
 import { precificarPerna } from '@/lib/vt/motor/precificarPerna'
@@ -16,7 +19,6 @@ import {
   calcularAlternativaSentido,
   calcularDiaIdaVolta,
   combinarIdaVolta,
-  menorCustoSentido,
   MOTOR_COTACAO_ID,
   ordenarPorCusto,
   type AlternativaComMotor,
@@ -40,6 +42,8 @@ export interface ContextoRevisaoRotaReal {
   /** Fatos reais do cartão (colaboradores.vt_bu_situacao / vt_bu_consultado_em). */
   cartao: FatosCartaoMotor
   onSalvo?: () => void
+  /** Fecha o diálogo que hospeda a revisão (botão Fechar do rodapé fixo). */
+  onFechar?: () => void
 }
 
 interface VtRevisaoRotaProps {
@@ -70,7 +74,7 @@ function ListaPendencias({ pendencias, titulo }: { pendencias: readonly Pendenci
       <ul className="mt-1 list-disc pl-5">
         {pendencias.map((p) => (
           <li key={`${p.codigo}:${p.mensagem}`}>
-            {p.mensagem} <span className="text-[11px] text-amber-700">({p.regra})</span>
+            {p.mensagem}
           </li>
         ))}
       </ul>
@@ -80,16 +84,16 @@ function ListaPendencias({ pendencias, titulo }: { pendencias: readonly Pendenci
 
 function Explicacao({ passos }: { passos: readonly PassoExplicacao[] }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-[13px]">
-      <p className="font-semibold">Como o valor foi calculado</p>
+    <details className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[13px]">
+      <summary className="cursor-pointer select-none font-semibold">Como o valor foi calculado</summary>
       <ol className="mt-1 list-decimal space-y-1 pl-5">
         {passos.map((passo, indice) => (
           <li key={`${indice}:${passo.texto}`}>
-            {passo.texto} <span className="text-[11px] text-muted-foreground">({passo.regra})</span>
+            {passo.texto}
           </li>
         ))}
       </ol>
-    </div>
+    </details>
   )
 }
 
@@ -104,22 +108,41 @@ interface SecaoSentidoProps {
   erro: string | null
   consultado: boolean
   alternativas: AlternativaComMotor[]
+  /** Alternativas já sem repetições (a primeira de cada grupo + contador). */
+  grupos: GrupoAlternativas<AlternativaComMotor>[]
+  /** Volta igual à ida: mostra só uma linha, com o link para escolher outra. */
+  recolhida?: { resumo: string; onEscolherOutra: () => void } | null
   selecionadaId: string | null
   onSelecionar: (id: string) => void
   onConsultar: () => void
   onRemoverConducao: (alternativaId: string, sequencia: number) => void
   dataServico: string
   salvando: boolean
+  nota?: string | null
 }
 
 function SecaoSentido(props: SecaoSentidoProps) {
   const { sentido, alternativas, selecionadaId } = props
-  const menor = menorCustoSentido(alternativas)
+  const menor = menorValorComDestaque(props.grupos.map((g) => g.principal.resultado.valorCentavos))
   const selecionada = alternativas.find((x) => x.alternativa.id === selecionadaId) ?? null
   const rotuloHora = sentido === 'ida' ? 'Saída de casa' : 'Saída do posto'
+  const horaInvalida = props.hora.length >= 5 && !horaMinutoValida(props.hora)
+
+  if (props.recolhida) {
+    return (
+      <section className="rounded-xl border border-border bg-muted/20 px-3 py-2.5" aria-label={props.titulo}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[13px]" data-testid="volta-recolhida">{props.recolhida.resumo}</p>
+          <ModuleButton size="sm" variant="ghost" onClick={props.recolhida.onEscolherOutra}>
+            Volta diferente? Escolher outra
+          </ModuleButton>
+        </div>
+      </section>
+    )
+  }
 
   return (
-    <section className="space-y-3 rounded-xl border border-border p-4" aria-label={props.titulo}>
+    <section className="space-y-2.5 rounded-xl border border-border p-3" aria-label={props.titulo}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-[14px] font-semibold">{props.titulo}</h3>
@@ -132,11 +155,15 @@ function SecaoSentido(props: SecaoSentidoProps) {
               aria-label={`${rotuloHora} (${sentido})`}
               className="mt-1 h-8 w-24 tabular-nums"
               value={props.hora}
-              onChange={(e) => props.onHora(e.target.value)}
+              onChange={(e) => props.onHora(mascararHoraMinuto(e.target.value))}
               placeholder="HH:MM"
+              inputMode="numeric"
+              maxLength={5}
+              aria-invalid={horaInvalida}
             />
+            {horaInvalida && <span className="mt-0.5 block text-[11px] text-red-600">Horário inválido (00:00 a 23:59)</span>}
           </label>
-          <ModuleButton size="sm" variant="outline" disabled={props.carregando || props.bloqueado} onClick={props.onConsultar}>
+          <ModuleButton size="sm" variant="ghost" className="text-[12px]" disabled={props.carregando || props.bloqueado} onClick={props.onConsultar}>
             {props.carregando ? 'Consultando...' : sentido === 'ida' ? 'Consultar ida no Google' : 'Consultar volta no Google'}
           </ModuleButton>
         </div>
@@ -150,37 +177,41 @@ function SecaoSentido(props: SecaoSentidoProps) {
 
       {!props.consultado && !props.erro && (
         <p className="text-[13px] text-muted-foreground">
-          {sentido === 'ida' ? 'Consulte o Google para receber alternativas de ida.' : 'Consulte o Google para receber alternativas de volta. A volta nunca é presumida igual à ida.'}
+          {sentido === 'ida' ? 'Consulte o Google para receber alternativas de ida.' : 'Consulte o Google para receber alternativas de volta.'}
         </p>
       )}
+      {props.nota && <p className="text-[12px] text-violet-800" role="status">{props.nota}</p>}
       {props.consultado && alternativas.length === 0 && (
         <p className="text-[13px] text-muted-foreground">O Google não devolveu alternativas de transporte público.</p>
       )}
 
-      <div className="grid gap-2 md:grid-cols-2">
-        {alternativas.map(({ alternativa, resultado }) => (
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {props.grupos.map(({ principal: { alternativa, resultado }, semelhantes }) => (
           <button
             key={alternativa.id}
             type="button"
             aria-label={`${sentido === 'ida' ? 'Ida' : 'Volta'} — alternativa ${alternativa.numero}`}
             aria-pressed={selecionadaId === alternativa.id}
-            className={`rounded-xl border p-4 text-left transition-colors ${selecionadaId === alternativa.id ? 'border-primary bg-accent/60' : 'border-border bg-card hover:border-primary/40'}`}
+            className={`rounded-lg border p-2.5 text-left transition-colors ${selecionadaId === alternativa.id ? 'border-primary bg-accent/60' : 'border-border bg-card hover:border-primary/40'}`}
             onClick={() => props.onSelecionar(alternativa.id)}
           >
-            <span className="flex items-start gap-3">
-              <MapPinned className="mt-0.5 size-5 shrink-0 text-primary" />
+            <span className="flex items-start gap-2">
+              <MapPinned className="mt-0.5 size-4 shrink-0 text-primary" />
               <span>
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="block text-[13px] font-semibold">Alternativa {alternativa.numero}</span>
                   {resultado.valorCentavos !== null && resultado.valorCentavos === menor && (
                     <StatusBadge variant="success" dot={false}>Mais em conta</StatusBadge>
                   )}
-                  <StatusBadge variant={varianteStatus(resultado.status)} dot={false}>{ROTULO_STATUS[resultado.status]}</StatusBadge>
+                  {resultado.status !== 'confirmado' && (
+                    <StatusBadge variant={varianteStatus(resultado.status)} dot={false}>{ROTULO_STATUS[resultado.status]}</StatusBadge>
+                  )}
                 </span>
                 <span className="mt-1 block text-[13px] text-muted-foreground">{resumoPernas(alternativa.itinerario.pernas)}</span>
                 <span className="mt-1 block text-[11px] text-muted-foreground">
                   {alternativa.itinerario.pernas.length} condução(ões)
                   {alternativa.duracaoSegundos != null ? ` · ${Math.round(alternativa.duracaoSegundos / 60)} min` : ''}
+                  {textoSemelhantes(semelhantes) ? ` · ${textoSemelhantes(semelhantes)}` : ''}
                 </span>
                 <span className="mt-2 block text-[13px] font-semibold tabular-nums">
                   {resultado.valorCentavos === null ? 'Valor indeterminado' : `${formatarCentavos(resultado.valorCentavos)} por sentido`}
@@ -211,12 +242,22 @@ function SecaoSentido(props: SecaoSentidoProps) {
                 </tr>
               </thead>
               <tbody>
-                {selecionada.alternativa.itinerario.pernas.map((perna, indice) => {
-                  const tarifa = precificarPerna(pernaMotorDeItinerario(perna).perna, indice, props.dataServico).valorCentavos
+                {selecionada.alternativa.itinerario.pernas.map((perna) => {
+                  const tarifa = precificarPerna(pernaMotorDeItinerario(perna).perna, props.dataServico).valorCentavos
                   return (
                     <tr key={perna.sequencia} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-4 py-2.5 font-medium">{perna.linha ?? '—'}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{perna.operadora ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {(() => {
+                          const op = rotuloOperadoraExibicao(perna)
+                          return (
+                            <span title={op.dicaGoogle ?? undefined}>
+                              {op.texto}
+                              {op.dicaGoogle && <span className="block text-[11px]">{op.dicaGoogle}</span>}
+                            </span>
+                          )
+                        })()}
+                      </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{perna.escopo}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">
                         {perna.embarque.local}
@@ -300,6 +341,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [carregandoDecisao, setCarregandoDecisao] = useState(false)
   const [confirmandoDecisao, setConfirmandoDecisao] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [voltaPremarcada, setVoltaPremarcada] = useState(false)
+  const [voltaAberta, setVoltaAberta] = useState(false)
   const [salvo, setSalvo] = useState(false)
   const [evidenciaSalva, setEvidenciaSalva] = useState<VtItinerario | null>(null)
   const [erroPersistencia, setErroPersistencia] = useState<string | null>(null)
@@ -347,12 +390,34 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     [respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico],
   )
 
+  const gruposIda = useMemo(() => agruparAlternativasIguais(alternativasIda), [alternativasIda])
+  const gruposVolta = useMemo(() => agruparAlternativasIguais(alternativasVolta), [alternativasVolta])
+
   const ida = alternativasIda.find((x) => x.alternativa.id === selecionadas.ida) ?? null
   const volta = alternativasVolta.find((x) => x.alternativa.id === selecionadas.volta) ?? null
   const dia = useMemo(
     () => (ida && volta ? calcularDiaIdaVolta(ida.alternativa, volta.alternativa, contextoReal.cartao, dataServico) : null),
     [ida, volta, contextoReal.cartao, dataServico],
   )
+
+  // Volta igual à ida por padrão: enquanto a pessoa não escolheu a volta na mão, ela acompanha a ida.
+  const idaId = ida?.alternativa.id ?? null
+  useEffect(() => {
+    if (!ida) return
+    if (selecionadas.volta && !voltaPremarcada) return
+    const inversa = encontrarAlternativaInversa(ida.alternativa, gruposVolta.map((g) => g.principal))
+    if (inversa) {
+      if (selecionadas.volta !== inversa.alternativa.id || !voltaPremarcada) {
+        setSelecionadas((atual) => ({ ...atual, volta: inversa.alternativa.id }))
+        setVoltaPremarcada(true)
+        setSalvo(false)
+      }
+    } else if (voltaPremarcada) {
+      setSelecionadas((atual) => ({ ...atual, volta: null }))
+      setVoltaPremarcada(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idaId, ida, gruposVolta])
 
   const motivoBloqueio = (() => {
     if (!ida || !volta) return 'Escolha uma alternativa de ida e uma de volta.'
@@ -380,6 +445,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     }
     setCarregando((atual) => ({ ...atual, [sentido]: true }))
     setSelecionadas((atual) => ({ ...atual, [sentido]: null }))
+    if (sentido === 'volta') { setVoltaPremarcada(false); setVoltaAberta(false) }
     setPernasRemovidas((atuais) => Object.fromEntries(Object.entries(atuais).filter(([chave]) => !chave.startsWith(`${sentido}:`))))
     limparSalvo()
     const dataConsulta = new Date().toISOString()
@@ -399,12 +465,17 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   }
 
   const selecionar = (sentido: Sentido, id: string) => {
+    // A volta acompanha a ida sozinha (efeito acima); escolher na volta é escolha manual.
     setSelecionadas((atual) => ({ ...atual, [sentido]: id }))
+    if (sentido === 'volta') setVoltaPremarcada(false)
     limparSalvo()
   }
 
+  const consultarIdaEVolta = () => Promise.all([consultar('ida'), consultar('volta')])
+
   const removerConducao = (sentido: Sentido, alternativaId: string, sequencia: number) => {
     const chave = `${sentido}:${alternativaId}`
+    if (sentido === 'volta') setVoltaPremarcada(false)
     setPernasRemovidas((atuais) => ({ ...atuais, [chave]: [...(atuais[chave] ?? []), sequencia] }))
     limparSalvo()
   }
@@ -458,9 +529,30 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     }
   }
 
+  const voltaRecolhida = voltaPremarcada && !voltaAberta && volta
+    ? {
+        resumo: `Volta: mesma rota no sentido contrário (${volta.alternativa.itinerario.pernas.map((p) => p.linha ?? '?').join(' → ')}) — ${
+          volta.resultado.valorCentavos === null ? 'valor a conferir' : formatarCentavos(volta.resultado.valorCentavos)
+        }`,
+        onEscolherOutra: () => setVoltaAberta(true),
+      }
+    : null
+  const semRotaInversa = !!ida && respostas.volta !== null && !selecionadas.volta && alternativasVolta.length > 0
+  const notaVolta = semRotaInversa
+    ? 'Não achamos a mesma rota na volta — escolha a volta abaixo.'
+    : voltaPremarcada
+      ? 'Volta pré-marcada: mesma rota da ida, no sentido contrário. Confira antes de salvar.'
+      : null
+
   const situacaoCartao = contextoReal.cartao.situacaoBu
     ? `${contextoReal.cartao.situacaoBu}${contextoReal.cartao.consultadoEm ? ` (consulta de ${contextoReal.cartao.consultadoEm})` : ''}`
     : 'não consultado na Riocard'
+  // Política da empresa (19/11/2026): integração presumida, salvo exceção por pessoa.
+  const politica = politicaDoCartao(contextoReal.cartao)
+  const avisoCartao = avisoRegularizarCartao(contextoReal.cartao)
+  const textoPolitica = politica === 'tarifa_cheia'
+    ? `Exceção da empresa: tarifa cheia — cada condução é paga pelo valor integral, sem integração${contextoReal.cartao.motivoTarifaCheia ? ` (motivo: ${contextoReal.cartao.motivoTarifaCheia})` : ''}.`
+    : 'Cálculo com a integração do Bilhete Único (política da empresa), mesmo que o cartão não esteja ativo na Riocard.'
   const pernasSalvas = evidenciaSalva?.itinerario.pernas ?? []
   const salvasIda = pernasSalvas.filter((p) => p.sentido !== 'volta')
   const salvasVolta = pernasSalvas.filter((p) => p.sentido === 'volta')
@@ -474,35 +566,50 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           Revisão assistida de itinerário
         </>
       }
-      description="Escolha a rota de IDA e a de VOLTA que a pessoa realmente usa. O valor sai do motor pela regra tarifária."
+      description="Escolha a rota que a pessoa realmente usa. A volta vem igual à ida, e dá para escolher outra se for diferente."
       className="border-violet-200"
     >
       <div className="space-y-4">
         <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-[13px] text-violet-900">
-          Compare o valor de cada alternativa e selecione a que a pessoa realmente usa, na ida e na volta. A mais em conta fica marcada, mas a escolha continua sendo sua.
+          Compare o valor de cada alternativa e escolha a ida que a pessoa realmente usa. A volta é preenchida com a mesma rota no sentido contrário; se for outra, é só trocar. A mais em conta fica marcada, mas a escolha continua sendo sua.
           <span className="mt-1 block">Situação do Bilhete Único: <strong>{situacaoCartao}</strong>.</span>
+          <span className="mt-1 block" data-testid="vt-politica-integracao">{textoPolitica}</span>
         </div>
 
-        {evidenciaSalva && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge variant="success" dot={false}>Itinerário salvo neste trajeto</StatusBadge>
-              <span className="text-muted-foreground">({evidenciaSalva.alternativa_id})</span>
-            </div>
-            <p className="mt-2">
-              Ida: <span className="font-semibold">{resumoPernas(salvasIda) || '—'}</span>
-              {' · '}
-              Volta: <span className="font-semibold">{salvasVolta.length ? resumoPernas(salvasVolta) : 'não registrada nesta evidência'}</span>
-            </p>
-            {calculoSalvo && calculoSalvo.valorDiaCentavos !== null && (
-              <p className="mt-1">Valor do dia pelo motor: <strong>{formatarCentavos(calculoSalvo.valorDiaCentavos)}</strong></p>
-            )}
-            <p className="mt-1">
-              A evidência está vinculada à decisão aberta. Consulta: {formatarDataHora(evidenciaSalva.consultado_em)}.
-            </p>
-            <p className="mt-1 text-[11px]">SHA-256: {evidenciaSalva.evidencia_hash}</p>
+        {avisoCartao && (
+          <div role="note" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            <strong>Avisar o colaborador:</strong> {avisoCartao.mensagem}
           </div>
         )}
+
+        {evidenciaSalva && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] text-emerald-900">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <StatusBadge variant="success" dot={false}>Itinerário salvo neste trajeto</StatusBadge>
+              <span>
+                Ida: <strong>{resumoPernas(salvasIda) || '—'}</strong>
+                {' · '}
+                Volta: <strong>{salvasVolta.length ? resumoPernas(salvasVolta) : 'não registrada'}</strong>
+              </span>
+              {calculoSalvo && calculoSalvo.valorDiaCentavos !== null && (
+                <span>Dia: <strong className="tabular-nums">{formatarCentavos(calculoSalvo.valorDiaCentavos)}</strong></span>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] text-emerald-800" title={`SHA-256: ${evidenciaSalva.evidencia_hash}`}>
+              Consulta de {formatarDataHora(evidenciaSalva.consultado_em)} · vinculado à decisão aberta · SHA-256 {evidenciaSalva.evidencia_hash.slice(0, 12)}…
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <ModuleButton
+            size="sm"
+            disabled={carregando.ida || carregando.volta || carregandoDecisao}
+            onClick={() => void consultarIdaEVolta()}
+          >
+            {carregando.ida || carregando.volta ? 'Consultando...' : 'Consultar ida e volta'}
+          </ModuleButton>
+        </div>
 
         <SecaoSentido
           sentido="ida"
@@ -515,6 +622,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           erro={erros.ida}
           consultado={respostas.ida !== null}
           alternativas={alternativasIda}
+          grupos={gruposIda}
           selecionadaId={selecionadas.ida}
           onSelecionar={(id) => selecionar('ida', id)}
           onConsultar={() => void consultar('ida')}
@@ -534,12 +642,15 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           erro={erros.volta}
           consultado={respostas.volta !== null}
           alternativas={alternativasVolta}
+          grupos={gruposVolta}
+          recolhida={voltaRecolhida}
           selecionadaId={selecionadas.volta}
           onSelecionar={(id) => selecionar('volta', id)}
           onConsultar={() => void consultar('volta')}
           onRemoverConducao={(id, seq) => removerConducao('volta', id, seq)}
           dataServico={dataServico}
           salvando={salvando}
+          nota={notaVolta}
         />
 
         <section aria-label="Valor do dia" className="space-y-3">
@@ -566,40 +677,47 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
             </div>
           )}
 
-          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+        </section>
+
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 flex flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3">
+          <ModuleButton
+            type="button"
+            size="sm"
+            disabled={salvando || salvo || carregandoDecisao || motivoBloqueio !== null}
+            title="Gravar a evidência da ida e da volta escolhidas e o valor do dia"
+            onClick={() => void salvar()}
+          >
+            {salvando ? 'Salvando...' : salvo ? 'Itinerário salvo' : 'Salvar itinerário escolhido'}
+          </ModuleButton>
+          {salvo && decisaoRealStatus !== 'confirmada' && (
             <ModuleButton
               type="button"
               size="sm"
-              disabled={salvando || salvo || carregandoDecisao || motivoBloqueio !== null}
-              title="Gravar a evidência da ida e da volta escolhidas e o valor do dia"
-              onClick={() => void salvar()}
+              disabled={confirmandoDecisao}
+              onClick={() => void confirmarDecisao()}
             >
-              {salvando ? 'Salvando...' : salvo ? 'Itinerário salvo' : 'Salvar itinerário escolhido'}
+              {confirmandoDecisao ? 'Confirmando...' : 'Confirmar trajeto e preço'}
             </ModuleButton>
-            {salvo && decisaoRealStatus !== 'confirmada' && (
-              <ModuleButton
-                type="button"
-                size="sm"
-                className="ml-2"
-                disabled={confirmandoDecisao}
-                onClick={() => void confirmarDecisao()}
-              >
-                {confirmandoDecisao ? 'Confirmando...' : 'Confirmar trajeto e preço'}
-              </ModuleButton>
-            )}
-            {decisaoRealStatus === 'confirmada' && (
-              <span className="ml-2 text-[12px] font-semibold text-emerald-700">Trajeto e preço confirmados</span>
-            )}
+          )}
+          {contextoReal.onFechar && (
+            <ModuleButton type="button" size="sm" variant="outline" onClick={contextoReal.onFechar}>
+              Fechar
+            </ModuleButton>
+          )}
+          {decisaoRealStatus === 'confirmada' && (
+            <span className="text-[12px] font-semibold text-emerald-700">Trajeto e preço confirmados</span>
+          )}
+          <div className="min-w-[200px] flex-1 text-[12px]">
             {!salvo && motivoBloqueio && (
-              <p className="mt-2 text-[12px] font-medium text-amber-800" data-testid="motivo-bloqueio">{motivoBloqueio}</p>
+              <p className="font-medium text-amber-800" data-testid="motivo-bloqueio">{motivoBloqueio}</p>
             )}
-            <p className="mt-2 text-[12px] text-muted-foreground">
+            <p className="text-muted-foreground">
               {carregandoDecisao
                 ? 'Carregando a decisão do trajeto...'
-                : 'A evidência fica vinculada à revisão aberta; uma decisão confirmada nunca é alterada.'}
+                : 'Pode trocar depois: ao salvar outra rota, o sistema cria uma nova revisão e guarda esta como histórico.'}
             </p>
           </div>
-        </section>
+        </div>
       </div>
     </ModuleCard>
   )

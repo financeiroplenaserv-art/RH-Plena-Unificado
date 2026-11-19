@@ -10,6 +10,18 @@
 
 O simulador de catraca informa e questiona. A política confirmada pela Plena decide o pacote carregado.
 
+## Política da empresa: integração presumida (19/11/2026)
+
+> **Isto é política da empresa, não regra tarifária.** As regras das seções 3 a 7 continuam descrevendo o que vale na catraca; esta seção diz como a Plena decide calcular o VT.
+
+Decisão da gestora, 19/11/2026: *"O colaborador tem que ter o BU com integração. Se não tem, precisa regularizar a situação. A integração é um direito da empresa, para pagar menos o VT do colaborador. Temos que saber se o BUI está ativo ou não, para comunicar ao colaborador e dizer que vamos pagar como se ele tivesse, com algumas exceções, que são prerrogativa da empresa."*
+
+- **Padrão (integração presumida):** o motor (`src/lib/vt/motor/`) calcula sempre com a integração BUN e BUI disponível, como se o cartão estivesse ativo, qualquer que seja a situação na Riocard: Ativado, Suspenso Setrans, Não possui BU, Desativado, Ativação Solicitada ou não consultado. Essas situações deixam de gerar pendência de cartão e não levam mais à tarifa cheia.
+- **O resto da regra continua valendo.** A política presume só o cartão. Continuam valendo a janela de tempo (BUN 1 h, BUI 3 h, MetrôRio 120 min), linhas diferentes, o máximo de duas conduções por integração, a combinação descrita na regra e a exceção de Niterói da §4: o ônibus municipal de Niterói nunca entra no BUI. Combinação não descrita continua pendente.
+- **Aviso, não pendência:** quando a situação na Riocard é diferente de "Ativado", o resultado traz `regularizarCartao = true`, com um texto simples para o colaborador. Exemplo: *"Seu Bilhete Único consta como Suspenso Setrans na Riocard. O VT é calculado com a integração; regularize seu cartão para não pagar a diferença."* O valor não fica pendente por isso.
+- **Exceção por pessoa (prerrogativa da empresa):** "Pagar tarifa cheia" (`colaboradores.vt_tarifa_cheia`, migration 174). Exige motivo e registra quem marcou e quando. Só quem gerencia o VT (`vt.gerenciar`) marca, na aba VT → Colaboradores. Com a exceção, o motor cobra a tarifa integral de cada condução, sem avaliar nenhuma integração. Também não gera pendência de cartão nem a pendência "BUI direto", porque a decisão já foi tomada pela empresa. As pendências da própria tarifa continuam valendo, como linha desconhecida, seção ambígua ou tarifa a conferir.
+- **O que já foi gravado não muda.** Cargas, lotes e evidências salvas guardam o cálculo da época (`calculoMotor`). A política vale só para cálculos novos, e a evidência nova registra a política usada (`calculoMotor.cartao.politicaIntegracao`).
+
 ## 2. Legislação federal do VT
 
 **Fato oficial:** a [Lei 7.418/1985](https://www.planalto.gov.br/ccivil_03/leis/l7418.htm) e o [Decreto 10.854/2021, arts. 107, 112, 114–117 e 124–125](https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/decreto/d10854.htm) estabelecem:
@@ -49,7 +61,8 @@ Fontes: [Diário do Transporte](https://diariodotransporte.com.br/2024/11/26/pas
 
 - BU **Ativado** no arquivo da Riocard ⇒ cartão habilitado ao BUI ⇒ **BUN habilitado**.
 - **Suspenso Setrans** ⇒ o cartão foi cadastrado no BUI, portanto é vinculado ao CPF; o BUN não depende de renda, então é **provável**, mas não comprovado pelo arquivo — conferir no Portal da empresa antes de aplicar a integração BUN.
-- **Não possui BU / Desativado / sem consulta** ⇒ BUN **não comprovado** ⇒ tarifa integral de cada condução, pendência "conferir BUN".
+  - **Confirmado em 19/11/2026 (1 caso real, consulta pública por CPF no site da Riocard Mais, "Consultar Disponibilidade de Bilhete Único por CPF"):** a mesma consulta mostrou "Situação atual do Bilhete Único Intermunicipal: Suspenso Setrans (Motivo: 7)" e, no bloco "Bilhete Único Municipal de Niterói", "Situação do Bilhete Único Niterói: **Habilitado**". Ou seja: **BUI suspenso não derruba o BUN**. Os dois benefícios têm situações independentes. Amostra de 1 caso: conferir mais alguns antes de tratar como regra geral. O significado dos códigos de "Motivo" não está documentado aqui.
+- **Não possui BU / Desativado / sem consulta** ⇒ BUN **não comprovado**. Até 18/11/2026 isso levava à tarifa integral com pendência; **desde 19/11/2026 vale a "Política da empresa: integração presumida"** (calcula com integração e avisa o colaborador para regularizar), salvo exceção "tarifa cheia" por pessoa.
 
 ### Integração ônibus–ônibus
 
@@ -65,11 +78,14 @@ Fontes: [BUN](https://site.riobilheteunico.com.br/bilhete-unico-niteroi/), [inte
 
 ### Valores
 
-- Tarifa integral: **R$ 5,60**.
-- BUN com subsídio municipal: **R$ 4,45** na catraca.
-- Base legal do VT da Plena: **R$ 5,60 por sentido**, pois R$ 4,45 é subsídio/desconto social; a integração válida pode eliminar a segunda tarifa.
+- **Com o Bilhete Único de Niterói (BUN) habilitado: R$ 4,45** por viagem no ônibus municipal de Niterói, e R$ 4,45 no total na integração de dois ônibus municipais (linhas diferentes, mesmo sentido, até 1 hora entre embarques).
+- **R$ 5,60**: pagamento em dinheiro, cartão não habilitado e a exceção por pessoa "tarifa cheia" (cada ônibus a R$ 5,60, sem integração).
+- **Limite de 2 viagens com desconto por dia por pessoa** (normalmente ida e volta). A partir da 3ª viagem **paga** em ônibus municipal de Niterói no dia, a tarifa é R$ 5,60. O motor confere o dia inteiro (ida + volta, em ordem de embarque); a integração de dois ônibus conta como uma viagem.
+- **Decisão da gestora (19/11/2026):** o VT da Plena usa **R$ 4,45** no ônibus municipal de Niterói com BUN. A frase anterior deste documento ("base legal do VT da Plena: R$ 5,60 por sentido, pois R$ 4,45 é subsídio/desconto social") **estava errada e foi retirada**: a Lei municipal 3.887/2024 institui o subsídio para "reduzir o valor das tarifas pagas pelo usuário", limitado a 2 viagens por dia por usuário, com cartão cadastrado e habilitado. A lei não exclui o vale-transporte; só veda acumular a **gratuidade** com o VT.
+- Constantes no código: `TARIFA_NITEROI_BUN` (R$ 4,45, limite de 2 viagens/dia, vigência e fonte) e `onibus_municipal_niteroi` (R$ 5,60) em `src/lib/vt/motor/tarifas.ts`. Evidências e cargas já gravadas guardam o `calculoMotor` da época e **não são recalculadas**.
+- **Pendência:** confirmar com o extrato de um cartão VT que o débito é R$ 4,45.
 
-Fontes: [Prefeitura de Niterói](https://niteroi.rj.gov.br/prefeitura-mantem-tarifa-reduzida-para-usuarios-do-bilhete-unico-municipal/) e [Riocard — tarifas](http://www.riocardmais.com.br/Tarifas).
+Fontes: [Lei municipal 3.887/2024](https://urbanismo.niteroi.rj.gov.br/anexos/Mobilidade/Lei%20Ordin%C3%A1ria%203887%202024%20Subs%C3%ADdio%20Tarif%C3%A1rio-TPCO.pdf), [Prefeitura de Niterói (04/07/2025)](https://niteroi.rj.gov.br/prefeitura-mantem-tarifa-reduzida-para-usuarios-do-bilhete-unico-municipal/), [Portal Flumibuss (jul/2025)](https://portalflumibussrj.com.br/2025/07/06/niteroi-reajusta-passagem-de-onibus-para-r-560-mas-mantem-valor-do-bilhete-unico-em-r-445-a-partir-deste-domingo-06/), [guia Cidade de Niterói (consultado em 02/11/2026: "integração entre dois ônibus municipais pagando uma única tarifa de R$ 4,45")](https://cidadedeniteroi.com/transito/quanto-custa-a-passagem-de-onibus-em-niteroi/) e [Riocard — tarifas](http://www.riocardmais.com.br/Tarifas).
 
 ### Barcas
 
@@ -79,6 +95,8 @@ Existe integração BUN com barcas, com pontos e tarifas próprios; não é simp
 - Municipal de Niterói + Charitas: **R$ 8,15**.
 
 A tabela e a vigência devem ser consultadas antes de automatizar.
+
+- **Divergência (19/11/2026):** o Portal Flumibuss (julho/2025) cita ônibus + barca a **R$ 5,15**. Por decisão da gestora em 19/11/2026, **fica R$ 5,45** até alguém conferir na fonte oficial.
 
 ## 4. BUI — Bilhete Único Intermunicipal
 
@@ -235,4 +253,4 @@ Fonte oficial: [Portaria DETRO/PRES 1.960/2026](https://www.sindpass.com.br/wp-c
 - **542R** — Niterói × Anaia: **R$ 7,10**.
 - **770D/771D** — Itaipu/Pendotiba × Candelária: **R$ 14,25**.
 
-Essas tarifas alimentam `tarifaLinhaDetro` e `REGRA_DETRO_2026`. A comparação do caso Alcemir mostrou que a primeira alternativa do Google (536R + 35, R$ 14,70 por sentido) é a mais rápida, mas não a mais barata: 62 + 39A pelo Centro custa R$ 11,20 por sentido, com transferência válida de 18 minutos e duração total de 60 minutos. Com BUN ativo, a segunda condução é coberta pela integração e o sentido fica R$ 5,60 (R$ 11,20/dia); com BUN não confirmado, vale a tarifa integral de R$ 11,20 por sentido (R$ 22,40/dia). 542R + 39A custa R$ 12,70; 62 + 771D/770D custa R$ 19,85. A alternativa só pode ser escolhida depois de conferir desembarque, caminhada, horário real e situação do BUN.
+Essas tarifas alimentam `tarifaLinhaDetro` e `REGRA_DETRO_2026`. A comparação do caso Alcemir mostrou que a primeira alternativa do Google (536R + 35) é a mais rápida, mas não a mais barata. Com o BUN (política presumida, ônibus de Niterói a R$ 4,45): 62 + 39A pelo Centro custa R$ 4,45 por sentido (R$ 8,90/dia), com transferência válida de 18 minutos e duração total de 60 minutos; 536R + 35 custa R$ 13,55 por sentido (9,10 + 4,45); 542R + 39A custa R$ 11,55 (7,10 + 4,45); 62 + 771D/770D custa R$ 18,70 (4,45 + 14,25). Na exceção "tarifa cheia" o 62 + 39A custa R$ 11,20 por sentido (R$ 22,40/dia). Antes da decisão de 19/11/2026 (R$ 5,60) estes valores eram R$ 5,60, R$ 14,70, R$ 12,70 e R$ 19,85. A alternativa só pode ser escolhida depois de conferir desembarque, caminhada, horário real e situação do BUN.

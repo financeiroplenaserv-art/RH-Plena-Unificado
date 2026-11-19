@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { VtTrajetosTab } from './VtTrajetosTab'
 import type { VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { VtBilhete } from '@/types/vt'
 
+const evidencias = vi.hoisted(() => ({ mapa: new Map<string, unknown>() }))
+
 vi.mock('@/lib/vt/repositorioItinerarioSupabase', () => ({
   RepositorioItinerarioSupabase: class {
+    buscarEvidenciasPorTrajetos = vi.fn().mockImplementation(async () => evidencias.mapa)
     buscarDecisaoPorTrajeto = vi.fn().mockResolvedValue({
       id: '10000000-0000-4000-8000-000000000001',
       status: 'sugerida',
@@ -103,7 +106,9 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.getByText('Cidade do posto não informada — necessária para revisar o trajeto.')).toBeInTheDocument()
     expect(screen.getByText('BU NITERÓI')).toBeInTheDocument()
     expect(screen.getAllByText(/R\$\s*11,20/).length).toBeGreaterThan(0)
-    expect(screen.getByText('Rua e número')).toBeInTheDocument()
+    expect(screen.queryByText('Rua e número')).not.toBeInTheDocument()
+    expect(screen.queryByText('Somente bairro')).not.toBeInTheDocument()
+    expect(screen.queryByText('Endereço incompleto')).not.toBeInTheDocument()
     expect(screen.getByText('Confirmado pelo RH')).toBeInTheDocument()
 
     expect(screen.queryByText('Intermunicipal')).not.toBeInTheDocument()
@@ -111,7 +116,7 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.queryByText('exato')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '+ 2º bilhete' })).not.toBeInTheDocument()
     expect(screen.queryByText('Extra/dia R$')).not.toBeInTheDocument()
-    expect(screen.getByTitle('Revisar itinerário com Google')).toBeInTheDocument()
+    expect(screen.getByTitle('Revisar itinerário')).toBeInTheDocument()
   })
 
   it('legado fica somente leitura e a revisão nova continua disponível', () => {
@@ -119,7 +124,7 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
 
     expect(screen.queryByRole('button', { name: 'Editar composição' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
-    expect(screen.getByTitle('Revisar itinerário com Google')).toBeInTheDocument()
+    expect(screen.getByTitle('Revisar itinerário')).toBeInTheDocument()
   })
 
   it('perfil somente leitura não abre edição', () => {
@@ -132,7 +137,7 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
   it('abre a revisão em trajeto confirmado e avisa sobre a nova revisão', async () => {
     setup()
 
-    fireEvent.click(screen.getByTitle('Revisar itinerário com Google'))
+    fireEvent.click(screen.getByTitle('Revisar itinerário'))
 
     expect(await screen.findByText('Revisar itinerário — AMANDA ARAUJO DE CASTRO')).toBeInTheDocument()
     expect(screen.getByText(/Casa → PLENA TECH ADMINISTRATIVO/)).toBeInTheDocument()
@@ -155,7 +160,75 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     })
 
     expect(screen.queryByText(COLABORADOR.nome_completo)).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('Mostrar histórico e inativos'))
+    fireEvent.click(screen.getByLabelText('Mostrar histórico, afastados e inativos'))
     expect(screen.getByText(COLABORADOR.nome_completo)).toBeInTheDocument()
+  })
+
+  it('afastado fica fora por padrão e aparece com a caixa de histórico', () => {
+    setup(true, { ...TRAJETO, colaborador: null }, {
+      colaboradores: [],
+      extrasTrajeto: new Map([['amanda-id', { nome_completo: COLABORADOR.nome_completo, status: 'Afastado' }]]),
+    })
+
+    expect(screen.queryByText(COLABORADOR.nome_completo)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Mostrar histórico, afastados e inativos'))
+    expect(screen.getByText(COLABORADOR.nome_completo)).toBeInTheDocument()
+    expect(screen.getByText('Afastado')).toBeInTheDocument()
+  })
+
+  it('colaborador em 2 postos: linha sem rota diz "Rota ainda não cadastrada" e a outra tem aviso neutro', () => {
+    const posto2: VtDepartamento = { ...DEPARTAMENTO, id: 'oscar-id', nome: 'OSCAR PEREIRA', nome_curto: 'OSCAR PEREIRA' }
+    const pessoa = { ...COLABORADOR, departamento: 'OSCAR PEREIRA', departamento_id: 'oscar-id' }
+    render(
+      <VtTrajetosTab
+        colaboradores={[pessoa]}
+        departamentos={[DEPARTAMENTO, posto2]}
+        bilhetes={[BILHETE]}
+        trajetos={[{ ...TRAJETO, colaborador: pessoa }]}
+        extrasTrajeto={new Map()}
+        loading={false}
+        usuarioId="usuario-id"
+        podeGerenciar
+        salvarTrajeto={vi.fn()}
+        confirmarTrajeto={vi.fn()}
+        removerTrajeto={vi.fn()}
+        recarregarTrajetos={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Rota ainda não cadastrada para este posto')).toBeInTheDocument()
+    expect(screen.queryByText('Nenhum bilhete escolhido')).not.toBeInTheDocument()
+    expect(screen.getByText(/Também trabalha em OSCAR PEREIRA/)).toBeInTheDocument()
+    expect(screen.getByText(/Esta rota\s+continua valendo para os dias neste posto/)).toBeInTheDocument()
+  })
+
+  it('endereço só com bairro mostra aviso âmbar junto ao nome', () => {
+    setup(true, { ...TRAJETO, precisao_origem: 'bairro' })
+
+    expect(screen.getByText('Endereço incompleto')).toBeInTheDocument()
+    expect(screen.queryByText('Somente bairro')).not.toBeInTheDocument()
+  })
+
+  it('mostra as linhas orçadas (ida e volta) e o valor do dia quando há itinerário salvo', async () => {
+    const perna = (linha: string, sentido: 'ida' | 'volta', sequencia: number) => ({ sequencia, linha, modal: 'onibus', sentido })
+    evidencias.mapa = new Map([
+      [
+        TRAJETO.id,
+        {
+          itinerario: {
+            pernas: [perna('62', 'ida', 1), perna('39A', 'ida', 2), perna('39A', 'volta', 1), perna('62', 'volta', 2)],
+            calculoMotor: { valorDiaCentavos: 890 },
+          },
+        },
+      ],
+    ])
+    try {
+      setup()
+      await waitFor(() => expect(screen.getByText('Ida: 62 → 39A · Volta: 39A → 62')).toBeInTheDocument())
+      expect(screen.getByText(/R\$\s*8,90\/dia/)).toBeInTheDocument()
+      expect(screen.queryByText('BU NITERÓI')).not.toBeInTheDocument()
+    } finally {
+      evidencias.mapa = new Map()
+    }
   })
 })

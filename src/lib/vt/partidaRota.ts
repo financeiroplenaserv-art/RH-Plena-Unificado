@@ -15,3 +15,17 @@ export function partidaProximaSegundaBRT(horaMinuto: string): string {
   const dia = `${segunda.getFullYear()}-${String(segunda.getMonth() + 1).padStart(2, '0')}-${String(segunda.getDate()).padStart(2, '0')}`
   return new Date(`${dia}T${casamento[1]}:${casamento[2]}:00-03:00`).toISOString()
 }
+
+/**
+ * Máscara de digitação hh:mm: só números, dois-pontos automático depois do
+ * segundo dígito, no máximo 5 caracteres (1000 → 10:00).
+ */
+export function mascararHoraMinuto(entrada: string): string {
+  const digitos = entrada.replace(/\D/g, '').slice(0, 4)
+  return digitos.length > 2 ? `${digitos.slice(0, 2)}:${digitos.slice(2)}` : digitos
+}
+
+/** true quando o texto é um horário completo e válido (00:00 a 23:59). */
+export function horaMinutoValida(valor: string): boolean {
+  return HORA_VALIDA.test(valor.trim())
+}

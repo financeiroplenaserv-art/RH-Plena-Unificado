@@ -7,6 +7,8 @@ const ATIVO: FatosCartaoMotor = { situacaoBu: 'Ativado', consultadoEm: '2026-10-
 const SUSPENSO: FatosCartaoMotor = { situacaoBu: 'Suspenso Setrans', consultadoEm: '2026-10-28' }
 const SEM_BU: FatosCartaoMotor = { situacaoBu: 'Não possui BU', consultadoEm: '2026-10-28' }
 const SEM_CONSULTA: FatosCartaoMotor = { situacaoBu: null }
+/** Exceção da empresa: tarifa cheia (desliga a integração). */
+const cheia = (c: FatosCartaoMotor): FatosCartaoMotor => ({ ...c, politicaIntegracao: 'tarifa_cheia', motivoTarifaCheia: 'teste' })
 
 function hora(minutos: number): string {
   const total = 6 * 60 + minutos
@@ -30,28 +32,38 @@ function cita(r: ResultadoDiaMotor, trecho: string): boolean {
 describe('exemplos da Proposta VT §5', () => {
   it('a) 1 ônibus municipal de Niterói por sentido', () => {
     const r = dia([perna('onibus_municipal_niteroi', '35')], ATIVO)
-    expect(r.ida.valorCentavos).toBe(560)
-    expect(r.valorCentavos).toBe(1120)
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.valorCentavos).toBe(890)
     expect(r.status).toBe('confirmado')
     expect(cita(r, '§3')).toBe(true)
   })
 
   it('b) 2 ônibus de Niterói, linhas diferentes, até 1 h, BUN ativo: 1 tarifa', () => {
     const r = dia([perna('onibus_municipal_niteroi', '35', 0), perna('onibus_municipal_niteroi', '39A', 30)], ATIVO)
-    expect(r.ida.valorCentavos).toBe(560)
-    expect(r.valorCentavos).toBe(1120)
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.valorCentavos).toBe(890)
     expect(r.status).toBe('confirmado')
     expect(cita(r, 'BUN')).toBe(true)
   })
 
-  it('c) igual a (b) com BUN não confirmado: soma integral e pendência', () => {
+  it('c) igual a (b) sem consulta: integra (política presumida) e avisa para regularizar', () => {
     const r = dia([perna('onibus_municipal_niteroi', '35', 0), perna('onibus_municipal_niteroi', '39A', 30)], SEM_CONSULTA)
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.valorCentavos).toBe(890)
+    expect(r.status).toBe('confirmado')
+    expect(r.pendencias).toEqual([])
+    expect(r.regularizarCartao).toBe(true)
+    expect(r.avisos[0].mensagem).toContain('não foi consultado')
+  })
+
+  it('c2) igual a (b) com exceção tarifa cheia: soma integral, sem pendência de cartão', () => {
+    const r = dia([perna('onibus_municipal_niteroi', '35', 0), perna('onibus_municipal_niteroi', '39A', 30)], cheia(ATIVO))
     expect(r.ida.valorCentavos).toBe(1120)
     expect(r.valorCentavos).toBe(2240)
-    expect(r.status).toBe('pendente')
-    const p = r.pendencias.find((x) => x.codigo === 'BUN_NAO_COMPROVADO')
-    expect(p?.mensagem).toContain('R$ 5,60')
-    expect(p?.regra).toContain('§3')
+    expect(r.status).toBe('confirmado')
+    expect(r.politicaIntegracao).toBe('tarifa_cheia')
+    expect(r.regularizarCartao).toBe(false)
+    expect(cita(r, 'tarifa cheia')).toBe(true)
   })
 
   it('d) linha direta 484M', () => {
@@ -89,19 +101,28 @@ describe('exemplos da Proposta VT §5', () => {
 
   it('h) 536R + municipal de Niterói 35: BUI não cobre Niterói', () => {
     const r = dia([perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)], ATIVO)
-    expect(r.ida.valorCentavos).toBe(1470)
-    expect(r.valorCentavos).toBe(2940)
+    expect(r.ida.valorCentavos).toBe(1355)
+    expect(r.valorCentavos).toBe(2710)
     expect(r.status).toBe('confirmado')
     expect(cita(r, 'exceção de Niterói')).toBe(true)
   })
 
-  it('i) igual a (g) com BUI suspenso: soma integral, pendente (SG a conferir)', () => {
+  it('i) igual a (g) com BUI suspenso: integra (presumida) e avisa para regularizar', () => {
     const r = dia([perna('onibus_intermunicipal', '483M', 0), perna('onibus_municipal_sao_goncalo', '10', 40)], SUSPENSO)
+    expect(r.ida.valorCentavos).toBe(940)
+    expect(r.valorCentavos).toBe(1880)
+    expect(r.status).toBe('confirmado')
+    expect(r.regularizarCartao).toBe(true)
+    expect(r.avisos[0].mensagem).toContain('Suspenso Setrans')
+  })
+
+  it('i2) igual a (g) com exceção tarifa cheia: soma integral (SG a conferir)', () => {
+    const r = dia([perna('onibus_intermunicipal', '483M', 0), perna('onibus_municipal_sao_goncalo', '10', 40)], cheia(SUSPENSO))
     expect(r.ida.valorCentavos).toBe(1465)
     expect(r.valorCentavos).toBe(2930)
     expect(r.status).toBe('pendente')
     const codigos = r.pendencias.map((p) => p.codigo)
-    expect(codigos).toContain('BUI_SUSPENSO')
+    expect(codigos).not.toContain('BUI_SUSPENSO')
     expect(codigos).toContain('TARIFA_A_CONFERIR')
   })
 
@@ -120,8 +141,15 @@ describe('exemplos da Proposta VT §5', () => {
     expect(r.status).toBe('confirmado')
   })
 
-  it('k2) trem + metrô sem BUI: 760 + 790', () => {
+  it('k2) trem + metrô com "Não possui BU": integra (presumida) — 940', () => {
     const r = dia([perna('trem', null, 0), perna('metro', null, 30)], SEM_BU)
+    expect(r.ida.valorCentavos).toBe(940)
+    expect(r.status).toBe('confirmado')
+    expect(r.regularizarCartao).toBe(true)
+  })
+
+  it('k3) trem + metrô com exceção tarifa cheia: 760 + 790', () => {
+    const r = dia([perna('trem', null, 0), perna('metro', null, 30)], cheia(SEM_BU))
     expect(r.ida.valorCentavos).toBe(1550)
     expect(r.valorCentavos).toBe(3100)
     expect(r.status).toBe('confirmado')
@@ -158,29 +186,68 @@ describe('BUN — elegibilidade e limites', () => {
     perna('onibus_municipal_niteroi', linha2, min2),
   ]
 
-  it('Suspenso Setrans: provável, não comprovado — cobra integral e pendência', () => {
+  it('Suspenso Setrans: integra (presumida), R$ 5,60 no trecho, com aviso de regularizar', () => {
     const r = dia(duas(30), SUSPENSO)
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.valorCentavos).toBe(890)
+    expect(r.status).toBe('confirmado')
+    expect(r.pendencias).toEqual([])
+    expect(r.regularizarCartao).toBe(true)
+    expect(r.avisos).toEqual([
+      {
+        codigo: 'REGULARIZAR_CARTAO',
+        mensagem: 'Seu Bilhete Único consta como Suspenso Setrans na Riocard. O VT é calculado com a integração; regularize seu cartão para não pagar a diferença.',
+      },
+    ])
+  })
+
+  it('Não possui BU: integra (presumida), R$ 5,60 no trecho, com aviso de regularizar', () => {
+    const r = dia(duas(30), SEM_BU)
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.status).toBe('confirmado')
+    expect(r.regularizarCartao).toBe(true)
+    expect(r.avisos[0].mensagem).toContain('Não possui BU')
+  })
+
+  it('Portal diz BUN não habilitado: ainda presume (política da empresa)', () => {
+    const r = dia(duas(30), { ...ATIVO, bunConfirmadoNoPortal: false })
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.status).toBe('confirmado')
+  })
+
+  it('Ativado: sem aviso de regularizar', () => {
+    const r = dia(duas(30), ATIVO)
+    expect(r.regularizarCartao).toBe(false)
+    expect(r.avisos).toEqual([])
+    expect(r.politicaIntegracao).toBe('presumida')
+  })
+
+  it('presumida não dispensa as outras condições: 61 min continua sem integração', () => {
+    expect(dia(duas(61), SUSPENSO).valorCentavos).toBe(2010)
+  })
+
+  it('exceção tarifa cheia: cobra cada ônibus mesmo com BU ativo', () => {
+    const r = dia(duas(30), cheia(ATIVO))
     expect(r.valorCentavos).toBe(2240)
-    expect(r.status).toBe('pendente')
-    expect(r.pendencias.some((p) => p.codigo === 'BUN_PROVAVEL_NAO_COMPROVADO')).toBe(true)
+    expect(r.status).toBe('confirmado')
   })
 
   it('Suspenso Setrans com confirmação no Portal: integra', () => {
     const r = dia(duas(30), { ...SUSPENSO, bunConfirmadoNoPortal: true })
-    expect(r.valorCentavos).toBe(1120)
+    expect(r.valorCentavos).toBe(890)
     expect(r.status).toBe('confirmado')
   })
 
   it('mesma linha: não integra', () => {
     const r = dia(duas(30, '35'), ATIVO)
-    expect(r.valorCentavos).toBe(2240)
+    expect(r.valorCentavos).toBe(2010)
     expect(r.status).toBe('confirmado')
     expect(cita(r, '§3')).toBe(true)
   })
 
   it('61 minutos: não integra; 60 minutos: integra', () => {
-    expect(dia(duas(61), ATIVO).valorCentavos).toBe(2240)
-    expect(dia(duas(60), ATIVO).valorCentavos).toBe(1120)
+    expect(dia(duas(61), ATIVO).valorCentavos).toBe(2010)
+    expect(dia(duas(60), ATIVO).valorCentavos).toBe(890)
   })
 
   it('sem horário de embarque não prova a janela: não integra e pendência', () => {
@@ -189,16 +256,36 @@ describe('BUN — elegibilidade e limites', () => {
       { modal: 'onibus_municipal_niteroi', linha: '39A' },
     ]
     const r = dia(sem, ATIVO)
-    expect(r.valorCentavos).toBe(2240)
+    expect(r.valorCentavos).toBe(2010)
     expect(r.status).toBe('pendente')
   })
 })
 
 describe('BUI — elegibilidade, teto e simetria', () => {
-  it('BUI suspenso: soma das integrais', () => {
+  it('BUI suspenso: integra (presumida); com a exceção, soma das integrais', () => {
     const r = dia([perna('trem', null, 0), perna('metro', null, 30)], SUSPENSO)
-    expect(r.ida.valorCentavos).toBe(1550)
-    expect(r.status).toBe('pendente')
+    expect(r.ida.valorCentavos).toBe(940)
+    expect(r.status).toBe('confirmado')
+    const c = dia([perna('trem', null, 0), perna('metro', null, 30)], cheia(SUSPENSO))
+    expect(c.ida.valorCentavos).toBe(1550)
+    expect(c.status).toBe('confirmado')
+  })
+
+  it('intermunicipal + municipal do Rio com Suspenso: integra pelo BUI (presumida)', () => {
+    const r = dia([perna('onibus_intermunicipal', '484M', 0), perna('onibus_municipal_rio', 'X', 30)], SUSPENSO)
+    expect(r.ida.valorCentavos).toBe(940)
+    expect(r.regularizarCartao).toBe(true)
+    expect(cita(r, 'BUI')).toBe(true)
+    const c = dia([perna('onibus_intermunicipal', '484M', 0), perna('onibus_municipal_rio', 'X', 30)], cheia(SUSPENSO))
+    expect(c.ida.valorCentavos).toBe(710 + 500)
+  })
+
+  it('municipal de Niterói nunca entra no BUI, mesmo presumido', () => {
+    for (const cartao of [SUSPENSO, SEM_BU, SEM_CONSULTA]) {
+      const r = dia([perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)], cartao)
+      expect(r.ida.valorCentavos).toBe(1355)
+      expect(cita(r, 'exceção de Niterói')).toBe(true)
+    }
   })
 
   it('BUI não é escolhido quando a soma comum é menor ou igual (ordem das pernas indiferente)', () => {
@@ -232,8 +319,8 @@ describe('BUI — elegibilidade, teto e simetria', () => {
       ],
       ATIVO,
     )
-    expect(r.ida.valorCentavos).toBe(940 + 560)
-    expect(r.valorCentavos).toBe(3000)
+    expect(r.ida.valorCentavos).toBe(940 + 445)
+    expect(r.valorCentavos).toBe(2770)
     expect(r.status).toBe('confirmado')
   })
 
@@ -326,24 +413,90 @@ describe('dia com ida e volta diferentes', () => {
 })
 
 describe('caso Alcemir (Regras §11)', () => {
-  it('536R + 35 = 1470 por sentido', () => {
+  it('536R + 35 = 1355 por sentido (exceção de Niterói, com ou sem política)', () => {
     const r = calcularSentido({
       pernas: [perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)],
       cartao: SUSPENSO,
       dataServico: DATA,
     })
-    expect(r.valorCentavos).toBe(1470)
+    expect(r.valorCentavos).toBe(1355)
     expect(r.status).toBe('confirmado')
   })
 
-  it('62 + 39A = 1120 por sentido sem BUN e 560 com BUN', () => {
+  it('62 + 39A = 445 por sentido (presumida ou BUN no Portal) e 1120 com a exceção', () => {
     const pernas = [perna('onibus_municipal_niteroi', '62', 0), perna('onibus_municipal_niteroi', '39A', 18)]
-    const sem = calcularSentido({ pernas, cartao: SUSPENSO, dataServico: DATA })
+    const presumida = calcularSentido({ pernas, cartao: SUSPENSO, dataServico: DATA })
+    expect(presumida.valorCentavos).toBe(445)
+    expect(presumida.status).toBe('confirmado')
+    expect(presumida.regularizarCartao).toBe(true)
+    const sem = calcularSentido({ pernas, cartao: cheia(SUSPENSO), dataServico: DATA })
     expect(sem.valorCentavos).toBe(1120)
-    expect(sem.status).toBe('pendente')
+    expect(sem.status).toBe('confirmado')
     const com = calcularSentido({ pernas, cartao: { ...SUSPENSO, bunConfirmadoNoPortal: true }, dataServico: DATA })
-    expect(com.valorCentavos).toBe(560)
+    expect(com.valorCentavos).toBe(445)
     expect(com.status).toBe('confirmado')
     expect(com.explicacao.some((p) => p.regra.includes('§3'))).toBe(true)
+  })
+})
+
+
+describe('Niterói com BUN: R$ 4,45 e limite de 2 viagens com desconto por dia (decisão de 19/11/2026)', () => {
+  const textos = (r: ResultadoDiaMotor) => r.explicacao.map((p) => p.texto)
+
+  it('1 ônibus em cada sentido = R$ 8,90 por dia, com a linha e o valor explicados', () => {
+    const r = dia([perna('onibus_municipal_niteroi', '39A')], ATIVO)
+    expect(r.valorCentavos).toBe(890)
+    expect(textos(r)).toContain('Ida: Ônibus 39A (municipal de Niterói): R$ 4,45 com o Bilhete Único de Niterói.')
+  })
+
+  it('2 ônibus integrados em cada sentido = R$ 8,90 por dia', () => {
+    const r = dia([perna('onibus_municipal_niteroi', '62', 0), perna('onibus_municipal_niteroi', '39A', 30)], ATIVO)
+    expect(r.ida.valorCentavos).toBe(445)
+    expect(r.volta.valorCentavos).toBe(445)
+    expect(r.valorCentavos).toBe(890)
+    expect(textos(r)).toContain('Ida: Ônibus 62 + 39A: R$ 4,45 no total, porque o segundo ônibus foi pego em até 1 hora.')
+  })
+
+  it('3ª viagem paga no dia = R$ 5,60 (ida com 2 ônibus sem integração, volta com 1)', () => {
+    const r = calcularDia({
+      itinerario: {
+        ida: [perna('onibus_municipal_niteroi', '35', 0), perna('onibus_municipal_niteroi', '39A', 90)],
+        volta: [perna('onibus_municipal_niteroi', '39A', 0)],
+      },
+      cartao: ATIVO,
+      dataServico: DATA,
+    })
+    expect(r.ida.valorCentavos).toBe(890)
+    expect(r.ida.viagensNiteroiPagas).toBe(2)
+    expect(r.volta.valorCentavos).toBe(560)
+    expect(r.valorCentavos).toBe(1450)
+    expect(r.status).toBe('confirmado')
+    expect(textos(r).some((t) => t.includes('R$ 5,60') && t.includes('2 primeiras viagens'))).toBe(true)
+  })
+
+  it('integração que cai além do limite também sai a R$ 5,60', () => {
+    const r = calcularDia({
+      itinerario: {
+        ida: [perna('onibus_municipal_niteroi', '35', 0), perna('onibus_municipal_niteroi', '39A', 90)],
+        volta: [perna('onibus_municipal_niteroi', '62', 0), perna('onibus_municipal_niteroi', '39A', 30)],
+      },
+      cartao: ATIVO,
+      dataServico: DATA,
+    })
+    expect(r.volta.valorCentavos).toBe(560)
+    expect(r.valorCentavos).toBe(890 + 560)
+  })
+
+  it('exceção tarifa cheia: R$ 5,60 por ônibus, R$ 11,20 por dia com 1 ônibus em cada sentido', () => {
+    const r = dia([perna('onibus_municipal_niteroi', '39A')], cheia(ATIVO))
+    expect(r.valorCentavos).toBe(1120)
+    expect(textos(r)).toContain('Ida: Ônibus 39A (municipal de Niterói): R$ 5,60.')
+  })
+
+  it('barca não mudou: continua sem valor calculado (pendência própria)', () => {
+    const r = dia([perna('onibus_municipal_niteroi', '39A', 0), perna('barca', null, 30)], ATIVO)
+    expect(r.valorCentavos).toBeNull()
+    expect(r.status).toBe('indeterminado')
+    expect(r.pendencias.some((p) => p.codigo === 'BARCA_TARIFA_PROPRIA')).toBe(true)
   })
 })

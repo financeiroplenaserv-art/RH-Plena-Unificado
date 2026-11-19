@@ -78,6 +78,7 @@ export function VtPage() {
           loading={vt.loading}
           podeGerenciar={podeGerenciar}
           salvarVtColaborador={vt.salvarVtColaborador}
+          salvarExcecaoTarifaCheia={vt.salvarExcecaoTarifaCheia}
           ehFerista={carteira.ehFerista}
         />
       )}

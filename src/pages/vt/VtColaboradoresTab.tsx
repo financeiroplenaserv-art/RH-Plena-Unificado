@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { AlertTriangle, ArrowDown, ArrowUp, Users } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, BadgeDollarSign, Users } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -15,20 +16,31 @@ import { Filters } from '@/components/corh/Filters'
 import { EmptyState } from '@/components/corh/EmptyState'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { ConfirmDialog } from '@/components/corh/ConfirmDialog'
-import { ModuleCard } from '@/components/layout/ModuleShell'
+import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
 import { ordenarPorNome, type DirecaoNome } from '@/lib/vt/ordenacao'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { TipoCartaoVT, VtTrajeto } from '@/types/vt'
+import { BuRiocardBadge } from './BuRiocardBadge'
 
-// Aba Colaboradores do VT (Fase 1): marca o optante e o tipo de bilhete.
-// Cadastro manual — a API da Alterdata não expõe VT (plano §3).
+// Aba Colaboradores do VT: marca o optante ("Usa VT") e MOSTRA a situação do
+// Bilhete Único na Riocard (somente leitura). A API da Alterdata não expõe VT
+// (plano §3).
+//
+// `colaboradores.vt_tipo_cartao` (bun/bui/jae/comum) está APOSENTADO na UI
+// (decisão da gestora em 19/11/2026): não entra no cálculo e induzia erro
+// (ex.: marcar BUI para quem tem BU suspenso). A fonte é a Riocard
+// (vt_bu_situacao / vt_bu_consultado_em). A coluna segue no banco, intocada;
+// o valor atual é só repassado ao salvar para não ser sobrescrito.
 
-const TIPOS_CARTAO: { valor: TipoCartaoVT; label: string }[] = [
-  { valor: 'bun', label: 'Bilhete Único Niterói' },
-  { valor: 'bui', label: 'Bilhete Único Intermunicipal' },
-  { valor: 'jae', label: 'JAE (RJ)' },
-  { valor: 'comum', label: 'Comum' },
+type FiltroBu = 'todos' | 'nao_consultado' | string
+
+const SITUACOES_BU = [
+  'Ativado',
+  'Suspenso Setrans',
+  'Não possui BU',
+  'Desativado',
+  'Ativação Solicitada',
 ]
 
 interface VtColaboradoresTabProps {
@@ -44,6 +56,11 @@ interface VtColaboradoresTabProps {
   ) => Promise<boolean>
   /** Selo "Ferista": carteira ativa OU cobertura em andamento/agendada (decisão da gestora, 23/10/2026). */
   ehFerista: (colaboradorId: string) => boolean
+  /**
+   * Exceção da empresa "pagar tarifa cheia" (migration 174, 19/11/2026). Sem a
+   * função, a coluna fica só leitura.
+   */
+  salvarExcecaoTarifaCheia?: (id: string, dados: { tarifaCheia: boolean; motivo: string | null }) => Promise<boolean>
 }
 
 export function VtColaboradoresTab({
@@ -54,18 +71,24 @@ export function VtColaboradoresTab({
   podeGerenciar,
   salvarVtColaborador,
   ehFerista,
+  salvarExcecaoTarifaCheia,
 }: VtColaboradoresTabProps) {
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
   const [situacao, setSituacao] = useState<'todos' | 'optantes' | 'nao_optantes'>('todos')
   const [situacaoAplicada, setSituacaoAplicada] = useState<'todos' | 'optantes' | 'nao_optantes'>('todos')
-  const [bilhete, setBilhete] = useState<'todos' | TipoCartaoVT | 'sem_tipo'>('todos')
-  const [bilheteAplicado, setBilheteAplicado] = useState<'todos' | TipoCartaoVT | 'sem_tipo'>('todos')
+  const [situacaoBu, setSituacaoBu] = useState<FiltroBu>('todos')
+  const [situacaoBuAplicada, setSituacaoBuAplicada] = useState<FiltroBu>('todos')
   const [salvandoId, setSalvandoId] = useState<string | null>(null)
   const [direcaoNome, setDirecaoNome] = useState<DirecaoNome>('az')
   // Desmarcar "Usa VT" de quem TEM trajetos gravados pede confirmação — os
   // trajetos deixam de valer na carga (mas NÃO são excluídos automaticamente).
   const [desmarcando, setDesmarcando] = useState<{ colaborador: VtColaborador; totalTrajetos: number } | null>(null)
+  // Exceção "pagar tarifa cheia": marcar pede motivo; desmarcar pede confirmação.
+  const [marcandoExcecao, setMarcandoExcecao] = useState<VtColaborador | null>(null)
+  const [motivoExcecao, setMotivoExcecao] = useState('')
+  const [removendoExcecao, setRemovendoExcecao] = useState<VtColaborador | null>(null)
+  const podeEditarExcecao = podeGerenciar && !!salvarExcecaoTarifaCheia
 
   const filtrados = useMemo(() => {
     const termo = buscaAplicada.trim().toLowerCase()
@@ -74,23 +97,23 @@ export function VtColaboradoresTab({
       : colaboradores
     if (situacaoAplicada === 'optantes') base = base.filter((c) => c.vt_optante)
     if (situacaoAplicada === 'nao_optantes') base = base.filter((c) => !c.vt_optante)
-    if (bilheteAplicado === 'sem_tipo') base = base.filter((c) => c.vt_optante && !c.vt_tipo_cartao)
-    else if (bilheteAplicado !== 'todos') base = base.filter((c) => c.vt_tipo_cartao === bilheteAplicado)
+    if (situacaoBuAplicada === 'nao_consultado') base = base.filter((c) => !c.vt_bu_situacao)
+    else if (situacaoBuAplicada !== 'todos') base = base.filter((c) => c.vt_bu_situacao === situacaoBuAplicada)
     return ordenarPorNome(base, (c) => c.nome_completo, direcaoNome)
-  }, [colaboradores, buscaAplicada, situacaoAplicada, bilheteAplicado, direcaoNome])
+  }, [colaboradores, buscaAplicada, situacaoAplicada, situacaoBuAplicada, direcaoNome])
 
   const aplicarFiltros = () => {
     setBuscaAplicada(busca)
     setSituacaoAplicada(situacao)
-    setBilheteAplicado(bilhete)
+    setSituacaoBuAplicada(situacaoBu)
   }
   const limparFiltros = () => {
     setBusca('')
     setBuscaAplicada('')
     setSituacao('todos')
     setSituacaoAplicada('todos')
-    setBilhete('todos')
-    setBilheteAplicado('todos')
+    setSituacaoBu('todos')
+    setSituacaoBuAplicada('todos')
   }
 
   const optantes = useMemo(() => colaboradores.filter((c) => c.vt_optante).length, [colaboradores])
@@ -116,9 +139,29 @@ export function VtColaboradoresTab({
     void salvar(c, { vt_optante: marcado, vt_tipo_cartao: c.vt_tipo_cartao ?? null })
   }
 
+  const gravarExcecao = async (c: VtColaborador, tarifaCheia: boolean, motivo: string | null) => {
+    if (!salvarExcecaoTarifaCheia) return
+    setSalvandoId(c.id)
+    await salvarExcecaoTarifaCheia(c.id, { tarifaCheia, motivo })
+    setSalvandoId(null)
+  }
+
+  const confirmarMarcarExcecao = () => {
+    if (!marcandoExcecao || !motivoExcecao.trim()) return
+    void gravarExcecao(marcandoExcecao, true, motivoExcecao.trim())
+    setMarcandoExcecao(null)
+    setMotivoExcecao('')
+  }
+
+  const confirmarRemoverExcecao = () => {
+    if (!removendoExcecao) return
+    void gravarExcecao(removendoExcecao, false, null)
+    setRemovendoExcecao(null)
+  }
+
   const confirmarDesmarcar = () => {
     if (!desmarcando) return
-    void salvar(desmarcando.colaborador, { vt_optante: false, vt_tipo_cartao: null })
+    void salvar(desmarcando.colaborador, { vt_optante: false, vt_tipo_cartao: desmarcando.colaborador.vt_tipo_cartao ?? null })
     setDesmarcando(null)
   }
 
@@ -149,19 +192,19 @@ export function VtColaboradoresTab({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="vt-bilhete">Tipo de bilhete</Label>
-          <Select value={bilhete} onValueChange={(v) => setBilhete(v as typeof bilhete)}>
-            <SelectTrigger id="vt-bilhete">
+          <Label htmlFor="vt-bu">BU na Riocard</Label>
+          <Select value={situacaoBu} onValueChange={setSituacaoBu}>
+            <SelectTrigger id="vt-bu">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
-              {TIPOS_CARTAO.map((t) => (
-                <SelectItem key={t.valor} value={t.valor}>
-                  {t.label}
+              {SITUACOES_BU.map((situacao) => (
+                <SelectItem key={situacao} value={situacao}>
+                  {situacao}
                 </SelectItem>
               ))}
-              <SelectItem value="sem_tipo">Optante sem tipo escolhido</SelectItem>
+              <SelectItem value="nao_consultado">Não consultado</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -199,7 +242,8 @@ export function VtColaboradoresTab({
                   <th className="px-4 py-3">Posto</th>
                   <th className="px-4 py-3">Cidade</th>
                   <th className="px-4 py-3 text-center">Usa VT</th>
-                  <th className="px-4 py-3">Tipo de bilhete</th>
+                  <th className="px-4 py-3">BU na Riocard</th>
+                  <th className="px-4 py-3">Integração</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,6 +256,13 @@ export function VtColaboradoresTab({
                           <StatusBadge variant="info" dot={false}>
                             Ferista
                           </StatusBadge>
+                        )}
+                        {c.vt_tarifa_cheia && (
+                          <span title={`Motivo: ${c.vt_tarifa_cheia_motivo ?? '—'}`}>
+                            <StatusBadge variant="warning" dot={false}>
+                              Tarifa cheia (exceção)
+                            </StatusBadge>
+                          </span>
                         )}
                       </span>
                     </td>
@@ -228,24 +279,43 @@ export function VtColaboradoresTab({
                       />
                     </td>
                     <td className="px-4 py-2.5">
-                      <Select
-                        value={c.vt_tipo_cartao ?? ''}
-                        disabled={!podeGerenciar || !c.vt_optante || salvandoId === c.id}
-                        onValueChange={(v) =>
-                          salvar(c, { vt_optante: true, vt_tipo_cartao: v as TipoCartaoVT })
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-56 text-[13px]">
-                          <SelectValue placeholder="Escolha o bilhete" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIPOS_CARTAO.map((t) => (
-                            <SelectItem key={t.valor} value={t.valor}>
-                              {t.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <BuRiocardBadge
+                        situacao={c.vt_bu_situacao}
+                        ativado={c.vt_bu_ativado}
+                        consultadoEm={c.vt_bu_consultado_em}
+                        mostrarConsulta
+                      />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {c.vt_tarifa_cheia ? (
+                        podeEditarExcecao ? (
+                          <ModuleButton
+                            size="sm"
+                            variant="ghost"
+                            disabled={salvandoId === c.id}
+                            title={`Motivo: ${c.vt_tarifa_cheia_motivo ?? '—'}`}
+                            onClick={() => setRemovendoExcecao(c)}
+                          >
+                            Remover exceção
+                          </ModuleButton>
+                        ) : (
+                          <span className="text-[12px] text-muted-foreground">Tarifa cheia</span>
+                        )
+                      ) : podeEditarExcecao ? (
+                        <ModuleButton
+                          size="sm"
+                          variant="ghost"
+                          disabled={salvandoId === c.id}
+                          onClick={() => {
+                            setMotivoExcecao('')
+                            setMarcandoExcecao(c)
+                          }}
+                        >
+                          Exceção: pagar tarifa cheia
+                        </ModuleButton>
+                      ) : (
+                        <span className="text-[12px] text-muted-foreground">Presumida</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -268,6 +338,53 @@ export function VtColaboradoresTab({
         }
         confirmLabel="Sim, desmarcar"
         onConfirm={confirmarDesmarcar}
+      />
+
+      <ConfirmDialog
+        open={!!marcandoExcecao}
+        onOpenChange={(aberto) => {
+          if (!aberto) {
+            setMarcandoExcecao(null)
+            setMotivoExcecao('')
+          }
+        }}
+        icon={<BadgeDollarSign className="size-6 text-amber-600" />}
+        iconClassName="bg-amber-50"
+        title="Pagar tarifa cheia para esta pessoa?"
+        description={
+          marcandoExcecao
+            ? `Pela política da empresa, o VT é calculado com a integração do Bilhete Único. Com a exceção, ${marcandoExcecao.nome_completo} passa a receber a tarifa cheia de cada condução, sem integração. Vale para os próximos cálculos; o que já foi gravado não muda.`
+            : ''
+        }
+        confirmLabel="Registrar exceção"
+        confirmDisabled={!motivoExcecao.trim()}
+        onConfirm={confirmarMarcarExcecao}
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="vt-motivo-tarifa-cheia">Motivo (obrigatório)</Label>
+          <Textarea
+            id="vt-motivo-tarifa-cheia"
+            value={motivoExcecao}
+            onChange={(e) => setMotivoExcecao(e.target.value)}
+            placeholder="Por que a empresa decidiu pagar a tarifa cheia?"
+            rows={3}
+          />
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!removendoExcecao}
+        onOpenChange={() => setRemovendoExcecao(null)}
+        icon={<AlertTriangle className="size-6 text-amber-600" />}
+        iconClassName="bg-amber-50"
+        title="Remover a exceção de tarifa cheia?"
+        description={
+          removendoExcecao
+            ? `${removendoExcecao.nome_completo} volta à política padrão: o VT passa a ser calculado com a integração do Bilhete Único. O que já foi gravado não muda.`
+            : ''
+        }
+        confirmLabel="Sim, remover"
+        onConfirm={confirmarRemoverExcecao}
       />
     </div>
   )

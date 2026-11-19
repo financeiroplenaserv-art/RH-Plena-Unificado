@@ -245,3 +245,27 @@ export function removerPernaAlternativa(
     ],
   }
 }
+
+/**
+ * Rótulo de EXIBIÇÃO da operadora de uma condução. O Google devolve ônibus
+ * intermunicipais DETRO (ex.: 489M, 532M) com a operadora "Prefeitura de
+ * Niterói"; o adaptador já reclassifica o escopo e a tarifa sai da tabela DETRO,
+ * então a tela mostra "Intermunicipal (DETRO)" e guarda o texto cru só como
+ * dica. Só exibição: o dado gravado na evidência (e o hash) não muda.
+ */
+export function rotuloOperadoraExibicao(perna: {
+  operadora: string | null
+  escopo: string
+  sistemaTarifario: string
+}): { texto: string; dicaGoogle: string | null } {
+  const crua = perna.operadora?.trim() || null
+  if (
+    perna.escopo === 'intermunicipal' &&
+    perna.sistemaTarifario === 'detro' &&
+    crua !== null &&
+    /prefeitura de niter/i.test(crua)
+  ) {
+    return { texto: 'Intermunicipal (DETRO)', dicaGoogle: `Google informa: ${crua}` }
+  }
+  return { texto: crua ?? '—', dicaGoogle: null }
+}

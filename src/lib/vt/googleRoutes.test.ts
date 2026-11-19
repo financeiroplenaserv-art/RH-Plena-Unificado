@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adaptarRotasGoogle, removerPernaAlternativa } from './googleRoutes'
+import { adaptarRotasGoogle, removerPernaAlternativa, rotuloOperadoraExibicao } from './googleRoutes'
 import { RESPOSTA_ACACIO, RESPOSTA_ALCEMIR } from './googleRoutesFixture'
 import { cotarCatraca } from './cotarCatraca'
 import { REGRAS_OFICIAIS_VT } from './regrasOficiais'
@@ -182,5 +182,17 @@ describe('removerPernaAlternativa', () => {
   it('não permite deixar o itinerário sem condução', () => {
     const original = adaptarRotasGoogle(RESPOSTA_ACACIO, CONTEXTO)[0]
     expect(() => removerPernaAlternativa(original, 1)).toThrow('única condução')
+  })
+})
+
+describe('rotuloOperadoraExibicao', () => {
+  it('ônibus DETRO que o Google atribui à Prefeitura de Niterói vira "Intermunicipal (DETRO)" com a dica', () => {
+    expect(rotuloOperadoraExibicao({ operadora: 'Prefeitura de Niterói', escopo: 'intermunicipal', sistemaTarifario: 'detro' }))
+      .toEqual({ texto: 'Intermunicipal (DETRO)', dicaGoogle: 'Google informa: Prefeitura de Niterói' })
+  })
+  it('municipal de Niterói e demais operadoras mantêm o texto do Google', () => {
+    expect(rotuloOperadoraExibicao({ operadora: 'Prefeitura de Niterói', escopo: 'municipal', sistemaTarifario: 'riocard' }))
+      .toEqual({ texto: 'Prefeitura de Niterói', dicaGoogle: null })
+    expect(rotuloOperadoraExibicao({ operadora: null, escopo: 'municipal', sistemaTarifario: 'riocard' }).texto).toBe('—')
   })
 })
