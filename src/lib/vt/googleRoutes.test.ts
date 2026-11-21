@@ -127,6 +127,28 @@ describe('adaptarRotasGoogle', () => {
       expect(cotacao.totalEstimadoCentavos).toBeNull()
     }
   })
+
+  // Caso real 21/11/2026: o Google rotula 1MB10 (Rio Bonito–Niterói), 1121Q (Magé–Niterói),
+  // 423 e 4545 como "Prefeitura de Niterói" — viravam ônibus municipal a R$ 4,45.
+  const pernaDaLinha = (linha: string) => adaptarRotasGoogle({
+    routes: [{ legs: [{ steps: [{
+      travelMode: 'TRANSIT',
+      transitDetails: { transitLine: { nameShort: linha, vehicle: { type: 'BUS' }, agencies: [{ name: 'Prefeitura de Niterói' }] } },
+    }] }] }],
+  }, CONTEXTO)[0].itinerario.pernas[0]
+
+  it('linha fora do formato municipal de Niterói nunca vira municipal de Niterói', () => {
+    for (const linha of ['1MB10', '2MB10', '1121Q', '1413M', '423', '4545', '549MS', 'MB36']) {
+      expect(pernaDaLinha(linha).sistemaTarifario, linha).not.toBe('riocard')
+      expect(pernaDaLinha(linha).escopo, linha).not.toBe('municipal')
+    }
+  })
+
+  it('linhas municipais de Niterói continuam municipais', () => {
+    for (const linha of ['33', '34A', '41JB', '48SP', '49.2', '62', 'OC1']) {
+      expect(pernaDaLinha(linha), linha).toMatchObject({ escopo: 'municipal', sistemaTarifario: 'riocard', municipioOrigem: 'Niterói' })
+    }
+  })
 })
 
 

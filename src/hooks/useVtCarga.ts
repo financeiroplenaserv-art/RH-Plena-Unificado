@@ -33,6 +33,8 @@ import {
 } from '@/lib/vt/cargaRascunho'
 import { ajusteDoFechamento, competenciaAnterior } from '@/lib/vt/fechamento'
 import type { DiaPlanejadoLoteVT } from '@/lib/vt/construirLote'
+
+const SALVAR_RASCUNHO_LEGADO = false
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { VtBilhete, VtCobertura, VtTrajeto } from '@/types/vt'
 
@@ -537,9 +539,10 @@ export function useVtCarga() {
         setDiasLote(diasParaLote)
         setResultados(lista)
         setLoading(false)
-        // Rascunho no banco ANTES da verificação — o banner já reflete o
-        // rascunho salvo (migration 168: o trabalho não fica só na tela).
-        if (usuarioId) await salvarRascunho(comp, lista, usuarioId)
+        // Recomeço do VT (21/11/2026): a carga sai pelo lote das rotas confirmadas, que grava
+        // vt_cargas ao confirmar. O rascunho do cálculo antigo (por bilhete da planilha, hoje
+        // apagados) não é mais salvo — gravaria valores sem sentido em vt_cargas.
+        if (usuarioId && SALVAR_RASCUNHO_LEGADO) await salvarRascunho(comp, lista, usuarioId)
         await verificarGravacao(comp)
         return comp
       } catch (err) {

@@ -196,7 +196,7 @@ Decisão:
 
 - **Classificação municipal × intermunicipal pelo código da linha na tabela DETRO, nunca pela operadora que o Google informa.** O Google devolve linhas DETRO (ex.: 489M, 532M) com a operadora "Prefeitura de Niterói". Código de linha com sufixo de letra que consta na tabela DETRO é intermunicipal; o adaptador (`src/lib/vt/googleRoutes.ts`) aplica essa regra antes de olhar a operadora.
 - **Ônibus municipal de São Gonçalo: R$ 5,55** desde 01/11/2025, **sem bilhete único municipal**. SG municipal + Niterói municipal **não integra** (R$ 10,00 na soma). Fonte: [Diário do Rio](https://diariodorio.com/passagem-de-onibus-em-sao-goncalo-sobe-de-r-395-para-r-555/).
-- **Itaboraí (gratuito desde 23/05/2025) e Maricá (EPT "vermelhinho"): o ônibus municipal custa R$ 0.** O motor trata como modal `onibus_municipal_gratuito`, reconhecido por **lista explícita de operadoras conhecidas** (`OPERADORAS_MUNICIPAIS_GRATUITAS`); operadora fora da lista **não é presumida gratuita** — vira pendência. Gratuito + DETRO: cobra-se só o DETRO (ou a seção). Linhas AC de Maricá (**2144R/4144R, R$ 27,75**): BUI **não presumido** — pendência `BUI_LINHA_AC_NAO_CONFIRMADA` (nem pares nem linha avulsa).
+- **Itaboraí (gratuito desde 23/05/2025) e Maricá (EPT "vermelhinho"): o ônibus municipal custa R$ 0.** O motor trata como modal `onibus_municipal_gratuito`, reconhecido por **lista explícita de operadoras conhecidas** (`OPERADORAS_MUNICIPAIS_GRATUITAS`); operadora fora da lista **não é presumida gratuita** — vira pendência. Gratuito + DETRO: cobra-se só o DETRO (ou a seção). **Toda linha com categoria AC na tabela DETRO** (começou com 2144R/4144R de Maricá; a auditoria de 21/11/2026 achou o BUI aplicado em 6144R, 2590R, 2520D, 2425D e 4425D): BUI **não presumido** — pendência `BUI_LINHA_AC_NAO_CONFIRMADA` (nem pares nem linha avulsa), até a Riocard/Setrans confirmar. Linhas de categoria "A" (ex.: 5721D, 7721D, 1413M, 1121Q) seguem com BUI, **a confirmar** com a Riocard.
 - **Tarifa DETRO por seção.** A Portaria traz, para várias linhas, o valor do percurso inteiro (seção 0) e valores por **seção** (trecho). O preço depende de onde a pessoa embarca e desce. Exemplos: **416M** Niterói–Manilha R$ 15,10 (inteiro), Manilha–Tribobó R$ 7,10, **Alcântara–Niterói R$ 7,10**; **414M** R$ 15,10 e Morada do Sol–Tribobó R$ 7,10; **413M** seção Niterói–Manilha R$ 9,10. O motor **não escolhe a seção sozinho**: devolve a pendência `DETRO_SECAO_ESCOLHER` com as opções e valores, e a tela de revisão pede o "Trecho pago" por condução e por sentido (a volta pré-marcada herda o trecho da ida). A seção escolhida vai na evidência (`secaoDetro`/`secaoDetroRotulo` na perna e `calculoMotor.secoesDetro`) e, portanto, no hash. Registros de seção ilegíveis no PDF (200 linhas marcadas "conferir") não viram opção.
 - Identificar linha, variante e seção antes do preço.
 - Nas linhas de R$ 7,10 ou R$ 9,10, a tarifa direta é inferior ao BUI de R$ 9,40.
@@ -273,3 +273,14 @@ Fonte oficial: [Portaria DETRO/PRES 1.960/2026](https://www.sindpass.com.br/wp-c
 - **770D/771D** — Itaipu/Pendotiba × Candelária: **R$ 14,25**.
 
 Essas tarifas alimentam `tarifaLinhaDetro` e `REGRA_DETRO_2026`. A comparação do caso Alcemir mostrou que a primeira alternativa do Google (536R + 35) é a mais rápida, mas não a mais barata. Com o BUN (política presumida, ônibus de Niterói a R$ 4,45): 62 + 39A pelo Centro custa R$ 4,45 por sentido (R$ 8,90/dia), com transferência válida de 18 minutos e duração total de 60 minutos; 536R + 35 custa R$ 13,55 por sentido (9,10 + 4,45); 542R + 39A custa R$ 11,55 (7,10 + 4,45); 62 + 771D/770D custa R$ 18,70 (4,45 + 14,25). Na exceção "tarifa cheia" o 62 + 39A custa R$ 11,20 por sentido (R$ 22,40/dia). Antes da decisão de 19/11/2026 (R$ 5,60) estes valores eram R$ 5,60, R$ 14,70, R$ 12,70 e R$ 19,85. A alternativa só pode ser escolhida depois de conferir desembarque, caminhada, horário real e situação do BUN.
+
+## Rotas que o sistema nunca confirma sozinho (auditoria de 21/11/2026)
+
+A escolha automática pela rota mais barata errou em parte dos casos. Ficam para o RH conferir com o colaborador (`src/lib/vt/revisaoHumana.ts`; na tela é só aviso, quem confirma é o RH):
+
+- 3 ou mais conduções num sentido;
+- a mesma linha duas vezes seguidas (erro típico do Google);
+- linha DETRO para o Rio (código terminado em D) usada como trecho local, quando nem a casa nem o posto ficam no Rio.
+
+No lote, a volta segue a ida: se a mesma rota no sentido contrário tem pendência, a pessoa fica na fila — o sistema não troca por outra volta mais barata.
+

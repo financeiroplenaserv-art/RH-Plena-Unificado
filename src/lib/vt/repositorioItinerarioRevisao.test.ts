@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { adaptarRotasGoogle } from '@/lib/vt/googleRoutes'
 import { RESPOSTA_ACACIO } from '@/lib/vt/googleRoutesFixture'
 import type { EscolhaItinerarioVT } from '@/lib/vt/itinerarioEvidencia'
-import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
+import { fimDaVigenciaAnterior, RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import { decisaoDeLinha } from '@/lib/vt/adaptadoresSql'
 import { resolverCustoDiarioNaData } from '@/lib/vt/temporalidade'
 import type { Database } from '@/types/database'
@@ -195,17 +195,18 @@ describe('salvar escolha com nova revisão', () => {
     expect(tabelas.vt_trajeto_decisao_componentes.find((linha) =>
       linha.decisao_trajeto_id === primeiro.decisaoId
     )).toMatchObject({ pacote_id: IDS.pacote })
-    expect(tabelas.vt_beneficio_ajustes).toHaveLength(2)
+    // Extra manual antigo NÃO é copiado: a revisão nova recebe o preço do motor (auditoria 21/11/2026).
+    expect(tabelas.vt_beneficio_ajustes).toHaveLength(1)
     expect(tabelas.vt_beneficio_ajustes.find((linha) =>
       linha.decisao_trajeto_id === primeiro.decisaoId
-    )).toMatchObject({ valor_diario_centavos: 200 })
+    )).toBeUndefined()
 
     const segundo = await repositorio.salvarEscolhaComRevisao(entrada(), IDS.trajeto, '2026-11-17')
 
     expect(segundo.repetido).toBe(true)
     expect(tabelas.vt_trajeto_decisoes).toHaveLength(2)
     expect(tabelas.vt_trajeto_decisao_componentes).toHaveLength(2)
-    expect(tabelas.vt_beneficio_ajustes).toHaveLength(2)
+    expect(tabelas.vt_beneficio_ajustes).toHaveLength(1)
     expect(tabelas.vt_itinerarios).toHaveLength(1)
 
     const confirmada = await repositorio.confirmarDecisaoAberta(
@@ -218,7 +219,8 @@ describe('salvar escolha com nova revisão', () => {
       status: 'confirmada',
       cotacao_id: 'cotacao-atual',
     })
-    expect(tabelas.vt_trajeto_decisoes[0]).toEqual(antes)
+    // A confirmada anterior (desde 01/11) é encerrada na véspera da nova (17/11) — só vigente_ate muda.
+    expect(tabelas.vt_trajeto_decisoes[0]).toEqual({ ...antes, vigente_ate: '2026-11-16' })
 
     const resolucao = resolverCustoDiarioNaData({
       colaboradorId: IDS.pessoa,
@@ -229,5 +231,14 @@ describe('salvar escolha com nova revisão', () => {
       versoesPreco: [],
     })
     expect(resolucao).toMatchObject({ status: 'resolvido', totalCentavos: 1120 })
+  })
+})
+
+describe('fimDaVigenciaAnterior', () => {
+  it('fecha na véspera da revisão nova, nunca antes do início da anterior', () => {
+    expect(fimDaVigenciaAnterior('2026-11-01', '2026-11-17')).toBe('2026-11-16')
+    expect(fimDaVigenciaAnterior('2026-11-21', '2026-11-21')).toBe('2026-11-21')
+    expect(fimDaVigenciaAnterior('2026-11-30', '2026-12-01')).toBe('2026-11-30')
+    expect(fimDaVigenciaAnterior(null, '2026-12-01')).toBeNull()
   })
 })

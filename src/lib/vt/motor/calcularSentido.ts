@@ -7,7 +7,7 @@ import {
 } from '@/lib/vt/motor/cartao'
 import { precificarPerna, type PernaPrecificada } from '@/lib/vt/motor/precificarPerna'
 import {
-  ehLinhaAcMarica,
+  ehLinhaCategoriaAC,
   normalizarLinha,
   reais,
   TARIFA_INTEGRACAO_BUI,
@@ -103,13 +103,13 @@ function avaliarPar(
     }
   }
 
-  // Linhas AC de Maricá: BUI não presumido (Regras §6, §10).
-  if (ehLinhaAcMarica(a.linha) || ehLinhaAcMarica(b.linha)) {
+  // Linhas da categoria AC: BUI não presumido (Regras §6, §10).
+  if (ehLinhaCategoriaAC(a.linha) || ehLinhaCategoriaAC(b.linha)) {
     return {
       tipo: 'pendencia',
       pendencia: {
         codigo: 'BUI_LINHA_AC_NAO_CONFIRMADA',
-        mensagem: `${nomePar}: uma das linhas é de Maricá com ar-condicionado e não está confirmado que o Bilhete Único Intermunicipal vale nela. Cobrado o valor cheio de cada uma; a conferir.`,
+        mensagem: `${nomePar}: uma das linhas é de categoria AC (ar-condicionado/rodoviária) e não está confirmado que o Bilhete Único Intermunicipal vale nela. Cobrado o valor cheio de cada uma; a conferir.`,
         regra: 'Regras §6, §10',
       },
     }

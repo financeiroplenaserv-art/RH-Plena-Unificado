@@ -4,11 +4,12 @@ import { VtTrajetosTab } from './VtTrajetosTab'
 import type { VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { VtBilhete } from '@/types/vt'
 
-const evidencias = vi.hoisted(() => ({ mapa: new Map<string, unknown>() }))
+const evidencias = vi.hoisted(() => ({ mapa: new Map<string, unknown>(), resumos: new Map<string, unknown>() }))
 
 vi.mock('@/lib/vt/repositorioItinerarioSupabase', () => ({
   RepositorioItinerarioSupabase: class {
     buscarEvidenciasPorTrajetos = vi.fn().mockImplementation(async () => evidencias.mapa)
+    buscarResumoDecisoesPorTrajetos = vi.fn().mockImplementation(async () => evidencias.resumos)
     buscarDecisaoPorTrajeto = vi.fn().mockResolvedValue({
       id: '10000000-0000-4000-8000-000000000001',
       status: 'sugerida',
@@ -229,6 +230,18 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
       expect(screen.queryByText('BU NITERÓI')).not.toBeInTheDocument()
     } finally {
       evidencias.mapa = new Map()
+    }
+  })
+
+  it('rota revisada e confirmada: custo e situação vêm da revisão, não do trajeto legado', async () => {
+    evidencias.resumos = new Map([[TRAJETO.id, { status: 'confirmada', itinerarioId: 'it-1', custoDiarioCentavos: 890 }]])
+    try {
+      setup(true, { ...TRAJETO, status: 'sugerido', bilhete_id: null })
+      await waitFor(() => expect(screen.getByText('Confirmado pelo RH')).toBeInTheDocument())
+      expect(screen.getByText(/R\$\s*8,90/)).toBeInTheDocument()
+      expect(screen.queryByText('A confirmar')).not.toBeInTheDocument()
+    } finally {
+      evidencias.resumos = new Map()
     }
   })
 })

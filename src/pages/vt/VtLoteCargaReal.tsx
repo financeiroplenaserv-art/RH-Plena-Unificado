@@ -10,7 +10,11 @@ import { selecionarProntosLote } from '@/lib/vt/selecionarProntosLote'
 import { baixarExcelLoteConfirmado } from '@/lib/vt/excelLote'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import type { DiaPlanejadoLoteVT } from '@/lib/vt/construirLote'
-import type { VtColaborador } from '@/hooks/useVt'
+import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
+import { supabase } from '@/lib/supabase'
+import { competenciaAnterior } from '@/lib/vt/fechamento'
+import { ajustesDoFechamentoAnterior, cargasDoLoteConfirmado, type FechamentoParaAjuste } from '@/lib/vt/pontesLote'
+import type { LoteCargaVT } from '@/lib/vt/contratosLoteCarga'
 
 interface VtLoteCargaRealProps {
   competencia: string
@@ -18,29 +22,97 @@ interface VtLoteCargaRealProps {
   colaboradores: VtColaborador[]
   nomeArquivo: string | null
   usuarioId: string
+  departamentos: VtDepartamento[]
+  /**
+   * Optantes que NÃO podem entrar na carga ainda, com o motivo (ex.: dias sem posto
+   * identificado no relatório — sem isso esses dias sumiriam da conta e a pessoa
+   * receberia a menos em silêncio).
+   */
+  bloqueios?: ReadonlyMap<string, string>
 }
 
 function valor(centavos: number | null) {
   return centavos == null ? '—' : formatarCentavos(centavos)
 }
 
-export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo, usuarioId }: VtLoteCargaRealProps) {
+export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios }: VtLoteCargaRealProps) {
   const repositorio = useMemo(() => new RepositorioLoteCargaSupabase(), [])
   const { lote, loading, erro, carregar, construir, confirmar } = useVtLoteCarga(repositorio, usuarioId)
   const [construindo, setConstruindo] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [erroExportacao, setErroExportacao] = useState<string | null>(null)
   const [pendentesIds, setPendentesIds] = useState<string[]>([])
+  const [gravandoFechamento, setGravandoFechamento] = useState(false)
+  const [situacaoFechamento, setSituacaoFechamento] = useState<{ ok: boolean; texto: string } | null>(null)
   const nomes = useMemo(() => new Map(colaboradores.map((c) => [c.id, c.nome_completo])), [colaboradores])
-  const optantesIds = useMemo(() => colaboradores.filter((c) => c.vt_optante).map((c) => c.id), [colaboradores])
+  const optantesIds = useMemo(
+    () => colaboradores.filter((c) => c.vt_optante && !bloqueios?.has(c.id)).map((c) => c.id),
+    [colaboradores, bloqueios],
+  )
 
   useEffect(() => {
     void carregar(competencia)
   }, [carregar, competencia])
 
+  // Fechamento do mês anterior → ajuste desta carga (faltou: desconta; trabalhou fora: credita).
+  // Erro de leitura aborta: nunca calcular com ajuste 0 fingindo que não há fechamento.
+  const lerAjustesAnteriores = async () => {
+    const ids = optantesIds
+    const fechamentos: FechamentoParaAjuste[] = []
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await supabase
+        .from('vt_fechamentos')
+        .select('id, colaborador_id, competencia, desconto_centavos, credito_centavos')
+        .eq('competencia', competenciaAnterior(competencia))
+        .in('colaborador_id', ids.slice(i, i + 100))
+      if (error) throw new Error(`Não foi possível ler o fechamento do mês anterior: ${error.message}`)
+      fechamentos.push(...((data ?? []) as FechamentoParaAjuste[]))
+    }
+    return ajustesDoFechamentoAnterior(fechamentos, new Date().toISOString())
+  }
+
+  // Lote confirmado → vt_cargas 'gravada' (formato que a aba Fechamento lê). Idempotente.
+  const gravarParaFechamento = async (confirmado: LoteCargaVT) => {
+    setGravandoFechamento(true)
+    setSituacaoFechamento(null)
+    try {
+      const nomePosto = (id: string) => {
+        const dep = departamentos.find((d) => d.id === id)
+        return dep?.nome_curto?.trim() || dep?.nome?.trim() || id
+      }
+      const linhas = cargasDoLoteConfirmado(
+        confirmado,
+        nomePosto,
+        usuarioId,
+        confirmado.confirmacao?.confirmadaEm ?? new Date().toISOString(),
+      )
+      let gravadas = 0
+      for (let i = 0; i < linhas.length; i += 200) {
+        const { data, error } = await supabase
+          .from('vt_cargas')
+          .upsert(linhas.slice(i, i + 200), { onConflict: 'colaborador_id,competencia' })
+          .select('id')
+        if (error) throw error
+        gravadas += data?.length ?? 0
+      }
+      if (gravadas !== linhas.length) {
+        throw new Error(`Só ${gravadas} de ${linhas.length} cargas foram gravadas; confira permissões.`)
+      }
+      setSituacaoFechamento({ ok: true, texto: `${gravadas} carga(s) gravada(s) — já aparecem na aba Fechamento.` })
+    } catch (erro) {
+      setSituacaoFechamento({
+        ok: false,
+        texto: `O lote está confirmado, mas a gravação para o Fechamento falhou: ${erro instanceof Error ? erro.message : 'erro desconhecido'}. Clique em "Gravar para o Fechamento" de novo.`,
+      })
+    } finally {
+      setGravandoFechamento(false)
+    }
+  }
+
   const construirLote = async () => {
     setConstruindo(true)
     try {
+      const ajustesAnteriores = await lerAjustesAnteriores()
       const dominio = await carregarDominioLote()
       const selecao = selecionarProntosLote({
         dias,
@@ -67,8 +139,10 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
         dias: selecao.dias,
         colaboradorIds: selecao.colaboradorIds,
         ...dominio,
-        ajustesAnteriores: [],
+        ajustesAnteriores,
       })
+    } catch (erro) {
+      setSituacaoFechamento({ ok: false, texto: erro instanceof Error ? erro.message : 'Erro ao construir o rascunho.' })
     } finally {
       setConstruindo(false)
     }
@@ -76,7 +150,10 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
 
   const confirmarLote = async () => {
     const confirmado = await confirmar()
-    if (confirmado) await carregar(competencia)
+    if (confirmado) {
+      await gravarParaFechamento(confirmado)
+      await carregar(competencia)
+    }
   }
 
   const exportarLote = async () => {
@@ -97,15 +174,15 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
       title={
         <>
           <Database className="size-4" />
-          Novo fluxo de carga — lote confirmado
+          Carga do mês pelas rotas confirmadas
         </>
       }
-      description={`Competência ${competencia}. Este fluxo usa decisões e preços da migration 169 e grava o snapshot na migration 170.`}
+      description={`Competência ${competencia}. O valor de cada dia vem da rota confirmada da pessoa para o posto daquele dia.`}
       className="border-emerald-200"
     >
       <div className="space-y-4">
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
-          Só pessoas com todos os dias e preços resolvidos entram no lote confirmado. As pendências ficam fora do snapshot e continuam visíveis para revisão.
+          1) Construir o rascunho · 2) Confirmar o lote · 3) Baixar o Excel. Só entra quem tem rota confirmada para todos os postos do mês; quem falta aparece abaixo e deve ser resolvido na aba Rotas a confirmar. O desconto ou crédito do fechamento do mês anterior entra como ajuste.
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -118,6 +195,11 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
           {lote?.status === 'rascunho' && (
             <ModuleButton size="sm" disabled={loading || lote.valorCentavos == null} onClick={() => void confirmarLote()}>
               Confirmar lote
+            </ModuleButton>
+          )}
+          {lote?.status === 'confirmado' && (
+            <ModuleButton size="sm" variant="outline" disabled={gravandoFechamento} onClick={() => void gravarParaFechamento(lote)}>
+              {gravandoFechamento ? 'Gravando...' : 'Gravar para o Fechamento'}
             </ModuleButton>
           )}
           {lote?.status === 'confirmado' && (
@@ -134,15 +216,32 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
             {erro}
           </div>
         )}
+        {situacaoFechamento && (
+          <div
+            role={situacaoFechamento.ok ? 'status' : 'alert'}
+            className={`rounded-lg border px-4 py-3 text-[13px] ${situacaoFechamento.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}
+          >
+            {situacaoFechamento.texto}
+          </div>
+        )}
         {erroExportacao && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
             {erroExportacao}
           </div>
         )}
 
+        {bloqueios && bloqueios.size > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            <p className="font-semibold">Fora da carga por problema no relatório (resolva e importe de novo)</p>
+            <ul className="mt-1 list-disc pl-5">
+              {[...bloqueios].map(([id, motivo]) => <li key={id}>{nomes.get(id) ?? id}: {motivo}</li>)}
+            </ul>
+          </div>
+        )}
+
         {pendentesIds.length > 0 && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-            <p className="font-semibold">Fora do lote por pendência de decisão ou preço</p>
+            <p className="font-semibold">Fora da carga: falta rota confirmada para algum posto do mês (resolva na aba Rotas a confirmar e recalcule)</p>
             <ul className="mt-1 list-disc pl-5">
               {pendentesIds.map((id) => <li key={id}>{nomes.get(id) ?? id}</li>)}
             </ul>

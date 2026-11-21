@@ -42,6 +42,23 @@ vi.mock('@/lib/vt/carregarDominioLote', () => ({
     ajustesBeneficio: [],
   })),
 }))
+// Banco: sem fechamento do mês anterior; a gravação para o Fechamento devolve uma linha por carga.
+const banco = vi.hoisted(() => ({ cargasGravadas: [] as Record<string, unknown>[] }))
+vi.mock('@/lib/supabase', () => {
+  const consulta = (tabela: string) => {
+    const q: Record<string, unknown> = {}
+    let linhas: Record<string, unknown>[] = []
+    for (const m of ['select', 'eq', 'in']) q[m] = () => q
+    q.upsert = (rows: Record<string, unknown>[]) => {
+      if (tabela === 'vt_cargas') banco.cargasGravadas.push(...rows)
+      linhas = rows.map((_, i) => ({ id: `c${i}` }))
+      return q
+    }
+    q.then = (ok: (v: unknown) => void) => ok({ data: linhas, error: null })
+    return q
+  }
+  return { supabase: { from: consulta } }
+})
 vi.mock('@/lib/vt/repositorioLoteSupabase', async () => {
   const { RepositorioLoteCargaEmMemoria } = await import('@/lib/vt/confirmarLote')
   return { RepositorioLoteCargaSupabase: RepositorioLoteCargaEmMemoria }
@@ -80,6 +97,7 @@ describe('vertical real do lote', () => {
         dias={[{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-11-10', origemDia: 'escala' }]}
         colaboradores={COLABORADORES}
         nomeArquivo="escalas.xlsx"
+        departamentos={[]}
         usuarioId="usuario-1"
       />,
     )
@@ -93,5 +111,9 @@ describe('vertical real do lote', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar lote' }))
     expect(await screen.findByText('confirmado')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Baixar Excel do lote' })).toBeInTheDocument()
+    // Confirmar grava a carga para a aba Fechamento (uma linha por pessoa completa).
+    expect(await screen.findByText(/carga\(s\) gravada\(s\)/)).toBeInTheDocument()
+    expect(banco.cargasGravadas.length).toBeGreaterThan(0)
+    expect(banco.cargasGravadas.every((c) => c.status === 'gravada' && c.competencia === '2026-11')).toBe(true)
   })
 })

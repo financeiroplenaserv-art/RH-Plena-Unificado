@@ -122,7 +122,7 @@ describe('VtRevisaoRota — horário do turno', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Consultar ida no Google' }))
     await screen.findByRole('button', { name: 'Ida — alternativa 4' })
-    fireEvent.click(screen.getByRole('button', { name: 'Consultar volta no Google' }))
+    // Consultar a ida já buscou a volta junto (2 chamadas, sem o segundo clique).
     await waitFor(() => expect(mocks.sugerirRotasGoogle).toHaveBeenCalledTimes(2))
 
     const [ida, volta] = mocks.sugerirRotasGoogle.mock.calls.map((c) => c[0])

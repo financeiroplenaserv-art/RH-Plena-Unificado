@@ -103,7 +103,13 @@ export class RepositorioItinerarioSupabase {
     await this.copiarComposicao(anterior.id, atual.id)
   }
 
-  private async copiarComposicao(decisaoOrigemId: string, decisaoDestinoId: string): Promise<void> {
+  /**
+   * Copia os componentes (pacotes) da revisão anterior. Os AJUSTES (valor extra manual por dia)
+   * NÃO são copiados por padrão (auditoria de 21/11/2026): a revisão nova recebe o preço do motor
+   * e o extra antigo seria somado em silêncio na carga, sem aparecer na aba Trajetos.
+   * Extra na revisão nova é decisão explícita.
+   */
+  private async copiarComposicao(decisaoOrigemId: string, decisaoDestinoId: string, copiarAjustes = false): Promise<void> {
     const [{ data: componentes, error: erroComponentes }, { data: componentesDestino, error: erroDestino }] =
       await Promise.all([
         this.cliente.from('vt_trajeto_decisao_componentes').select('*').eq('decisao_trajeto_id', decisaoOrigemId),
@@ -127,6 +133,7 @@ export class RepositorioItinerarioSupabase {
       }
     }
 
+    if (!copiarAjustes) return
     const [{ data: ajustes, error: erroAjustes }, { data: ajustesDestino, error: erroAjustesDestino }] =
       await Promise.all([
         this.cliente.from('vt_beneficio_ajustes').select('*').eq('decisao_trajeto_id', decisaoOrigemId),
@@ -319,7 +326,38 @@ export class RepositorioItinerarioSupabase {
       .maybeSingle()
     if (error) throw error
     if (!atualizada) throw new Error('Nenhuma decisão foi confirmada; confira permissões e o estado atual.')
+    await this.encerrarConfirmadasAnteriores(atualizada)
     return atualizada
+  }
+
+  /**
+   * Fecha a vigência das revisões confirmadas ANTERIORES do mesmo trajeto (auditoria de
+   * 21/11/2026): sem isso, duas confirmadas ficavam abertas e qualquer leitura que não
+   * ordenasse pela revisão podia pagar o preço antigo. Vai até a véspera da nova; se as duas
+   * começam no mesmo dia, fecha no próprio dia (o banco exige fim >= início). Só vigente_ate
+   * muda — o resto da confirmada é imutável.
+   */
+  private async encerrarConfirmadasAnteriores(nova: DecisaoParaItinerario): Promise<void> {
+    if (!nova.trajeto_legado_id) return
+    const { data, error } = await this.cliente
+      .from('vt_trajeto_decisoes')
+      .select('id, revisao, status, vigente_desde, vigente_ate')
+      .eq('trajeto_legado_id', nova.trajeto_legado_id)
+    if (error) throw error
+    const desdeNova = (data ?? []).find((d) => d.id === nova.id)?.vigente_desde ?? null
+    for (const anterior of data ?? []) {
+      if (anterior.status !== 'confirmada' || anterior.revisao >= nova.revisao || anterior.vigente_ate) continue
+      const fim = fimDaVigenciaAnterior(anterior.vigente_desde, desdeNova)
+      if (!fim) continue
+      const { data: fechada, error: erro } = await this.cliente
+        .from('vt_trajeto_decisoes')
+        .update({ vigente_ate: fim })
+        .eq('id', anterior.id)
+        .select('id')
+        .maybeSingle()
+      if (erro) throw erro
+      if (!fechada) throw new Error('A revisão foi confirmada, mas a confirmação anterior não pôde ser encerrada; confira permissões.')
+    }
   }
 
   private async gravarOuRecuperar(nova: NovaEvidenciaItinerario): Promise<VtItinerario> {
@@ -342,4 +380,13 @@ export class RepositorioItinerarioSupabase {
     }
     return existente
   }
+}
+
+/** Véspera do início da revisão nova, nunca antes do início da anterior; null quando falta data. */
+export function fimDaVigenciaAnterior(desdeAnterior: string | null, desdeNova: string | null): string | null {
+  if (!desdeAnterior || !desdeNova) return null
+  const [a, m, d] = desdeNova.split('-').map(Number)
+  const vespera = new Date(a, m - 1, d - 1)
+  const texto = `${vespera.getFullYear()}-${String(vespera.getMonth() + 1).padStart(2, '0')}-${String(vespera.getDate()).padStart(2, '0')}`
+  return texto < desdeAnterior ? desdeAnterior : texto
 }

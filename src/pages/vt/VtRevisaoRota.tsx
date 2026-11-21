@@ -14,6 +14,7 @@ import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { formatarDataHora, hojeBrasil } from '@/lib/utils'
 import { chegadaComFolgaBRT, FOLGA_CHEGADA_MINUTOS, horaMinutoValida, mascararHoraMinuto, partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
 import { encontrarAlternativaInversa } from '@/lib/vt/rotaInversa'
+import { motivosRevisaoHumana } from '@/lib/vt/revisaoHumana'
 import { agruparAlternativasIguais, menorValorComDestaque, textoSemelhantes, type GrupoAlternativas } from '@/lib/vt/agruparAlternativas'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import { pernaMotorDeItinerario } from '@/lib/vt/motor/adaptadorItinerario'
@@ -601,6 +602,11 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
 
   const consultarIdaEVolta = () => Promise.all([consultar('ida'), consultar('volta')])
 
+  // Consultar só a ida também busca a volta quando ela ainda não foi consultada:
+  // sem alternativas de volta não há onde pré-marcar a mesma rota. Volta já
+  // consultada não é refeita (preserva uma escolha manual da volta).
+  const consultarIda = () => (respostas.volta || carregando.volta ? consultar('ida') : consultarIdaEVolta())
+
   const removerConducao = (sentido: Sentido, alternativaId: string, sequencia: number) => {
     const chave = `${sentido}:${alternativaId}`
     if (sentido === 'volta') setVoltaPremarcada(false)
@@ -709,6 +715,10 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   // Política da empresa (19/11/2026): integração presumida, salvo exceção por pessoa.
   const politica = politicaDoCartao(contextoReal.cartao)
   const avisoCartao = avisoRegularizarCartao(contextoReal.cartao)
+  // Rota com cara de não ser a real (auditoria 21/11/2026): só aviso — quem confirma é o RH.
+  const motivosConferir = ida && volta
+    ? motivosRevisaoHumana(ida.alternativa.itinerario.pernas, volta.alternativa.itinerario.pernas, contextoReal.municipioOrigem, contextoReal.municipioDestino)
+    : []
   const textoPolitica = politica === 'tarifa_cheia'
     ? `Exceção da empresa: tarifa cheia — cada condução é paga pelo valor integral, sem integração${contextoReal.cartao.motivoTarifaCheia ? ` (motivo: ${contextoReal.cartao.motivoTarifaCheia})` : ''}.`
     : 'Cálculo com a integração do Bilhete Único (política da empresa), mesmo que o cartão não esteja ativo na Riocard.'
@@ -795,7 +805,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           grupos={gruposIda}
           selecionadaId={selecionadas.ida}
           onSelecionar={(id) => selecionar('ida', id)}
-          onConsultar={() => void consultar('ida')}
+          onConsultar={() => void consultarIda()}
           onRemoverConducao={(id, seq) => removerConducao('ida', id, seq)}
           onEscolherSecao={(id, seq, escolha) => escolherSecao('ida', id, seq, escolha)}
           dataServico={dataServico}
@@ -887,6 +897,11 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           <div className="min-w-[200px] flex-1 text-[12px]">
             {!salvo && motivoBloqueio && (
               <p className="font-medium text-amber-800" data-testid="motivo-bloqueio">{motivoBloqueio}</p>
+            )}
+            {motivosConferir.length > 0 && (
+              <p className="font-medium text-amber-800" data-testid="motivos-conferir">
+                Confira com o colaborador se é mesmo esta rota: {motivosConferir.join('; ')}.
+              </p>
             )}
             <p className="text-muted-foreground">
               {carregandoDecisao

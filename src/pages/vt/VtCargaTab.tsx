@@ -115,6 +115,10 @@ interface VtCargaTabProps {
   recarregarFeristas: () => Promise<void>
 }
 
+// Desde o recomeço do VT (21/11/2026) a carga sai SÓ pelas rotas confirmadas (lote).
+// O cálculo antigo por bilhete da planilha fica desligado: os bilhetes foram apagados.
+const FLUXO_LEGADO = false
+
 export function VtCargaTab({
   colaboradores,
   departamentos,
@@ -149,7 +153,6 @@ export function VtCargaTab({
 
   const inputArquivoRef = useRef<HTMLInputElement>(null)
   const [gravando, setGravando] = useState(false)
-  const [novoFluxo, setNovoFluxo] = useState(false)
 
   // Dialog de cobertura (avulsa ou vinculada a férias do relatório)
   const [dialogAberto, setDialogAberto] = useState(false)
@@ -171,10 +174,6 @@ export function VtCargaTab({
   useEffect(() => {
     listarCoberturas()
   }, [listarCoberturas])
-
-  useEffect(() => {
-    setNovoFluxo(false)
-  }, [competencia])
 
   // Ao voltar à aba sem nada carregado, restaura o rascunho do relatório
   // salvo no aparelho (27/10/2026 — sair da tela apagava o cálculo importado).
@@ -313,14 +312,24 @@ export function VtCargaTab({
   const pendenciasPortao = useMemo(() => {
     const lista: string[] = []
     if (feriasPendentes > 0) lista.push(`${feriasPendentes} férias do mês sem destino — defina quem cobre ou marque sem cobertura`)
-    const semTrajeto = resultados.filter((r) => r.pendentes.length > 0).length
-    if (semTrajeto > 0) lista.push(`${semTrajeto} optante(s) com trajeto a confirmar`)
     const semPosto = resultados.filter((r) => r.diasSemPostoIdentificado > 0).length
     if (semPosto > 0) lista.push(`${semPosto} optante(s) com dias sem posto identificado`)
     const semEscala = resultados.filter((r) => r.semEscala).length
     if (semEscala > 0) lista.push(`${semEscala} optante(s) fora do relatório — confira se o relatório está completo`)
     return lista
   }, [feriasPendentes, resultados])
+
+  // Quem não pode entrar na carga do lote: dias sem posto identificado ou fora do relatório.
+  const bloqueiosLote = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const r of resultados) {
+      if (r.semEscala) mapa.set(r.colaborador_id, 'não está no relatório da Gestão de escalas')
+      else if (r.diasSemPostoIdentificado > 0) {
+        mapa.set(r.colaborador_id, `${r.diasSemPostoIdentificado} dia(s) sem posto identificado no relatório`)
+      }
+    }
+    return mapa
+  }, [resultados])
 
   /** Prontos com o MESMO filtro do gravarCargas (helper único `prontaParaGravar`). */
   const prontosParaGravar = useMemo(() => resultados.filter(prontaParaGravar), [resultados])
@@ -338,7 +347,7 @@ export function VtCargaTab({
   // Aviso do navegador ao fechar/recarregar só quando NADA foi para o banco
   // (com o rascunho salvo automaticamente, sair não perde mais o trabalho).
   useEffect(() => {
-    if (situacaoGravacao !== 'nao_gravada') return
+    if (!FLUXO_LEGADO || situacaoGravacao !== 'nao_gravada') return
     const avisar = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', avisar)
     return () => window.removeEventListener('beforeunload', avisar)
@@ -527,13 +536,8 @@ export function VtCargaTab({
             <strong className="text-foreground tabular-nums">{rotuloCompetencia(competencia)}</strong>
           </div>
           <div className="ml-auto flex gap-2">
-            {podeGerenciar && (
-              <ModuleButton size="sm" variant={novoFluxo ? 'primary' : 'outline'} onClick={() => setNovoFluxo((atual) => !atual)}>
-                {novoFluxo ? 'Voltar ao fluxo legado' : 'Usar novo fluxo'}
-              </ModuleButton>
-            )}
             {botaoImportar('Importar outro relatório', true)}
-            {podeGerenciar && !novoFluxo && (
+            {podeGerenciar && FLUXO_LEGADO && (
               <>
                 <ModuleButton
                   size="sm"
@@ -585,7 +589,7 @@ export function VtCargaTab({
         <div className="mt-3">
           <InstrucoesCarga />
         </div>
-        {situacaoGravacao === 'nao_gravada' && (
+        {FLUXO_LEGADO && situacaoGravacao === 'nao_gravada' && (
           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
             <p className="font-semibold">
               A carga de {rotuloCompetencia(competencia)} AINDA NÃO está salva no sistema.
@@ -597,7 +601,7 @@ export function VtCargaTab({
             </p>
           </div>
         )}
-        {situacaoGravacao === 'rascunho' && gravacao && (
+        {FLUXO_LEGADO && situacaoGravacao === 'rascunho' && gravacao && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
             <p className="font-semibold">
               Rascunho salvo no sistema{gravacao.ultimaEm ? ` em ${formatarDataHora(gravacao.ultimaEm)}` : ''} — falta
@@ -609,7 +613,7 @@ export function VtCargaTab({
             </p>
           </div>
         )}
-        {situacaoGravacao === 'parcial' && gravacao && (
+        {FLUXO_LEGADO && situacaoGravacao === 'parcial' && gravacao && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
             <p className="font-semibold">Carga confirmada em parte.</p>
             <p className="mt-1">
@@ -622,7 +626,7 @@ export function VtCargaTab({
             </p>
           </div>
         )}
-        {situacaoGravacao === 'gravada' && gravacao && (
+        {FLUXO_LEGADO && situacaoGravacao === 'gravada' && gravacao && (
           <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-[13px] text-green-800">
             <p className="font-semibold">
               Carga gravada no sistema
@@ -637,7 +641,7 @@ export function VtCargaTab({
         )}
         {pendenciasPortao.length > 0 && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-            <p className="font-semibold">Pendências (não bloqueiam — a gravação salva só quem está pronto):</p>
+            <p className="font-semibold">Pendências do relatório:</p>
             <ul className="mt-1 list-disc pl-5">
               {pendenciasPortao.map((p) => (
                 <li key={p}>{p}</li>
@@ -647,15 +651,15 @@ export function VtCargaTab({
         )}
       </ModuleCard>
 
-      {novoFluxo && (
-        <VtLoteCargaReal
-          competencia={competencia}
-          dias={diasLote}
-          colaboradores={colaboradores}
-          nomeArquivo={nomeArquivo}
-          usuarioId={usuarioId}
-        />
-      )}
+      <VtLoteCargaReal
+        competencia={competencia}
+        dias={diasLote}
+        colaboradores={colaboradores}
+        nomeArquivo={nomeArquivo}
+        usuarioId={usuarioId}
+        departamentos={departamentos}
+        bloqueios={bloqueiosLote}
+      />
 
       <ModuleCard
         title="Férias no mês"
@@ -900,6 +904,7 @@ export function VtCargaTab({
         )}
       </ModuleCard>
 
+      {FLUXO_LEGADO && (
       <ModuleCard
         title={`Carga de ${rotuloCompetencia(competencia)}`}
         description={
@@ -995,6 +1000,7 @@ export function VtCargaTab({
           </div>
         )}
       </ModuleCard>
+      )}
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">

@@ -166,7 +166,11 @@ function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoR
       conhecida: true,
     }
   }
-  if (/prefeitura de niter/.test(texto)) {
+  // O Google põe "Prefeitura de Niterói" em quase toda linha da região, inclusive
+  // intermunicipais (1MB10 Rio Bonito–Niterói, 1121Q Magé–Niterói, 423, 4545) e de
+  // São Gonçalo (21/11/2026). Só é municipal de Niterói o código no formato das linhas
+  // de Niterói (33, 34A, 41JB, 49.2, OC1); o resto fica sem tarifa conhecida — nunca presumido.
+  if (/prefeitura de niter/.test(texto) && ehCodigoLinhaMunicipalNiteroi(codigo)) {
     return {
       escopo: 'municipal',
       sistemaTarifario: 'riocard',
@@ -185,6 +189,11 @@ function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoR
     }
   }
   return desconhecida
+}
+
+/** Formato dos códigos das linhas municipais de Niterói: 1–2 dígitos + até 2 letras (33, 34A, 41JB, 48SP), "49.2" ou OC1. */
+export function ehCodigoLinhaMunicipalNiteroi(codigo: string): boolean {
+  return /^(\d{1,2}[A-Z]{0,2}|\d{1,2}\.\d|OC\d+[A-Z]?)$/.test(codigo)
 }
 
 function pernaDoPasso(

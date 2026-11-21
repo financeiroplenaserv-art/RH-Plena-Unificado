@@ -76,7 +76,13 @@ describe('VtRevisaoRota com o motor novo', () => {
     render(<VtRevisaoRota contextoReal={contexto(ATIVADO)} />)
     await consultarIdaEVolta()
 
-    const [ida, volta] = mocks.sugerirRotasGoogle.mock.calls.map((c) => c[0])
+    // Consultar a ida já busca a volta (1ª chamada de volta, horário padrão);
+    // a última chamada é a volta reconsultada com o horário editado.
+    const chamadas = mocks.sugerirRotasGoogle.mock.calls.map((c) => c[0])
+    expect(chamadas).toHaveLength(3)
+    const ida = chamadas[0]
+    const volta = chamadas[chamadas.length - 1]
+    expect(chamadas[1]).toMatchObject({ origin: 'POSTO, Niterói - RJ', destination: 'CASA, São Gonçalo - RJ' })
     expect(ida).toMatchObject({ origin: 'CASA, São Gonçalo - RJ', destination: 'POSTO, Niterói - RJ' })
     expect(volta).toMatchObject({ origin: 'POSTO, Niterói - RJ', destination: 'CASA, São Gonçalo - RJ' })
     // 06:00 e 17:30 em Brasília = 09:00 e 20:30 UTC.

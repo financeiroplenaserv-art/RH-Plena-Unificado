@@ -1,7 +1,7 @@
 import {
   buscarTarifaDetro,
   buscarTarifaModal,
-  ehLinhaAcMarica,
+  ehLinhaCategoriaAC,
   normalizarLinha,
   reais,
   TARIFA_NITEROI_BUN,
@@ -106,10 +106,10 @@ export function precificarPerna(
           },
         ]
       : []
-    if (ehLinhaAcMarica(linha)) {
+    if (ehLinhaCategoriaAC(linha)) {
       pendenciasSeCobrada.push({
         codigo: 'BUI_LINHA_AC_NAO_CONFIRMADA',
-        mensagem: `${rotulo}: linha de Maricá com ar-condicionado (${reais(r.valorCentavos)}). Não está confirmado que o Bilhete Único Intermunicipal vale nela, então está cobrado o valor cheio; a conferir.`,
+        mensagem: `${rotulo}: linha de categoria AC (ar-condicionado/rodoviária) (${reais(r.valorCentavos)}). Não está confirmado que o Bilhete Único Intermunicipal vale nela, então está cobrado o valor cheio; a conferir.`,
         regra: 'Regras §6, §10',
       })
     }

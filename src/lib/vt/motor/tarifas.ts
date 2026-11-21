@@ -123,13 +123,19 @@ export const TARIFA_INTEGRACAO_BUI = {
 } as const
 
 /**
- * Linhas intermunicipais de Maricá com ar-condicionado (R$ 27,75): não está confirmado
- * que o BUI vale nelas (Parecer VT 21/11/2026, §3.5) — nunca presumir integração.
+ * Linhas DETRO da categoria "AC" (serviço com ar-condicionado/rodoviário): não está
+ * confirmado que o BUI vale nelas — nunca presumir integração. Começou com 2144R/4144R
+ * de Maricá (Parecer VT 21/11/2026, §3.5); a auditoria de 21/11/2026 achou o BUI
+ * aplicado a outras linhas AC (6144R, 2590R, 2520D, 2425D, 4425D), então a regra
+ * passou a valer para TODA linha com categoria AC na tabela DETRO.
  */
-export const LINHAS_AC_MARICA: readonly string[] = ['2144R', '4144R']
+const LINHAS_CATEGORIA_AC: ReadonlySet<string> = new Set(
+  TARIFAS_DETRO_2026.filter((r) => r.categoria === 'AC').map((r) => normalizarLinha(r.linha)).filter((c) => c !== ''),
+)
 
-export function ehLinhaAcMarica(linha: string | null | undefined): boolean {
-  return LINHAS_AC_MARICA.includes(normalizarLinha(linha))
+export function ehLinhaCategoriaAC(linha: string | null | undefined): boolean {
+  const codigo = normalizarLinha(linha)
+  return codigo !== '' && LINHAS_CATEGORIA_AC.has(codigo)
 }
 
 export function vigenteNaData(desde: string, ate: string | null, data: string): boolean {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation, Navigate } from 'react-router-dom'
-import { Users, Route, Ticket, CalendarClock, CalendarCheck, ListChecks } from 'lucide-react'
+import { Users, Route, CalendarClock, CalendarCheck, ListChecks } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,7 +10,6 @@ import { podeGerenciarVT, podeVerCPFCompleto, podeVisualizarVT, verificarPermiss
 import { VtColaboradoresTab } from './VtColaboradoresTab'
 import { VtTrajetosTab } from './VtTrajetosTab'
 import { VtRotasAConfirmarTab } from './VtRotasAConfirmarTab'
-import { VtBilhetesTab } from './VtBilhetesTab'
 import { VtCargaTab } from './VtCargaTab'
 import { VtFechamentoTab } from './VtFechamentoTab'
 
@@ -21,11 +20,11 @@ import { VtFechamentoTab } from './VtFechamentoTab'
 
 const TABS = [
   { path: '/vt', label: 'Colaboradores', icon: Users },
-  { path: '/vt/trajetos', label: 'Trajetos', icon: Route },
+  // Ordem do trabalho: primeiro confirmar as rotas, depois consultar os trajetos.
   { path: '/vt/rotas', label: 'Rotas a confirmar', icon: ListChecks },
+  { path: '/vt/trajetos', label: 'Trajetos', icon: Route },
   { path: '/vt/carga', label: 'Carga', icon: CalendarClock },
   { path: '/vt/fechamento', label: 'Fechamento', icon: CalendarCheck },
-  { path: '/vt/bilhetes', label: 'Bilhetes', icon: Ticket },
 ]
 
 export function VtPage() {
@@ -54,6 +53,10 @@ export function VtPage() {
     return <Navigate to="/" replace />
   }
 
+  // Aba Bilhetes retirada no recomeço do VT (21/11/2026): os bilhetes da planilha foram
+  // apagados e o preço sai das rotas confirmadas. Link antigo cai na fila de rotas.
+  if (location.pathname === '/vt/bilhetes') return <Navigate to="/vt/rotas" replace />
+
   const aba =
     location.pathname === '/vt/trajetos'
       ? 'trajetos'
@@ -63,16 +66,14 @@ export function VtPage() {
         ? 'carga'
         : location.pathname === '/vt/fechamento'
           ? 'fechamento'
-          : location.pathname === '/vt/bilhetes'
-            ? 'bilhetes'
-            : 'colaboradores'
+          : 'colaboradores'
 
   return (
     <ModuleShell tabs={TABS}>
       <PageHeader
         backTo="/"
         title="Vale-Transporte"
-        description="Optantes, trajetos casa → posto e custo do dia pelos bilhetes de VT"
+        description="Optantes, rotas casa → posto e custo do dia"
       />
 
       {aba === 'colaboradores' && (
@@ -114,16 +115,6 @@ export function VtPage() {
           confirmarTrajeto={vt.confirmarTrajeto}
           removerTrajeto={vt.removerTrajeto}
           recarregarTrajetos={vt.listarTrajetos}
-        />
-      )}
-      {aba === 'bilhetes' && (
-        <VtBilhetesTab
-          bilhetes={vt.bilhetes}
-          loading={vt.loading}
-          podeGerenciar={podeGerenciar}
-          novaVigenciaBilhete={vt.novaVigenciaBilhete}
-          desativarBilhete={vt.desativarBilhete}
-          recarregarBilhetes={vt.listarBilhetes}
         />
       )}
       {aba === 'fechamento' && (

@@ -35,6 +35,7 @@ import {
 import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
+import type { DecisaoRotaResumo } from '@/lib/vt/rotasAConfirmar'
 import { linhasOrcadasDoItinerario, type LinhasOrcadasVT } from '@/lib/vt/linhasOrcadas'
 import { BuRiocardBadge } from '@/pages/vt/BuRiocardBadge'
 import { ConsultaRiocardAcoes } from '@/pages/vt/ConsultaRiocardAcoes'
@@ -135,7 +136,23 @@ export function VtTrajetosTab({
   const [mostrarHistorico, setMostrarHistorico] = useState(false)
   // Linhas orçadas (evidência salva) por trajeto, carregadas em lote.
   const [linhasOrcadas, setLinhasOrcadas] = useState<Map<string, LinhasOrcadasVT>>(new Map())
+  const [resumoDecisoes, setResumoDecisoes] = useState<Map<string, DecisaoRotaResumo>>(new Map())
+  // Confirmada = revisão de rota mais recente confirmada com itinerário e preço; sem revisão, vale o trajeto legado.
+  const linhaConfirmada = (linha: { trajeto?: { id: string; status: string } | null }) => {
+    const revisao = linha.trajeto ? resumoDecisoes.get(linha.trajeto.id) : undefined
+    return revisao
+      ? revisao.status === 'confirmada' && !!revisao.itinerarioId && revisao.custoDiarioCentavos != null
+      : linha.trajeto?.status === 'confirmado'
+  }
   const chaveTrajetos = useMemo(() => trajetos.map((t) => t.id).sort().join(','), [trajetos])
+  // Revisar a rota grava uma revisão nova sem mudar os ids dos trajetos: ao
+  // fechar a revisão, recarrega as linhas orçadas (senão a tela mostra a
+  // evidência anterior até recarregar a página).
+  const [versaoEvidencias, setVersaoEvidencias] = useState(0)
+  const fecharRevisao = () => {
+    setRevisando(null)
+    setVersaoEvidencias((v) => v + 1)
+  }
   useEffect(() => {
     let ativo = true
     const ids = chaveTrajetos ? chaveTrajetos.split(',') : []
@@ -143,7 +160,17 @@ export function VtTrajetosTab({
       setLinhasOrcadas(new Map())
       return
     }
-    new RepositorioItinerarioSupabase()
+    const repositorio = new RepositorioItinerarioSupabase()
+    // Situação e preço da revisão de rota mais recente: valem sobre o trajeto
+    // legado (que fica 'sugerido' e sem bilhete quando nasce pela revisão).
+    repositorio
+      .buscarResumoDecisoesPorTrajetos(ids)
+      .then((resumos) => { if (ativo) setResumoDecisoes(resumos) })
+      .catch((erro) => {
+        console.error('Erro ao carregar a situação das rotas revisadas', erro)
+        if (ativo) setResumoDecisoes(new Map())
+      })
+    repositorio
       .buscarEvidenciasPorTrajetos(ids)
       .then((evidencias) => {
         if (!ativo) return
@@ -162,7 +189,7 @@ export function VtTrajetosTab({
     return () => {
       ativo = false
     }
-  }, [chaveTrajetos])
+  }, [chaveTrajetos, versaoEvidencias])
 
   // Opções dos selects: os vigentes hoje. Bilhete referenciado por trajeto
   // gravado que saiu de vigor continua aparecendo (selo "vigência antiga")
@@ -469,7 +496,7 @@ export function VtTrajetosTab({
 
       <ModuleCard
         title="Trajetos casa → posto"
-        description={`${linhas.filter((l) => l.trajeto?.status === 'confirmado').length} confirmados de ${linhas.length} pares`}
+        description={`${linhas.filter(linhaConfirmada).length} confirmados de ${linhas.length} pares`}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
@@ -515,12 +542,15 @@ export function VtTrajetosTab({
                 {linhas.map((linha) => {
                   const valores = valoresDa(linha)
                   const opcoes = opcoesDa(linha)
-                  const custo = custoDaLinha(linha)
-                  const extraLinha = extraDaLinha(linha, valores)
                   const orcado = linha.trajeto ? linhasOrcadas.get(linha.trajeto.id) ?? null : null
+                  const revisao = linha.trajeto ? resumoDecisoes.get(linha.trajeto.id) ?? null : null
+                  // Rota revisada com preço: o custo e a situação são os da revisão (o legado fica só para quem não tem).
+                  const custoRevisado = revisao?.custoDiarioCentavos ?? null
+                  const custo = custoRevisado ?? custoDaLinha(linha)
+                  const extraLinha = custoRevisado != null ? 0 : extraDaLinha(linha, valores)
                   const enderecoIncompleto =
                     (linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)) === 'bairro'
-                  const confirmado = linha.trajeto?.status === 'confirmado'
+                  const confirmado = linhaConfirmada(linha)
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
                   const emEdicao = editandoComposicao[linha.chave] ?? false
                   // Mudança de posto: trajeto GRAVADO para um posto diferente
@@ -635,7 +665,7 @@ export function VtTrajetosTab({
                                     ? bilhetes.find((bilhete) => bilhete.id === valores.b1)?.nome ?? 'Bilhete não encontrado'
                                     : 'Rota ainda não cadastrada para este posto'}
                               </span>
-                              {orcado && orcado.valorDiaCentavos !== null && (
+                              {orcado && orcado.valorDiaCentavos !== null && custoRevisado == null && (
                                 <span className="text-muted-foreground" title="Valor do dia calculado pelo motor para as linhas orçadas">
                                   {formatarCentavos(orcado.valorDiaCentavos)}/dia
                                 </span>
@@ -750,7 +780,7 @@ export function VtTrajetosTab({
       </ModuleCard>
 
       {revisando?.trajeto && (
-        <Dialog open={!!revisando} onOpenChange={(aberto) => { if (!aberto) setRevisando(null) }}>
+        <Dialog open={!!revisando} onOpenChange={(aberto) => { if (!aberto) fecharRevisao() }}>
           <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Revisar itinerário — {revisando.nomeColaborador}</DialogTitle>
@@ -779,7 +809,7 @@ export function VtTrajetosTab({
                   tarifaCheia: revisando.tarifaCheia,
                   motivo: revisando.tarifaCheiaMotivo,
                 }),
-                onFechar: () => setRevisando(null),
+                onFechar: fecharRevisao,
               }}
             />
           </DialogContent>
