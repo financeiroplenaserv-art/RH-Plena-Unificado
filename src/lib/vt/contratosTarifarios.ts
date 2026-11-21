@@ -2,7 +2,7 @@ export type ModalTransporteVT = 'onibus' | 'micro_onibus' | 'brt' | 'vlt' | 'van
 
 export type CategoriaServicoVT = 'urbano_convencional' | 'executivo' | 'seletivo' | 'rodoviario' | 'desconhecida'
 
-export type SistemaTarifarioVT = 'riocard' | 'bun' | 'bui' | 'jae' | 'buc' | 'detro' | 'supervia' | 'metrorio' | 'aquaviario' | 'desconhecido'
+export type SistemaTarifarioVT = 'riocard' | 'bun' | 'bui' | 'jae' | 'buc' | 'detro' | 'supervia' | 'metrorio' | 'aquaviario' | 'gratuito' | 'desconhecido'
 
 export interface PontoValidacaoVT {
   local: string
@@ -25,6 +25,14 @@ export interface PernaItinerarioVT {
   desembarque: PontoValidacaoVT
   tarifaCentavos: number | null
   tarifaVigenteDesde: string | null
+  /**
+   * Trecho (seção) DETRO escolhido pelo RH quando a linha tem mais de um valor
+   * (Portaria 1.960/2026). Opcional: ausente em evidências antigas e quando a linha
+   * tem valor único. Entra no JSON — e no hash — da evidência.
+   */
+  secaoDetro?: number
+  /** Nome do trecho escolhido (ex.: "Alcântara - Niterói"), só para leitura da evidência. */
+  secaoDetroRotulo?: string
 }
 
 export interface AjusteManualItinerarioVT {
@@ -59,6 +67,8 @@ export interface CalculoMotorItinerarioVT {
     politicaIntegracao?: 'presumida' | 'tarifa_cheia'
     motivoTarifaCheia?: string | null
   }
+  /** Trechos DETRO escolhidos nas pernas deste cálculo (ausente = nenhuma linha exigiu escolha). */
+  secoesDetro?: { sentido: 'ida' | 'volta'; linha: string; secao: number; rotulo: string; valorCentavos: number }[]
   /** Aviso de regularizar o cartão no momento do cálculo (ausente em evidências antigas). */
   regularizarCartao?: boolean
   pendencias: string[]

@@ -87,8 +87,10 @@ Fontes: [BUN](https://site.riobilheteunico.com.br/bilhete-unico-niteroi/), [inte
 - **Origem do R$ 5,60 (pesquisa de 21/11/2026):** é a tarifa em **dinheiro** desde 06/07/2025 (reajuste por decisão judicial, de R$ 5,15 para R$ 5,60). Também paga R$ 5,60 quem tem cartão **não habilitado** no BUN.
   - **Habilitação automática:** quem tem o BUI e os cartões Vale-Transporte vinculados ao CPF ("Personalizado Usuário"). Cartão VT tipo **EMPRESA** não vinculado ao CPF precisa de cadastro feito pelo empregador — provável origem do relato "de boca" de que 2 ônibus custam R$ 5,60.
   - **Outras situações de tarifa cheia:** 3ª viagem paga no dia (limite de 2 com desconto); segundo ônibus fora da janela de 1 hora; segundo ônibus da mesma linha.
-  - **A CONFIRMAR (não implementado):** há menção a limite de **60 viagens integradas por mês** (Lei 2.851/2011).
-  - **Não verificado:** nenhuma fonte exige que os 2 ônibus sejam da mesma empresa/consórcio (Transnit × Transoceânico) — as fontes falam em "duas linhas distintas dentro de uma hora". A integração entre consórcios diferentes não foi verificada (a gestora observou R$ 4,45 com mesma empresa e direção).
+  - **Limite de 60 viagens por mês: FECHADO (parecer de 21/11/2026).** Vale **só para quem tem gratuidade** (Lei 3.887/2024, art. 7º, §1º). **Não vale para o VT.** Não há limite mensal a implementar.
+  - **Integração entre consórcios diferentes: CONFIRMADA** (parecer de 21/11/2026). A integração BUN vale entre empresas diferentes (Transnit × Transoceânico): Lei 2.851/2011, art. 7º ("um ou mais operadores").
+  - **A integração de 2 ônibus conta como 1 viagem** do limite de 2 por dia (Lei 2.851/2011, arts. 5º e 7º) — já é como o motor calcula.
+  - **Outras situações de R$ 5,60 (parecer):** cartão VT do tipo empresa/ao portador (sem CPF), cartão Empresarial ou Cartão Digital; e benefício ativo em **outro cartão do mesmo CPF** (por exemplo, um cartão particular).
 - **Exceção "pagar tarifa cheia" (confirmado 21/11/2026):** é raríssima. Todos são tratados como quem usa integração (política presumida); quem não está "Ativado" na Riocard, ou nunca foi consultado, recebe o aviso genérico para regularizar o cartão.
 
 Fontes da pesquisa de 21/11/2026: [Prefeitura de Niterói — tarifa reduzida](https://niteroi.rj.gov.br/prefeitura-mantem-tarifa-reduzida-para-usuarios-do-bilhete-unico-municipal/), [Estação Rio (07/07/2025)](https://estacaorio.com/2025/07/07/tarifa-de-onibus-em-niteroi-sobe-para-r-560/), [Moovit — habilitação do BUN](https://moovit.com/pt/blog/bilhete-unico-de-niteroi-saiba-como-garantir-subsidio-na-tarifa-no-riocard/), [Diário do Transporte (26/11/2024)](https://diariodotransporte.com.br/2024/11/26/passageiros-ja-podem-habilitar-o-bilhete-unico-de-niteroi-para-manter-tarifa-reduzida/amp/), [Lei 2.851/2011](https://urbanismo.niteroi.rj.gov.br/anexos/Mobilidade/Lei%20Ordin%C3%A1ria%202851%202011%20Bilhete%20Municipal.pdf) e [Cidade de Niterói](https://cidadedeniteroi.com/transito/quanto-custa-a-passagem-de-onibus-em-niteroi/).
@@ -104,7 +106,8 @@ Existe integração BUN com barcas, com pontos e tarifas próprios; não é simp
 
 A tabela e a vigência devem ser consultadas antes de automatizar.
 
-- **Divergência (19/11/2026):** o Portal Flumibuss (julho/2025) cita ônibus + barca a **R$ 5,15**. Por decisão da gestora em 19/11/2026, **fica R$ 5,45** até alguém conferir na fonte oficial.
+- **Divergência FECHADA (parecer de 21/11/2026): ônibus + barca Araribóia pelo BUN = R$ 5,45.** A fórmula é *ônibus (R$ 4,45) + barca (R$ 5,00, desde fev/2026) − R$ 4,00 de subsídio* (Decreto municipal 13.413/2019). O R$ 5,15 do Portal Flumibuss era do tempo em que a barca custava R$ 4,70. **Charitas: R$ 7,70 na barca e R$ 8,15 com ônibus.** Fonte: [Mobilidade Niterói](https://www.urbanismo.niteroi.rj.gov.br/mobilidade.html).
+- Barca com ônibus de Niterói e ônibus/VLT do Rio são 3 conduções: cotar BUN ônibus+barca (R$ 5,45) + Jaé (R$ 5,00); nunca aplicar BUN e BUI na mesma barca (não confirmado).
 
 ## 4. BUI — Bilhete Único Intermunicipal
 
@@ -177,7 +180,7 @@ A tabela atual da Riocard prevê, com BUI, **R$ 9,40** para:
 
 Fonte: [Riocard — tarifas](http://www.riocardmais.com.br/Tarifas).
 
-## 6. São Gonçalo ↔ Niterói
+## 6. São Gonçalo, Itaboraí, Maricá e Niterói
 
 **Não existe uma tarifa única para todo o par.** A [Portaria DETRO/PRES 1.960/2026](https://www.sindpass.com.br/wp-content/uploads/2026/02/Portaria-DETRO-Reajuste-2026.pdf), vigente desde 15/02/2026, mostra exemplos:
 
@@ -186,10 +189,15 @@ Fonte: [Riocard — tarifas](http://www.riocardmais.com.br/Tarifas).
 | 484M — Niterói–Alcântara via Tribobó | R$ 7,10 |
 | 483M — Jardim Catarina–Niterói via Tribobó | R$ 9,10 |
 | 492M — Niterói–Jardim Catarina via BR-101 | R$ 9,10 |
-| 100D — Niterói–Candelária | R$ 10,40 |
+
+> **Correção (parecer de 21/11/2026):** a **100D é Niterói–Candelária (Rio de Janeiro)**, e não um trecho São Gonçalo↔Niterói; foi retirada desta tabela (Niterói–Candelária: R$ 10,40, DETRO). E a **linha 62 é municipal de Niterói** (Fonseca), não de São Gonçalo: o caso 62 + 39A é integração BUN Niterói–Niterói (§3).
 
 Decisão:
 
+- **Classificação municipal × intermunicipal pelo código da linha na tabela DETRO, nunca pela operadora que o Google informa.** O Google devolve linhas DETRO (ex.: 489M, 532M) com a operadora "Prefeitura de Niterói". Código de linha com sufixo de letra que consta na tabela DETRO é intermunicipal; o adaptador (`src/lib/vt/googleRoutes.ts`) aplica essa regra antes de olhar a operadora.
+- **Ônibus municipal de São Gonçalo: R$ 5,55** desde 01/11/2025, **sem bilhete único municipal**. SG municipal + Niterói municipal **não integra** (R$ 10,00 na soma). Fonte: [Diário do Rio](https://diariodorio.com/passagem-de-onibus-em-sao-goncalo-sobe-de-r-395-para-r-555/).
+- **Itaboraí (gratuito desde 23/05/2025) e Maricá (EPT "vermelhinho"): o ônibus municipal custa R$ 0.** O motor trata como modal `onibus_municipal_gratuito`, reconhecido por **lista explícita de operadoras conhecidas** (`OPERADORAS_MUNICIPAIS_GRATUITAS`); operadora fora da lista **não é presumida gratuita** — vira pendência. Gratuito + DETRO: cobra-se só o DETRO (ou a seção). Linhas AC de Maricá (**2144R/4144R, R$ 27,75**): BUI **não presumido** — pendência `BUI_LINHA_AC_NAO_CONFIRMADA` (nem pares nem linha avulsa).
+- **Tarifa DETRO por seção.** A Portaria traz, para várias linhas, o valor do percurso inteiro (seção 0) e valores por **seção** (trecho). O preço depende de onde a pessoa embarca e desce. Exemplos: **416M** Niterói–Manilha R$ 15,10 (inteiro), Manilha–Tribobó R$ 7,10, **Alcântara–Niterói R$ 7,10**; **414M** R$ 15,10 e Morada do Sol–Tribobó R$ 7,10; **413M** seção Niterói–Manilha R$ 9,10. O motor **não escolhe a seção sozinho**: devolve a pendência `DETRO_SECAO_ESCOLHER` com as opções e valores, e a tela de revisão pede o "Trecho pago" por condução e por sentido (a volta pré-marcada herda o trecho da ida). A seção escolhida vai na evidência (`secaoDetro`/`secaoDetroRotulo` na perna e `calculoMotor.secoesDetro`) e, portanto, no hash. Registros de seção ilegíveis no PDF (200 linhas marcadas "conferir") não viram opção.
 - Identificar linha, variante e seção antes do preço.
 - Nas linhas de R$ 7,10 ou R$ 9,10, a tarifa direta é inferior ao BUI de R$ 9,40.
 - Acima de R$ 9,40, o BUI pode reduzir a cobrança na catraca se elegível; a base patronal sem transbordo permanece pendente conforme §2.
@@ -243,7 +251,10 @@ O antigo `src/lib/vt/classificarRota.ts` e seu teste foram removidos na limpeza 
 
 ## 10. Pendências de decisão
 
+- **Base de Niterói: R$ 4,45 (BUN) × R$ 5,60 (tarifa cheia) — com o JURÍDICO (parecer de 21/11/2026, §3.1).** O **Decreto federal 10.854/2021** (capítulo do VT; a frase "tarifa integral... mesmo que a legislação local preveja descontos" está no **art. 124** — conferir a numeração no texto do Planalto) levanta a leitura de que a base do VT seria a tarifa cheia, com abatimento só da integração. A decisão da gestora de 19/11/2026 (R$ 4,45) **continua valendo no código**; esta pendência só registra o risco e a consulta ao jurídico. O mesmo raciocínio vale para a Tarifa Social de R$ 5,00 no metrô/trem.
 - BUI direto sem transbordo na base patronal: DP/jurídico/Riocard.
+- **Teto de renda do BUI (R$ 3.205,20): informado pela gestora em 21/11/2026 — todos os colaboradores da Plena ganham abaixo do teto**, então a presunção do BUI vale para todos. Quem passar a ganhar acima no futuro vira **tarifa cheia obrigatória** no trecho intermunicipal (não é exceção opcional): o CORH não guarda salário, então o DP precisa avisar.
+- **Modelo do cartão VT: informado pela gestora em 21/11/2026 — todos os cartões VT da Plena são "Personalizado Usuário" (vinculados ao CPF).** Logo, "Suspenso Setrans" **não** é prova de renda acima do teto nem de modelo de cartão errado: tratar como **pendência de habilitação/uso**, a resolver pela empresa no Portal da Riocard (Usuários → Gerenciar Bilhete Único). O significado dos códigos de "Motivo" não tem tabela pública.
 - Política quando pacote Plena e cotação de catraca divergirem: gestora.
 - Reajuste no meio da competência: gestora.
 - Evidência do posto real para crédito fora da carga: gestora.

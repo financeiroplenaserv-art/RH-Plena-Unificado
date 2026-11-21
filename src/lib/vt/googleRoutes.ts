@@ -4,6 +4,7 @@ import type {
   PernaItinerarioVT,
   SistemaTarifarioVT,
 } from '@/lib/vt/contratosTarifarios'
+import { TARIFAS_DETRO_2026 } from '@/lib/vt/dados/tarifasDetro2026'
 
 export interface TransitStepGoogle {
   travelMode?: string
@@ -76,6 +77,30 @@ function duracaoSegundos(duracao: string | undefined): number | null {
   return Number.isFinite(segundos) ? segundos : null
 }
 
+/**
+ * Operadoras do ônibus municipal GRATUITO de Itaboraí e Maricá, por nome conhecido
+ * (comparação sem acento e em minúsculas). Lista explícita e deliberadamente curta:
+ * operadora fora dela não é presumida gratuita — vira "desconhecida" e pendência.
+ * Ampliar só com o nome exato que o Google devolver numa consulta real.
+ */
+export const OPERADORAS_MUNICIPAIS_GRATUITAS: readonly { padrao: RegExp; municipio: 'Itaboraí' | 'Maricá' }[] = [
+  { padrao: /^prefeitura( municipal)? de itaborai$/, municipio: 'Itaboraí' },
+  { padrao: /^transporte (publico )?(municipal )?(gratuito )?de itaborai$/, municipio: 'Itaboraí' },
+  { padrao: /^empresa publica de transportes( de marica)?$/, municipio: 'Maricá' },
+  { padrao: /^ept( marica)?$/, municipio: 'Maricá' },
+  { padrao: /^prefeitura( municipal)? de marica$/, municipio: 'Maricá' },
+]
+
+function semAcento(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+}
+
+export function municipioGratuitoDaOperadora(agencia: string | undefined | null): 'Itaboraí' | 'Maricá' | null {
+  const texto = semAcento(agencia ?? '')
+  if (!texto) return null
+  return OPERADORAS_MUNICIPAIS_GRATUITAS.find((o) => o.padrao.test(texto))?.municipio ?? null
+}
+
 function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoRotaGoogle, codigoLinha: string | undefined): {
   escopo: PernaItinerarioVT['escopo']
   sistemaTarifario: SistemaTarifarioVT
@@ -92,6 +117,28 @@ function classificacaoTarifaria(agencia: string | undefined, contexto: ContextoR
     conhecida: false,
   }
   if (!texto) return desconhecida
+  // Linha com código na tabela DETRO é intermunicipal, qualquer que seja a operadora que o
+  // Google informe (Parecer VT 21/11/2026, §3.5). Só códigos com sufixo de letra (ex.: 416M).
+  const codigo = (codigoLinha ?? '').trim().toUpperCase().replace(/\s+/g, '')
+  if (/^\d{3,4}[A-Z]$/.test(codigo) && TARIFAS_DETRO_2026.some((r) => r.linha === codigo)) {
+    return {
+      escopo: 'intermunicipal',
+      sistemaTarifario: 'detro',
+      municipioOrigem: contexto.municipioOrigem,
+      municipioDestino: contexto.municipioDestino,
+      conhecida: true,
+    }
+  }
+  const gratuito = municipioGratuitoDaOperadora(agencia)
+  if (gratuito) {
+    return {
+      escopo: 'municipal',
+      sistemaTarifario: 'gratuito',
+      municipioOrigem: gratuito,
+      municipioDestino: gratuito,
+      conhecida: true,
+    }
+  }
   if (/semove - s[aã]o gon/.test(texto)) {
     return {
       escopo: 'municipal',
@@ -244,6 +291,25 @@ export function removerPernaAlternativa(
       `Condução ${removida.linha ?? sequencia} retirada manualmente. Revise a caminhada e os horários; distância e duração totais ficaram indeterminadas.`,
     ],
   }
+}
+
+/**
+ * Grava (ou limpa, com null) o trecho DETRO escolhido numa condução da alternativa.
+ * O campo só existe na perna quando há escolha — evidências antigas não mudam.
+ */
+export function definirSecaoPerna(
+  alternativa: AlternativaRotaGoogleVT,
+  sequencia: number,
+  escolha: { secao: number; rotulo: string } | null,
+): AlternativaRotaGoogleVT {
+  const pernas = alternativa.itinerario.pernas.map((perna) => {
+    if (perna.sequencia !== sequencia) return perna
+    const { secaoDetro: _s, secaoDetroRotulo: _r, ...resto } = perna
+    void _s
+    void _r
+    return escolha ? { ...resto, secaoDetro: escolha.secao, secaoDetroRotulo: escolha.rotulo } : resto
+  })
+  return { ...alternativa, itinerario: { ...alternativa.itinerario, pernas } }
 }
 
 /**

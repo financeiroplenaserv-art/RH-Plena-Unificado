@@ -28,6 +28,7 @@ function horarioComFuso(valor: string | null): string | null {
 function modalOnibus(perna: PernaItinerarioVT): ModalPerna | null {
   if (perna.categoriaServico === 'desconhecida') return null
   if (perna.escopo === 'intermunicipal' && perna.sistemaTarifario === 'detro') return 'onibus_intermunicipal'
+  if (perna.escopo === 'municipal' && perna.sistemaTarifario === 'gratuito') return 'onibus_municipal_gratuito'
   if (perna.escopo !== 'municipal') return null
   if (perna.sistemaTarifario === 'riocard' && perna.municipioOrigem === 'Niterói' && perna.municipioDestino === 'Niterói') {
     return 'onibus_municipal_niteroi'
@@ -74,7 +75,7 @@ export function pernaMotorDeItinerario(perna: PernaItinerarioVT): PernaMotorAdap
     perna: {
       modal,
       linha: perna.linha,
-      secao: null,
+      secao: perna.secaoDetro ?? null,
       embarqueEm,
       operadora: perna.operadora,
     },

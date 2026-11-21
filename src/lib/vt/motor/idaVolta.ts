@@ -3,6 +3,7 @@ import type { CalculoMotorItinerarioVT, HorarioReferenciaVT, PernaItinerarioVT }
 import { calcularDia } from '@/lib/vt/motor/calcularDia'
 import { calcularSentido } from '@/lib/vt/motor/calcularSentido'
 import { pernasMotorDoItinerario } from '@/lib/vt/motor/adaptadorItinerario'
+import { normalizarLinha, opcoesSecaoDetro } from '@/lib/vt/motor/tarifas'
 import type { FatosCartaoMotor, ResultadoDiaMotor, ResultadoSentidoMotor } from '@/lib/vt/motor/tipos'
 
 /** Identificador gravado em vt_trajeto_decisoes.cotacao_id quando o preço vem do motor novo. */
@@ -81,6 +82,20 @@ export function combinarIdaVolta(
   dataServico: string,
   horarioReferencia?: HorarioReferenciaVT,
 ): AlternativaRotaGoogleVT {
+  const secoesDetro: NonNullable<CalculoMotorItinerarioVT['secoesDetro']> = []
+  for (const [sentido, alt] of [['ida', ida], ['volta', volta]] as const) {
+    for (const perna of alt.itinerario.pernas) {
+      if (perna.secaoDetro === undefined) continue
+      const opcao = opcoesSecaoDetro(perna.linha).find((o) => o.secao === perna.secaoDetro)
+      secoesDetro.push({
+        sentido,
+        linha: normalizarLinha(perna.linha),
+        secao: perna.secaoDetro,
+        rotulo: perna.secaoDetroRotulo ?? opcao?.rotulo ?? `seção ${perna.secaoDetro}`,
+        valorCentavos: opcao?.valorCentavos ?? 0,
+      })
+    }
+  }
   const calculoMotor: CalculoMotorItinerarioVT = {
     versao: MOTOR_COTACAO_ID,
     dataServico,
@@ -98,6 +113,7 @@ export function combinarIdaVolta(
     },
     regularizarCartao: resultado.regularizarCartao,
     pendencias: resultado.pendencias.map((p) => p.mensagem),
+    ...(secoesDetro.length ? { secoesDetro } : {}),
     ...(horarioReferencia ? { horarioReferencia } : {}),
   }
   const ajustes = [...(ida.itinerario.ajustesManuais ?? []), ...(volta.itinerario.ajustesManuais ?? [])]

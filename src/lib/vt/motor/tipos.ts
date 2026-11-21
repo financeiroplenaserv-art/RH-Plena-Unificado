@@ -8,6 +8,8 @@ export type ModalPerna =
   | 'onibus_municipal_niteroi'
   | 'onibus_municipal_sao_goncalo'
   | 'onibus_municipal_rio'
+  /** Ônibus municipal gratuito de Itaboraí ou Maricá (EPT "vermelhinho"): R$ 0. */
+  | 'onibus_municipal_gratuito'
   | 'onibus_intermunicipal'
   | 'trem'
   | 'metro'
@@ -86,12 +88,24 @@ export interface EntradaSentidoMotor {
 
 export type StatusMotor = 'confirmado' | 'pendente' | 'indeterminado'
 
+/** Trecho (seção) de uma linha DETRO com o valor próprio da Portaria 1.960/2026. */
+export interface OpcaoSecaoDetro {
+  /** Número da seção; 0 = percurso inteiro. */
+  secao: number
+  /** Texto para a pessoa escolher ("Percurso inteiro (Niterói - Manilha)", "Alcântara - Niterói"). */
+  rotulo: string
+  valorCentavos: number
+}
+
 export interface PendenciaMotor {
   codigo: string
   /** Motivo legível em português. */
   mensagem: string
   /** Seção do documento de regras (ex.: "Regras §3"). */
   regra: string
+  /** Só em DETRO_SECAO_ESCOLHER: a linha e os trechos possíveis (o motor nunca escolhe sozinho). */
+  linha?: string
+  opcoesSecao?: OpcaoSecaoDetro[]
 }
 
 /** Aviso informativo — NÃO é pendência e não impede a confirmação do valor. */

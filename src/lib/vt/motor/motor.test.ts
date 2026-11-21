@@ -360,8 +360,10 @@ describe('tarifas DETRO por linha', () => {
   it('seção ambígua (416M sem seção): lista as opções; informada, resolve', () => {
     const amb = calcularSentido({ pernas: [perna('onibus_intermunicipal', '416M')], cartao: ATIVO, dataServico: DATA })
     expect(amb.valorCentavos).toBeNull()
-    expect(amb.pendencias[0].mensagem).toContain('seção 0')
-    expect(amb.pendencias[0].mensagem).toContain('seção 1')
+    expect(amb.pendencias[0].codigo).toBe('DETRO_SECAO_ESCOLHER')
+    expect(amb.pendencias[0].mensagem).toContain('Escolher o trecho (seção) da linha 416M')
+    expect(amb.pendencias[0].mensagem).toContain('Percurso inteiro')
+    expect(amb.pendencias[0].mensagem).toContain('Alcântara - Niterói')
     const info = calcularSentido({ pernas: [perna('onibus_intermunicipal', '416M', 0, 1)], cartao: ATIVO, dataServico: DATA })
     expect(info.valorCentavos).toBe(710)
     const total = calcularSentido({ pernas: [perna('onibus_intermunicipal', '416M', 0, 0)], cartao: ATIVO, dataServico: DATA })

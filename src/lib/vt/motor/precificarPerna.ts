@@ -1,6 +1,7 @@
 import {
   buscarTarifaDetro,
   buscarTarifaModal,
+  ehLinhaAcMarica,
   normalizarLinha,
   reais,
   TARIFA_NITEROI_BUN,
@@ -31,6 +32,7 @@ const NOMES_MODAL: Record<PernaMotor['modal'], string> = {
   onibus_municipal_niteroi: 'ônibus municipal de Niterói',
   onibus_municipal_sao_goncalo: 'ônibus municipal de São Gonçalo',
   onibus_municipal_rio: 'ônibus municipal do Rio',
+  onibus_municipal_gratuito: 'ônibus municipal gratuito',
   onibus_intermunicipal: 'ônibus intermunicipal',
   trem: 'trem',
   metro: 'metrô',
@@ -45,6 +47,7 @@ const ONIBUS: ReadonlyArray<PernaMotor['modal']> = [
   'onibus_municipal_niteroi',
   'onibus_municipal_sao_goncalo',
   'onibus_municipal_rio',
+  'onibus_municipal_gratuito',
   'onibus_intermunicipal',
 ]
 
@@ -52,6 +55,7 @@ const ESCOPO_ONIBUS: Partial<Record<PernaMotor['modal'], string>> = {
   onibus_municipal_niteroi: 'municipal de Niterói',
   onibus_municipal_sao_goncalo: 'municipal de São Gonçalo',
   onibus_municipal_rio: 'municipal do Rio',
+  onibus_municipal_gratuito: 'municipal gratuito',
   onibus_intermunicipal: 'intermunicipal',
 }
 
@@ -102,6 +106,13 @@ export function precificarPerna(
           },
         ]
       : []
+    if (ehLinhaAcMarica(linha)) {
+      pendenciasSeCobrada.push({
+        codigo: 'BUI_LINHA_AC_NAO_CONFIRMADA',
+        mensagem: `${rotulo}: linha de Maricá com ar-condicionado (${reais(r.valorCentavos)}). Não está confirmado que o Bilhete Único Intermunicipal vale nela, então está cobrado o valor cheio; a conferir.`,
+        regra: 'Regras §6, §10',
+      })
+    }
     return {
       ...base,
       valorCentavos: r.valorCentavos,
@@ -147,6 +158,15 @@ export function precificarPerna(
   }
 
   const t = busca.tarifa
+  if (perna.modal === 'onibus_municipal_gratuito') {
+    return {
+      ...base,
+      valorCentavos: 0,
+      valorCheiaCentavos: 0,
+      pendenciasIndeterminado: [],
+      passo: { regra: t.regra, texto: `${rotulo}: ${reais(0)}, ônibus municipal gratuito.` },
+    }
+  }
   if (
     perna.modal === 'onibus_municipal_niteroi' &&
     politica === 'presumida' &&

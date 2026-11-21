@@ -1,11 +1,11 @@
 import { avisoRegularizarCartao, politicaDoCartao } from '@/lib/vt/motor/cartao'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GitBranch, MapPinned } from 'lucide-react'
 import { toast } from 'sonner'
 import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { Input } from '@/components/ui/input'
-import { adaptarRotasGoogle, removerPernaAlternativa, rotuloOperadoraExibicao, type AlternativaRotaGoogleVT, type RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
+import { adaptarRotasGoogle, definirSecaoPerna, removerPernaAlternativa, rotuloOperadoraExibicao, type AlternativaRotaGoogleVT, type RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
 import { sugerirRotasGoogle } from '@/services/vtRotaApi'
 import { buscarTurnosDoPosto } from '@/lib/vt/turnosDoPosto'
 import { descreverAlternativo, descreverHorarioDoTurno, escolherHorarioDoTurno, type HorarioReferenciaTurno } from '@/lib/vt/horarioTurno'
@@ -18,6 +18,7 @@ import { agruparAlternativasIguais, menorValorComDestaque, textoSemelhantes, typ
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import { pernaMotorDeItinerario } from '@/lib/vt/motor/adaptadorItinerario'
 import { precificarPerna } from '@/lib/vt/motor/precificarPerna'
+import { normalizarLinha, opcoesSecaoDetro } from '@/lib/vt/motor/tarifas'
 import {
   calcularAlternativaSentido,
   calcularDiaIdaVolta,
@@ -60,6 +61,30 @@ interface VtRevisaoRotaProps {
 }
 
 type Sentido = 'ida' | 'volta'
+
+/** Trecho DETRO escolhido pelo RH, por condução (chave `${sentido}:${alternativaId}:${sequencia}`). */
+type EscolhaSecao = { secao: number; rotulo: string }
+type SecoesEscolhidas = Record<string, EscolhaSecao>
+
+const ehPernaDetro = (perna: ItinerarioVT['pernas'][number]) =>
+  perna.escopo === 'intermunicipal' && perna.sistemaTarifario === 'detro'
+
+/** Aplica nas pernas as seções escolhidas; sem escolha explícita, a volta pré-marcada herda a da ida (mesma linha). */
+function aplicarSecoes(
+  alternativa: AlternativaRotaGoogleVT,
+  sentido: Sentido,
+  secoes: SecoesEscolhidas,
+  herdadas: Record<string, EscolhaSecao>,
+): AlternativaRotaGoogleVT {
+  return alternativa.itinerario.pernas.reduce((atual, perna) => {
+    if (!ehPernaDetro(perna)) return atual
+    const opcoes = opcoesSecaoDetro(perna.linha)
+    if (opcoes.length === 0) return atual
+    const escolha = secoes[`${sentido}:${alternativa.id}:${perna.sequencia}`] ?? herdadas[normalizarLinha(perna.linha)]
+    if (!escolha || !opcoes.some((o) => o.secao === escolha.secao)) return atual
+    return definirSecaoPerna(atual, perna.sequencia, escolha)
+  }, alternativa)
+}
 
 function minutosDe(hora: string): number {
   const [h, m] = hora.split(':').map(Number)
@@ -130,6 +155,7 @@ interface SecaoSentidoProps {
   onSelecionar: (id: string) => void
   onConsultar: () => void
   onRemoverConducao: (alternativaId: string, sequencia: number) => void
+  onEscolherSecao: (alternativaId: string, sequencia: number, escolha: EscolhaSecao | null) => void
   dataServico: string
   salvando: boolean
   nota?: string | null
@@ -260,8 +286,10 @@ function SecaoSentido(props: SecaoSentidoProps) {
               <tbody>
                 {selecionada.alternativa.itinerario.pernas.map((perna) => {
                   const tarifa = precificarPerna(pernaMotorDeItinerario(perna).perna, props.dataServico).valorCentavos
+                  const opcoesSecao = ehPernaDetro(perna) ? opcoesSecaoDetro(perna.linha) : []
                   return (
-                    <tr key={perna.sequencia} className="border-b border-border last:border-0 hover:bg-accent/40">
+                    <Fragment key={perna.sequencia}>
+                    <tr className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-4 py-2.5 font-medium">{perna.linha ?? '—'}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">
                         {(() => {
@@ -294,6 +322,34 @@ function SecaoSentido(props: SecaoSentidoProps) {
                         </ModuleButton>
                       </td>
                     </tr>
+                    {opcoesSecao.length > 0 && (
+                      <tr className="border-b border-border bg-amber-50/50 last:border-0" data-testid={`secao-linha-${perna.sequencia}`}>
+                        <td colSpan={6} className="px-4 py-2.5 text-[13px]">
+                          <label className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold">Trecho pago — linha {perna.linha}</span>
+                            <select
+                              aria-label={`Trecho pago — condução ${perna.sequencia} (${sentido})`}
+                              className="h-8 rounded-md border border-border bg-background px-2 text-[13px]"
+                              disabled={props.salvando}
+                              value={perna.secaoDetro ?? ''}
+                              onChange={(e) => {
+                                const op = opcoesSecao.find((o) => String(o.secao) === e.target.value)
+                                props.onEscolherSecao(selecionada.alternativa.id, perna.sequencia, op ? { secao: op.secao, rotulo: op.rotulo } : null)
+                              }}
+                            >
+                              <option value="">Escolher o trecho…</option>
+                              {opcoesSecao.map((o) => (
+                                <option key={o.secao} value={o.secao}>{o.rotulo} — {formatarCentavos(o.valorCentavos)}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <p className="mt-1 text-[12px] text-muted-foreground">
+                            A linha cobra por trecho. O Google indica embarque em: <strong>{perna.embarque.local}</strong> (desembarque: {perna.desembarque.local}). Escolha o trecho que a pessoa realmente percorre.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -328,6 +384,8 @@ function alternativasDoSentido(
   contexto: ContextoRevisaoRotaReal,
   removidas: Record<string, number[]>,
   dataServico: string,
+  secoes: SecoesEscolhidas,
+  herdadas: Record<string, EscolhaSecao>,
 ): AlternativaComMotor[] {
   const brutas = adaptarRotasGoogle(resposta ?? {}, {
     consultadoEm,
@@ -339,7 +397,7 @@ function alternativasDoSentido(
   return ordenarPorCusto(brutas.map((original) => {
     const alternativa = (removidas[`${sentido}:${original.id}`] ?? [])
       .reduce<AlternativaRotaGoogleVT>((atual, sequencia) => removerPernaAlternativa(atual, sequencia), original)
-    return calcularAlternativaSentido(alternativa, contexto.cartao, dataServico)
+    return calcularAlternativaSentido(aplicarSecoes(alternativa, sentido, secoes, herdadas), contexto.cartao, dataServico)
   }))
 }
 
@@ -352,6 +410,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [erros, setErros] = useState<Record<Sentido, string | null>>({ ida: null, volta: null })
   const [selecionadas, setSelecionadas] = useState<Record<Sentido, string | null>>({ ida: null, volta: null })
   const [pernasRemovidas, setPernasRemovidas] = useState<Record<string, number[]>>({})
+  const [secoes, setSecoes] = useState<SecoesEscolhidas>({})
   const [decisaoRealId, setDecisaoRealId] = useState<string | null>(null)
   const [decisaoRealStatus, setDecisaoRealStatus] = useState<'sugerida' | 'confirmada' | 'indeterminada' | null>(null)
   const [carregandoDecisao, setCarregandoDecisao] = useState(false)
@@ -431,12 +490,22 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   }
 
   const alternativasIda = useMemo(
-    () => alternativasDoSentido('ida', respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico),
-    [respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico],
+    () => alternativasDoSentido('ida', respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico, secoes, {}),
+    [respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico, secoes],
   )
+  // Volta pré-marcada (mesma rota da ida): herda o trecho escolhido na ida para a mesma linha.
+  const herdadasDaIda = useMemo(() => {
+    const escolhida = alternativasIda.find((x) => x.alternativa.id === selecionadas.ida)
+    const mapa: Record<string, EscolhaSecao> = {}
+    if (!voltaPremarcada || !escolhida) return mapa
+    for (const perna of escolhida.alternativa.itinerario.pernas) {
+      if (perna.secaoDetro !== undefined) mapa[normalizarLinha(perna.linha)] = { secao: perna.secaoDetro, rotulo: perna.secaoDetroRotulo ?? '' }
+    }
+    return mapa
+  }, [alternativasIda, selecionadas.ida, voltaPremarcada])
   const alternativasVolta = useMemo(
-    () => alternativasDoSentido('volta', respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico),
-    [respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico],
+    () => alternativasDoSentido('volta', respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico, secoes, herdadasDaIda),
+    [respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico, secoes, herdadasDaIda],
   )
 
   const gruposIda = useMemo(() => agruparAlternativasIguais(alternativasIda), [alternativasIda])
@@ -471,6 +540,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const motivoBloqueio = (() => {
     if (!ida || !volta) return 'Escolha uma alternativa de ida e uma de volta.'
     if (!dia) return 'Escolha uma alternativa de ida e uma de volta.'
+    const pedeSecao = dia.pendencias.find((p) => p.codigo === 'DETRO_SECAO_ESCOLHER')
+    if (pedeSecao) return `Escolha o trecho (seção) pago da linha ${pedeSecao.linha ?? ''} na ida e na volta antes de salvar.`
     if (dia.status === 'indeterminado') return 'Valor do dia indeterminado: resolva as pendências antes de salvar.'
     if (dia.status === 'pendente') return 'Valor do dia pendente: confira as pendências abaixo antes de salvar.'
     if (dia.valorCentavos === null || dia.valorCentavos <= 0) return 'O valor do dia precisa ser positivo.'
@@ -501,6 +572,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     setSelecionadas((atual) => ({ ...atual, [sentido]: null }))
     if (sentido === 'volta') { setVoltaPremarcada(false); setVoltaAberta(false) }
     setPernasRemovidas((atuais) => Object.fromEntries(Object.entries(atuais).filter(([chave]) => !chave.startsWith(`${sentido}:`))))
+    setSecoes((atuais) => Object.fromEntries(Object.entries(atuais).filter(([chave]) => !chave.startsWith(`${sentido}:`))))
     limparSalvo()
     const dataConsulta = new Date().toISOString()
     try {
@@ -533,6 +605,18 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     const chave = `${sentido}:${alternativaId}`
     if (sentido === 'volta') setVoltaPremarcada(false)
     setPernasRemovidas((atuais) => ({ ...atuais, [chave]: [...(atuais[chave] ?? []), sequencia] }))
+    // A remoção renumera as conduções: as escolhas de trecho desta alternativa são refeitas.
+    setSecoes((atuais) => Object.fromEntries(Object.entries(atuais).filter(([k]) => !k.startsWith(`${chave}:`))))
+    limparSalvo()
+  }
+
+  const escolherSecao = (sentido: Sentido, alternativaId: string, sequencia: number, escolha: EscolhaSecao | null) => {
+    const chave = `${sentido}:${alternativaId}:${sequencia}`
+    setSecoes((atuais) => {
+      const resto = { ...atuais }
+      delete resto[chave]
+      return escolha ? { ...resto, [chave]: escolha } : resto
+    })
     limparSalvo()
   }
 
@@ -713,6 +797,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           onSelecionar={(id) => selecionar('ida', id)}
           onConsultar={() => void consultar('ida')}
           onRemoverConducao={(id, seq) => removerConducao('ida', id, seq)}
+          onEscolherSecao={(id, seq, escolha) => escolherSecao('ida', id, seq, escolha)}
           dataServico={dataServico}
           salvando={salvando}
         />
@@ -734,6 +819,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           onSelecionar={(id) => selecionar('volta', id)}
           onConsultar={() => void consultar('volta')}
           onRemoverConducao={(id, seq) => removerConducao('volta', id, seq)}
+          onEscolherSecao={(id, seq, escolha) => escolherSecao('volta', id, seq, escolha)}
           dataServico={dataServico}
           salvando={salvando}
           nota={notaVolta}

@@ -3,7 +3,7 @@ import {
   TARIFAS_DETRO_2026_META,
   type TarifaDetro2026,
 } from '@/lib/vt/dados/tarifasDetro2026'
-import type { ModalPerna, PendenciaMotor } from '@/lib/vt/motor/tipos'
+import type { ModalPerna, OpcaoSecaoDetro, PendenciaMotor } from '@/lib/vt/motor/tipos'
 
 /** Tarifa de um modal com vigência e fonte — nunca número solto no código. */
 export interface TarifaModal {
@@ -68,6 +68,18 @@ export const TARIFAS_MODAIS: readonly TarifaModal[] = [
     regra: 'Proposta VT §5 (tarifa a conferir)',
   },
   {
+    // Itaboraí (gratuito desde 23/05/2025) e Maricá (EPT "vermelhinho"): perna municipal custa R$ 0.
+    chave: 'onibus_municipal_gratuito',
+    descricao: 'ônibus municipal gratuito (Itaboraí/Maricá)',
+    valorCentavos: 0,
+    vigenteDesde: '2025-05-23',
+    vigenteAte: null,
+    fonte: 'Parecer VT de 21/11/2026 (§3.5): ônibus municipal gratuito em Itaboraí (desde 23/05/2025) e Maricá',
+    url: '',
+    aConferir: false,
+    regra: 'Regras §6',
+  },
+  {
     // Fora do documento de regras: valor do cadastro de tarifas do sistema (Jaé); gestora deve confirmar.
     chave: 'onibus_municipal_rio',
     descricao: 'ônibus municipal do Rio (Jaé)',
@@ -110,6 +122,16 @@ export const TARIFA_INTEGRACAO_BUI = {
   regra: 'Regras §4',
 } as const
 
+/**
+ * Linhas intermunicipais de Maricá com ar-condicionado (R$ 27,75): não está confirmado
+ * que o BUI vale nelas (Parecer VT 21/11/2026, §3.5) — nunca presumir integração.
+ */
+export const LINHAS_AC_MARICA: readonly string[] = ['2144R', '4144R']
+
+export function ehLinhaAcMarica(linha: string | null | undefined): boolean {
+  return LINHAS_AC_MARICA.includes(normalizarLinha(linha))
+}
+
 export function vigenteNaData(desde: string, ate: string | null, data: string): boolean {
   return data >= desde && (ate === null || data <= ate)
 }
@@ -143,6 +165,38 @@ export function reais(centavos: number): string {
 export type BuscaTarifaDetro =
   | { tipo: 'ok'; valorCentavos: number; precisaConferir: boolean; registros: TarifaDetro2026[] }
   | { tipo: 'indeterminado'; pendencia: PendenciaMotor }
+
+/**
+ * Trechos (seções) escolhíveis de uma linha DETRO. Só há opções quando a linha tem
+ * mais de um valor possível (percurso inteiro + seções). Seção ilegível no PDF
+ * (null) ou número de seção com mais de um valor (variantes por via) NÃO viram
+ * opção: não dá para identificar com segurança, então ficam para conferência.
+ */
+export function opcoesSecaoDetro(
+  linhaBruta: string | null | undefined,
+  tabela: readonly TarifaDetro2026[] = TARIFAS_DETRO_2026,
+): OpcaoSecaoDetro[] {
+  const linha = normalizarLinha(linhaBruta)
+  if (!linha) return []
+  const daLinha = tabela.filter((r) => r.linha === linha)
+  if (new Set(daLinha.map((r) => r.valorCentavos)).size < 2) return []
+  const porSecao = new Map<number, TarifaDetro2026[]>()
+  for (const r of daLinha) {
+    if (r.secao === null) continue
+    porSecao.set(r.secao, [...(porSecao.get(r.secao) ?? []), r])
+  }
+  const opcoes: OpcaoSecaoDetro[] = []
+  for (const [secao, regs] of [...porSecao.entries()].sort((a, b) => a[0] - b[0])) {
+    if (new Set(regs.map((r) => r.valorCentavos)).size !== 1) continue
+    const nome = regs[0].denominacao + (regs[0].via ? ` ${regs[0].via}` : '')
+    opcoes.push({
+      secao,
+      rotulo: secao === 0 ? `Percurso inteiro (${nome})` : nome,
+      valorCentavos: regs[0].valorCentavos,
+    })
+  }
+  return opcoes
+}
 
 function descreverOpcao(r: TarifaDetro2026): string {
   const partes = [`seção ${r.secao ?? '?'}`, r.denominacao]
@@ -211,6 +265,21 @@ export function buscarTarifaDetro(
   }
 
   const valores = new Set(candidatos.map((r) => r.valorCentavos))
+  if (valores.size > 1 && secaoInformada === null) {
+    const opcoes = opcoesSecaoDetro(linha, tabela)
+    if (opcoes.length > 0) {
+      return {
+        tipo: 'indeterminado',
+        pendencia: {
+          codigo: 'DETRO_SECAO_ESCOLHER',
+          mensagem: `Escolher o trecho (seção) da linha ${linha}: o valor depende de onde a pessoa embarca e desce. Opções: ${opcoes.map((o) => `${o.rotulo}: ${reais(o.valorCentavos)}`).join('; ')}.`,
+          regra: REGRA_DETRO,
+          linha,
+          opcoesSecao: opcoes,
+        },
+      }
+    }
+  }
   if (valores.size > 1) {
     const rotulo = secaoInformada === null ? 'Seção' : 'Variante'
     return indeterminada(

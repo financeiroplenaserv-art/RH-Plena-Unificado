@@ -94,3 +94,23 @@ Pendências que dependem da gestora:
 2. Publicar o frontend (nenhum deploy feito) — checklist de deploy da `main` no AGENTS.md §10.
 3. Confirmar o limite de 60 viagens integradas por mês (Lei 2.851/2011) antes de implementar.
 4. Mantém-se: URL de consulta da Riocard já usada; Jaé (Rio) e comunicado individual ao colaborador seguem como próximos passos.
+
+
+## Atualização de 21/11/2026 — seção DETRO, gratuito Itaboraí/Maricá e regras do parecer
+
+Sem deploy, commit, migration ou alteração de dados.
+
+**Feito**
+- `src/lib/vt/motor/tarifas.ts`: `opcoesSecaoDetro(linha)` (trechos com valor único por seção; seção null/ambígua não vira opção), pendência `DETRO_SECAO_ESCOLHER` (com `linha` e `opcoesSecao`, tipos em `motor/tipos.ts`), tarifa `onibus_municipal_gratuito` (R$ 0), `LINHAS_AC_MARICA`/`ehLinhaAcMarica`.
+- `calcularSentido.ts`: par com gratuito = "não integra" (cobra só a outra); par com linha AC de Maricá = pendência `BUI_LINHA_AC_NAO_CONFIRMADA`. `precificarPerna.ts`: gratuito = 0; AC avulsa = pendência.
+- `googleRoutes.ts`: linha com código na tabela DETRO => intermunicipal (a operadora do Google não decide); `OPERADORAS_MUNICIPAIS_GRATUITAS` (lista explícita, curta — AMPLIAR só com o nome exato devolvido numa consulta real); `definirSecaoPerna`. `contratosTarifarios.ts`: `secaoDetro`/`secaoDetroRotulo` opcionais na perna, `secoesDetro` opcional no `calculoMotor`, sistema `gratuito`. `adaptadorItinerario.ts` repassa a seção ao motor; `idaVolta.ts` grava o resumo `secoesDetro`.
+- `VtRevisaoRota.tsx`: seletor "Trecho pago" por condução/sentido; sem escolha o salvar fica bloqueado com "Escolha o trecho (seção) pago da linha X"; volta pré-marcada herda a seção da ida (mesma linha); remover condução limpa as escolhas daquela alternativa.
+- Testes novos: `motor/secaoGratuito.test.ts` e `pages/vt/VtRevisaoRota.secao.test.tsx`; ajustado o teste antigo de 416M em `motor.test.ts`.
+- `docs/VT_REGRAS_TARIFARIAS.md` atualizado (§3 valores/barcas, §6, §10).
+
+**Pendências**
+- Nomes reais das operadoras de Itaboraí/Maricá no Google: a lista é um palpite conservador; operadora fora dela cai em pendência. Conferir numa consulta real e ampliar.
+- Seções cujo texto ficou ilegível no PDF (200 linhas "conferir") não aparecem como opção; conferir com o PDF se alguma linha usada pela operação for afetada.
+- Linhas AC de Maricá: BUI não presumido, aguarda confirmação.
+- Base de Niterói R$ 4,45 × R$ 5,60: jurídico (Decreto 10.854/2021, art. 124, conferir numeração).
+- Trajetos/cargas já gravados NÃO foram recalculados; linhas DETRO com seção em trajetos existentes aparecerão com a pendência na próxima revisão.

@@ -7,6 +7,7 @@ import {
 } from '@/lib/vt/motor/cartao'
 import { precificarPerna, type PernaPrecificada } from '@/lib/vt/motor/precificarPerna'
 import {
+  ehLinhaAcMarica,
   normalizarLinha,
   reais,
   TARIFA_INTEGRACAO_BUI,
@@ -93,6 +94,26 @@ function avaliarPar(
   const nomePar = `${pa.rotulo} + ${pb.rotulo}`
   const niteroiA = a.modal === 'onibus_municipal_niteroi'
   const niteroiB = b.modal === 'onibus_municipal_niteroi'
+
+  // Ônibus municipal gratuito (Itaboraí/Maricá): não há o que integrar; paga-se só a outra condução.
+  if (a.modal === 'onibus_municipal_gratuito' || b.modal === 'onibus_municipal_gratuito') {
+    return {
+      tipo: 'nao_integra',
+      passo: { regra: 'Regras §6', texto: `${nomePar}: o ônibus municipal gratuito custa R$ 0,00, então não há integração a aplicar. Paga-se só a outra condução.` },
+    }
+  }
+
+  // Linhas AC de Maricá: BUI não presumido (Regras §6, §10).
+  if (ehLinhaAcMarica(a.linha) || ehLinhaAcMarica(b.linha)) {
+    return {
+      tipo: 'pendencia',
+      pendencia: {
+        codigo: 'BUI_LINHA_AC_NAO_CONFIRMADA',
+        mensagem: `${nomePar}: uma das linhas é de Maricá com ar-condicionado e não está confirmado que o Bilhete Único Intermunicipal vale nela. Cobrado o valor cheio de cada uma; a conferir.`,
+        regra: 'Regras §6, §10',
+      },
+    }
+  }
 
   // BUN: dois ônibus municipais de Niterói (Regras §3).
   if (niteroiA && niteroiB) {
