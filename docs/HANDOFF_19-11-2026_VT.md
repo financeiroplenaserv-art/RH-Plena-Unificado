@@ -114,3 +114,13 @@ Sem deploy, commit, migration ou alteração de dados.
 - Linhas AC de Maricá: BUI não presumido, aguarda confirmação.
 - Base de Niterói R$ 4,45 × R$ 5,60: jurídico (Decreto 10.854/2021, art. 124, conferir numeração).
 - Trajetos/cargas já gravados NÃO foram recalculados; linhas DETRO com seção em trajetos existentes aparecerão com a pendência na próxima revisão.
+
+## Fila "Rotas a confirmar" ampliada (21/11/2026, fim do dia)
+
+Implementado a pedido da gestora (sem deploy, sem aplicar migration, sem alterar dados):
+
+1. **Criar trajeto direto pela fila.** Botão "Criar e revisar" para "Sem rota cadastrada". `src/lib/vt/criarTrajetoRevisao.ts` cria o `vt_trajetos` (sugerido/manual, `bilhete_id` NULL, escopo/precisão do cadastro) e a decisão sugerida (revisão = última do par + 1; o app cria porque não há trigger — só o backfill da 169 criou decisões). `vt_trajetos.bilhete_id` é NOT NULL hoje: **a criação depende da migration 175 (`175_vt_trajeto_bilhete_opcional.sql`), preparada e testada em transação desfeita (`scripts/vt/testar-175-transacao.ps1` + `scripts/vt/testes/175_testes.sql`), NÃO aplicada**. Antes de aplicar: backup de `vt_trajetos` (padrão `dados-locais/backup_vt_175_...`) e autorização. Sem a 175 o clique mostra aviso e não grava nada.
+2. **Postos exigidos pela escala do mês** (`apoioRotasAConfirmar.ts` + `exigenciasDeCoberturas`/`exigenciasDeCargas`): coberturas/treinamentos com `data_fim >= hoje` e postos do detalhe das cargas da competência atual e seguinte, só optantes, motivos juntados, filtro "Só o que a carga do mês precisa", contador "A carga do mês precisa de N".
+3. **Endereço mudou**: `calculoMotor.enderecoCasa` é gravado a partir de agora (`combinarIdaVolta` 7º parâmetro). Comparação por `enderecoMudou` (forma ignorada; mudança de rua/número/bairro/cidade/CEP conta). **Rotas confirmadas antes de hoje não têm o campo e não são acusadas** — para vigiá-las seria preciso revisá-las de novo ou reconstruir o endereço da época pelo `log_auditoria` (não feito: consulta pesada sob RLS, ver migration 108).
+
+Ordem da fila: carga do mês → sugerida → endereço mudou → rota antiga → sem rota; "Próxima" passa pelos sem rota. Testes: `rotasAConfirmar.test.ts`, `rotasAConfirmarMes.test.ts`, `criarTrajetoRevisao.test.ts`, `VtRotasAConfirmarTab.test.tsx`.

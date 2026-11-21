@@ -99,12 +99,14 @@ describe('filtros e navegação da fila', () => {
     expect(filtrarRotasAConfirmar(itens, { busca: '', postoId: 'dep-b' }).map((i) => i.nome)).toEqual(['Bruno Lima'])
   })
 
-  it('a próxima pula quem não tem trajeto e usa a posição anterior quando a atual saiu da fila', () => {
-    // revisáveis: Ana, Bruno (Cláudia não tem trajeto)
+  it('a próxima passa também por quem não tem trajeto e usa a posição anterior quando a atual saiu da fila', () => {
+    // fila: Ana, Bruno (rota antiga) e Cláudia (sem rota — o trajeto é criado ao abrir)
     const ana = itens.find((i) => i.nome === 'Ana Souza')!
     expect(proximaRotaRevisavel(itens, ana.chave)?.nome).toBe('Bruno Lima')
     const bruno = itens.find((i) => i.nome === 'Bruno Lima')!
-    expect(proximaRotaRevisavel(itens, bruno.chave)).toBeNull()
+    expect(proximaRotaRevisavel(itens, bruno.chave)?.nome).toBe('Cláudia Rocha')
+    const claudia = itens.find((i) => i.nome === 'Cláudia Rocha')!
+    expect(proximaRotaRevisavel(itens, claudia.chave)).toBeNull()
     const semAna = itens.filter((i) => i.nome !== 'Ana Souza')
     expect(indiceRevisavel(itens, ana.chave)).toBe(0)
     expect(proximaRotaRevisavel(semAna, ana.chave, 0)?.nome).toBe('Bruno Lima')

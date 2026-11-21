@@ -81,6 +81,7 @@ export function combinarIdaVolta(
   cartao: FatosCartaoMotor,
   dataServico: string,
   horarioReferencia?: HorarioReferenciaVT,
+  enderecoCasa?: string,
 ): AlternativaRotaGoogleVT {
   const secoesDetro: NonNullable<CalculoMotorItinerarioVT['secoesDetro']> = []
   for (const [sentido, alt] of [['ida', ida], ['volta', volta]] as const) {
@@ -115,6 +116,7 @@ export function combinarIdaVolta(
     pendencias: resultado.pendencias.map((p) => p.mensagem),
     ...(secoesDetro.length ? { secoesDetro } : {}),
     ...(horarioReferencia ? { horarioReferencia } : {}),
+    ...(enderecoCasa ? { enderecoCasa } : {}),
   }
   const ajustes = [...(ida.itinerario.ajustesManuais ?? []), ...(volta.itinerario.ajustesManuais ?? [])]
   return {

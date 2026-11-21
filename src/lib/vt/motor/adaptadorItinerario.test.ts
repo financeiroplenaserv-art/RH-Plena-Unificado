@@ -170,5 +170,15 @@ describe('ida e volta pelo motor', () => {
       cartao: { situacaoBu: 'Ativado', consultadoEm: '2026-10-28' },
     })
     expect(combinada.distanciaMetros).toBe((ida.distanciaMetros ?? 0) + (volta.distanciaMetros ?? 0))
+    // Sem endereço informado, a evidência não inventa o campo.
+    expect(combinada.itinerario.calculoMotor).not.toHaveProperty('enderecoCasa')
+  })
+
+  it('guarda o endereço de casa usado na consulta (base da fila "endereço mudou")', () => {
+    const ida = alt62()
+    const volta = voltaAlternativa()
+    const dia = calcularDiaIdaVolta(ida, volta, ATIVADO, DATA)
+    const combinada = combinarIdaVolta(ida, volta, dia, ATIVADO, DATA, undefined, 'RUA X, 10, Niterói - RJ')
+    expect(combinada.itinerario.calculoMotor?.enderecoCasa).toBe('RUA X, 10, Niterói - RJ')
   })
 })

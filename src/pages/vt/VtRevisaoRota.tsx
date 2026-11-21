@@ -643,7 +643,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     setSalvando(true)
     setErroPersistencia(null)
     try {
-      const combinada = combinarIdaVolta(ida.alternativa, volta.alternativa, dia, contextoReal.cartao, dataServico, horarioReferencia)
+      const combinada = combinarIdaVolta(ida.alternativa, volta.alternativa, dia, contextoReal.cartao, dataServico, horarioReferencia, contextoReal.origem)
       const resultado = await repositorio.salvarEscolhaComRevisao({
         decisaoId: decisaoRealId,
         colaboradorId: contextoReal.colaboradorId,

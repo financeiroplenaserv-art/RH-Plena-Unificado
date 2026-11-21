@@ -74,6 +74,11 @@ export interface CalculoMotorItinerarioVT {
   pendencias: string[]
   /** Horário usado para consultar as rotas (ausente em evidências antigas). */
   horarioReferencia?: HorarioReferenciaVT
+  /**
+   * Endereço de casa (texto de textoOrigemCasa) usado na consulta (21/11/2026). Permite a fila
+   * "Rotas a confirmar" avisar quando o cadastro mudar de endereço. Ausente em evidências antigas.
+   */
+  enderecoCasa?: string
 }
 
 export interface HorarioReferenciaVT {

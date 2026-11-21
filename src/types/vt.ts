@@ -47,7 +47,7 @@ export interface VtTrajeto {
   id: string
   colaborador_id: string
   departamento_id: string
-  bilhete_id: string
+  bilhete_id: string | null
   /** 2º bilhete opcional (o dia pode usar dois — custo = soma). */
   bilhete_2_id: string | null
   escopo: EscopoTrajetoVT
