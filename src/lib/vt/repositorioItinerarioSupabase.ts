@@ -5,6 +5,7 @@ import {
   type EscolhaItinerarioVT,
   type NovaEvidenciaItinerario,
 } from '@/lib/vt/itinerarioEvidencia'
+import type { DecisaoRotaResumo } from '@/lib/vt/rotasAConfirmar'
 import type { Database } from '@/types/database'
 import type { VtItinerario, VtTrajetoDecisao } from '@/types/vt'
 import {
@@ -209,6 +210,36 @@ export class RepositorioItinerarioSupabase {
       if (evidencia) resultado.set(trajetoId, evidencia)
     }
     return resultado
+  }
+
+  /**
+   * Situação da decisão mais recente (maior revisão) de cada trajeto, em lote —
+   * base da fila "Rotas a confirmar". Trajeto sem decisão fica fora do mapa.
+   */
+  async buscarResumoDecisoesPorTrajetos(trajetoLegadoIds: readonly string[]): Promise<Map<string, DecisaoRotaResumo>> {
+    const BLOCO = 100
+    const ids = [...new Set(trajetoLegadoIds)]
+    const revisao = new Map<string, number>()
+    const resumo = new Map<string, DecisaoRotaResumo>()
+    for (let i = 0; i < ids.length; i += BLOCO) {
+      const { data, error } = await this.cliente
+        .from('vt_trajeto_decisoes')
+        .select('trajeto_legado_id, revisao, status, itinerario_id, custo_diario_centavos')
+        .in('trajeto_legado_id', ids.slice(i, i + BLOCO))
+      if (error) throw error
+      for (const d of data ?? []) {
+        if (!d.trajeto_legado_id) continue
+        const atual = revisao.get(d.trajeto_legado_id)
+        if (atual !== undefined && atual >= d.revisao) continue
+        revisao.set(d.trajeto_legado_id, d.revisao)
+        resumo.set(d.trajeto_legado_id, {
+          status: d.status as DecisaoRotaResumo['status'],
+          itinerarioId: d.itinerario_id,
+          custoDiarioCentavos: d.custo_diario_centavos,
+        })
+      }
+    }
+    return resumo
   }
 
   async salvarEscolha(entrada: EscolhaItinerarioVT): Promise<EscolhaItinerarioSalva> {

@@ -42,6 +42,32 @@ describe('VtColaboradoresTab — BU na Riocard somente leitura', () => {
   })
 })
 
+describe('VtColaboradoresTab — atalhos da Riocard', () => {
+  const montar = (podeVerCpf: boolean) =>
+    render(
+      <VtColaboradoresTab
+        colaboradores={[{ ...PESSOA, cpf: '123.456.789-09' }]}
+        departamentos={[]}
+        trajetos={[]}
+        loading={false}
+        podeGerenciar
+        podeVerCpf={podeVerCpf}
+        salvarVtColaborador={vi.fn()}
+        ehFerista={() => false}
+      />,
+    )
+
+  it('mostra consultar e copiar CPF só para quem vê o CPF completo', () => {
+    const { unmount } = montar(true)
+    expect(screen.getByRole('link', { name: /Consultar na Riocard/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Copiar CPF/ })).toBeInTheDocument()
+    unmount()
+    montar(false)
+    expect(screen.queryByRole('link', { name: /Consultar na Riocard/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Copiar CPF/ })).not.toBeInTheDocument()
+  })
+})
+
 describe('VtColaboradoresTab — exceção "pagar tarifa cheia"', () => {
   it('marcar exige motivo e grava com o motivo informado', async () => {
     const salvarExcecao = vi.fn().mockResolvedValue(true)

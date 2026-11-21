@@ -25,7 +25,6 @@ vi.mock('@/lib/vt/repositorioItinerarioSupabase', () => ({
   },
 }))
 
-import { ErroConsultaRota } from '@/services/vtRotaApi'
 import { hojeBrasil } from '@/lib/utils'
 import { VtRevisaoRota, type ContextoRevisaoRotaReal } from './VtRevisaoRota'
 
@@ -105,14 +104,14 @@ describe('VtRevisaoRota — horário do turno', () => {
 
     await consultarEEscolher()
     const [ida, volta] = mocks.sugerirRotasGoogle.mock.calls.map((c) => c[0])
-    // 07:00 e 15:20 em Brasília = 10:00 e 18:20 UTC.
-    expect(ida.arrivalTime).toMatch(/T10:00:00\.000Z$/)
+    // Entrada 07:00 BRT (10:00Z) − folga de 10 min = 09:50Z; saída 15:20 BRT = 18:20Z.
+    expect(ida.arrivalTime).toMatch(/T09:50:00\.000Z$/)
     expect(ida.departureTime).toBeUndefined()
     expect(volta.departureTime).toMatch(/T18:20:00\.000Z$/)
     expect(volta.arrivalTime).toBeUndefined()
 
     expect(await salvar()).toMatchObject({
-      origem: 'turno_escala', modoIda: 'chegada', entrada: '07:00', saida: '15:20', texto: '07:00 às 15:20', noturno: false,
+      origem: 'turno_escala', modoIda: 'chegada', folgaMinutos: 10, entrada: '07:00', saida: '15:20', texto: '07:00 às 15:20', noturno: false,
     })
   })
 
@@ -127,10 +126,10 @@ describe('VtRevisaoRota — horário do turno', () => {
     await waitFor(() => expect(mocks.sugerirRotasGoogle).toHaveBeenCalledTimes(2))
 
     const [ida, volta] = mocks.sugerirRotasGoogle.mock.calls.map((c) => c[0])
-    // 19:00 BRT (22:00Z) na segunda; 07:00 BRT (10:00Z) na terça = 12 h depois.
-    expect(ida.arrivalTime).toMatch(/T22:00:00\.000Z$/)
+    // Chegar até 19:00 BRT − 10 min = 21:50Z na segunda; volta 07:00 BRT (10:00Z) na terça.
+    expect(ida.arrivalTime).toMatch(/T21:50:00\.000Z$/)
     expect(volta.departureTime).toMatch(/T10:00:00\.000Z$/)
-    expect(new Date(volta.departureTime).getTime() - new Date(ida.arrivalTime).getTime()).toBe(12 * 3600_000)
+    expect(new Date(volta.departureTime).getTime() - new Date(ida.arrivalTime).getTime()).toBe(12 * 3600_000 + 10 * 60_000)
   })
 
   it('o operador pode editar o horário e a evidência passa a dizer "manual"', async () => {
@@ -141,7 +140,7 @@ describe('VtRevisaoRota — horário do turno', () => {
     expect((screen.getByLabelText('Chegar até (ida)') as HTMLInputElement).value).toBe('07:30')
 
     await consultarEEscolher()
-    expect(mocks.sugerirRotasGoogle.mock.calls[0][0].arrivalTime).toMatch(/T10:30:00\.000Z$/)
+    expect(mocks.sugerirRotasGoogle.mock.calls[0][0].arrivalTime).toMatch(/T10:20:00\.000Z$/)
     expect(await salvar()).toMatchObject({ origem: 'manual', entrada: '07:30', saida: '16:20' })
   })
 
@@ -159,24 +158,11 @@ describe('VtRevisaoRota — horário do turno', () => {
     expect(await salvar()).toMatchObject({ origem: 'manual', modoIda: 'saida', entrada: '06:00', saida: '18:00' })
   })
 
-  it('function sem arrivalTime (erro 400): cai para a hora de saída com margem e avisa', async () => {
+  it('mostra a folga de 10 minutos e não mostra hora prevista de chegada', async () => {
     mocks.buscarTurnosDoPosto.mockResolvedValue([{ data: diaRecente(), turno: '7:00 às 15:20h Faltista ASG' }])
-    mocks.sugerirRotasGoogle.mockImplementation(async (entrada: { origin: string; arrivalTime?: string }) => {
-      if (entrada.arrivalTime) throw new ErroConsultaRota('Informe origin, destination e departureTime (ISO) válidos.', 400)
-      return entrada.origin.startsWith('CASA') ? RESPOSTA_ALCEMIR : RESPOSTA_ACACIO
-    })
     render(<VtRevisaoRota contextoReal={contexto()} />)
-    await screen.findByTestId('vt-horario-turno')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Consultar ida no Google' }))
-    await screen.findByRole('button', { name: 'Ida — alternativa 4' })
-
-    expect(mocks.sugerirRotasGoogle).toHaveBeenCalledTimes(2)
-    const retentativa = mocks.sugerirRotasGoogle.mock.calls[1][0]
-    // entrada 07:00 BRT (10:00Z) − 90 min = 08:30Z.
-    expect(retentativa.departureTime).toMatch(/T08:30:00\.000Z$/)
-    expect(retentativa.arrivalTime).toBeUndefined()
-    expect(screen.getByTestId('vt-horario-turno')).toHaveTextContent('Consulta pela hora de saída')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const aviso = await screen.findByTestId('vt-horario-turno')
+    expect(aviso).toHaveTextContent('folga de 10 minutos')
+    expect(aviso).not.toHaveTextContent(/chegando às/i)
   })
 })

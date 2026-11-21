@@ -37,6 +37,7 @@ import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import { linhasOrcadasDoItinerario, type LinhasOrcadasVT } from '@/lib/vt/linhasOrcadas'
 import { BuRiocardBadge } from '@/pages/vt/BuRiocardBadge'
+import { ConsultaRiocardAcoes } from '@/pages/vt/ConsultaRiocardAcoes'
 import { fatosCartaoDoCadastro } from '@/lib/vt/motor/adaptadorItinerario'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
 import type { VtBilhete } from '@/types/vt'
@@ -63,6 +64,7 @@ interface LinhaTrajeto {
   enderecoCasa: string | null
   cidadeCasa: string | null
   cepCasa: string | null
+  cpf: string | null
   enderecoPosto: string | null
   cidadePosto: string | null
   /** Situação do BU na Riocard (migration 167; null = não consultado ou colaborador fora da lista de ativos). */
@@ -86,6 +88,8 @@ interface VtTrajetosTabProps {
   loading: boolean
   usuarioId: string
   podeGerenciar: boolean
+  /** Mostra "Consultar na Riocard" + "Copiar CPF" (só com `colaborador.ver_cpf_completo`). */
+  podeVerCpf?: boolean
   salvarTrajeto: (dados: NovoTrajetoVT, opcoes?: { desconfirmar?: boolean }) => Promise<string | null>
   confirmarTrajeto: (id: string, usuarioId: string) => Promise<boolean>
   removerTrajeto: (id: string) => Promise<boolean>
@@ -103,6 +107,7 @@ export function VtTrajetosTab({
   loading,
   usuarioId,
   podeGerenciar,
+  podeVerCpf = false,
   salvarTrajeto,
   confirmarTrajeto,
   removerTrajeto,
@@ -191,6 +196,7 @@ export function VtTrajetosTab({
         enderecoCasa: colab?.endereco ?? null,
         cidadeCasa: colab?.cidade ?? null,
         cepCasa: colab?.cep ?? null,
+        cpf: cadastro?.cpf ?? null,
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
         buAtivado: colab?.vt_bu_ativado ?? null,
@@ -221,6 +227,7 @@ export function VtTrajetosTab({
         enderecoCasa: c.endereco,
         cidadeCasa: c.cidade,
         cepCasa: c.cep ?? null,
+        cpf: c.cpf ?? null,
         enderecoPosto: dep?.endereco ?? null,
         cidadePosto: dep?.cidade ?? null,
         buAtivado: c.vt_bu_ativado ?? null,
@@ -665,6 +672,7 @@ export function VtTrajetosTab({
                       </td>
                       <td className="px-3 py-2.5 align-top whitespace-nowrap">
                         <BuRiocardBadge situacao={linha.buSituacao} ativado={linha.buAtivado} />
+                        {podeVerCpf && <ConsultaRiocardAcoes cpf={linha.cpf} nome={linha.nomeColaborador} />}
                       </td>
                       <td className="px-3 py-2.5 text-right align-top whitespace-nowrap tabular-nums">
                         {custo == null ? '—' : formatarCentavos(custo)}

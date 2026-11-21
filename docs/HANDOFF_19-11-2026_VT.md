@@ -79,3 +79,18 @@
 - Rodar o vitest pelo **PowerShell** (no Git Bash falha com `reading 'config'`).
 - O `excelCompraArquivo.test.ts` (Materiais) às vezes estoura o tempo na suíte completa e passa sozinho.
 - `docs/LANCAMENTO_MENSAL_EPIS.md` tem alteração de outra sessão, que não foi mexida nem commitada.
+
+## 6. 21/11/2026 — continuação (sem deploy do frontend, sem commit, sem alteração de banco)
+
+Decisões da gestora e o que foi feito:
+- **`vt-rota` v2 publicada** (aceita `arrivalTime`). A revisão de rota deixou de usar o quebra-galho de sair 90 min antes: com turno, a ida consulta `arrivalTime = entrada − 10 min` (`FOLGA_CHEGADA_MINUTOS`, `chegadaComFolgaBRT`); a evidência grava `horarioReferencia.folgaMinutos` (opcional, evidências antigas sem o campo continuam válidas). Turno noturno: volta no dia seguinte (inalterado). A hora prevista de chegada NÃO aparece na tela (a decisão 4 da seção 3 foi "não mostrar").
+- **Botão Riocard**: "Consultar na Riocard" + "Copiar CPF" (`ConsultaRiocardAcoes.tsx`) nas abas Colaboradores e Trajetos, só com `colaborador.ver_cpf_completo`. No painel de revisão de rota NÃO foi colocado (ele não recebe o CPF; as duas abas já cobrem o uso). O CPF é lido do banco só para quem tem a permissão.
+- **Exceção tarifa cheia**: confirmada como raríssima; o comportamento atual (integração presumida + aviso para quem não está "Ativado" ou nunca foi consultado) já era esse — sem mudança de código nem banco.
+- **R$ 4,45 confirmado** por pesquisa com usuários; `docs/VT_REGRAS_TARIFARIAS.md` atualizado (origem do R$ 5,60, habilitação automática, cartão VT de empresa, 3ª viagem/janela/mesma linha, limite mensal de 60 viagens A CONFIRMAR, integração entre consórcios não verificada, fontes). A pendência de extrato deixa de bloquear o uso dos R$ 8,90/dia.
+- **Nova aba "Rotas a confirmar"** (`/vt/rotas`): aba própria (e não filtro em Trajetos) por ter contador, ordem e "Próxima" próprios. Lista optantes ativos sem revisão confirmada (itinerário + custo + decisão confirmada), ordem sugerida → antiga → sem rota, depois nome. Revisar abre o `VtRevisaoRota` existente (remontado por pessoa); "Próxima da fila" abre a seguinte; a linha sai da fila ao confirmar.
+
+Pendências que dependem da gestora:
+1. **Optante sem trajeto gravado** ("Sem rota cadastrada"): a fila só aponta para a aba Trajetos, porque a revisão exige um trajeto/decisão já existentes e criar trajeto exigiria escolher bilhete (dado). Se quiser revisar direto dali, será preciso decidir como criar o trajeto (ex.: bilhete provisório).
+2. Publicar o frontend (nenhum deploy feito) — checklist de deploy da `main` no AGENTS.md §10.
+3. Confirmar o limite de 60 viagens integradas por mês (Lei 2.851/2011) antes de implementar.
+4. Mantém-se: URL de consulta da Riocard já usada; Jaé (Rio) e comunicado individual ao colaborador seguem como próximos passos.

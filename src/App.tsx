@@ -725,6 +725,14 @@ function App() {
                 }
               />
               <Route
+                path="/vt/rotas"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vt' }}>
+                    <VtPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/vt/carga"
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vt' }}>

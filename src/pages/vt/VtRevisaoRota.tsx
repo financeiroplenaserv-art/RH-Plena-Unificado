@@ -6,13 +6,13 @@ import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { Input } from '@/components/ui/input'
 import { adaptarRotasGoogle, removerPernaAlternativa, rotuloOperadoraExibicao, type AlternativaRotaGoogleVT, type RespostaGoogleRoutes } from '@/lib/vt/googleRoutes'
-import { ErroConsultaRota, sugerirRotasGoogle } from '@/services/vtRotaApi'
+import { sugerirRotasGoogle } from '@/services/vtRotaApi'
 import { buscarTurnosDoPosto } from '@/lib/vt/turnosDoPosto'
 import { descreverAlternativo, descreverHorarioDoTurno, escolherHorarioDoTurno, type HorarioReferenciaTurno } from '@/lib/vt/horarioTurno'
 import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { formatarDataHora, hojeBrasil } from '@/lib/utils'
-import { horaMinutoValida, mascararHoraMinuto, partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
+import { chegadaComFolgaBRT, FOLGA_CHEGADA_MINUTOS, horaMinutoValida, mascararHoraMinuto, partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
 import { encontrarAlternativaInversa } from '@/lib/vt/rotaInversa'
 import { agruparAlternativasIguais, menorValorComDestaque, textoSemelhantes, type GrupoAlternativas } from '@/lib/vt/agruparAlternativas'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
@@ -49,6 +49,10 @@ export interface ContextoRevisaoRotaReal {
   onSalvo?: () => void
   /** Fecha o diálogo que hospeda a revisão (botão Fechar do rodapé fixo). */
   onFechar?: () => void
+  /** Fila "Rotas a confirmar": abre a próxima rota pendente (some quando não há próxima). */
+  onProxima?: () => void
+  /** Chamado ao confirmar trajeto e preço (a fila recarrega). */
+  onConfirmado?: () => void
 }
 
 interface VtRevisaoRotaProps {
@@ -56,9 +60,6 @@ interface VtRevisaoRotaProps {
 }
 
 type Sentido = 'ida' | 'volta'
-
-/** Margem usada quando a function publicada ainda não aceita arrivalTime. */
-const MARGEM_SAIDA_MIN = 90
 
 function minutosDe(hora: string): number {
   const [h, m] = hora.split(':').map(Number)
@@ -361,7 +362,6 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [salvo, setSalvo] = useState(false)
   const [turno, setTurno] = useState<HorarioReferenciaTurno | null>(null)
   const [horarioEditado, setHorarioEditado] = useState(false)
-  const [idaPelaSaida, setIdaPelaSaida] = useState(false)
   const horarioEditadoRef = useRef(false)
   const departamentosRef = useRef(contextoReal.departamentosApoio)
   departamentosRef.current = contextoReal.departamentosApoio
@@ -400,7 +400,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
         if (ativo) setCarregandoDecisao(false)
       })
     return () => { ativo = false }
-  }, [contextoReal, repositorio])
+  }, [contextoReal.trajetoLegadoId, repositorio])
 
   // Turno da pessoa neste posto (últimos 60 dias): preenche os horários, sem sobrescrever edição manual.
   const { colaboradorId, departamentoId } = contextoReal
@@ -491,7 +491,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     try {
       const noturno = !!turno && horaMinutoValida(horaIda) && horaMinutoValida(horaVolta) && minutosDe(horaVolta) <= minutosDe(horaIda)
       partida = sentido === 'ida'
-        ? partidaProximaSegundaBRT(horaIda)
+        ? (turno ? chegadaComFolgaBRT(horaIda) : partidaProximaSegundaBRT(horaIda))
         : partidaProximaSegundaBRT(horaVolta, noturno ? 1 : 0)
     } catch (erro) {
       setErros((atual) => ({ ...atual, [sentido]: erro instanceof Error ? erro.message : 'Horário inválido.' }))
@@ -506,21 +506,11 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     try {
       const origin = sentido === 'ida' ? contextoReal.origem : contextoReal.destino
       const destination = sentido === 'ida' ? contextoReal.destino : contextoReal.origem
-      let resposta: RespostaGoogleRoutes
-      if (sentido === 'ida' && turno) {
-        try {
-          resposta = await sugerirRotasGoogle({ origin, destination, arrivalTime: partida })
-          setIdaPelaSaida(false)
-        } catch (erro) {
-          // Function publicada antes do arrivalTime recusa o campo (400): cai para a hora de saída com margem.
-          if (!(erro instanceof ErroConsultaRota) || erro.status !== 400) throw erro
-          const saidaComMargem = new Date(Date.parse(partida) - MARGEM_SAIDA_MIN * 60_000).toISOString()
-          resposta = await sugerirRotasGoogle({ origin, destination, departureTime: saidaComMargem })
-          setIdaPelaSaida(true)
-        }
-      } else {
-        resposta = await sugerirRotasGoogle({ origin, destination, departureTime: partida })
-      }
+      // A function vt-rota (v2, 21/11/2026) aceita arrivalTime: com turno, a ida chega
+      // até a entrada menos a folga; a volta (e o modo manual) parte na hora informada.
+      const resposta: RespostaGoogleRoutes = sentido === 'ida' && turno
+        ? await sugerirRotasGoogle({ origin, destination, arrivalTime: partida })
+        : await sugerirRotasGoogle({ origin, destination, departureTime: partida })
       setConsultadoEm((atual) => ({ ...atual, [sentido]: dataConsulta }))
       setRespostas((atual) => ({ ...atual, [sentido]: resposta }))
     } catch (erro) {
@@ -549,7 +539,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const horarioReferencia: HorarioReferenciaVT = turno
     ? {
         origem: horarioEditado ? 'manual' : 'turno_escala',
-        modoIda: idaPelaSaida ? 'saida_com_margem' : 'chegada',
+        modoIda: 'chegada',
+        folgaMinutos: FOLGA_CHEGADA_MINUTOS,
         entrada: horaIda,
         saida: horaVolta,
         texto: horarioEditado ? `${horaIda} às ${horaVolta}` : turno.texto,
@@ -605,6 +596,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
       )
       setDecisaoRealStatus(decisao.status)
       toast.success('Trajeto e preço confirmados nesta revisão.')
+      contextoReal.onConfirmado?.()
     } catch (erro) {
       setErroPersistencia(erro instanceof Error ? erro.message : 'Erro ao confirmar o trajeto e o preço.')
     } finally {
@@ -665,9 +657,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
             {turno.alternativos.length > 0 && (
               <span className="mt-1 block text-[12px]">Também aparece na escala: {turno.alternativos.map(descreverAlternativo).join('; ')}.</span>
             )}
-            {idaPelaSaida && (
-              <span className="mt-1 block text-[12px] text-sky-800" role="status">Consulta pela hora de saída (margem de {MARGEM_SAIDA_MIN} min antes da entrada).</span>
-            )}
+            <span className="mt-1 block text-[12px] text-sky-800">A ida considera uma folga de {FOLGA_CHEGADA_MINUTOS} minutos antes da entrada.</span>
           </div>
         )}
 
@@ -793,6 +783,11 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
               onClick={() => void confirmarDecisao()}
             >
               {confirmandoDecisao ? 'Confirmando...' : 'Confirmar trajeto e preço'}
+            </ModuleButton>
+          )}
+          {contextoReal.onProxima && (
+            <ModuleButton type="button" size="sm" variant="outline" onClick={contextoReal.onProxima}>
+              Próxima da fila
             </ModuleButton>
           )}
           {contextoReal.onFechar && (

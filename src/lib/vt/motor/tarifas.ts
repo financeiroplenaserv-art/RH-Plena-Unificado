@@ -87,7 +87,7 @@ export const TARIFAS_MODAIS: readonly TarifaModal[] = [
  * e para a integração de 2 ônibus municipais (uma tarifa só), com limite de
  * 2 viagens por dia por pessoa; da 3ª viagem paga em diante vale a tarifa cheia
  * (`onibus_municipal_niteroi`, R$ 5,60 — também a do dinheiro e da exceção
- * "tarifa cheia"). Valor a confirmar com extrato de um cartão VT.
+ * "tarifa cheia"). Confirmado por pesquisa da gestora com usuários (21/11/2026); extrato formal de cartão VT seria a prova definitiva.
  */
 export const TARIFA_NITEROI_BUN = {
   valorCentavos: 445,

@@ -77,6 +77,8 @@ export interface HorarioReferenciaVT {
   noturno?: boolean
   /** Como a ida foi consultada: chegar até (turno), saída com margem (function antiga) ou saída informada. */
   modoIda?: 'chegada' | 'saida_com_margem' | 'saida'
+  /** Folga de chegada na ida, em minutos (21/11/2026: 10). Ausente em evidências antigas. */
+  folgaMinutos?: number
 }
 
 export interface FonteOficialVT {

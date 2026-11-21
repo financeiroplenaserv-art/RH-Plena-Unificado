@@ -18,6 +18,18 @@ export function partidaProximaSegundaBRT(horaMinuto: string, diasDepois = 0): st
 }
 
 /**
+ * Folga de chegada (decisão da gestora, 21/11/2026): a ida deve chegar pelo
+ * menos 10 minutos ANTES da entrada do turno. A hora exibida na tela continua
+ * sendo a entrada; a folga só entra no horário enviado ao Google (arrivalTime).
+ */
+export const FOLGA_CHEGADA_MINUTOS = 10
+
+/** arrivalTime (ISO UTC) = próxima segunda na entrada informada − folga. */
+export function chegadaComFolgaBRT(entrada: string, folgaMinutos = FOLGA_CHEGADA_MINUTOS): string {
+  return new Date(Date.parse(partidaProximaSegundaBRT(entrada)) - folgaMinutos * 60_000).toISOString()
+}
+
+/**
  * Máscara de digitação hh:mm: só números, dois-pontos automático depois do
  * segundo dígito, no máximo 5 caracteres (1000 → 10:00).
  */

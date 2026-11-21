@@ -28,6 +28,8 @@ export interface VtColaborador {
   cidade: string | null
   endereco: string | null
   cep?: string | null
+  /** CPF completo — só carregado para quem tem `colaborador.ver_cpf_completo` (botão da Riocard). */
+  cpf?: string | null
   vt_optante: boolean | null
   vt_tipo_cartao: TipoCartaoVT | null
   /** Situação do BU no site da Riocard (migration 167; null = ainda não consultado). */
@@ -122,7 +124,8 @@ const COLUNAS_TRAJETO = '*'
 /** Nome/status de colaborador de trajeto que NÃO está na lista de ativos (afastado/inativo). */
 export type InfoColaboradorTrajeto = { nome_completo: string; status: string }
 
-export function useVt() {
+export function useVt(opcoes?: { incluirCpf?: boolean }) {
+  const incluirCpf = opcoes?.incluirCpf === true
   const [colaboradores, setColaboradores] = useState<VtColaborador[]>([])
   const [departamentos, setDepartamentos] = useState<VtDepartamento[]>([])
   const [bilhetes, setBilhetes] = useState<VtBilhete[]>([])
@@ -132,7 +135,7 @@ export function useVt() {
 
   const listarColaboradores = useCallback(async (): Promise<boolean> => {
     const consultar = (colunas: string) =>
-      supabase.from('colaboradores').select(colunas).eq('status', 'Ativo').order('nome_completo')
+      supabase.from('colaboradores').select(incluirCpf ? `${colunas}, cpf` : colunas).eq('status', 'Ativo').order('nome_completo')
     let { data, error } = await consultar(COLUNAS_COLABORADOR_VT)
     // Antes da migration 174 as colunas da exceção não existem: lê sem elas e
     // trata todo mundo como política padrão (vt_tarifa_cheia = false).
@@ -148,7 +151,7 @@ export function useVt() {
       ((data as unknown as VtColaborador[]) ?? []).map((c) => ({ ...c, vt_tarifa_cheia: c.vt_tarifa_cheia === true }))
     )
     return true
-  }, [])
+  }, [incluirCpf])
 
   /**
    * Marca/desmarca a exceção "pagar tarifa cheia" (decisão da empresa, com motivo).

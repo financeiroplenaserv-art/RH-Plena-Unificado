@@ -1,14 +1,15 @@
 import { useEffect } from 'react'
 import { useLocation, Navigate } from 'react-router-dom'
-import { Users, Route, Ticket, CalendarClock, CalendarCheck } from 'lucide-react'
+import { Users, Route, Ticket, CalendarClock, CalendarCheck, ListChecks } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import { useAuth } from '@/hooks/useAuth'
 import { useVt } from '@/hooks/useVt'
 import { useCarteiraFeristas } from '@/hooks/useCarteiraFeristas'
-import { podeGerenciarVT, podeVisualizarVT, verificarPermissao } from '@/lib/permissoes'
+import { podeGerenciarVT, podeVerCPFCompleto, podeVisualizarVT, verificarPermissao } from '@/lib/permissoes'
 import { VtColaboradoresTab } from './VtColaboradoresTab'
 import { VtTrajetosTab } from './VtTrajetosTab'
+import { VtRotasAConfirmarTab } from './VtRotasAConfirmarTab'
 import { VtBilhetesTab } from './VtBilhetesTab'
 import { VtCargaTab } from './VtCargaTab'
 import { VtFechamentoTab } from './VtFechamentoTab'
@@ -21,6 +22,7 @@ import { VtFechamentoTab } from './VtFechamentoTab'
 const TABS = [
   { path: '/vt', label: 'Colaboradores', icon: Users },
   { path: '/vt/trajetos', label: 'Trajetos', icon: Route },
+  { path: '/vt/rotas', label: 'Rotas a confirmar', icon: ListChecks },
   { path: '/vt/carga', label: 'Carga', icon: CalendarClock },
   { path: '/vt/fechamento', label: 'Fechamento', icon: CalendarCheck },
   { path: '/vt/bilhetes', label: 'Bilhetes', icon: Ticket },
@@ -29,7 +31,8 @@ const TABS = [
 export function VtPage() {
   const { user, loading: authLoading } = useAuth()
   const location = useLocation()
-  const vt = useVt()
+  const podeVerCpf = !!user && podeVerCPFCompleto(user.nivel_acesso)
+  const vt = useVt({ incluirCpf: podeVerCpf })
   const carteira = useCarteiraFeristas()
 
   useEffect(() => {
@@ -54,7 +57,9 @@ export function VtPage() {
   const aba =
     location.pathname === '/vt/trajetos'
       ? 'trajetos'
-      : location.pathname === '/vt/carga'
+      : location.pathname === '/vt/rotas'
+        ? 'rotas'
+        : location.pathname === '/vt/carga'
         ? 'carga'
         : location.pathname === '/vt/fechamento'
           ? 'fechamento'
@@ -80,6 +85,18 @@ export function VtPage() {
           salvarVtColaborador={vt.salvarVtColaborador}
           salvarExcecaoTarifaCheia={vt.salvarExcecaoTarifaCheia}
           ehFerista={carteira.ehFerista}
+          podeVerCpf={podeVerCpf}
+        />
+      )}
+      {aba === 'rotas' && (
+        <VtRotasAConfirmarTab
+          colaboradores={vt.colaboradores}
+          departamentos={vt.departamentos}
+          trajetos={vt.trajetos}
+          loading={vt.loading}
+          usuarioId={user.id}
+          podeGerenciar={podeGerenciar}
+          recarregarTrajetos={vt.listarTrajetos}
         />
       )}
       {aba === 'trajetos' && (
@@ -92,6 +109,7 @@ export function VtPage() {
           loading={vt.loading}
           usuarioId={user.id}
           podeGerenciar={podeGerenciar}
+          podeVerCpf={podeVerCpf}
           salvarTrajeto={vt.salvarTrajeto}
           confirmarTrajeto={vt.confirmarTrajeto}
           removerTrajeto={vt.removerTrajeto}

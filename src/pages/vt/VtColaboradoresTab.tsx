@@ -22,6 +22,7 @@ import { ordenarPorNome, type DirecaoNome } from '@/lib/vt/ordenacao'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { TipoCartaoVT, VtTrajeto } from '@/types/vt'
 import { BuRiocardBadge } from './BuRiocardBadge'
+import { ConsultaRiocardAcoes } from './ConsultaRiocardAcoes'
 
 // Aba Colaboradores do VT: marca o optante ("Usa VT") e MOSTRA a situação do
 // Bilhete Único na Riocard (somente leitura). A API da Alterdata não expõe VT
@@ -60,6 +61,8 @@ interface VtColaboradoresTabProps {
    * Exceção da empresa "pagar tarifa cheia" (migration 174, 19/11/2026). Sem a
    * função, a coluna fica só leitura.
    */
+  /** Mostra "Consultar na Riocard" + "Copiar CPF" (só com `colaborador.ver_cpf_completo`). */
+  podeVerCpf?: boolean
   salvarExcecaoTarifaCheia?: (id: string, dados: { tarifaCheia: boolean; motivo: string | null }) => Promise<boolean>
 }
 
@@ -72,6 +75,7 @@ export function VtColaboradoresTab({
   salvarVtColaborador,
   ehFerista,
   salvarExcecaoTarifaCheia,
+  podeVerCpf = false,
 }: VtColaboradoresTabProps) {
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
@@ -285,6 +289,7 @@ export function VtColaboradoresTab({
                         consultadoEm={c.vt_bu_consultado_em}
                         mostrarConsulta
                       />
+                      {podeVerCpf && <ConsultaRiocardAcoes cpf={c.cpf} nome={c.nome_completo} />}
                     </td>
                     <td className="px-4 py-2.5">
                       {c.vt_tarifa_cheia ? (
