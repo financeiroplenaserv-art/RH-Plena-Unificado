@@ -6,8 +6,8 @@
 -- NULL (= trajeto criado pela fila, ainda sem bilhete legado).
 -- Proteção: trajeto 'confirmado' no caminho legado continua exigindo bilhete
 -- (o portão legado só paga trajeto confirmado com bilhete resolvido).
--- Sem tabela nova — sem GRANT. Preparada, NÃO aplicada. Antes de aplicar: backup
--- e teste em transação desfeita (scripts/vt/testar-175-transacao.ps1).
+-- Sem tabela nova — sem GRANT. APLICADA via Management API em 21/11/2026 (backup
+-- em dados-locais/backup_vt_175_2026-11-21/; teste: scripts/vt/testar-175-transacao.ps1).
 
 ALTER TABLE public.vt_trajetos
   ALTER COLUMN bilhete_id DROP NOT NULL;
