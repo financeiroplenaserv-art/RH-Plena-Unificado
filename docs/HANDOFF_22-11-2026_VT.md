@@ -74,3 +74,10 @@ select to_regclass('public.vt_extras_mensais');  -- deve ser NULL
 6. Commit **só** dos arquivos do VT. Há muitos arquivos alheios não rastreados no repositório: não incluir. Depois push e deploy no `plena-corh`, conferindo o hash do bundle local × remoto.
    - O lint completo falha por 8 erros já existentes em `scripts/vt/*` não commitados (`importar-vt-vigente.ts`, `simular-carga.ts` etc.). Não são desta sessão.
 7. Primeiro uso real: a gestora roda as Importações do mês (Alterdata + Riocard EA + Tech). Isso substitui os SQLs pendentes `atualizar_bu_novos_optantes_2026-11-21.sql` e `atualizar_bu_tech_2026-11-21.sql`, que deixam de ser necessários se a tela gravar.
+
+## 3. Deploy de 22/11/2026 (feito no mesmo dia, a pedido da gestora)
+- Migration 176 aplicada e verificada (RLS, 4 policies, trigger de auditoria, sem grant para anon, 0 linhas, 0 U+FFFD).
+- Commit `90f3706` (VT: Importações do mês + Extra no mês) + `7299958` do outro agente (Adicionais: feriados; VR → Lifecard → TXT Alterdata evento 664), enviados ao GitHub.
+- Build feito numa cópia limpa do commit; Férias desligado; site `plena-corh`; bundle `assets/index-DeRJ0yaS.js` igual local × produção.
+- Testes: 1.759 passaram (o teste de Excel dos Materiais, que às vezes estoura o tempo, passou na repetição); tsc e lint dos arquivos alterados ok.
+- Seguem para depois: extrato da integração SG–Niterói e o R$ 13,10 do Thiago Lontra (itens 2 e 3 da §2).
