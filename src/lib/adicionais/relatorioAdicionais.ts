@@ -211,8 +211,18 @@ export function calcularRelatorioAdicionais(p: ParametrosRelatorioAdicionais): R
     // Adicional de feriado (regra da gestão): só contratos com o flag, e
     // conta o feriado apenas quando a escala previa trabalho no dia — e
     // somente nos dias dentro do vínculo. Substituto/cobertura não recebe.
+    // No personalizado, a escala é o status registrado no próprio vínculo.
     if (contrato?.adicionais?.feriado) {
-      registro.dias_feriado += contarDiasFeriadoEscalado(regime, vinculo.data_inicio, diasDentro, datasFeriados)
+      registro.dias_feriado += contarDiasFeriadoEscalado(
+        regime,
+        vinculo.data_inicio,
+        diasDentro,
+        datasFeriados,
+        data => {
+          const salvo = calendarioPorChave.get(`${vinculo.id}|${data}`)
+          return salvo ? normalizarStatus(salvo.status) : undefined
+        }
+      )
     }
     diasDoPeriodo.forEach(data => {
       const dia = getDiaEfetivo(vinculo, regime, data)
@@ -236,7 +246,7 @@ export function calcularRelatorioAdicionais(p: ParametrosRelatorioAdicionais): R
           if (contrato?.adicionais?.noturno) registro.dias_noturno += 1
           if (contrato?.adicionais?.periculosidade) registro.dias_periculosidade += 1
           if (contrato?.adicionais?.insalubridade) registro.dias_insalubridade += 1
-          if (diaIntrajornada(contrato, data)) registro.dias_intrajornada += 1
+          if (diaIntrajornada(contrato, data, datasFeriados)) registro.dias_intrajornada += 1
         } else if (status === 'folga' || status === 'folga_substituicao') {
           registro.folgas += 1
         } else if (status === 'falta') {
@@ -278,7 +288,7 @@ export function calcularRelatorioAdicionais(p: ParametrosRelatorioAdicionais): R
 
         registroSubst.dias_trabalhados += 1
         if (contrato?.adicionais?.noturno) registroSubst.dias_noturno += 1
-        if (diaIntrajornada(contrato, data)) registroSubst.dias_intrajornada += 1
+        if (diaIntrajornada(contrato, data, datasFeriados)) registroSubst.dias_intrajornada += 1
         // Insalubridade/periculosidade do substituto são calculadas no
         // fechamento (regra 01/08/2026); aqui só marcamos a cobertura de
         // FALTA. Férias, afastado e folga com substituição entram via

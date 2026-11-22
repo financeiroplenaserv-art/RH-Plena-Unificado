@@ -21,6 +21,7 @@ export const AlertasPage = lazyNamed(() => import('@/pages/rh/AlertasPage'), 'Al
 export const VrProjetosPage = lazyNamed(() => import('@/pages/vr/VrProjetosPage'), 'VrProjetosPage')
 export const VrProjetoFormPage = lazyNamed(() => import('@/pages/vr/VrProjetoFormPage'), 'VrProjetoFormPage')
 export const VrProjetoDetailPage = lazyNamed(() => import('@/pages/vr/VrProjetoDetailPage'), 'VrProjetoDetailPage')
+export const VrLifecardPage = lazyNamed(() => import('@/pages/vr/VrLifecardPage'), 'VrLifecardPage')
 
 // VT (Vale-Transporte — Fase 1)
 export const VtPage = lazyNamed(() => import('@/pages/vt/VtPage'), 'VtPage')

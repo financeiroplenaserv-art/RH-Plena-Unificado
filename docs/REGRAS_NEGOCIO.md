@@ -25,8 +25,16 @@ Documento de decisões de negócio validadas com a gestão. As regras aqui devem
 - Afastado (atestado/INSS) segue a **mesma regra de férias** (decisão confirmada em 01/08/2026).
 - **Alerta "precisa de substituto" (ajuste de 28/08/2026, caso Alcemir):** só dispara em dia de **escala** do vínculo. Férias/afastado caindo em **folga** da escala (ex.: o dia de descanso do 12×36 dentro das férias) **não exigem substituto** — ninguém trabalha a folga, e o par já transfere pelo dia de escala coberto. Falta e "folga com substituição" continuam sempre exigindo. Helper: `diaExigeSubstituto` em `src/lib/adicionais/calculoAdicionais.ts` (com testes).
 - **Substituição "sem adicional" (controle interno — decisão da gestão, 27/08/2026):** ao definir o substituto (dia único ou em lote), o checkbox "Não gerar adicional (controle interno)" grava `calendario_adicionais.substituto_sem_adicional = true` (migration 105). Uso: o substituto cobre o posto mas é pago por fora (extra) — ele **não recebe o adicional nem aparece no relatório final**. Os dias cobertos **continuam saindo da conta do titular** (a transferência acontece normalmente) e **não são pagos a ninguém** — os dias se perdem para ambos. No calendário, o dia conta como coberto (sem alerta de "precisa de substituto"). O flag só é definido na criação — para mudar, remove-se a substituição e lança de novo. Helper: `substituicaoGeraAdicional` em `src/lib/adicionais/calculoAdicionais.ts` (com testes).
+- **Feriado em regime personalizado (correção de 22/11/2026, casos Élcio/Sara):** como não existe padrão de escala a inferir, o adicional conta somente quando o feriado tem status `trabalhou` gravado no próprio vínculo. Folga ou ausência de registro não gera o adicional; os demais regimes continuam usando a escala prevista.
+- **Intrajornada em feriado (correção de 22/11/2026):** quando o contrato tem intrajornada ativa e a opção "Feriado" (código 7) marcada em "Dias de intrajornada", o feriado trabalhado conta na coluna Intrajornada para titular e substituto. Folga não conta. A regra usa as datas cadastradas na aba Feriados; a coluna separada Feriado não é alterada.
 - Lógica pura: `src/lib/adicionais/calculoAdicionais.ts` (`adicionalTitular30`, `insalubridadeSubstituto`, `periculosidadeSubstituto` — com testes). Aplicada no fechamento de `calcularRelatorioAdicionais` (`src/lib/adicionais/relatorioAdicionais.ts`), usada por `src/pages/adicionais/AdicionaisRelatorioPage.tsx`.
 - **Substituída em 01/08/2026:** a regra anterior ("12×36 sempre 30 dias cheios, nunca proporcional") não vale mais — não reverter sem validação da gestão.
+
+---
+
+## VR / Lifecard
+
+- **Desconto mensal para a Alterdata (22/11/2026):** a aba **VR → Lifecard** importa o demonstrativo e usa a coluna **DESC**, incluindo eventual 2ª via, para gerar o TXT de 61 posições com o evento **664**. A competência é o mês final do período do demonstrativo (editável), e as referências cobrem o primeiro e o último dia desse mês. O cruzamento usa CPF exato; matrícula e empresa vêm do CORH, não do MAT do Lifecard. Registros com pendência cadastral ou de dados ficam de fora da exportação e são mostrados com o motivo. Não há gravação no banco nem migration.
 
 ---
 

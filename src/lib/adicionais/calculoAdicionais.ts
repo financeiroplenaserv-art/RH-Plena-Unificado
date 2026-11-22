@@ -1,10 +1,15 @@
 import type { ContratoAdicional, StatusDiaAdicional } from '@/types/adicionais'
 import { parseDataLocal } from '@/lib/utils'
 
-export function diaIntrajornada(contrato: ContratoAdicional | undefined | null, dataStr: string): boolean {
+export function diaIntrajornada(
+  contrato: ContratoAdicional | undefined | null,
+  dataStr: string,
+  datasFeriados?: Set<string>
+): boolean {
   if (!contrato || !contrato.adicionais?.intrajornada) return false
   if (!contrato.dias_intrajornada || contrato.dias_intrajornada.length === 0) return false
 
+  if (datasFeriados?.has(dataStr) && contrato.dias_intrajornada.includes(7)) return true
   const diaSemana = new Date(dataStr + 'T00:00:00').getDay()
   return contrato.dias_intrajornada.includes(diaSemana)
 }
@@ -138,16 +143,23 @@ export function diaExigeSubstituto(
  * feriados cadastrados em que o vínculo estava PREVISTO para trabalhar pela
  * escala. Quem trabalha no feriado sem estar escalado (substituto, cobertura
  * extra) NÃO recebe; e só vale para contratos com o flag `adicionais.feriado`.
+ * No regime personalizado não há padrão de escala a inferir: vale somente o
+ * status gravado no próprio vínculo; sem registro, o feriado não é contado.
  */
 export function contarDiasFeriadoEscalado(
   regime: string | undefined,
   dataInicioVinculo: string | undefined,
   diasDoPeriodo: string[],
-  datasFeriados: Set<string>
+  datasFeriados: Set<string>,
+  statusRegistrado?: (data: string) => StatusDiaAdicional | undefined
 ): number {
   let total = 0
   for (const data of diasDoPeriodo) {
-    if (datasFeriados.has(data) && escaladoParaTrabalhar(regime, dataInicioVinculo, data)) total++
+    if (!datasFeriados.has(data)) continue
+    const trabalhouNoFeriado = regime === 'personalizado'
+      ? statusRegistrado?.(data) === 'trabalhou'
+      : escaladoParaTrabalhar(regime, dataInicioVinculo, data)
+    if (trabalhouNoFeriado) total++
   }
   return total
 }

@@ -174,6 +174,49 @@ describe('relatório — proporcional ao vínculo (decisão da gestão, 02/10/20
     expect(linha.dias_intrajornada).toBe(3) // sábados 05, 12 e 19/09 (22/08 e 29/08 ficam fora)
     expect(linha.dias_feriado).toBe(1) // só 07/09 (21/08 é sexta, mas fora do vínculo)
   })
+
+  it('feriado personalizado: Élcio recebe 1 e Sara 0 conforme os status registrados', () => {
+    const inicio = '2026-10-20'
+    const fim = '2026-11-19'
+    const c = contrato('c1', 'personalizado', { feriado: true })
+    const vinculos = [
+      vinculo('v-elcio', 'elcio', 'c1', inicio, fim),
+      vinculo('v-sara', 'sara', 'c1', inicio, fim),
+    ]
+    const folgasElcio = new Set(['2026-10-25', '2026-10-31', '2026-11-02', '2026-11-08', '2026-11-14'])
+    const folgasSara = new Set(['2026-10-24', '2026-11-01', '2026-11-02', '2026-11-07', '2026-11-15'])
+    const cal = gerarDiasDoPeriodo(inicio, fim).flatMap(data => [
+      { vinculo_id: 'v-elcio', data, status: folgasElcio.has(data) ? 'folga' : 'trabalhou' },
+      { vinculo_id: 'v-sara', data, status: folgasSara.has(data) ? 'folga' : 'trabalhou' },
+    ])
+    const r = rodar([c], vinculos, cal, inicio, fim, ['2026-11-02', '2026-11-15'])
+
+    expect(r('elcio')!.dias_trabalhados).toBe(26)
+    expect(r('elcio')!.folgas).toBe(5)
+    expect(r('elcio')!.dias_feriado).toBe(1)
+    expect(r('sara')!.dias_trabalhados).toBe(26)
+    expect(r('sara')!.folgas).toBe(5)
+    expect(r('sara')!.dias_feriado).toBe(0)
+  })
+
+  it('intrajornada inclui feriado cadastrado para titular e substituto', () => {
+    const c = contrato('c1', '12x36', { intrajornada: true }, [7])
+    const cal = [
+      ...dias('2026-11-02', '2026-11-02', 'trabalhou'),
+      ...dias('2026-11-15', '2026-11-15', 'folga_substituicao', { substituto_colaborador_id: 's' }),
+    ]
+    const r = rodar(
+      [c],
+      [vinculo('v1', 'a', 'c1', '2026-10-20', '2026-11-19')],
+      cal,
+      '2026-10-20',
+      '2026-11-19',
+      ['2026-11-02', '2026-11-15']
+    )
+
+    expect(r('a')!.dias_intrajornada).toBe(1)
+    expect(r('s')!.dias_intrajornada).toBe(1)
+  })
 })
 
 describe('relatório — substituto: cada dia coberto conta uma vez (decisão da gestão, 02/10/2026)', () => {

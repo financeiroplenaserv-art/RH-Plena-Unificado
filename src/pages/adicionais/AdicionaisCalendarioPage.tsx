@@ -30,7 +30,7 @@ import { useDepartamentos } from '@/hooks/useDepartamentos'
 import { DepartamentoAutocomplete } from '@/components/DepartamentoAutocomplete'
 import { AdicionaisShell } from './AdicionaisShell'
 import { ModuleCard, ModuleButton } from '@/components/layout/ModuleShell'
-import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos, diaExigeSubstituto, statusPrevistoPelaEscala, dentroDoVinculo, diasBaseAdicional } from '@/lib/adicionais/calculoAdicionais'
+import { adicionalTitular30, contarDiasFeriadoEscalado, contarDiasTransferidos, diaExigeSubstituto, diaIntrajornada, statusPrevistoPelaEscala, dentroDoVinculo, diasBaseAdicional } from '@/lib/adicionais/calculoAdicionais'
 import { listarFeriados, type Feriado } from '@/lib/adicionais/feriados'
 import { buscarUltimoArquivoDoPeriodo, type PontoEspelhoArquivo } from '@/lib/adicionais/pontoEspelhoArquivos'
 import type { VinculoAdicional, StatusDiaAdicional, DiaCalendarioAdicional, ContratoAdicional, AdicionalTipo } from '@/types/adicionais'
@@ -93,7 +93,6 @@ export function AdicionaisCalendarioPage() {
     salvarDiaCalendario,
     salvarSubstituicao,
     excluirDiaCalendario,
-    diaIntrajornada,
   } = useAdicionaisContratuais()
   const { colaboradores, listarResumido: listarColaboradores } = useColaboradores()
   const { departamentos, listar: listarDepartamentos } = useDepartamentos()
@@ -340,7 +339,7 @@ export function AdicionaisCalendarioPage() {
 
   const selecionarStatus = (vinculo: VinculoAdicional, data: string, status: StatusDiaAdicional) => {
     const contrato = mapContrato.get(vinculo.contrato_id)
-    const ehIntrajornada = diaIntrajornada(contrato, data)
+    const ehIntrajornada = diaIntrajornada(contrato, data, datasFeriados)
     const atual = getDia(vinculo, data)
     const chave = `${vinculo.id}|${data}`
 
@@ -547,7 +546,8 @@ export function AdicionaisCalendarioPage() {
    * substituto (férias/afastado/folga com substituição; no 12×36, cada dia de
    * escala coberto transfere também a folga pareada); noturno = dias
    * trabalhados; intrajornada = trabalhados em dias configurados;
-   * feriado = feriados com escala prevista. Só contam os dias DENTRO do
+   * feriado = feriados com escala prevista; no personalizado, somente os
+   * trabalhados conforme o status registrado. Só contam os dias DENTRO do
    * vínculo. Com o filtro de adicional ativo, mostra só o adicional escolhido.
    */
   const resumoDireito = (v: VinculoAdicional): { key: string; label: string; dias: number }[] => {
@@ -562,7 +562,7 @@ export function AdicionaisCalendarioPage() {
       const dia = getDia(v, data)
       if (dia.status === 'trabalhou') {
         trabalhados++
-        if (diaIntrajornada(contrato, data)) diasIntrajornada++
+        if (diaIntrajornada(contrato, data, datasFeriados)) diasIntrajornada++
       } else if (dia.status === 'falta') {
         faltas++
       }
@@ -577,7 +577,20 @@ export function AdicionaisCalendarioPage() {
     if (contrato.adicionais?.periculosidade) resumo.push({ key: 'periculosidade', label: 'Periculosidade', dias: adicionalTitular30(faltas, transferidos, diasBase) })
     if (contrato.adicionais?.noturno) resumo.push({ key: 'noturno', label: 'Noturno', dias: trabalhados })
     if (contrato.adicionais?.intrajornada) resumo.push({ key: 'intrajornada', label: 'Intrajornada', dias: diasIntrajornada })
-    if (contrato.adicionais?.feriado) resumo.push({ key: 'feriado', label: 'Feriado', dias: contarDiasFeriadoEscalado(contrato.regime_trabalho, v.data_inicio, diasDentro, datasFeriados) })
+    if (contrato.adicionais?.feriado) {
+      const feriadosTrabalhados = contarDiasFeriadoEscalado(
+        contrato.regime_trabalho,
+        v.data_inicio,
+        diasDentro,
+        datasFeriados,
+        data => {
+          const chave = `${v.id}|${data}`
+          const salvo = alteracoes[chave] ?? calendario.find(d => d.vinculo_id === v.id && d.data === data)
+          return salvo ? normalizarStatus(salvo.status) : undefined
+        }
+      )
+      resumo.push({ key: 'feriado', label: 'Feriado', dias: feriadosTrabalhados })
+    }
     return adicionalFiltro === 'todos' ? resumo : resumo.filter(r => r.key === adicionalFiltro)
   }
 
@@ -862,7 +875,7 @@ export function AdicionaisCalendarioPage() {
                     const bgColor = temAlteracaoPendente ? '#FFFBEB' : substituto || substituido ? '#DCFCE7' : isForaVinculo ? '#F1F5F9' : isFallback || isInferido ? '#FFFFFF' : estilo.bg
                     const textColor = isFallback || isForaVinculo ? '#CBD5E1' : isInferido ? '#94A3B8' : estilo.text
                     // Indica direito a intrajornada (HE) quando trabalha em dia configurado (sab/dom/feriado)
-                    const temIntrajornada = dia.status === 'trabalhou' && diaIntrajornada(contrato, data)
+                    const temIntrajornada = dia.status === 'trabalhou' && diaIntrajornada(contrato, data, datasFeriados)
                     return (
                       <div key={data} className="relative">
                         <button

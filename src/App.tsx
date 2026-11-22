@@ -47,6 +47,7 @@ import {
   VrProjetosPage,
   VrProjetoFormPage,
   VrProjetoDetailPage,
+  VrLifecardPage,
   VtPage,
   CeuItensPage,
   CeuItemFormPage,
@@ -677,6 +678,14 @@ function App() {
                 element={
                   <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vr' }}>
                     <VrProjetosPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vr/lifecard"
+                element={
+                  <ProtectedRoute user={user} permissao={{ recurso: 'rota', acao: 'vr' }}>
+                    <VrLifecardPage />
                   </ProtectedRoute>
                 }
               />

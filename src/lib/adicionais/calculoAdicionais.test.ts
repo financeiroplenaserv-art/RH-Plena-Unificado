@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import type { ContratoAdicional } from '@/types/adicionais'
 import {
+  diaIntrajornada,
   escaladoParaTrabalhar,
   diaExigeSubstituto,
   contarDiasFeriadoEscalado,
@@ -23,6 +25,26 @@ import {
 
 const FERIADOS = new Set(['2026-06-04', '2026-06-24', '2026-12-25'])
 const PERIODO = ['2026-06-04', '2026-06-05', '2026-06-24', '2026-12-24', '2026-12-25']
+
+describe('diaIntrajornada', () => {
+  const contrato = {
+    adicionais: { intrajornada: true },
+    dias_intrajornada: [7],
+  } as ContratoAdicional
+
+  it('reconhece o código 7 somente nas datas cadastradas como feriado', () => {
+    const feriados = new Set(['2026-11-02'])
+    expect(diaIntrajornada(contrato, '2026-11-02', feriados)).toBe(true)
+    expect(diaIntrajornada(contrato, '2026-11-03', feriados)).toBe(false)
+    expect(diaIntrajornada(contrato, '2026-11-02')).toBe(false)
+  })
+
+  it('mantém a regra dos dias da semana quando feriado não está configurado', () => {
+    const segunda = { ...contrato, dias_intrajornada: [1] }
+    expect(diaIntrajornada(segunda, '2026-11-02', new Set(['2026-11-02']))).toBe(true)
+    expect(diaIntrajornada(segunda, '2026-11-15', new Set(['2026-11-15']))).toBe(false)
+  })
+})
 
 describe('escaladoParaTrabalhar', () => {
   it('12x36 alterna dia sim, dia não a partir do início do vínculo', () => {
@@ -79,6 +101,17 @@ describe('contarDiasFeriadoEscalado (regra: só feriado com escala prevista)', (
   it('5x2 conta todos os feriados em dia de semana', () => {
     // 04/06 (qui), 24/06 (qua) e 25/12 (sex) — todos dias úteis
     expect(contarDiasFeriadoEscalado('5x2', undefined, PERIODO, FERIADOS)).toBe(3)
+  })
+  it('personalizado conta somente trabalho registrado no próprio vínculo', () => {
+    const dias = ['2026-11-02', '2026-11-15']
+    const feriados = new Set(dias)
+    const elcio = new Map([['2026-11-02', 'folga'], ['2026-11-15', 'trabalhou']])
+    const sara = new Map([['2026-11-02', 'folga'], ['2026-11-15', 'folga']])
+    const status = (mapa: Map<string, string>) => (data: string) => mapa.get(data) as 'trabalhou' | 'folga' | undefined
+
+    expect(contarDiasFeriadoEscalado('personalizado', '2026-10-20', dias, feriados, status(elcio))).toBe(1)
+    expect(contarDiasFeriadoEscalado('personalizado', '2026-10-20', dias, feriados, status(sara))).toBe(0)
+    expect(contarDiasFeriadoEscalado('personalizado', '2026-10-20', dias, feriados, status(new Map()))).toBe(0)
   })
 })
 
