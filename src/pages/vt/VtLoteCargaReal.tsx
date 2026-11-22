@@ -13,7 +13,10 @@ import type { DiaPlanejadoLoteVT } from '@/lib/vt/construirLote'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import { supabase } from '@/lib/supabase'
 import { competenciaAnterior } from '@/lib/vt/fechamento'
-import { ajustesDoFechamentoAnterior, cargasDoLoteConfirmado, type FechamentoParaAjuste } from '@/lib/vt/pontesLote'
+import { ajustesDoFechamentoAnterior, ajustesDosExtrasMensais, cargasDoLoteConfirmado, type FechamentoParaAjuste } from '@/lib/vt/pontesLote'
+import { useVtExtrasMensais } from '@/hooks/useVtExtrasMensais'
+import { centavosParaCampo, validarExtraMensal } from '@/lib/vt/extraMensal'
+import type { VtExtraMensal } from '@/types/vt'
 import type { LoteCargaVT } from '@/lib/vt/contratosLoteCarga'
 
 interface VtLoteCargaRealProps {
@@ -29,13 +32,15 @@ interface VtLoteCargaRealProps {
    * receberia a menos em silêncio).
    */
   bloqueios?: ReadonlyMap<string, string>
+  /** `vt.gerenciar`: só quem gerencia lança/remove o extra do mês. */
+  podeGerenciar?: boolean
 }
 
 function valor(centavos: number | null) {
   return centavos == null ? '—' : formatarCentavos(centavos)
 }
 
-export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios }: VtLoteCargaRealProps) {
+export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios, podeGerenciar = false }: VtLoteCargaRealProps) {
   const repositorio = useMemo(() => new RepositorioLoteCargaSupabase(), [])
   const { lote, loading, erro, carregar, construir, confirmar } = useVtLoteCarga(repositorio, usuarioId)
   const [construindo, setConstruindo] = useState(false)
@@ -44,6 +49,11 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
   const [pendentesIds, setPendentesIds] = useState<string[]>([])
   const [gravandoFechamento, setGravandoFechamento] = useState(false)
   const [situacaoFechamento, setSituacaoFechamento] = useState<{ ok: boolean; texto: string } | null>(null)
+  const extrasMes = useVtExtrasMensais(competencia, usuarioId)
+  const [extraPessoa, setExtraPessoa] = useState('')
+  const [extraValor, setExtraValor] = useState('')
+  const [extraMotivo, setExtraMotivo] = useState('')
+  const [extraMensagem, setExtraMensagem] = useState<{ ok: boolean; texto: string } | null>(null)
   const nomes = useMemo(() => new Map(colaboradores.map((c) => [c.id, c.nome_completo])), [colaboradores])
   const optantesIds = useMemo(
     () => colaboradores.filter((c) => c.vt_optante && !bloqueios?.has(c.id)).map((c) => c.id),
@@ -109,10 +119,12 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
     }
   }
 
-  const construirLote = async () => {
+  const construirLote = async (extrasDoMes: readonly VtExtraMensal[] = extrasMes.extras) => {
     setConstruindo(true)
     try {
-      const ajustesAnteriores = await lerAjustesAnteriores()
+      // Erro de leitura dos extras aborta: nunca calcular sem o extra fingindo que ele não existe.
+      if (extrasMes.erroLeitura) throw new Error(extrasMes.erroLeitura)
+      const ajustesFechamento = await lerAjustesAnteriores()
       const dominio = await carregarDominioLote()
       const selecao = selecionarProntosLote({
         dias,
@@ -120,6 +132,12 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
         ...dominio,
       })
       setPendentesIds(selecao.pendentesIds)
+      // Extra do mês só entra para quem está no lote: pendente/bloqueado não recebe SÓ o extra.
+      const prontos = new Set(selecao.colaboradorIds)
+      const ajustesAnteriores = [
+        ...ajustesFechamento,
+        ...ajustesDosExtrasMensais(extrasDoMes.filter((e) => prontos.has(e.colaborador_id)), new Date().toISOString()),
+      ]
       const conteudoHash = await sha256Hex(jsonCanonico({
         competencia,
         dias: selecao.dias,
@@ -146,6 +164,50 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
     } finally {
       setConstruindo(false)
     }
+  }
+
+  const lancamentoTravado = lote?.status === 'confirmado'
+
+  const aplicarExtra = async (acao: () => Promise<VtExtraMensal[]>, textoOk: string) => {
+    setExtraMensagem(null)
+    try {
+      const atualizados = await acao()
+      // Rascunho existente: recalcula na hora para o extra entrar no total e no hash.
+      if (lote?.status === 'rascunho') await construirLote(atualizados)
+      setExtraMensagem({
+        ok: true,
+        texto: lote?.status === 'rascunho' ? `${textoOk} Rascunho recalculado.` : `${textoOk} Entra ao construir o rascunho.`,
+      })
+    } catch (erro) {
+      setExtraMensagem({ ok: false, texto: erro instanceof Error ? erro.message : 'Erro ao gravar o extra.' })
+    }
+  }
+
+  const salvarExtra = async () => {
+    if (!extraPessoa) {
+      setExtraMensagem({ ok: false, texto: 'Escolha a pessoa.' })
+      return
+    }
+    const validado = validarExtraMensal(extraValor, extraMotivo)
+    if (validado.ok === false) {
+      setExtraMensagem({ ok: false, texto: validado.erro })
+      return
+    }
+    await aplicarExtra(() => extrasMes.salvar(extraPessoa, validado.extra.valorCentavos, validado.extra.motivo), 'Extra gravado.')
+    setExtraPessoa('')
+    setExtraValor('')
+    setExtraMotivo('')
+  }
+
+  const removerExtra = async (id: string) => {
+    await aplicarExtra(() => extrasMes.remover(id), 'Extra removido.')
+  }
+
+  const editarExtra = (e: VtExtraMensal) => {
+    setExtraPessoa(e.colaborador_id)
+    setExtraValor(centavosParaCampo(e.valor_centavos))
+    setExtraMotivo(e.motivo)
+    setExtraMensagem(null)
   }
 
   const confirmarLote = async () => {
@@ -248,6 +310,83 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
           </div>
         )}
 
+        <div className="space-y-3 rounded-lg border border-border px-4 py-3" data-testid="extras-mes">
+          <div>
+            <p className="text-[13px] font-semibold">Extra no mês (R$)</p>
+            <p className="text-[12px] text-muted-foreground">
+              Valor TOTAL do mês (não por dia), com motivo, só para {competencia}. No mês seguinte começa vazio. Não é descontado nem creditado pelo Fechamento.
+            </p>
+          </div>
+          {extrasMes.ausente && (
+            <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+              Falta aplicar a migration 176 (extras do mês). O resto da Carga funciona normalmente.
+            </div>
+          )}
+          {extrasMes.erroLeitura && (
+            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">{extrasMes.erroLeitura}</div>
+          )}
+          {!extrasMes.ausente && extrasMes.extras.length > 0 && (
+            <ul className="space-y-1 text-[13px]">
+              {extrasMes.extras.map((e) => {
+                const noLote = !lote || lote.totaisPorColaborador.some((t) => t.colaboradorId === e.colaborador_id)
+                return (
+                  <li key={e.id} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{nomes.get(e.colaborador_id) ?? e.colaborador_id}</span>
+                    <span className="tabular-nums">{formatarCentavos(e.valor_centavos)}</span>
+                    <span className="text-muted-foreground">— {e.motivo}</span>
+                    {!noLote && <span className="text-amber-700">(fora deste lote: não entra até resolver a pendência da pessoa)</span>}
+                    {podeGerenciar && !lancamentoTravado && (
+                      <>
+                        <button type="button" className="text-primary underline" onClick={() => editarExtra(e)}>Editar</button>
+                        <button type="button" className="text-red-700 underline" disabled={extrasMes.salvando} onClick={() => void removerExtra(e.id)}>Remover</button>
+                      </>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {podeGerenciar && !extrasMes.ausente && !lancamentoTravado && (
+            <div className="grid gap-2 md:grid-cols-[2fr_1fr_3fr_auto]">
+              <select
+                aria-label="Pessoa do extra"
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                value={extraPessoa}
+                onChange={(ev) => setExtraPessoa(ev.target.value)}
+              >
+                <option value="">Pessoa...</option>
+                {colaboradores.filter((c) => c.vt_optante).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, 'pt-BR')).map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome_completo}</option>
+                ))}
+              </select>
+              <input
+                aria-label="Extra no mês (R$)"
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                placeholder="Valor (ex.: 15,00)"
+                inputMode="decimal"
+                value={extraValor}
+                onChange={(ev) => setExtraValor(ev.target.value)}
+              />
+              <input
+                aria-label="Motivo do extra"
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                placeholder="Motivo (obrigatório)"
+                value={extraMotivo}
+                onChange={(ev) => setExtraMotivo(ev.target.value)}
+              />
+              <ModuleButton size="sm" disabled={extrasMes.salvando} onClick={() => void salvarExtra()}>
+                {extrasMes.salvando ? 'Gravando...' : 'Gravar extra'}
+              </ModuleButton>
+            </div>
+          )}
+          {lancamentoTravado && (
+            <p className="text-[12px] text-muted-foreground">Lote confirmado: o extra não pode mais ser alterado nesta competência.</p>
+          )}
+          {extraMensagem && (
+            <p role={extraMensagem.ok ? 'status' : 'alert'} className={`text-[13px] ${extraMensagem.ok ? 'text-emerald-800' : 'text-red-800'}`}>{extraMensagem.texto}</p>
+          )}
+        </div>
+
         {lote && (
           <>
             <div className={`rounded-lg border px-4 py-3 text-[13px] ${lote.status === 'confirmado' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-blue-200 bg-blue-50 text-blue-800'}`}>
@@ -285,6 +424,7 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
                     <th className="px-4 py-2.5">Situação</th>
                     <th className="px-4 py-2.5 text-right">Necessidade</th>
                     <th className="px-4 py-2.5 text-right">Ajuste</th>
+                    <th className="px-4 py-2.5 text-right">Extra no mês</th>
                     <th className="px-4 py-2.5 text-right">Valor final</th>
                   </tr>
                 </thead>
@@ -296,7 +436,13 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
                         <StatusBadge variant={total.status === 'completo' ? 'success' : 'warning'}>{total.status}</StatusBadge>
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{formatarCentavos(total.necessidadeCentavos)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{formatarCentavos(total.ajusteCentavos)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{formatarCentavos(total.ajusteCentavos - (total.extraMensalCentavos ?? 0))}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums" title={total.extraMensalMotivo}>
+                        {total.extraMensalCentavos ? formatarCentavos(total.extraMensalCentavos) : '—'}
+                        {total.extraMensalCentavos && total.necessidadeCentavos === 0 && (
+                          <span className="block text-[11px] text-amber-700">só extra, sem dias de trabalho</span>
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{valor(total.valorCentavos)}</td>
                     </tr>
                   ))}

@@ -68,3 +68,26 @@ export function InstrucoesFechamento() {
     </CaixaInstrucoes>
   )
 }
+
+/** Aba Importações do mês: relatórios do Alterdata (optantes) e da Riocard (situação do BU). */
+export function InstrucoesImportacoes() {
+  return (
+    <CaixaInstrucoes titulo="Qual arquivo anexar nas Importações do mês">
+      <p>
+        <strong className="text-foreground">Optantes (Alterdata), 2 PDFs:</strong> o relatório de quem{' '}
+        <strong className="text-foreground">desconta VT</strong> (tabela com CPF, nome e matrícula) e o relatório{' '}
+        <strong className="text-foreground">"Declaração de Não Beneficiário"</strong> (uma página por pessoa). Tire os
+        dois da Alterdata, para a empresa toda. Pode anexar os dois de uma vez: o sistema reconhece qual é qual.
+      </p>
+      <p>
+        <strong className="text-foreground">Bilhete Único (Riocard), 1 PDF por conta:</strong> no portal da Riocard,{' '}
+        <strong className="text-foreground">Cadastro de Funcionários da Empresa → lista de usuários → imprimir</strong>{' '}
+        (PDF). A Plena EA e a Plena Tech têm contas separadas: anexe o PDF de cada uma.
+      </p>
+      <p>
+        Nada sai do seu computador: os PDFs são lidos aqui no navegador. Antes de gravar você confere tudo na prévia, e
+        quem não casa por CPF exato (ou matrícula, nos optantes) fica de fora e é só listado.
+      </p>
+    </CaixaInstrucoes>
+  )
+}

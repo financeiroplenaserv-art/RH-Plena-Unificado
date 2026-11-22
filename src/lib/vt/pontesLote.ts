@@ -6,6 +6,43 @@
 import type { LancamentoAjusteVT, LoteCargaVT } from '@/lib/vt/contratosLoteCarga'
 import type { VtCargaDetalhe } from '@/types/vt'
 
+export interface ExtraMensalParaAjuste {
+  id: string
+  colaborador_id: string
+  competencia: string
+  valor_centavos: number
+  motivo: string
+  criado_por?: string | null
+  criado_em?: string
+}
+
+/** "Extra no mês" (vt_extras_mensais) → crédito do lote com origem própria e o motivo como evidência. */
+export function ajustesDosExtrasMensais(
+  extras: readonly ExtraMensalParaAjuste[],
+  criadoEm: string,
+): LancamentoAjusteVT[] {
+  return extras
+    .filter((e) => e.valor_centavos > 0)
+    .map((e) => {
+      const motivo = e.motivo.trim()
+      if (!motivo) throw new Error('O extra do mês precisa de motivo.')
+      return {
+        id: `extra:${e.id}`,
+        loteOrigemId: `extra_mensal:${e.competencia}`,
+        linhaOrigemId: null,
+        colaboradorId: e.colaborador_id,
+        data: null,
+        tipo: 'credito' as const,
+        origem: 'extra_mensal' as const,
+        valorCentavos: e.valor_centavos,
+        evidencia: motivo,
+        criadoPor: e.criado_por ?? 'extra_mensal',
+        criadoEm: e.criado_em ?? criadoEm,
+        consumidoPorLoteId: null,
+      }
+    })
+}
+
 export interface FechamentoParaAjuste {
   id: string
   colaborador_id: string
@@ -112,6 +149,9 @@ export function cargasDoLoteConfirmado(
       competencia: lote.competencia,
       detalhe,
       necessidade_centavos: total.necessidadeCentavos,
+      // Inclui o "Extra no mês" (migration 176) para que necessidade + ajuste = valor. O extra NÃO tem
+      // datas em `detalhe`, então o Fechamento (que só lê detalhe[].datas) nunca o desconta nem credita;
+      // o motivo fica em vt_extras_mensais.
       ajuste_centavos: total.ajusteCentavos,
       valor_centavos: total.valorCentavos,
       gerada_por: usuarioId,

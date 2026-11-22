@@ -20,6 +20,7 @@ import type {
   VtGeocodeCache,
   VtCarga,
   VtCobertura,
+  VtExtraMensal,
   VtFechamento,
   VtPacote,
   VtPacoteComponente,
@@ -1002,6 +1003,13 @@ export type Database = {
         Row: VtCobertura & Record<string, unknown>
         Insert: Partial<VtCobertura> & Record<string, unknown>
         Update: Partial<VtCobertura> & Record<string, unknown>
+        Relationships: []
+      }
+      // Extra no mês por pessoa (migration 176)
+      vt_extras_mensais: {
+        Row: VtExtraMensal & Record<string, unknown>
+        Insert: Partial<VtExtraMensal> & Record<string, unknown>
+        Update: Partial<VtExtraMensal> & Record<string, unknown>
         Relationships: []
       }
       // Identidade estável, preços e decisões versionadas (migration 169)

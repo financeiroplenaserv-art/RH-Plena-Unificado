@@ -32,7 +32,10 @@ export async function montarWorkbookLote(lote: LoteCargaVT, nomes?: ReadonlyMap<
     Colaborador: nomes?.get(total.colaboradorId) ?? total.colaboradorId,
     Postos: agruparPorPosto(lote, total.colaboradorId),
     'Necessidade (R$)': total.necessidadeCentavos / 100,
-    'Ajuste (R$)': total.ajusteCentavos / 100,
+    // Ajuste do fechamento do mês anterior; o extra mensal tem coluna própria (não conta duas vezes).
+    'Ajuste (R$)': (total.ajusteCentavos - (total.extraMensalCentavos ?? 0)) / 100,
+    'Extra no mês (R$)': (total.extraMensalCentavos ?? 0) / 100,
+    'Motivo do extra': total.extraMensalMotivo ?? '',
     'Total a creditar (R$)': total.valorCentavos == null ? null : total.valorCentavos / 100,
   }))
   const worksheet = XLSX.utils.json_to_sheet(dados)

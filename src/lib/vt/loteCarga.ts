@@ -37,6 +37,11 @@ export function totalizarColaboradorLote({
   const ajusteCentavos = ajustesConsumiveis.reduce((soma, ajuste) =>
     soma + (ajuste.tipo === 'debito' ? -Math.abs(ajuste.valorCentavos!) : Math.abs(ajuste.valorCentavos!)),
   0)
+  const extras = ajustesConsumiveis.filter((ajuste) => ajuste.origem === 'extra_mensal')
+  if (extras.some((extra) => extra.tipo !== 'credito' || extra.evidencia.trim() === '')) {
+    throw new Error('O extra mensal precisa ser um crédito com motivo.')
+  }
+  const extraMensalCentavos = extras.reduce((soma, extra) => soma + Math.abs(extra.valorCentavos!), 0)
   const pendenciaIds = [...new Set([
     ...pendenciasQueImpedem.map((pendencia) => pendencia.id),
     ...ajustesPendentes.map((ajuste) => ajuste.id),
@@ -54,5 +59,11 @@ export function totalizarColaboradorLote({
     excedenteTruncadoCentavos: completo ? Math.max(0, -bruto) : null,
     lancamentoAjusteIds: ajustesConsumiveis.map((ajuste) => ajuste.id),
     pendenciaIds,
+    ...(extras.length > 0
+      ? {
+          extraMensalCentavos,
+          extraMensalMotivo: extras.map((extra) => extra.evidencia.trim()).join(' | '),
+        }
+      : {}),
   }
 }

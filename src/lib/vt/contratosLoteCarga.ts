@@ -54,6 +54,12 @@ export interface TotalColaboradorLoteCargaVT {
   excedenteTruncadoCentavos: number | null
   lancamentoAjusteIds: string[]
   pendenciaIds: string[]
+  /**
+   * Extra no mês (migration 176): parte do `ajusteCentavos` que veio de lançamento manual
+   * `origem = 'extra_mensal'`. Só existe quando há extra (o hash dos lotes sem extra não muda).
+   */
+  extraMensalCentavos?: number
+  extraMensalMotivo?: string
 }
 
 export interface LoteCargaVT {
@@ -94,6 +100,8 @@ export interface LancamentoAjusteVT {
   colaboradorId: string
   data: string | null
   tipo: 'debito' | 'credito' | 'pendencia'
+  /** Ausente = fechamento do mês anterior. 'extra_mensal' = "Extra no mês (R$)" lançado à mão (sem datas). */
+  origem?: 'fechamento' | 'extra_mensal'
   valorCentavos: number | null
   evidencia: string
   criadoPor: string

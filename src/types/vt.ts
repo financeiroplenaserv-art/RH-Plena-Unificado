@@ -151,6 +151,19 @@ export interface VtFechamento {
  * declaração "sem cobertura" dessas férias. CHECK do banco: pelo menos um dos
  * dois preenchido.
  */
+/** "Extra no mês (R$)" por pessoa e competência (migration 176) — valor TOTAL do mês, motivo obrigatório. */
+export interface VtExtraMensal {
+  id: string
+  colaborador_id: string
+  competencia: string // 'AAAA-MM'
+  valor_centavos: number
+  motivo: string
+  criado_por: string | null
+  criado_em: string
+  atualizado_por: string | null
+  atualizado_em: string
+}
+
 export interface VtCobertura {
   id: string
   /** O ferista (quem cobre). NULL = declaração "sem cobertura". */

@@ -659,6 +659,7 @@ export function VtCargaTab({
         usuarioId={usuarioId}
         departamentos={departamentos}
         bloqueios={bloqueiosLote}
+        podeGerenciar={podeGerenciar}
       />
 
       <ModuleCard

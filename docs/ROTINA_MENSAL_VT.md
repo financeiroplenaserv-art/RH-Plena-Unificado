@@ -18,8 +18,11 @@ Regras:
 Quem aparece em "desconta" é optante no CORH; quem aparece em "não desconta" não é.
 Os dias e valores desses relatórios não servem: usar só para saber quem é optante.
 
-> Hoje não há tela de importação. O agente cruza os arquivos e atualiza o CORH
-> (feito assim em 21/11/2026). A tela fica para depois.
+> **Como fazer (desde 22/11/2026):** aba **VT → Importações do mês**, cartão 1. Anexe os dois PDFs
+> (pode ser de uma vez), confira a prévia (vão virar optantes / vão deixar de ser / nos dois relatórios /
+> não encontrados / fora dos relatórios) e clique em **Gravar mudanças**. O casamento é por CPF
+> exato (ou matrícula, se o relatório não trouxer CPF), nunca por nome; quem está nos dois relatórios
+> não é alterado. Há um Excel de conferência com as listas.
 
 ## 2. Situação do Bilhete Único (relatório da Riocard)
 
@@ -31,7 +34,9 @@ Não possui BU, Desativado, Ativação Solicitada) e o número do cartão.
 
 O portal **não mostra o saldo** dos cartões.
 
-> Hoje não há tela de importação. O agente lê o PDF e atualiza o CORH.
+> **Como fazer (desde 22/11/2026):** aba **VT → Importações do mês**, cartão 2. Anexe o PDF de cada conta
+> (Plena EA e Plena Tech), confira a data da consulta e a prévia (mudanças de situação, quem inativar na
+> Riocard, quem cadastrar) e clique em **Gravar mudanças**. Casamento só por CPF, cadastro ativo.
 
 Com o resultado, o RH faz no portal da Riocard:
 
@@ -65,6 +70,8 @@ Ele traz os dias de trabalho, as férias e os afastamentos de cada pessoa.
 Gerar a carga do mês e conferir o banner: ele precisa ficar **verde ("Carga gravada")**.
 
 > A carga ainda precisa ser ligada às rotas confirmadas (desenvolvimento pendente).
+
+**Extra no mês (R$)** — só quando a gestora decidir (migration 176 aplicada): na seção "Extra no mês" da aba Carga, escolher a pessoa, informar o valor TOTAL do mês (ex.: 15,00) e o motivo (obrigatório) e clicar em "Gravar extra". O rascunho é recalculado na hora; o valor soma ao da pessoa, aparece na coluna "Extra no mês" e no Excel. Vale só para a competência — no mês seguinte começa vazio. Não é descontado pelo Fechamento. Depois de **confirmar** o lote não dá mais para alterar o extra.
 
 ## 6. Fechamento do mês anterior (espelho de ponto do Flit)
 

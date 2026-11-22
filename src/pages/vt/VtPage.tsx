@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation, Navigate } from 'react-router-dom'
-import { Users, Route, CalendarClock, CalendarCheck, ListChecks } from 'lucide-react'
+import { Users, Route, CalendarClock, CalendarCheck, ListChecks, FileUp } from 'lucide-react'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { ModuleShell } from '@/components/layout/ModuleShell'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,6 +12,7 @@ import { VtTrajetosTab } from './VtTrajetosTab'
 import { VtRotasAConfirmarTab } from './VtRotasAConfirmarTab'
 import { VtCargaTab } from './VtCargaTab'
 import { VtFechamentoTab } from './VtFechamentoTab'
+import { VtImportacoesTab } from './VtImportacoesTab'
 
 // Módulo VT (Vale-Transporte) — Fase 1: cadastro de optantes/tipo de bilhete,
 // trajetos casa → posto e bilhetes de VT com valor diário e vigência
@@ -25,6 +26,7 @@ const TABS = [
   { path: '/vt/trajetos', label: 'Trajetos', icon: Route },
   { path: '/vt/carga', label: 'Carga', icon: CalendarClock },
   { path: '/vt/fechamento', label: 'Fechamento', icon: CalendarCheck },
+  { path: '/vt/importacoes', label: 'Importações do mês', icon: FileUp },
 ]
 
 export function VtPage() {
@@ -62,6 +64,8 @@ export function VtPage() {
       ? 'trajetos'
       : location.pathname === '/vt/rotas'
         ? 'rotas'
+        : location.pathname === '/vt/importacoes'
+        ? 'importacoes'
         : location.pathname === '/vt/carga'
         ? 'carga'
         : location.pathname === '/vt/fechamento'
@@ -119,6 +123,9 @@ export function VtPage() {
       )}
       {aba === 'fechamento' && (
         <VtFechamentoTab usuarioId={user.id} podeGerenciar={podeGerenciar} />
+      )}
+      {aba === 'importacoes' && (
+        <VtImportacoesTab podeGerenciar={podeGerenciar} recarregarVt={vt.carregarTudo} />
       )}
       {aba === 'carga' && (
         <VtCargaTab

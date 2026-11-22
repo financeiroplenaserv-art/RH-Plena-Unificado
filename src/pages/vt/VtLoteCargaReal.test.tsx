@@ -43,12 +43,21 @@ vi.mock('@/lib/vt/carregarDominioLote', () => ({
   })),
 }))
 // Banco: sem fechamento do mês anterior; a gravação para o Fechamento devolve uma linha por carga.
-const banco = vi.hoisted(() => ({ cargasGravadas: [] as Record<string, unknown>[] }))
+const banco = vi.hoisted(() => ({ cargasGravadas: [] as Record<string, unknown>[], extras: [] as Record<string, unknown>[] }))
 vi.mock('@/lib/supabase', () => {
   const consulta = (tabela: string) => {
     const q: Record<string, unknown> = {}
     let linhas: Record<string, unknown>[] = []
     for (const m of ['select', 'eq', 'in']) q[m] = () => q
+    if (tabela === 'vt_extras_mensais') {
+      linhas = banco.extras
+      q.insert = (row: Record<string, unknown>) => {
+        const nova = { id: `x${banco.extras.length + 1}`, ...row }
+        banco.extras.push(nova)
+        linhas = [nova]
+        return q
+      }
+    }
     q.upsert = (rows: Record<string, unknown>[]) => {
       if (tabela === 'vt_cargas') banco.cargasGravadas.push(...rows)
       linhas = rows.map((_, i) => ({ id: `c${i}` }))
@@ -115,5 +124,37 @@ describe('vertical real do lote', () => {
     expect(await screen.findByText(/carga\(s\) gravada\(s\)/)).toBeInTheDocument()
     expect(banco.cargasGravadas.length).toBeGreaterThan(0)
     expect(banco.cargasGravadas.every((c) => c.status === 'gravada' && c.competencia === '2026-11')).toBe(true)
+  })
+
+  it('lança o extra do mês com motivo, recalcula o rascunho e mostra "só extra" para quem não tem dias', async () => {
+    banco.extras.length = 0
+    render(
+      <VtLoteCargaReal
+        competencia="2026-11"
+        dias={[{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-11-10', origemDia: 'escala' }]}
+        colaboradores={COLABORADORES}
+        nomeArquivo="escalas.xlsx"
+        departamentos={[]}
+        usuarioId="usuario-1"
+        podeGerenciar
+      />,
+    )
+    const botaoConstruir = screen.getByRole('button', { name: 'Construir rascunho' })
+    await waitFor(() => expect(botaoConstruir).toBeEnabled())
+    fireEvent.click(botaoConstruir)
+    await screen.findByText('rascunho')
+
+    fireEvent.change(screen.getByLabelText('Pessoa do extra'), { target: { value: 'pessoa-sem-dias' } })
+    fireEvent.change(screen.getByLabelText('Extra no mês (R$)'), { target: { value: '15,00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar extra' }))
+    expect(await screen.findByText('O motivo é obrigatório.')).toBeInTheDocument()
+    expect(banco.extras).toHaveLength(0)
+
+    fireEvent.change(screen.getByLabelText('Motivo do extra'), { target: { value: 'Cobre outro contrato' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar extra' }))
+    expect(await screen.findByText(/Extra gravado\. Rascunho recalculado\./)).toBeInTheDocument()
+    expect(banco.extras).toHaveLength(1)
+    expect(banco.extras[0]).toMatchObject({ colaborador_id: 'pessoa-sem-dias', competencia: '2026-11', valor_centavos: 1500, motivo: 'Cobre outro contrato' })
+    expect(await screen.findByText('só extra, sem dias de trabalho')).toBeInTheDocument()
   })
 })

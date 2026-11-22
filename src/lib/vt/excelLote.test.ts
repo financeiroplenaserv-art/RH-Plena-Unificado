@@ -68,6 +68,8 @@ describe('Excel do lote confirmado', () => {
       Postos: 'posto-1: 1 dia(s) (1d × R$ 10,00)',
       'Necessidade (R$)': 10,
       'Ajuste (R$)': 0,
+      'Extra no mês (R$)': 0,
+      'Motivo do extra': '',
       'Total a creditar (R$)': 10,
     }])
   })
