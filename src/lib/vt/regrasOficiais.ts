@@ -3,7 +3,9 @@ import type { RegraOficialVT } from '@/lib/vt/contratosTarifarios'
 export const REGRA_VT_FEDERAL = 'vt-federal-10854-125'
 export const REGRA_BUN_ONIBUS = 'bun-onibus-integracao-1h'
 export const REGRA_BUI = 'bui-integracao-2-servicos'
-export const REGRA_BUI_EXCECAO_NITEROI = 'bui-excecao-municipal-niteroi'
+export const REGRA_BUI_NITEROI_INTEGRA = 'bui-municipal-niteroi-integra'
+/** @deprecated Mantido por compatibilidade: a "exceção de Niterói" foi substituída em 24/11/2026 (extratos Riocard). */
+export const REGRA_BUI_EXCECAO_NITEROI = REGRA_BUI_NITEROI_INTEGRA
 export const REGRA_JAE = 'jae-municipal-rio'
 export const REGRA_METRORIO = 'metrorio-integracoes-especificas'
 export const REGRA_DETRO_2026 = 'detro-portaria-1960-2026'
@@ -74,18 +76,18 @@ export const REGRAS_OFICIAIS_VT: readonly RegraOficialVT[] = [
     },
   },
   {
-    id: REGRA_BUI_EXCECAO_NITEROI,
+    id: REGRA_BUI_NITEROI_INTEGRA,
     tipo: 'integracao',
     produto: 'BUI',
-    vigenteDesde: '2026-11-12',
+    vigenteDesde: '2026-11-16',
     vigenteAte: null,
     fonte: {
-      titulo: 'Rio Bilhete Único — exceção dos ônibus municipais de Niterói',
-      url: 'https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/',
-      publicadoEm: '2026-11-12',
-      consultadoEm: CONSULTA,
+      titulo: 'Extratos Riocard Mais de 2 colaboradores (nov/2026) — ônibus intermunicipal + municipal de Niterói integram pelo BUI (R$ 9,40 por sentido); substitui a "exceção de Niterói" do texto da página do programa',
+      url: 'docs/VT_REGRAS_TARIFARIAS.md#4',
+      publicadoEm: '2026-11-23',
+      consultadoEm: '2026-11-24',
     },
-    parametros: { municipalNiteroiIntegraSomenteBun: true },
+    parametros: { municipalNiteroiIntegraComIntermunicipalNoBui: true },
   },
   {
     id: REGRA_JAE,

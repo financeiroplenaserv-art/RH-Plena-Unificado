@@ -59,14 +59,14 @@ function intervaloEntre(a: PernaMotor, b: PernaMotor): Intervalo {
 
 const MUNICIPAIS_RM = new Set<PernaMotor['modal']>(['onibus_municipal_sao_goncalo', 'onibus_municipal_rio'])
 
-/** Pares que a tabela de Regras §4/§5 descreve como integráveis pelo BUI. */
+/** Pares que a tabela de Regras §4/§5 descreve como integráveis pelo BUI (inclui intermunicipal + municipal de Niterói, extratos de 24/11/2026). */
 function parBuiDescrito(a: PernaMotor['modal'], b: PernaMotor['modal']): boolean {
   const tem = (m: PernaMotor['modal']) => a === m || b === m
   const outro = (m: PernaMotor['modal']) => (a === m ? b : a)
   if (a === 'onibus_intermunicipal' && b === 'onibus_intermunicipal') return true
   if (tem('onibus_intermunicipal')) {
     const o = outro('onibus_intermunicipal')
-    return MUNICIPAIS_RM.has(o) || o === 'barca' || o === 'trem' || o === 'metro' || o === 'vlt'
+    return MUNICIPAIS_RM.has(o) || o === 'onibus_municipal_niteroi' || o === 'barca' || o === 'trem' || o === 'metro' || o === 'vlt'
   }
   if (tem('trem')) {
     const o = outro('trem')
@@ -163,11 +163,13 @@ function avaliarPar(
     }
   }
 
-  // Exceção de Niterói: o BUI nunca cobre ônibus municipal de Niterói (Regras §4).
-  if (niteroiA || niteroiB) {
+  // Niterói + outro modal: só o par intermunicipal + municipal de Niterói integra pelo BUI
+  // (extratos Riocard, 24/11/2026 — Regras §4). Qualquer outra combinação com Niterói
+  // (barca, SG, Rio...) não tem evidência de integração e fica cobrada à parte.
+  if ((niteroiA || niteroiB) && !(a.modal === 'onibus_intermunicipal' || b.modal === 'onibus_intermunicipal')) {
     return {
       tipo: 'nao_integra',
-      passo: { regra: 'Regras §4 — exceção de Niterói', texto: `${nomePar}: o Bilhete Único Intermunicipal não vale no ônibus municipal de Niterói (lá só há integração entre dois ônibus de Niterói). O ônibus de Niterói é pago à parte.` },
+      passo: { regra: 'Regras §4 — Niterói só integra com intermunicipal', texto: `${nomePar}: não há integração comprovada entre o ônibus municipal de Niterói e esse outro modal (só dois ônibus de Niterói pelo BUN, ou intermunicipal + ônibus de Niterói pelo BUI). O ônibus de Niterói é pago à parte.` },
     }
   }
 

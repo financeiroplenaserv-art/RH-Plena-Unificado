@@ -52,7 +52,7 @@ describe('adaptarRotasGoogle', () => {
     expect(cotacao.status).toBe('indeterminado')
     expect(cotacao.totalEstimadoCentavos).toBeNull()
     expect(cotacao.pendencias.some((pendencia) => pendencia.codigo === 'TARIFA_DESCONHECIDA')).toBe(true)
-    expect(cotacao.integracoes.some((integracao) => integracao.regraId.includes('excecao'))).toBe(true)
+    expect(cotacao.integracoes.some((integracao) => integracao.regraId === 'bui-integracao-2-servicos')).toBe(true)
   })
 
   it('Alcemir com BU suspenso paga 536R + 35 pela tarifa integral, sem desconto', () => {
@@ -77,7 +77,8 @@ describe('adaptarRotasGoogle', () => {
       cotarCatraca(alternativa.itinerario, CARTAO_ATIVO, REGRAS_OFICIAIS_VT, '2026-11-23').totalEstimadoCentavos,
     )
 
-    expect(totais).toEqual([1270, 560, 1985, 1985])
+    // 542R + 39A (intermunicipal + municipal de Niterói) integra pelo BUI: R$ 9,40 (extratos Riocard, 24/11/2026)
+    expect(totais).toEqual([940, 560, 1985, 1985])
   })
 
   it('três conduções ficam explicitamente fora da confirmação automática', () => {

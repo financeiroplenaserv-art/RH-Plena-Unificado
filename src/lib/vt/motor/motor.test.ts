@@ -99,12 +99,12 @@ describe('exemplos da Proposta VT §5', () => {
     expect(cita(r, '§4')).toBe(true)
   })
 
-  it('h) 536R + municipal de Niterói 35: BUI não cobre Niterói', () => {
+  it('h) 536R + municipal de Niterói 35: integra pelo BUI (extratos Riocard, 24/11/2026)', () => {
     const r = dia([perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)], ATIVO)
-    expect(r.ida.valorCentavos).toBe(1355)
-    expect(r.valorCentavos).toBe(2710)
+    expect(r.ida.valorCentavos).toBe(940)
+    expect(r.valorCentavos).toBe(1880)
     expect(r.status).toBe('confirmado')
-    expect(cita(r, 'exceção de Niterói')).toBe(true)
+    expect(cita(r, '§4')).toBe(true)
   })
 
   it('i) igual a (g) com BUI suspenso: integra (presumida) e avisa para regularizar', () => {
@@ -280,12 +280,30 @@ describe('BUI — elegibilidade, teto e simetria', () => {
     expect(c.ida.valorCentavos).toBe(710 + 500)
   })
 
-  it('municipal de Niterói nunca entra no BUI, mesmo presumido', () => {
+  it('intermunicipal + municipal de Niterói entra no BUI (presumido, qualquer situação do cartão)', () => {
     for (const cartao of [SUSPENSO, SEM_BU, SEM_CONSULTA]) {
       const r = dia([perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)], cartao)
-      expect(r.ida.valorCentavos).toBe(1355)
-      expect(cita(r, 'exceção de Niterói')).toBe(true)
+      expect(r.ida.valorCentavos).toBe(940)
     }
+    // exceção tarifa cheia: soma integral
+    const c = dia([perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)], cheia(ATIVO))
+    expect(c.ida.valorCentavos).toBe(1470)
+  })
+
+  it('casos reais dos extratos Riocard (nov/2026): intermunicipal + Niterói = 9,40 nos dois sentidos', () => {
+    // 515M (7,10) -> 30 (Niterói): 7,10 + 2,30
+    expect(dia([perna('onibus_intermunicipal', '515M', 0), perna('onibus_municipal_niteroi', '30', 110)], ATIVO).ida.valorCentavos).toBe(940)
+    // 30 (Niterói) -> 515M: 4,45 + 4,95, ordem invertida
+    expect(dia([perna('onibus_municipal_niteroi', '30', 0), perna('onibus_intermunicipal', '515M', 140)], ATIVO).ida.valorCentavos).toBe(940)
+    // 33 -> 532M
+    expect(dia([perna('onibus_municipal_niteroi', '33', 0), perna('onibus_intermunicipal', '532M', 33)], ATIVO).ida.valorCentavos).toBe(940)
+    // 491M -> 33 (caso Thiago Lontra: antes 13,55)
+    expect(dia([perna('onibus_intermunicipal', '491M', 0), perna('onibus_municipal_niteroi', '33', 40)], ATIVO).ida.valorCentavos).toBe(940)
+  })
+
+  it('Niterói + modal sem evidência (SG municipal) segue sem integração', () => {
+    const r = dia([perna('onibus_municipal_sao_goncalo', '10', 0), perna('onibus_municipal_niteroi', '35', 40)], ATIVO)
+    expect(cita(r, 'Niterói só integra com intermunicipal')).toBe(true)
   })
 
   it('BUI não é escolhido quando a soma comum é menor ou igual (ordem das pernas indiferente)', () => {
@@ -415,13 +433,13 @@ describe('dia com ida e volta diferentes', () => {
 })
 
 describe('caso Alcemir (Regras §11)', () => {
-  it('536R + 35 = 1355 por sentido (exceção de Niterói, com ou sem política)', () => {
+  it('536R + 35 = 940 por sentido (BUI integra com Niterói; antes 1355)', () => {
     const r = calcularSentido({
       pernas: [perna('onibus_intermunicipal', '536R', 0), perna('onibus_municipal_niteroi', '35', 40)],
       cartao: SUSPENSO,
       dataServico: DATA,
     })
-    expect(r.valorCentavos).toBe(1355)
+    expect(r.valorCentavos).toBe(940)
     expect(r.status).toBe('confirmado')
   })
 

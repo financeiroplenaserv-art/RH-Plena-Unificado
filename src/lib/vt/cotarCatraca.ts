@@ -2,7 +2,7 @@ import { removerAcentos } from '@/lib/utils'
 import { tarifaLinhaDetro } from '@/lib/vt/tarifasOficiais'
 import {
   REGRA_BUI,
-  REGRA_BUI_EXCECAO_NITEROI,
+  REGRA_BUI_NITEROI_INTEGRA,
   REGRA_BUN_ONIBUS,
   REGRA_DETRO_2026,
   REGRA_JAE,
@@ -235,7 +235,9 @@ function avaliarBuiDireto(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT, re
 
 function avaliarBuiIntegracao(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT, regras: readonly RegraOficialVT[]): AlternativaInterna | null {
   if (pernas.length !== 2 || !pernas.some((perna) => perna.escopo === 'intermunicipal') || !podeAvaliarBui(cartao)) return null
-  if (pernas.some(ehNiteroiMunicipal)) return null
+  // Intermunicipal + municipal de Niterói integra pelo BUI (extratos Riocard, 24/11/2026).
+  // Niterói com os demais modais (barca, SG, Rio) não tem evidência: fica fora do BUI.
+  if (pernas.some(ehNiteroiMunicipal) && !pernas.some((perna) => perna.escopo === 'intermunicipal' && ehOnibus(perna))) return null
   if (pernas.some((perna) => perna.modal === 'metro') && pernas.some((perna) => ['brt', 'van'].includes(perna.modal))) return null
   if (pernas.some((perna) => perna.modal === 'van' && perna.escopo === 'municipal')) return null
 
@@ -284,7 +286,7 @@ function avaliarBuiIntegracao(pernas: PernaItinerarioVT[], cartao: FatosCartaoVT
         motivo: indice === 0 ? 'Primeira tarifa na ordem da integração.' : 'Segunda tarifa limitada à diferença da integração BUI.',
       }
     }),
-    regraIds: [REGRA_BUI, ...(temMetro ? [REGRA_METRORIO] : [])],
+    regraIds: [REGRA_BUI, ...(pernas.some(ehNiteroiMunicipal) ? [REGRA_BUI_NITEROI_INTEGRA] : []), ...(temMetro ? [REGRA_METRORIO] : [])],
     pendencias,
     integracao: { regraId: REGRA_BUI, pernas: pernas.map((perna) => perna.sequencia), aceita: false, motivo: 'Integração BUI avaliada.' },
   }
@@ -351,12 +353,12 @@ export function cotarCatraca(
         if (bui.integracao) integracoes.push(bui.integracao)
       }
     }
-    if (pernas.some(ehNiteroiMunicipal) && pernas.some((perna) => perna.escopo === 'intermunicipal')) {
+    if (pernas.some(ehNiteroiMunicipal) && pernas.some((perna) => !ehNiteroiMunicipal(perna) && !(perna.escopo === 'intermunicipal' && ehOnibus(perna)))) {
       integracoes.push({
-        regraId: REGRA_BUI_EXCECAO_NITEROI,
+        regraId: REGRA_BUI_NITEROI_INTEGRA,
         pernas: pernas.map((perna) => perna.sequencia),
         aceita: false,
-        motivo: 'Ônibus municipal de Niterói é excluído do BUI; sua integração municipal é pelo BUN.',
+        motivo: 'Sem evidência de integração do ônibus municipal de Niterói com este modal; só entre dois ônibus de Niterói (BUN) ou com intermunicipal (BUI).',
       })
     }
   }

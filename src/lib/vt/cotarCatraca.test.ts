@@ -97,12 +97,14 @@ describe('cotarCatraca — BUI', () => {
     expect(resultado.pernas.map((perna) => perna.cobradoEstimadoCentavos)).toEqual([555, 385])
   })
 
-  it('intermunicipal + municipal de Niterói: exceção oficial, BUI não cobre a segunda perna', () => {
+  it('intermunicipal + municipal de Niterói integra pelo BUI (extratos Riocard, 24/11/2026)', () => {
     const resultado = cotar([inter484(), segunda({})])
     expect(resultado.status).toBe('confirmavel')
-    expect(resultado.alternativaEscolhidaId).toBe('tarifa_integral')
-    expect(resultado.totalEstimadoCentavos).toBe(1270)
-    expect(resultado.integracoes.some((integracao) => integracao.regraId.includes('excecao') && !integracao.aceita)).toBe(true)
+    expect(resultado.alternativaEscolhidaId).toBe('bui')
+    expect(resultado.totalEstimadoCentavos).toBe(940)
+    expect(resultado.pernas.map((perna) => perna.cobradoEstimadoCentavos)).toEqual([710, 230])
+    expect(resultado.integracoes.some((integracao) => integracao.aceita)).toBe(true)
+    expect(resultado.regraIds).toContain('bui-municipal-niteroi-integra')
   })
 
   it('BUI suspenso usa tarifa cheia; BUI não consultado deixa a escolha parcial', () => {

@@ -17,7 +17,7 @@ O simulador de catraca informa e questiona. A política confirmada pela Plena de
 Decisão da gestora, 19/11/2026: *"O colaborador tem que ter o BU com integração. Se não tem, precisa regularizar a situação. A integração é um direito da empresa, para pagar menos o VT do colaborador. Temos que saber se o BUI está ativo ou não, para comunicar ao colaborador e dizer que vamos pagar como se ele tivesse, com algumas exceções, que são prerrogativa da empresa."*
 
 - **Padrão (integração presumida):** o motor (`src/lib/vt/motor/`) calcula sempre com a integração BUN e BUI disponível, como se o cartão estivesse ativo, qualquer que seja a situação na Riocard: Ativado, Suspenso Setrans, Não possui BU, Desativado, Ativação Solicitada ou não consultado. Essas situações deixam de gerar pendência de cartão e não levam mais à tarifa cheia.
-- **O resto da regra continua valendo.** A política presume só o cartão. Continuam valendo a janela de tempo (BUN 1 h, BUI 3 h, MetrôRio 120 min), linhas diferentes, o máximo de duas conduções por integração, a combinação descrita na regra e a exceção de Niterói da §4: o ônibus municipal de Niterói nunca entra no BUI. Combinação não descrita continua pendente.
+- **O resto da regra continua valendo.** A política presume só o cartão. Continuam valendo a janela de tempo (BUN 1 h, BUI 3 h, MetrôRio 120 min), linhas diferentes, o máximo de duas conduções por integração, a combinação descrita na regra. O par intermunicipal + ônibus municipal de Niterói integra pelo BUI (§4, regra de 24/11/2026; antes era a "exceção de Niterói", substituída). Combinação não descrita continua pendente.
 - **Aviso, não pendência:** quando a situação na Riocard é diferente de "Ativado", o resultado traz `regularizarCartao = true`, com um texto simples para o colaborador. Exemplo: *"Seu Bilhete Único consta como Suspenso Setrans na Riocard. O VT é calculado com a integração; regularize seu cartão para não pagar a diferença."* O valor não fica pendente por isso.
 - **Exceção por pessoa (prerrogativa da empresa):** "Pagar tarifa cheia" (`colaboradores.vt_tarifa_cheia`, migration 174). Exige motivo e registra quem marcou e quando. Só quem gerencia o VT (`vt.gerenciar`) marca, na aba VT → Colaboradores. Com a exceção, o motor cobra a tarifa integral de cada condução, sem avaliar nenhuma integração. Também não gera pendência de cartão nem a pendência "BUI direto", porque a decisão já foi tomada pela empresa. As pendências da própria tarifa continuam valendo, como linha desconhecida, seção ambígua ou tarifa a conferir.
 - **O que já foi gravado não muda.** Cargas, lotes e evidências salvas guardam o cálculo da época (`calculoMotor`). A política vale só para cálculos novos, e a evidência nova registra a política usada (`calculoMotor.cartao.politicaIntegracao`).
@@ -139,15 +139,31 @@ Páginas antigas divergem sobre idade e “inferior” versus “inferior ou igu
 
 Fontes: [BUI atual](https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/), [intervalos](http://www.riocardmais.com.br/duvidas-frequentes/qual-o-tempo-de-intervalo-para-realizar-a-integracao-do-bui-1142.html), [limite diário](http://www.riocardmais.com.br/duvidas-frequentes/quantas-vezes-por-dia-meu-cartao-pode-fazer-a-integracao-do-bilhete-unico-intermunicipal-bui-1139.html) e [tarifas](http://www.riocardmais.com.br/Tarifas).
 
-### Exceção de Niterói
+### Niterói e o BUI — REGRA ALTERADA em 24/11/2026 (comprovada por extrato)
 
-A página atual do BUI diz expressamente:
+**Vale hoje:** ônibus intermunicipal (DETRO) + ônibus municipal de Niterói **integram pelo BUI**: 2 conduções, janela de até 3 h, **total R$ 9,40 por sentido**, nos dois sentidos. O 1º ônibus cobra a tarifa dele e o 2º cobra o que falta até R$ 9,40. Niterói + Niterói continua pelo BUN (R$ 4,45 total em até 1 h). O BUI só compensa quando a soma cheia passa de R$ 9,40. Combinações de Niterói com outros modais (barca, SG municipal, Rio) seguem sem evidência de integração e são cobradas à parte.
 
-> Válido para todos os ônibus municipais que integram o sistema de bilhetagem Riocard, **exceto os ônibus municipais de Niterói**, cuja integração é feita exclusivamente pelo BUN.
+**Fonte (decisão da gestora, 24/11/2026):** dois extratos reais do Riocard Mais de colaboradores (nov/2026; arquivos em `dados-locais`: extrato completo da conta 01.04.11914442-5-2 de 23/11/2026 e imagem de WhatsApp de 24/11/2026). Casos (intermunicipal R$ 7,10 + Niterói R$ 2,30, ou Niterói R$ 4,45 + intermunicipal R$ 4,95):
 
-Portanto, intermunicipal + municipal de Niterói não deve ser presumido como uma única integração BUI. A parte de Niterói é calculada separadamente pelo BUN/tarifa aplicável. A tabela genérica “municipal da RM” não elimina a exceção específica publicada na página do programa.
+| Data | Viagem |
+|---|---|
+| 16/11 | 515M 06:08 R$ 7,10 → linha 30 (Niterói) 08:09 R$ 2,30 |
+| 17/11 | linha 30 15:15 R$ 4,45 → 515M 17:18 R$ 4,95 |
+| 18/11 | 33 18:53 R$ 4,45 → 532M 19:26 R$ 4,95 |
+| 19/11 | 515M 06:02 R$ 7,10 → 30 07:53 R$ 2,30; 45 16:29 R$ 4,45 → 519M 18:42 R$ 4,95 |
+| 20/11 | 403M 12:44 R$ 7,10 → 30 13:33 R$ 2,30 |
+| 23/11 | 38A 22:10 R$ 4,45 → 403M 22:22 R$ 4,95 |
 
-Fonte: [Rio Bilhete Único — BUI](https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/).
+**Ressalvas registradas (não viram regra de código):**
+
+- Antes de 16/11 a mesma pessoa **não** integrava; o BUI provavelmente foi ativado por volta de 16/11.
+- Em 17/11, 05:50 515M → 08:44 linha 30 (2 h 54) **não integrou**, sem explicação (dentro das 3 h). Fica como ressalva; não há regra para isso no motor.
+- Esta regra **contraria o texto da página do programa** transcrito abaixo (conservado como histórico). Se a Riocard voltar a aplicar a exceção, rever.
+- O extrato também confirmou regras já existentes: BUN entre 2 ônibus de Niterói em menos de 1 h (67 13:56 R$ 4,45 → 17 14:22 R$ 0,00) e 3ª viagem municipal de Niterói no dia a R$ 5,60 (06/11, OC2).
+
+**Histórico — SUBSTITUÍDO em 24/11/2026.** Texto anterior da página do BUI: *"Válido para todos os ônibus municipais que integram o sistema de bilhetagem Riocard, exceto os ônibus municipais de Niterói, cuja integração é feita exclusivamente pelo BUN."* Com base nele, o sistema presumia que intermunicipal + municipal de Niterói nunca integrava pelo BUI (ex.: 491M + 33 = R$ 13,55 por sentido; passa a R$ 9,40).
+
+Fonte do texto antigo: [Rio Bilhete Único — BUI](https://site.riobilheteunico.com.br/bilhete-unico-intermunicipal/).
 
 ## 5. Rio de Janeiro — Jaé, Riocard+BUI e modais
 
@@ -171,7 +187,7 @@ Pela página de [meios e tarifas do MetrôRio](https://www.metrorio.com.br/como-
 
 A tabela atual da Riocard prevê, com BUI, **R$ 9,40** para:
 
-- Ônibus intermunicipal + ônibus municipal da RM, ressalvada a exceção de Niterói.
+- Ônibus intermunicipal + ônibus municipal da RM, **inclusive Niterói** (a antiga exceção de Niterói foi substituída em 24/11/2026 — ver §4).
 - Intermunicipal + barcas.
 - Intermunicipal + metrô ou trem.
 - Trem + metrô.
@@ -202,7 +218,7 @@ Decisão:
 - Nas linhas de R$ 7,10 ou R$ 9,10, a tarifa direta é inferior ao BUI de R$ 9,40.
 - Acima de R$ 9,40, o BUI pode reduzir a cobrança na catraca se elegível; a base patronal sem transbordo permanece pendente conforme §2.
 - Com municipal de São Gonçalo + intermunicipal, pode haver BUI se todos os requisitos forem atendidos.
-- Com municipal de Niterói, aplicar a exceção BUN da §4, não presumir BUI cobrindo a perna.
+- Com municipal de Niterói + intermunicipal, aplicar o BUI (2 conduções, R$ 9,40 por sentido — regra de 24/11/2026, §4); Niterói + Niterói segue pelo BUN.
 
 ## 7. Trem, metrô, barca e VLT
 

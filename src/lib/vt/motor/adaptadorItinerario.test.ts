@@ -64,8 +64,8 @@ describe('adaptador Google → motor', () => {
       ['35', 'onibus_municipal_niteroi'],
     ])
     const r = calcularAlternativaSentido(alt, ATIVADO, DATA).resultado
-    // BUI não cobre municipal de Niterói: 9,10 + 4,45 (BUN) cobrados à parte.
-    expect(r.valorCentavos).toBe(1355)
+    // 536R + 35 integram pelo BUI (extratos Riocard, 24/11/2026): R$ 9,40 por sentido (antes 9,10 + 4,45 = 13,55).
+    expect(r.valorCentavos).toBe(940)
   })
 
   it('Alcemir 62 + 39A: integra pelo BUN (R$ 4,45) Ativado ou Suspenso (presumida); exceção cobra R$ 11,20', () => {
