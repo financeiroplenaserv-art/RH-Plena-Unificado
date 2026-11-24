@@ -89,9 +89,14 @@ async function main() {
       const volta = mk('volta', it.calculoMotor.alternativaVoltaId, false)
       if (!ida.itinerario.pernas.length || !volta.itinerario.pernas.length) throw new Error('evidência sem ida ou volta')
       const { data: c, error } = await supabase.from('colaboradores')
-        .select('vt_bu_situacao, vt_bu_consultado_em, vt_tarifa_cheia, vt_tarifa_cheia_motivo').eq('id', d.colaborador_id).single()
+        .select('cidade, vt_bu_situacao, vt_bu_consultado_em, vt_tarifa_cheia, vt_tarifa_cheia_motivo').eq('id', d.colaborador_id).single()
       if (error) throw error
       const cartao = fatosCartaoDoCadastro(c.vt_bu_situacao, c.vt_bu_consultado_em, { tarifaCheia: c.vt_tarifa_cheia === true, motivo: c.vt_tarifa_cheia_motivo })
+      // Decisão da gestora (24/11/2026): linha D só quando casa ou posto fica no Rio.
+      const { linhasDProibidas } = await import('../../src/lib/vt/revisaoHumana')
+      const { data: dp } = await supabase.from('departamentos').select('cidade').eq('id', d.departamento_id).single()
+      const proibidas = linhasDProibidas(c.cidade, dp?.cidade, ida.itinerario.pernas, volta.itinerario.pernas)
+      if (proibidas.length) throw new Error(`linha ${proibidas.join(', ')} (vai para o Rio) em trajeto que fica fora do Rio — não regravar`)
       const dia = motor.calcularDiaIdaVolta(ida as never, volta as never, cartao, HOJE)
       base.antes = d.custo_diario_centavos; base.depois = dia.valorCentavos; base.esperado = m.valor_dia_novo_centavos; base.status_motor = dia.status
       if (dia.status !== 'confirmado' || dia.valorCentavos !== m.valor_dia_novo_centavos) {

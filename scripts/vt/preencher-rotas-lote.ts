@@ -75,7 +75,7 @@ async function main() {
     { adaptarRotasGoogle },
     motor,
     { encontrarAlternativaInversa },
-    { motivosRevisaoHumana },
+    { motivosRevisaoHumana, linhasDProibidas },
     { RepositorioItinerarioSupabase },
     { criarTrajetoParaRevisao },
     { resolverPostoDoRelatorio },
@@ -179,8 +179,10 @@ async function main() {
           municipioDestino: sentido === 'ida' ? (dep.cidade ?? 'desconhecida') : (c.cidade ?? 'desconhecida'),
         }).map((a) => motor.calcularAlternativaSentido(a, cartao, hoje)),
       )
-      const idas = calc('ida', respIda).filter((x) => x.resultado.status === 'confirmado' && (x.resultado.valorCentavos ?? 0) > 0)
-      const voltasTodas = calc('volta', respVolta)
+      // Decisão da gestora (24/11/2026): linha D só quando casa ou posto fica no Rio — nunca escolhida em lote.
+      const semLinhaDProibida = (x: Alt) => linhasDProibidas(c.cidade, dep.cidade, x.alternativa.itinerario.pernas).length === 0
+      const idas = calc('ida', respIda).filter((x) => semLinhaDProibida(x) && x.resultado.status === 'confirmado' && (x.resultado.valorCentavos ?? 0) > 0)
+      const voltasTodas = calc('volta', respVolta).filter(semLinhaDProibida)
       const voltas = voltasTodas.filter((x) => x.resultado.status === 'confirmado' && (x.resultado.valorCentavos ?? 0) > 0)
       if (idas.length === 0 || voltas.length === 0) {
         const extra = await abrirRevisaoSeConfirmada(c.id, dep.id)

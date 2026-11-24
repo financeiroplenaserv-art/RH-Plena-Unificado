@@ -168,13 +168,36 @@ describe('VtRevisaoRota com o motor novo', () => {
     await consultarIdaEVolta()
 
     const cartoes = within(screen.getByRole('region', { name: 'Ida (casa → posto)' })).getAllByRole('button', { name: /^Ida — alternativa/ })
-    const ultimo = cartoes[cartoes.length - 1]
+    // As alternativas com linha D (proibidas nesta cidade) vão ao fim; a indeterminada vem antes delas.
+    const ultimo = cartoes.filter((c) => !within(c).queryByTestId('linha-d-proibida')).pop()!
     expect(within(ultimo).getByText('Valor indeterminado')).toBeInTheDocument()
 
     fireEvent.click(ultimo)
     fireEvent.click(screen.getByRole('button', { name: 'Volta — alternativa 1' }))
     expect(screen.getByRole('button', { name: 'Salvar itinerário escolhido' })).toBeDisabled()
     expect(screen.getByTestId('motivo-bloqueio')).toHaveTextContent(/indeterminado|pendente/)
+  })
+
+  it('linha D com casa e posto fora do Rio: marcada, nunca "Mais em conta" e não deixa salvar (24/11/2026)', async () => {
+    render(<VtRevisaoRota contextoReal={contexto(ATIVADO)} />)
+    await consultarIdaEVolta()
+
+    const regiao = within(screen.getByRole('region', { name: 'Ida (casa → posto)' }))
+    const cartoes = regiao.getAllByRole('button', { name: /^Ida — alternativa/ })
+    const comD = cartoes.filter((c) => within(c).queryByTestId('linha-d-proibida'))
+    expect(comD.length).toBeGreaterThan(0)
+    for (const c of comD) {
+      expect(within(c).queryByText('Mais em conta')).not.toBeInTheDocument()
+      expect(within(c).getByTestId('linha-d-proibida')).toHaveTextContent(/Linha para o Rio — não usar/)
+    }
+    // as proibidas ficam no fim da lista
+    const primeiraProibida = cartoes.indexOf(comD[0])
+    expect(cartoes.slice(primeiraProibida).every((c) => within(c).queryByTestId('linha-d-proibida'))).toBe(true)
+
+    fireEvent.click(comD[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Volta — alternativa 1' }))
+    expect(screen.getByRole('button', { name: 'Salvar itinerário escolhido' })).toBeDisabled()
+    expect(screen.getByTestId('motivo-bloqueio')).toHaveTextContent(/vai para o Rio/)
   })
 
   it('horário inválido da volta mostra erro e não consulta', async () => {

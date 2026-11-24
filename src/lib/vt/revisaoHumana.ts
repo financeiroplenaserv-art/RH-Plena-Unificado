@@ -21,6 +21,47 @@ export function ehLinhaParaORio(linha: string | null | undefined): boolean {
   return /^\d{3,4}D$/.test(normalizar(linha))
 }
 
+const noRio = (cidade: string | null | undefined) => normalizarCidade(cidade) === 'RIO DE JANEIRO'
+const semCidade = (cidade: string | null | undefined) => {
+  const c = normalizarCidade(cidade)
+  return c === '' || c === 'DESCONHECIDA' || c === 'DESCONHECIDO'
+}
+
+/**
+ * Regra da gestora (24/11/2026): "não vamos marcar para ninguém pegar a linha D se é o caso de
+ * ainda ficar em Niterói". Linha D (vai para a cidade do Rio) só é legítima quando a casa OU o
+ * posto fica no Rio.
+ *  - 'liberada': casa ou posto no Rio de Janeiro.
+ *  - 'proibida': as DUAS cidades são conhecidas e nenhuma é o Rio (a viagem fica do lado de cá da baía).
+ *  - 'conferir': falta a cidade de um dos lados — nunca bloqueia por palpite, fica como aviso.
+ */
+export type SituacaoLinhaD = 'liberada' | 'proibida' | 'conferir'
+
+export function situacaoLinhaD(cidadeCasa: string | null | undefined, cidadePosto: string | null | undefined): SituacaoLinhaD {
+  if (noRio(cidadeCasa) || noRio(cidadePosto)) return 'liberada'
+  if (semCidade(cidadeCasa) || semCidade(cidadePosto)) return 'conferir'
+  return 'proibida'
+}
+
+/** Linhas D (sem repetição) presentes nas conduções. */
+export function linhasDDasPernas(...sentidos: ReadonlyArray<readonly PernaParaRevisao[]>): string[] {
+  return [...new Set(sentidos.flat().map((p) => normalizar(p.linha)).filter(ehLinhaParaORio))]
+}
+
+/**
+ * Linhas D que NÃO podem ser escolhidas/confirmadas (vazio = nada proibido). Vale para ida e volta
+ * (a volta pré-marcada igual à ida segue a mesma regra, pois usa as mesmas linhas).
+ */
+export function linhasDProibidas(
+  cidadeCasa: string | null | undefined,
+  cidadePosto: string | null | undefined,
+  ...sentidos: ReadonlyArray<readonly PernaParaRevisao[]>
+): string[] {
+  return situacaoLinhaD(cidadeCasa, cidadePosto) === 'proibida' ? linhasDDasPernas(...sentidos) : []
+}
+
+export const TEXTO_LINHA_D_PROIBIDA = 'Linha para o Rio — não usar para trajeto que fica em Niterói/São Gonçalo/região'
+
 export function motivosRevisaoHumana(
   ida: readonly PernaParaRevisao[],
   volta: readonly PernaParaRevisao[],
@@ -41,11 +82,14 @@ export function motivosRevisaoHumana(
     }
   }
 
-  const rioNaPonta = [cidadeCasa, cidadePosto].some((c) => normalizarCidade(c) === 'RIO DE JANEIRO')
-  if (!rioNaPonta) {
-    const paraORio = [...new Set([...ida, ...volta].map((p) => normalizar(p.linha)).filter(ehLinhaParaORio))]
+  if (situacaoLinhaD(cidadeCasa, cidadePosto) !== 'liberada') {
+    const paraORio = linhasDDasPernas(ida, volta)
     if (paraORio.length) {
-      motivos.push(`linha para o Rio (${paraORio.join(', ')}) usada como trecho local`)
+      const incerta = situacaoLinhaD(cidadeCasa, cidadePosto) === 'conferir'
+      motivos.push(
+        `linha para o Rio (${paraORio.join(', ')}) usada como trecho local`
+        + (incerta ? ' — a cidade da casa ou do posto não está informada: confira se o trajeto fica fora do Rio' : ''),
+      )
     }
   }
   return motivos

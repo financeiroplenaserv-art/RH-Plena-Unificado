@@ -300,3 +300,11 @@ A escolha automática pela rota mais barata errou em parte dos casos. Ficam para
 
 No lote, a volta segue a ida: se a mesma rota no sentido contrário tem pendência, a pessoa fica na fila — o sistema não troca por outra volta mais barata.
 
+
+## Linha D proibida quando a viagem fica fora do Rio (decisão da gestora, 24/11/2026)
+
+> "Não vamos marcar para ninguém pegar a linha D, se é o caso de ainda ficar em Niterói."
+
+Linha D = linha DETRO de 3–4 dígitos terminada em D (vai para a cidade do Rio pela ponte: 425D, 760D, 721D, 5721D, 2520D, 4425D). **Quando nem a casa nem o posto ficam na cidade do Rio de Janeiro** (a viagem fica do lado de cá da baía: Niterói, São Gonçalo, Itaboraí, Maricá etc.), uma alternativa de rota com linha D **não pode ser escolhida nem confirmada** — na tela de revisão (inclusive pela fila "Rotas a confirmar") nem por script de lote. Se a casa OU o posto é no Rio, a linha D é legítima e nada muda. Cidade ausente em um dos lados: **não bloqueia por palpite** — fica o aviso "confira se o trajeto fica fora do Rio" e a pessoa decide.
+
+Motivo: a linha D é cara (R$ 14 a R$ 33 por sentido) e quase sempre existe uma linha M fazendo o mesmo trecho local (casos Ana Bela, 489M → 425D, e Thiago, 760D → 491M). Comparação de cidades sem acento e sem diferença de caixa, usando `colaboradores.cidade` e `departamentos.cidade`. Implementação em `src/lib/vt/revisaoHumana.ts` (`situacaoLinhaD`, `linhasDProibidas`).

@@ -14,7 +14,7 @@ import { formatarCentavos } from '@/lib/vt/bilhetes'
 import { formatarDataHora, hojeBrasil } from '@/lib/utils'
 import { chegadaComFolgaBRT, FOLGA_CHEGADA_MINUTOS, horaMinutoValida, mascararHoraMinuto, partidaProximaSegundaBRT } from '@/lib/vt/partidaRota'
 import { encontrarAlternativaInversa } from '@/lib/vt/rotaInversa'
-import { motivosRevisaoHumana } from '@/lib/vt/revisaoHumana'
+import { linhasDProibidas, motivosRevisaoHumana, TEXTO_LINHA_D_PROIBIDA } from '@/lib/vt/revisaoHumana'
 import { agruparAlternativasIguais, menorValorComDestaque, textoSemelhantes, type GrupoAlternativas } from '@/lib/vt/agruparAlternativas'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import { pernaMotorDeItinerario } from '@/lib/vt/motor/adaptadorItinerario'
@@ -160,13 +160,16 @@ interface SecaoSentidoProps {
   dataServico: string
   salvando: boolean
   nota?: string | null
+  /** Linhas D proibidas nesta alternativa (casa e posto fora do Rio — decisão de 24/11/2026). */
+  linhasDProibidasDe: (alternativa: AlternativaComMotor) => string[]
   /** Rótulo do horário (ex.: "Chegar até"); padrão = Saída de casa / Saída do posto. */
   rotuloHora?: string
 }
 
 function SecaoSentido(props: SecaoSentidoProps) {
   const { sentido, alternativas, selecionadaId } = props
-  const menor = menorValorComDestaque(props.grupos.map((g) => g.principal.resultado.valorCentavos))
+  // Alternativa com linha D proibida nunca vira "Mais em conta".
+  const menor = menorValorComDestaque(props.grupos.map((g) => (props.linhasDProibidasDe(g.principal).length ? null : g.principal.resultado.valorCentavos)))
   const selecionada = alternativas.find((x) => x.alternativa.id === selecionadaId) ?? null
   const rotuloHora = props.rotuloHora ?? (sentido === 'ida' ? 'Saída de casa' : 'Saída do posto')
   const horaInvalida = props.hora.length >= 5 && !horaMinutoValida(props.hora)
@@ -229,7 +232,10 @@ function SecaoSentido(props: SecaoSentidoProps) {
       )}
 
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {props.grupos.map(({ principal: { alternativa, resultado }, semelhantes }) => (
+        {props.grupos.map(({ principal, semelhantes }) => {
+          const { alternativa, resultado } = principal
+          const proibidas = props.linhasDProibidasDe(principal)
+          return (
           <button
             key={alternativa.id}
             type="button"
@@ -243,13 +249,18 @@ function SecaoSentido(props: SecaoSentidoProps) {
               <span>
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="block text-[13px] font-semibold">Alternativa {alternativa.numero}</span>
-                  {resultado.valorCentavos !== null && resultado.valorCentavos === menor && (
+                  {proibidas.length === 0 && resultado.valorCentavos !== null && resultado.valorCentavos === menor && (
                     <StatusBadge variant="success" dot={false}>Mais em conta</StatusBadge>
                   )}
                   {resultado.status !== 'confirmado' && (
                     <StatusBadge variant={varianteStatus(resultado.status)} dot={false}>{ROTULO_STATUS[resultado.status]}</StatusBadge>
                   )}
                 </span>
+                {proibidas.length > 0 && (
+                  <span className="mt-1 block text-[12px] font-semibold text-red-700" data-testid="linha-d-proibida">
+                    {TEXTO_LINHA_D_PROIBIDA} ({proibidas.join(', ')})
+                  </span>
+                )}
                 <span className="mt-1 block text-[13px] text-muted-foreground">{resumoPernas(alternativa.itinerario.pernas)}</span>
                 <span className="mt-1 block text-[11px] text-muted-foreground">
                   {alternativa.itinerario.pernas.length} condução(ões)
@@ -262,7 +273,8 @@ function SecaoSentido(props: SecaoSentidoProps) {
               </span>
             </span>
           </button>
-        ))}
+          )
+        })}
       </div>
 
       {selecionada && (
@@ -395,11 +407,14 @@ function alternativasDoSentido(
     municipioOrigem: sentido === 'ida' ? contexto.municipioOrigem : contexto.municipioDestino,
     municipioDestino: sentido === 'ida' ? contexto.municipioDestino : contexto.municipioOrigem,
   })
-  return ordenarPorCusto(brutas.map((original) => {
+  const ordenadas = ordenarPorCusto(brutas.map((original) => {
     const alternativa = (removidas[`${sentido}:${original.id}`] ?? [])
       .reduce<AlternativaRotaGoogleVT>((atual, sequencia) => removerPernaAlternativa(atual, sequencia), original)
     return calcularAlternativaSentido(aplicarSecoes(alternativa, sentido, secoes, herdadas), contexto.cartao, dataServico)
   }))
+  // Alternativas com linha D proibida (24/11/2026) vão para o fim da lista, preservando a ordem de custo.
+  const proibida = (x: AlternativaComMotor) => linhasDProibidas(contexto.municipioOrigem, contexto.municipioDestino, x.alternativa.itinerario.pernas).length > 0
+  return [...ordenadas.filter((x) => !proibida(x)), ...ordenadas.filter(proibida)]
 }
 
 export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
@@ -541,6 +556,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const motivoBloqueio = (() => {
     if (!ida || !volta) return 'Escolha uma alternativa de ida e uma de volta.'
     if (!dia) return 'Escolha uma alternativa de ida e uma de volta.'
+    const dProibidas = linhasDProibidas(contextoReal.municipioOrigem, contextoReal.municipioDestino, ida.alternativa.itinerario.pernas, volta.alternativa.itinerario.pernas)
+    if (dProibidas.length) return `Não é possível salvar: a rota usa a linha ${dProibidas.join(', ')} (vai para o Rio) e o trajeto fica fora do Rio. Tire a condução ou escolha outra alternativa.`
     const pedeSecao = dia.pendencias.find((p) => p.codigo === 'DETRO_SECAO_ESCOLHER')
     if (pedeSecao) return `Escolha o trecho (seção) pago da linha ${pedeSecao.linha ?? ''} na ida e na volta antes de salvar.`
     if (dia.status === 'indeterminado') return 'Valor do dia indeterminado: resolva as pendências antes de salvar.'
@@ -549,6 +566,9 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     if (!decisaoRealId) return 'Nenhuma decisão foi encontrada para este trajeto.'
     return null
   })()
+
+  const linhasDProibidasDe = (x: AlternativaComMotor) =>
+    linhasDProibidas(contextoReal.municipioOrigem, contextoReal.municipioDestino, x.alternativa.itinerario.pernas)
 
   const limparSalvo = () => {
     setSalvo(false)
@@ -810,6 +830,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           onEscolherSecao={(id, seq, escolha) => escolherSecao('ida', id, seq, escolha)}
           dataServico={dataServico}
           salvando={salvando}
+          linhasDProibidasDe={linhasDProibidasDe}
         />
 
         <SecaoSentido
@@ -833,6 +854,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           dataServico={dataServico}
           salvando={salvando}
           nota={notaVolta}
+          linhasDProibidasDe={linhasDProibidasDe}
         />
 
         <section aria-label="Valor do dia" className="space-y-3">
