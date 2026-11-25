@@ -118,6 +118,8 @@ export function combinarIdaVolta(
     ...(horarioReferencia ? { horarioReferencia } : {}),
     ...(enderecoCasa ? { enderecoCasa } : {}),
   }
+  const manual = ida.itinerario.provedor === 'manual' || volta.itinerario.provedor === 'manual'
+  const rotaManual = ida.itinerario.rotaManual ?? volta.itinerario.rotaManual
   const ajustes = [...(ida.itinerario.ajustesManuais ?? []), ...(volta.itinerario.ajustesManuais ?? [])]
   return {
     id: `ida:${ida.id}|volta:${volta.id}`,
@@ -126,10 +128,11 @@ export function combinarIdaVolta(
     duracaoSegundos: somaOuNull(ida.duracaoSegundos, volta.duracaoSegundos),
     itinerario: {
       pernas: [...comSentido(ida.itinerario.pernas, 'ida'), ...comSentido(volta.itinerario.pernas, 'volta')],
-      provedor: ida.itinerario.provedor,
+      provedor: manual ? 'manual' : ida.itinerario.provedor,
       consultadoEm: ida.itinerario.consultadoEm,
-      precisao: ida.itinerario.precisao,
+      precisao: manual ? 'manual' : ida.itinerario.precisao,
       evidenciaHash: null,
+      ...(rotaManual ? { rotaManual } : {}),
       ...(ajustes.length ? { ajustesManuais: ajustes } : {}),
       calculoMotor,
     },

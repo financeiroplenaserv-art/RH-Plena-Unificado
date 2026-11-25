@@ -49,6 +49,18 @@ export interface ItinerarioVT {
   ajustesManuais?: AjusteManualItinerarioVT[]
   /** Resultado do motor novo (src/lib/vt/motor) gravado junto com a evidência de ida + volta. */
   calculoMotor?: CalculoMotorItinerarioVT
+  /** Rota informada à mão pelo RH (25/11/2026): quem informou, por quê e que os horários são presumidos. */
+  rotaManual?: RotaManualItinerarioVT
+}
+
+export interface RotaManualItinerarioVT {
+  /** Motivo obrigatório (ex.: "confirmado com a colaboradora"). */
+  motivo: string
+  /** Usuário (perfis.id) que informou a rota. */
+  autorId: string
+  informadaEm: string
+  /** Sem consulta ao Google não há horário real: os embarques são presumidos dentro da janela de integração. */
+  horariosPresumidos: boolean
 }
 
 export interface CalculoMotorItinerarioVT {

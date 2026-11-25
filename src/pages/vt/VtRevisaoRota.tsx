@@ -31,6 +31,7 @@ import {
 import type { FatosCartaoMotor, PassoExplicacao, PendenciaMotor, StatusMotor } from '@/lib/vt/motor/tipos'
 import type { HorarioReferenciaVT, ItinerarioVT } from '@/lib/vt/contratosTarifarios'
 import type { VtItinerario } from '@/types/vt'
+import { VtRotaManual, type RotaManualResultado } from '@/pages/vt/VtRotaManual'
 
 export interface ContextoRevisaoRotaReal {
   trajetoLegadoId: string
@@ -442,6 +443,9 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   departamentosRef.current = contextoReal.departamentosApoio
   const [evidenciaSalva, setEvidenciaSalva] = useState<VtItinerario | null>(null)
   const [erroPersistencia, setErroPersistencia] = useState<string | null>(null)
+  /** Rota informada à mão (null = painel fechado; vale no lugar das alternativas do Google). */
+  const [manual, setManual] = useState<RotaManualResultado | null>(null)
+  const manualAbertaRef = useRef(false)
   const repositorio = useMemo(() => new RepositorioItinerarioSupabase(), [])
   const dataServico = hojeBrasil()
 
@@ -527,19 +531,22 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const gruposIda = useMemo(() => agruparAlternativasIguais(alternativasIda), [alternativasIda])
   const gruposVolta = useMemo(() => agruparAlternativasIguais(alternativasVolta), [alternativasVolta])
 
-  const ida = alternativasIda.find((x) => x.alternativa.id === selecionadas.ida) ?? null
-  const volta = alternativasVolta.find((x) => x.alternativa.id === selecionadas.volta) ?? null
+  const idaGoogle = alternativasIda.find((x) => x.alternativa.id === selecionadas.ida) ?? null
+  const voltaGoogle = alternativasVolta.find((x) => x.alternativa.id === selecionadas.volta) ?? null
+  // Com o painel "Informar a rota" aberto, valem as conduções digitadas no lugar das do Google.
+  const ida = manual ? manual.ida : idaGoogle
+  const volta = manual ? manual.volta : voltaGoogle
   const dia = useMemo(
     () => (ida && volta ? calcularDiaIdaVolta(ida.alternativa, volta.alternativa, contextoReal.cartao, dataServico) : null),
     [ida, volta, contextoReal.cartao, dataServico],
   )
 
   // Volta igual à ida por padrão: enquanto a pessoa não escolheu a volta na mão, ela acompanha a ida.
-  const idaId = ida?.alternativa.id ?? null
+  const idaId = idaGoogle?.alternativa.id ?? null
   useEffect(() => {
-    if (!ida) return
+    if (!idaGoogle) return
     if (selecionadas.volta && !voltaPremarcada) return
-    const inversa = encontrarAlternativaInversa(ida.alternativa, gruposVolta.map((g) => g.principal))
+    const inversa = encontrarAlternativaInversa(idaGoogle.alternativa, gruposVolta.map((g) => g.principal))
     if (inversa) {
       if (selecionadas.volta !== inversa.alternativa.id || !voltaPremarcada) {
         setSelecionadas((atual) => ({ ...atual, volta: inversa.alternativa.id }))
@@ -551,9 +558,10 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
       setVoltaPremarcada(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idaId, ida, gruposVolta])
+  }, [idaId, idaGoogle, gruposVolta])
 
   const motivoBloqueio = (() => {
+    if (manual && (!ida || !volta)) return 'Informe pelo menos uma condução na ida (a volta vem como a ida ao contrário).'
     if (!ida || !volta) return 'Escolha uma alternativa de ida e uma de volta.'
     if (!dia) return 'Escolha uma alternativa de ida e uma de volta.'
     const dProibidas = linhasDProibidas(contextoReal.municipioOrigem, contextoReal.municipioDestino, ida.alternativa.itinerario.pernas, volta.alternativa.itinerario.pernas)
@@ -563,6 +571,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     if (dia.status === 'indeterminado') return 'Valor do dia indeterminado: resolva as pendências antes de salvar.'
     if (dia.status === 'pendente') return 'Valor do dia pendente: confira as pendências abaixo antes de salvar.'
     if (dia.valorCentavos === null || dia.valorCentavos <= 0) return 'O valor do dia precisa ser positivo.'
+    if (manual && manual.motivo.trim() === '') return 'Informe o motivo da rota informada manualmente (ex.: confirmado com a colaboradora).'
     if (!decisaoRealId) return 'Nenhuma decisão foi encontrada para este trajeto.'
     return null
   })()
@@ -646,7 +655,15 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     limparSalvo()
   }
 
-  const horarioReferencia: HorarioReferenciaVT = turno
+  const horarioReferencia: HorarioReferenciaVT = manual
+    ? {
+        origem: 'manual',
+        modoIda: 'saida',
+        entrada: horaIda,
+        saida: horaVolta,
+        texto: 'rota informada manualmente (horários de embarque presumidos)',
+      }
+    : turno
     ? {
         origem: horarioEditado ? 'manual' : 'turno_escala',
         modoIda: 'chegada',
@@ -794,6 +811,13 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
                 <span>Dia: <strong className="tabular-nums">{formatarCentavos(calculoSalvo.valorDiaCentavos)}</strong></span>
               )}
             </div>
+            {(evidenciaSalva.provedor === 'manual' || evidenciaSalva.itinerario.rotaManual) && (
+              <p className="mt-1 text-[12px] font-semibold text-emerald-900" data-testid="evidencia-rota-manual">
+                Rota informada manualmente
+                {evidenciaSalva.itinerario.rotaManual?.motivo ? ` — motivo: ${evidenciaSalva.itinerario.rotaManual.motivo}` : ''}
+                {evidenciaSalva.itinerario.rotaManual?.horariosPresumidos ? ' (horários de embarque presumidos)' : ''}
+              </p>
+            )}
             <p className="mt-1 text-[11px] text-emerald-800" title={`SHA-256: ${evidenciaSalva.evidencia_hash}`}>
               Consulta de {formatarDataHora(evidenciaSalva.consultado_em)} · vinculado à decisão aberta · SHA-256 {evidenciaSalva.evidencia_hash.slice(0, 12)}…
             </p>
@@ -801,16 +825,35 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
         )}
 
         <div className="flex justify-end">
-          <ModuleButton
-            size="sm"
-            disabled={carregando.ida || carregando.volta || carregandoDecisao}
-            onClick={() => void consultarIdaEVolta()}
-          >
-            {carregando.ida || carregando.volta ? 'Consultando...' : 'Consultar ida e volta'}
-          </ModuleButton>
+          {!manual && (
+            <ModuleButton
+              size="sm"
+              disabled={carregando.ida || carregando.volta || carregandoDecisao}
+              onClick={() => void consultarIdaEVolta()}
+            >
+              {carregando.ida || carregando.volta ? 'Consultando...' : 'Consultar ida e volta'}
+            </ModuleButton>
+          )}
         </div>
 
-        <SecaoSentido
+        <VtRotaManual
+          usuarioId={contextoReal.usuarioId}
+          municipioCasa={contextoReal.municipioOrigem}
+          municipioPosto={contextoReal.municipioDestino}
+          cartao={contextoReal.cartao}
+          dataServico={dataServico}
+          horaIda={horaIda}
+          horaVolta={horaVolta}
+          disabled={salvando || carregandoDecisao}
+          onChange={(resultado) => {
+            // Abrir/alterar a rota informada invalida o "salvo"; o estado inicial (fechado) não.
+            if (resultado || manualAbertaRef.current) limparSalvo()
+            manualAbertaRef.current = resultado !== null
+            setManual(resultado)
+          }}
+        />
+
+        {!manual && <SecaoSentido
           sentido="ida"
           titulo="Ida (casa → posto)"
           descricao={`${contextoReal.origem} → ${contextoReal.destino}`}
@@ -831,9 +874,9 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           dataServico={dataServico}
           salvando={salvando}
           linhasDProibidasDe={linhasDProibidasDe}
-        />
+        />}
 
-        <SecaoSentido
+        {!manual && <SecaoSentido
           sentido="volta"
           titulo="Volta (posto → casa)"
           descricao={`${contextoReal.destino} → ${contextoReal.origem}`}
@@ -855,7 +898,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           salvando={salvando}
           nota={notaVolta}
           linhasDProibidasDe={linhasDProibidasDe}
-        />
+        />}
 
         <section aria-label="Valor do dia" className="space-y-3">
           {dia && (
@@ -874,6 +917,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
             </div>
           )}
           {dia && <ListaPendencias pendencias={dia.pendencias} titulo="Por que o valor do dia ainda não está confirmado" />}
+          {manual && dia && <Explicacao passos={dia.explicacao} />}
 
           {erroPersistencia && (
             <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
