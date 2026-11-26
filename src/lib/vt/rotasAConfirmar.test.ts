@@ -65,7 +65,7 @@ describe('montarRotasAConfirmar', () => {
 
   it('só olha o trajeto do posto atual e marca endereço incompleto e posto sem cidade', () => {
     const itens = montarRotasAConfirmar({
-      colaboradores: [colab('1', 'Ana', { departamento_id: 'dep-b', departamento: 'POSTO B' })],
+      colaboradores: [colab('1', 'Ana', { departamento_id: 'dep-b', departamento: 'POSTO B', endereco: 'RUA X, 0, CENTRO' })],
       departamentos: DEPS,
       trajetos: [traj('t-velho', '1', 'dep-a'), traj('t-novo', '1', 'dep-b', 'bairro')],
       decisoes: new Map([['t-velho', confirmada]]),
@@ -73,6 +73,17 @@ describe('montarRotasAConfirmar', () => {
     expect(itens).toHaveLength(1)
     expect(itens[0].trajetoId).toBe('t-novo')
     expect(itens[0].avisos).toEqual(['Endereço incompleto', 'Posto sem cidade'])
+  })
+
+  it('endereço corrigido no cadastro tira o aviso, mesmo com o trajeto gravado como "bairro" (caso Alcemir)', () => {
+    const itens = montarRotasAConfirmar({
+      colaboradores: [colab('1', 'Alcemir', { endereco: 'Travessa Cosme e Damião, 20, B CASA 05, Neves' })],
+      departamentos: DEPS,
+      trajetos: [traj('t1', '1', 'dep-a', 'bairro')],
+      decisoes: new Map<string, DecisaoRotaResumo>([['t1', { status: 'sugerida', itinerarioId: 'it', custoDiarioCentavos: 890 }]]),
+    })
+    expect(itens[0].avisos).toEqual([])
+    expect(itens[0].precisaoOrigem).toBe('exato')
   })
 
   it('decisão confirmada com custo zero ainda entra na fila', () => {

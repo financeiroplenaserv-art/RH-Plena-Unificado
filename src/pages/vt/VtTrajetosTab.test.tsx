@@ -204,10 +204,17 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
   })
 
   it('endereço só com bairro mostra aviso âmbar junto ao nome', () => {
-    setup(true, { ...TRAJETO, precisao_origem: 'bairro' })
+    const incompleto = { ...COLABORADOR, endereco: 'TRAVESSA CALDEIRA, 0, CUBANGO' }
+    setup(true, { ...TRAJETO, colaborador: incompleto }, { colaboradores: [incompleto] })
 
     expect(screen.getByText('Endereço incompleto')).toBeInTheDocument()
     expect(screen.queryByText('Somente bairro')).not.toBeInTheDocument()
+  })
+
+  it('endereço corrigido no cadastro tira o aviso, mesmo com o trajeto gravado como "bairro" (caso Alcemir)', () => {
+    setup(true, { ...TRAJETO, precisao_origem: 'bairro' })
+
+    expect(screen.queryByText('Endereço incompleto')).not.toBeInTheDocument()
   })
 
   it('mostra as linhas orçadas (ida e volta) e o valor do dia quando há itinerário salvo', async () => {

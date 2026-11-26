@@ -41,7 +41,7 @@ import { BuRiocardBadge } from '@/pages/vt/BuRiocardBadge'
 import { ConsultaRiocardAcoes } from '@/pages/vt/ConsultaRiocardAcoes'
 import { fatosCartaoDoCadastro } from '@/lib/vt/motor/adaptadorItinerario'
 import type { InfoColaboradorTrajeto, NovoTrajetoVT, VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
-import type { VtBilhete } from '@/types/vt'
+import type { PrecisaoOrigemVT, VtBilhete } from '@/types/vt'
 
 // Aba Trajetos do VT (Fase 1): uma linha por par colaborador × posto. A
 // precificação é por bilhete nomeado com valor diário (modelo de 21/10/2026,
@@ -98,6 +98,16 @@ interface VtTrajetosTabProps {
 }
 
 const NENHUM = '__nenhum__'
+
+/**
+ * Precisão da origem pelo endereço ATUAL do cadastro. A gravada no trajeto é a do
+ * dia em que ele foi criado e não muda quando o endereço é corrigido (caso Alcemir,
+ * 26/11/2026: o número chegou do e-Contador e o aviso "Endereço incompleto" seguia).
+ */
+function precisaoAtual(linha: LinhaTrajeto): PrecisaoOrigemVT {
+  if (linha.enderecoCasa?.trim()) return precisaoDoEndereco(linha.enderecoCasa)
+  return linha.trajeto?.precisao_origem ?? 'bairro'
+}
 
 export function VtTrajetosTab({
   colaboradores,
@@ -305,7 +315,7 @@ export function VtTrajetosTab({
     bilhete_id: valores.b1,
     bilhete_2_id: valores.b2 || null,
     escopo: linha.trajeto?.escopo ?? escopoSugerido(linha.cidadeCasa, linha.cidadePosto),
-    precisao_origem: linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa),
+    precisao_origem: precisaoAtual(linha),
     valor_extra_centavos: extraDaLinha(linha, valores),
     observacao: linha.trajeto?.observacao ?? null,
   })
@@ -549,7 +559,7 @@ export function VtTrajetosTab({
                   const custo = custoRevisado ?? custoDaLinha(linha)
                   const extraLinha = custoRevisado != null ? 0 : extraDaLinha(linha, valores)
                   const enderecoIncompleto =
-                    (linha.trajeto?.precisao_origem ?? precisaoDoEndereco(linha.enderecoCasa)) === 'bairro'
+                    (precisaoAtual(linha)) === 'bairro'
                   const confirmado = linhaConfirmada(linha)
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
                   const emEdicao = editandoComposicao[linha.chave] ?? false
@@ -804,7 +814,7 @@ export function VtTrajetosTab({
                 departamentosApoio: departamentos,
                 municipioOrigem: revisando.cidadeCasa ?? 'desconhecida',
                 municipioDestino: revisando.cidadePosto ?? 'desconhecida',
-                precisao: revisando.trajeto.precisao_origem === 'exato' ? 'exata' : 'bairro',
+                precisao: precisaoAtual(revisando) === 'exato' ? 'exata' : 'bairro',
                 cartao: fatosCartaoDoCadastro(revisando.buSituacao, revisando.buConsultadoEm, {
                   tarifaCheia: revisando.tarifaCheia,
                   motivo: revisando.tarifaCheiaMotivo,
