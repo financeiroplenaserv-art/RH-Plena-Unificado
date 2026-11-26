@@ -111,5 +111,54 @@ assim com máscara → respirador com válvula, óculos → incolor etc.).
 
 ---
 
+## Formato "Entrega por cliente" (uma aba por contrato)
+
+Em 04/11/2026 a lista de novembro chegou em outro formato: a planilha
+**"Entrega de Material_Uniformes_EPI's por Cliente - DD, DD e DD_MM_AAAA.xlsx"**,
+com **uma aba por contrato** (ex.: Abaeté, Itaguaí, CBO Niterói…) misturando
+materiais, uniformes/EPIs, crachá e kit portaria. Roteiro usado (lote de
+03/11/2026, 215 entregas gravadas):
+
+1. **Extrair só EPI e uniforme.** Em cada aba, ler as tabelas com cabeçalho
+   `NOME | QUANTIDADE | TIPO EPI | TAMANHO` e `NOME | QUANTIDADE | TIPO UNIFORME | TAMANHO`
+   até a linha "DECLARO TER CONFERIDO…". **Ignorar** as seções
+   `MATERIAIS / PRODUTOS`, `KIT PORTARIA - TIPO` (cabeçalho e as linhas até a
+   próxima seção — em algumas abas vem **depois** do uniforme) e `CRACHÁ`.
+   A aba `MODELO` é template vazio.
+2. **Abas "Cópia de …" são duplicatas exatas** da aba original (conferido
+   linha a linha em 04/11/2026) — deduplicar por (nome, quantidade, item,
+   tamanho) antes de montar o CSV.
+3. **Anotações no nome**: remover sufixos tipo `- confirmar` do nome do
+   colaborador (a linha de CBO Macaé do Carlos Alexandre tinha).
+4. Montar o CSV do Caminho 2 (`colaborador;quantidade;item;tamanho;descricao_original`)
+   e seguir o roteiro normal (dry-run → conferir → `--aplicar`).
+5. **De-para de uniformes confirmado pela gestora em 04/11/2026** (a planilha
+   usa nomes diferentes do catálogo; evidência = histórico de entregas de
+   2026). Para casar exato, usar a 6ª coluna `codigo` do CSV:
+
+   | Planilha | Item do catálogo | Código |
+   |---|---|---|
+   | Camisa Polo ASG | CAMISA MALHA POLO - AZUL - ASG | 312 |
+   | Camisa Polo Bege | CAMISA MALHA POLO - BEGE | 314 |
+   | Camisa Polo Encarregado | CAMISA MALHA POLO - BEGE | 314 |
+   | Calça ASG | CALÇA EM OXFORD AZUL MARINHO | 317 |
+   | Blusa Social Portaria | CAMISA SOCIAL EM TECIDO BRANCA COM LOGO BORDADO | 323 |
+   | Calça Social Portaria | CALÇA SOCIAL | 303 |
+   | Blaser | BLAZER | 329 |
+   | Capa de Chuva ("ÚNICO") | CAPA DE CHUVA G - Tam. G (única ativa) | 635 |
+
+6. **O catálogo de uniformes não tem variação de tamanho** (um item só por
+   peça) — o tamanho da planilha **não fica gravado** na entrega; serve só
+   para a compra. Tamanho estranho na planilha (ex.: "2" no Gildo/Itaguaí)
+   não impede o lançamento.
+7. Erros de digitação de nomes acontecem (04/11/2026: "BARBOZA"→BARBOSA
+   001092, "JEN"→JEAN CARLOS PINTO SOUZA 000905, "SIUZA"→SOUZA BATISTA
+   000790). Corrigir no CSV **só com confirmação da usuária**.
+8. Artefatos do lote de 03/11/2026: `dados-locais/entregas_2026-11-03/`
+   (CSV fonte + relatório) e `dados-locais/backup_epis_202611_entregas_2026-11-04.json`.
+
+---
+
 *Criado em 26/09/2026, a partir do script de setembro
-(`scripts/_aposentados/lancar-epis-setembro.mjs`, aposentado em 14/10/2026 — não executar).*
+(`scripts/_aposentados/lancar-epis-setembro.mjs`, aposentado em 14/10/2026 — não executar).
+Seção "Formato Entrega por cliente" adicionada em 04/11/2026.*
