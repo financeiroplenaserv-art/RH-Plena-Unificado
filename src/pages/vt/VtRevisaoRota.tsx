@@ -88,6 +88,18 @@ function aplicarSecoes(
   }, alternativa)
 }
 
+/**
+ * Conteúdo da rota informada à mão (conduções, trechos, valores e motivo). Recálculo com o
+ * mesmo conteúdo dá a mesma assinatura; null = painel fechado.
+ */
+function assinaturaRotaManual(resultado: RotaManualResultado | null): string | null {
+  if (!resultado) return null
+  const sentido = (x: RotaManualResultado['ida']) => x
+    ? { pernas: x.alternativa.itinerario.pernas, valor: x.resultado.valorCentavos, status: x.resultado.status }
+    : null
+  return JSON.stringify({ ida: sentido(resultado.ida), volta: sentido(resultado.volta), motivo: resultado.motivo })
+}
+
 function minutosDe(hora: string): number {
   const [h, m] = hora.split(':').map(Number)
   return h * 60 + m
@@ -445,7 +457,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [erroPersistencia, setErroPersistencia] = useState<string | null>(null)
   /** Rota informada à mão (null = painel fechado; vale no lugar das alternativas do Google). */
   const [manual, setManual] = useState<RotaManualResultado | null>(null)
-  const manualAbertaRef = useRef(false)
+  /** Conteúdo da última rota informada (null = painel fechado). */
+  const manualAssinaturaRef = useRef<string | null>(null)
   const repositorio = useMemo(() => new RepositorioItinerarioSupabase(), [])
   const dataServico = hojeBrasil()
 
@@ -847,8 +860,11 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           disabled={salvando || carregandoDecisao}
           onChange={(resultado) => {
             // Abrir/alterar a rota informada invalida o "salvo"; o estado inicial (fechado) não.
-            if (resultado || manualAbertaRef.current) limparSalvo()
-            manualAbertaRef.current = resultado !== null
+            // Só conta mudança de CONTEÚDO: recálculo idêntico (ex.: a fila recarrega depois de
+            // salvar e recria o objeto do cartão) não pode apagar o "salvo" nem esconder o Confirmar.
+            const assinatura = assinaturaRotaManual(resultado)
+            if (assinatura !== manualAssinaturaRef.current) limparSalvo()
+            manualAssinaturaRef.current = assinatura
             setManual(resultado)
           }}
         />
@@ -972,7 +988,9 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
             <p className="text-muted-foreground">
               {carregandoDecisao
                 ? 'Carregando a decisão do trajeto...'
-                : 'Pode trocar depois: ao salvar outra rota, o sistema cria uma nova revisão e guarda esta como histórico.'}
+                : salvo
+                  ? 'Para trocar a rota (ex.: o endereço mudou): consulte ida e volta (ou informe a rota que a pessoa usa), escolha as alternativas e clique em "Salvar itinerário escolhido". O sistema cria uma nova revisão e guarda esta como histórico.'
+                  : 'Pode trocar depois: ao salvar outra rota, o sistema cria uma nova revisão e guarda esta como histórico.'}
             </p>
           </div>
         </div>

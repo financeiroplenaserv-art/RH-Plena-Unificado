@@ -134,6 +134,26 @@ describe('VtRevisaoRota — rota informada manualmente', () => {
     expect(await screen.findByTestId('evidencia-rota-manual')).toHaveTextContent('Rota informada manualmente — motivo: confirmado com a colaboradora')
   })
 
+  it('caso Andressa: depois de salvar, a fila recarrega (contexto e cartão recriados) e o Confirmar continua visível', async () => {
+    const { rerender } = render(<VtRevisaoRota contextoReal={contexto()} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Informar a rota que a pessoa usa/ })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: /Informar a rota que a pessoa usa/ }))
+    adicionarLinha('ida', '489M')
+    adicionarLinha('ida', '532M')
+    fireEvent.change(screen.getByLabelText('Motivo da rota informada'), { target: { value: 'confirmado com a colaboradora' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar itinerário escolhido' }))
+    expect(await screen.findByRole('button', { name: 'Confirmar trajeto e preço' })).toBeInTheDocument()
+
+    // A fila "Rotas a confirmar" recarrega após salvar e recria o contexto (cartão é objeto novo).
+    rerender(<VtRevisaoRota contextoReal={{ ...contexto(), cartao: { ...ATIVADO } }} />)
+    expect(screen.getByRole('button', { name: 'Confirmar trajeto e preço' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Itinerário salvo' })).toBeDisabled()
+
+    // Mudar a rota de verdade continua invalidando o "salvo".
+    adicionarLinha('ida', '33')
+    expect(screen.queryByRole('button', { name: 'Confirmar trajeto e preço' })).not.toBeInTheDocument()
+  })
+
   it('volta editável: dá para informar uma volta diferente da ida', async () => {
     await abrirPainel()
     adicionarLinha('ida', '39A')
