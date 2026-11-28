@@ -57,6 +57,18 @@
   --color-pedido-cracha-bg: var(--pedido-cracha-bg);
   --color-pedido-cracha-texto: var(--pedido-cracha-texto);
   --color-pedido-contraste: var(--pedido-contraste);
+
+  /* VT — calendário da escala no pop-up da Carga (28/11/2026) */
+  --color-escala-trabalho: var(--escala-trabalho);
+  --color-escala-trabalho-bg: var(--escala-trabalho-bg);
+  --color-escala-treino: var(--escala-treino);
+  --color-escala-treino-bg: var(--escala-treino-bg);
+  --color-escala-folga: var(--escala-folga);
+  --color-escala-folga-bg: var(--escala-folga-bg);
+  --color-escala-ferias: var(--escala-ferias);
+  --color-escala-ferias-bg: var(--escala-ferias-bg);
+  --color-escala-afastado: var(--escala-afastado);
+  --color-escala-afastado-bg: var(--escala-afastado-bg);
 }
 
 :root {
@@ -165,6 +177,18 @@
   --pedido-cracha-bg: #FAF5FF;
   --pedido-cracha-texto: #581C87;
   --pedido-contraste: #FFFFFF;
+
+  /* VT — calendário da escala: forte = borda/texto (AA sobre o fundo suave) */
+  --escala-trabalho: #15803D;
+  --escala-trabalho-bg: #ECFDF3;
+  --escala-treino: #7E22CE;
+  --escala-treino-bg: #FAF5FF;
+  --escala-folga: #475569;
+  --escala-folga-bg: #F1F5F9;
+  --escala-ferias: #1D4ED8;
+  --escala-ferias-bg: #EFF6FF;
+  --escala-afastado: #C2410C;
+  --escala-afastado-bg: #FFF7ED;
 }
 
 .dark {
@@ -201,6 +225,17 @@
   --pedido-cracha-bg: #241336;
   --pedido-cracha-texto: #E9D5FF;
   --pedido-contraste: #0B1220;
+
+  --escala-trabalho: #4ADE80;
+  --escala-trabalho-bg: #0E2A1B;
+  --escala-treino: #C084FC;
+  --escala-treino-bg: #241336;
+  --escala-folga: #CBD5E1;
+  --escala-folga-bg: #1E293B;
+  --escala-ferias: #60A5FA;
+  --escala-ferias-bg: #0F1F3D;
+  --escala-afastado: #FB923C;
+  --escala-afastado-bg: #2E1A0C;
 }
 
 @layer base {

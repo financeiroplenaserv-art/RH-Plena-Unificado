@@ -21,6 +21,7 @@ import type {
   VtCarga,
   VtCobertura,
   VtExtraMensal,
+  VtEscalaDiasLinha,
   VtFechamento,
   VtPacote,
   VtPacoteComponente,
@@ -1010,6 +1011,13 @@ export type Database = {
         Row: VtExtraMensal & Record<string, unknown>
         Insert: Partial<VtExtraMensal> & Record<string, unknown>
         Update: Partial<VtExtraMensal> & Record<string, unknown>
+        Relationships: []
+      }
+      // Marcas do relatório Gestão de escalas por colaborador × competência (migration 178)
+      vt_escala_dias: {
+        Row: VtEscalaDiasLinha & Record<string, unknown>
+        Insert: Partial<VtEscalaDiasLinha> & Record<string, unknown>
+        Update: Partial<VtEscalaDiasLinha> & Record<string, unknown>
         Relationships: []
       }
       // Identidade estável, preços e decisões versionadas (migration 169)

@@ -164,6 +164,18 @@ export interface VtExtraMensal {
   atualizado_em: string
 }
 
+/** Marcas do relatório "Gestão de escalas" por colaborador × competência (migration 178). */
+export interface VtEscalaDiasLinha {
+  id: string
+  colaborador_id: string
+  competencia: string // 'AAAA-MM'
+  /** Mapa 'AAAA-MM-DD' → { marca, local, horario? } — ver src/lib/vt/calendarioEscala.ts. */
+  dias: Record<string, { marca: string; local: string; horario?: string }>
+  nome_arquivo: string | null
+  importado_em: string
+  importado_por: string | null
+}
+
 export interface VtCobertura {
   id: string
   /** O ferista (quem cobre). NULL = declaração "sem cobertura". */

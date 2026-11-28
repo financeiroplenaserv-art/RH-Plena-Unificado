@@ -68,6 +68,17 @@ vi.mock('@/lib/supabase', () => {
   }
   return { supabase: { from: consulta } }
 })
+// Escala detalhada (migration 178): gravação e leitura simuladas.
+const escalaBanco = vi.hoisted(() => ({ gravacoes: [] as unknown[], falhar: false }))
+vi.mock('@/lib/vt/escalaDiasRepositorio', () => ({
+  MENSAGEM_178_AUSENTE: 'Falta aplicar a migration 178 (escala do relatório no banco).',
+  gravarEscalaDiasCompetencia: vi.fn(async (params: unknown) => {
+    if (escalaBanco.falhar) throw new Error('Falta aplicar a migration 178 (escala do relatório no banco).')
+    escalaBanco.gravacoes.push(params)
+    return { gravadas: 1, removidas: 0 }
+  }),
+  lerEscalaDias: vi.fn(async () => ({ situacao: 'vazia' })),
+}))
 vi.mock('@/lib/vt/repositorioLoteSupabase', async () => {
   const { RepositorioLoteCargaEmMemoria } = await import('@/lib/vt/confirmarLote')
   return { RepositorioLoteCargaSupabase: RepositorioLoteCargaEmMemoria }
@@ -231,5 +242,55 @@ describe('vertical real do lote', () => {
     )
     expect(await screen.findByText('Nenhuma carga salva no banco')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Construir rascunho' })).toBeDisabled()
+  })
+
+  it('grava a escala do relatório junto com o rascunho automático e abre o pop-up ao clicar no nome', async () => {
+    escalaBanco.gravacoes.length = 0
+    escalaBanco.falhar = false
+    const marcas = {
+      '2026-12-10': { marca: 'T', local: 'POSTO' },
+      '2026-12-11': { marca: 'F', local: 'POSTO' },
+    }
+    const props = {
+      competencia: '2026-12',
+      dias: [{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-12-10', origemDia: 'escala' as const }],
+      escala: { competencia: '2026-12', nomeArquivo: 'escalas.xlsx', porColaborador: new Map([['pessoa-1', marcas]]) },
+      colaboradores: COLABORADORES,
+      nomeArquivo: 'escalas.xlsx',
+      departamentos: [{ id: 'posto-1', nome: 'CONDOMINIO POSTO', nome_curto: 'POSTO' }] as never,
+      usuarioId: 'usuario-1',
+      podeGerenciar: true,
+    }
+    const { rerender } = render(<VtLoteCargaReal {...props} importacaoSeq={0} />)
+    rerender(<VtLoteCargaReal {...props} importacaoSeq={1} />)
+    await screen.findByText('rascunho')
+    await waitFor(() => expect(escalaBanco.gravacoes.length).toBeGreaterThan(0))
+    expect(escalaBanco.gravacoes[0]).toMatchObject({ competencia: '2026-12', nomeArquivo: 'escalas.xlsx', usuarioId: 'usuario-1' })
+    expect(screen.queryByTestId('aviso-escala')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver a escala de Pessoa Trabalhou' }))
+    expect(await screen.findByRole('heading', { name: /Escala de Pessoa Trabalhou — 12\/2026/ })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^10\/12\/2026.*Trabalho \(gera VT\) — posto POSTO/)).toHaveAttribute('data-tipo', 'trabalho_vt')
+    expect(screen.getByLabelText(/^11\/12\/2026.*Folga/)).toHaveAttribute('data-tipo', 'folga')
+    expect((screen.getByTestId('conta-escala').textContent ?? '').replace(/\u00a0/g, ' ')).toContain('1 dia × R$ 10,00 no posto POSTO = R$ 10,00')
+  })
+
+  it('falha ao gravar a escala vira aviso visível sem bloquear o rascunho', async () => {
+    escalaBanco.falhar = true
+    const props = {
+      competencia: '2026-12',
+      dias: [{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-12-10', origemDia: 'escala' as const }],
+      escala: { competencia: '2026-12', nomeArquivo: 'escalas.xlsx', porColaborador: new Map([['pessoa-1', {}]]) },
+      colaboradores: COLABORADORES,
+      nomeArquivo: 'escalas.xlsx',
+      departamentos: [],
+      usuarioId: 'usuario-1',
+      podeGerenciar: true,
+    }
+    const { rerender } = render(<VtLoteCargaReal {...props} importacaoSeq={0} />)
+    rerender(<VtLoteCargaReal {...props} importacaoSeq={1} />)
+    expect(await screen.findByTestId('aviso-escala')).toHaveTextContent('Falta aplicar a migration 178')
+    expect(await screen.findByText('rascunho')).toBeInTheDocument()
+    escalaBanco.falhar = false
   })
 })

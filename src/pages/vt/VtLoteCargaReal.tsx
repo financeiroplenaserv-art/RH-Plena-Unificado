@@ -23,6 +23,9 @@ import type { LoteCargaVT } from '@/lib/vt/contratosLoteCarga'
 import { formatarDataHora } from '@/lib/utils'
 import type { CoberturaMesRelatorio } from '@/lib/vt/gestaoEscalasFlit'
 import { avisoCargaParcial, bannerEstadoLote } from '@/lib/vt/estadoLote'
+import type { EscalaRelatorioVt } from '@/lib/vt/calendarioEscala'
+import { gravarEscalaDiasCompetencia } from '@/lib/vt/escalaDiasRepositorio'
+import { VtEscalaColaboradorDialog } from '@/pages/vt/VtEscalaColaboradorDialog'
 
 interface VtLoteCargaRealProps {
   /** Competência do relatório importado neste aparelho; null = ninguém importou aqui (vale o último lote do banco). */
@@ -35,6 +38,12 @@ interface VtLoteCargaRealProps {
    */
   importacaoSeq?: number
   dias: DiaPlanejadoLoteVT[]
+  /**
+   * Marcas do relatório importado nesta tela (optantes casados). Gravadas em vt_escala_dias
+   * (migration 178) junto com o salvamento automático do rascunho, para o pop-up da escala
+   * abrir em qualquer computador.
+   */
+  escala?: EscalaRelatorioVt | null
   colaboradores: VtColaborador[]
   nomeArquivo: string | null
   usuarioId: string
@@ -53,7 +62,7 @@ function valor(centavos: number | null) {
   return centavos == null ? '—' : formatarCentavos(centavos)
 }
 
-export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura = null, importacaoSeq = 0, dias, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios, podeGerenciar = false }: VtLoteCargaRealProps) {
+export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura = null, importacaoSeq = 0, dias, escala = null, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios, podeGerenciar = false }: VtLoteCargaRealProps) {
   const repositorio = useMemo(() => new RepositorioLoteCargaSupabase(), [])
   // Sem relatório importado neste aparelho, mostra o último lote que existe no banco.
   const [competenciaDoBanco, setCompetenciaDoBanco] = useState<string | null>(null)
@@ -76,6 +85,12 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
   const [extraMotivo, setExtraMotivo] = useState('')
   const [extraMensagem, setExtraMensagem] = useState<{ ok: boolean; texto: string } | null>(null)
   const nomes = useMemo(() => new Map(colaboradores.map((c) => [c.id, c.nome_completo])), [colaboradores])
+  const [escalaAberta, setEscalaAberta] = useState<string | null>(null)
+  const [avisoEscala, setAvisoEscala] = useState<string | null>(null)
+  const nomePostoCurto = useMemo(() => {
+    const porId = new Map(departamentos.map((d) => [d.id, d.nome_curto?.trim() || d.nome?.trim() || d.id]))
+    return (id: string) => porId.get(id) ?? id
+  }, [departamentos])
   const [sentidoNome, setSentidoNome] = useState<SentidoNome>('asc')
   const totaisOrdenados = useMemo(
     () => ordenarPorNome(lote?.totaisPorColaborador ?? [], (t) => nomes.get(t.colaboradorId) ?? t.colaboradorId, sentidoNome),
@@ -211,6 +226,24 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
     }
   }
 
+  // Marcas do relatório → vt_escala_dias (migration 178). Erro vira aviso visível; nunca bloqueia o rascunho.
+  const gravarEscala = async () => {
+    if (!escala || escala.competencia !== competenciaImportada) return
+    try {
+      await gravarEscalaDiasCompetencia({
+        competencia: escala.competencia,
+        nomeArquivo: escala.nomeArquivo,
+        usuarioId,
+        porColaborador: escala.porColaborador,
+      })
+      setAvisoEscala(null)
+    } catch (erro) {
+      setAvisoEscala(
+        `O rascunho segue normal, mas a escala detalhada não foi salva no sistema (o pop-up da escala só funciona neste computador): ${erro instanceof Error ? erro.message : 'erro desconhecido'}`,
+      )
+    }
+  }
+
   const lancamentoTravado = lote?.status === 'confirmado'
 
   // Salvamento automático do rascunho NO BANCO (28/11/2026): importar o relatório não pode deixar o
@@ -234,6 +267,8 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
     if (!competenciaImportada || competenciaCarregada !== competenciaImportada) return
     if (loading || construindo || !extrasMes.carregado || extrasMes.erroLeitura) return
     setAutoPendente(false)
+    // A escala detalhada é salva sempre (inclusive com lote confirmado: só serve para conferência).
+    void gravarEscala()
     if (lote?.status === 'confirmado') return
     autoTentadaRef.current = competenciaImportada
     void construirLote()
@@ -397,6 +432,11 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
         {erro && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
             {erro}
+          </div>
+        )}
+        {avisoEscala && (
+          <div role="alert" data-testid="aviso-escala" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            {avisoEscala}
           </div>
         )}
         {situacaoFechamento && (
@@ -565,7 +605,17 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
                 <tbody>
                   {totaisOrdenados.map((total) => (
                     <tr key={total.colaboradorId} className="border-b border-border last:border-0 hover:bg-accent/40">
-                      <td className="px-4 py-2.5 font-medium">{nomes.get(total.colaboradorId) ?? total.colaboradorId}</td>
+                      <td className="px-4 py-2.5 font-medium">
+                        <button
+                          type="button"
+                          className="text-left text-primary underline-offset-2 hover:underline focus-visible:underline"
+                          onClick={() => setEscalaAberta(total.colaboradorId)}
+                          aria-label={`Ver a escala de ${nomes.get(total.colaboradorId) ?? total.colaboradorId}`}
+                          title="Ver a escala do mês"
+                        >
+                          {nomes.get(total.colaboradorId) ?? total.colaboradorId}
+                        </button>
+                      </td>
                       <td className="px-4 py-2.5">
                         <StatusBadge variant={total.status === 'completo' ? 'success' : 'warning'}>{total.status}</StatusBadge>
                       </td>
@@ -586,6 +636,23 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
           </>
         )}
       </div>
+      {lote && escalaAberta && (() => {
+        const total = lote.totaisPorColaborador.find((t) => t.colaboradorId === escalaAberta)
+        if (!total) return null
+        return (
+          <VtEscalaColaboradorDialog
+            open
+            onOpenChange={(aberto) => { if (!aberto) setEscalaAberta(null) }}
+            colaboradorId={escalaAberta}
+            nome={nomes.get(escalaAberta) ?? escalaAberta}
+            competencia={lote.competencia}
+            linhas={lote.linhas.filter((l) => l.colaboradorId === escalaAberta)}
+            total={total}
+            nomePosto={nomePostoCurto}
+            marcasEmMemoria={escala?.competencia === lote.competencia ? escala.porColaborador.get(escalaAberta) ?? null : null}
+          />
+        )
+      })()}
       {lote?.status === 'confirmado' && podeGerenciar && (
         <VtArquivoRiocardDialog open={arquivoRiocardAberto} onOpenChange={setArquivoRiocardAberto} lote={lote} nomes={nomes} />
       )}

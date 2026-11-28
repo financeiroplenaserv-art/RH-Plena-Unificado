@@ -135,6 +135,7 @@ export function VtCargaTab({
   const {
     resultados,
     diasLote,
+    escala,
     ferias,
     competencia,
     nomeArquivo,
@@ -661,6 +662,7 @@ export function VtCargaTab({
         cobertura={coberturaMes}
         importacaoSeq={seqLote}
         dias={diasLote}
+        escala={escala}
         colaboradores={colaboradores}
         nomeArquivo={nomeArquivo}
         usuarioId={usuarioId}

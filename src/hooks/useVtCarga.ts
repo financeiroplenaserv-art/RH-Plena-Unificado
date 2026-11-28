@@ -33,6 +33,7 @@ import {
 } from '@/lib/vt/cargaRascunho'
 import { ajusteDoFechamento, competenciaAnterior } from '@/lib/vt/fechamento'
 import type { DiaPlanejadoLoteVT } from '@/lib/vt/construirLote'
+import { diasEscalaDoRelatorio, type DiasEscalaVt, type EscalaRelatorioVt } from '@/lib/vt/calendarioEscala'
 
 const SALVAR_RASCUNHO_LEGADO = false
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
@@ -138,6 +139,8 @@ function fimDoMes(competencia: string): string {
 export function useVtCarga() {
   const [resultados, setResultados] = useState<ResultadoCargaColaborador[]>([])
   const [diasLote, setDiasLote] = useState<DiaPlanejadoLoteVT[]>([])
+  /** Marcas do relatório dos optantes casados (pop-up da escala; gravadas em vt_escala_dias — migration 178). */
+  const [escala, setEscala] = useState<EscalaRelatorioVt | null>(null)
   const [ferias, setFerias] = useState<FeriasBloco[]>([])
   const [competencia, setCompetencia] = useState<string | null>(null)
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null)
@@ -169,6 +172,7 @@ export function useVtCarga() {
     setCompetencia(null)
     setResultados([])
     setDiasLote([])
+    setEscala(null)
     setFerias([])
     setCoberturaGeral([])
     setNomesSemMatch([])
@@ -339,6 +343,11 @@ export function useVtCarga() {
         const idsOptantes = new Set(optantes.map((c) => c.id))
         const casadosNaoOptantes = [...pessoaPorId.keys()].filter((id) => !idsOptantes.has(id)).length
         const foraDoVtN = nomesSemMatchLista.length + casadosNaoOptantes
+        // Escala detalhada dos optantes casados (pop-up da Carga — 28/11/2026).
+        const escalaPorColab = new Map<string, DiasEscalaVt>()
+        for (const [id, pessoa] of pessoaPorId) {
+          if (idsOptantes.has(id)) escalaPorColab.set(id, diasEscalaDoRelatorio(pessoa.dias, pessoa.departamentoTexto))
+        }
 
         // Coberturas que tocam o mês (todas — o pipeline usa as com ferista;
         // o clamp ao mês evita sintetizar dias fora da competência).
@@ -537,6 +546,7 @@ export function useVtCarga() {
         setFerias(blocos)
         setCoberturaGeral(todos)
         setDiasLote(diasParaLote)
+        setEscala({ competencia: comp, nomeArquivo: nomeArq, porColaborador: escalaPorColab })
         setResultados(lista)
         setLoading(false)
         // Recomeço do VT (21/11/2026): a carga sai pelo lote das rotas confirmadas, que grava
@@ -732,6 +742,7 @@ export function useVtCarga() {
   return {
     resultados,
     diasLote,
+    escala,
     ferias,
     competencia,
     nomeArquivo,
