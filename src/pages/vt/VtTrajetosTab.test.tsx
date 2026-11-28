@@ -203,12 +203,19 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.getByText(/Esta rota\s+continua valendo para os dias neste posto/)).toBeInTheDocument()
   })
 
-  it('endereço só com bairro mostra aviso âmbar junto ao nome', () => {
-    const incompleto = { ...COLABORADOR, endereco: 'TRAVESSA CALDEIRA, 0, CUBANGO' }
-    setup(true, { ...TRAJETO, colaborador: incompleto }, { colaboradores: [incompleto] })
+  it('endereço sem rua mostra aviso âmbar junto ao nome', () => {
+    const incompleto = { ...COLABORADOR, endereco: null }
+    setup(true, { ...TRAJETO, precisao_origem: 'bairro', colaborador: incompleto }, { colaboradores: [incompleto] })
 
     expect(screen.getByText('Endereço incompleto')).toBeInTheDocument()
     expect(screen.queryByText('Somente bairro')).not.toBeInTheDocument()
+  })
+
+  it('número 0 no endereço NÃO é aviso (decisão da gestora, 28/11/2026)', () => {
+    const semNumero = { ...COLABORADOR, endereco: 'TRAVESSA CALDEIRA, 0, CUBANGO' }
+    setup(true, { ...TRAJETO, colaborador: semNumero }, { colaboradores: [semNumero] })
+
+    expect(screen.queryByText('Endereço incompleto')).not.toBeInTheDocument()
   })
 
   it('endereço corrigido no cadastro tira o aviso, mesmo com o trajeto gravado como "bairro" (caso Alcemir)', () => {

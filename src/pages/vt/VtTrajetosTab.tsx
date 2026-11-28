@@ -32,7 +32,7 @@ import {
   escopoSugerido,
   avisoBilheteIncompativel,
 } from '@/lib/vt/trajetos'
-import { avisoCidadeDivergeDoCep, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
+import { avisoCidadeDivergeDoCep, enderecoSemRua, linkGoogleMapsTransito, precisaoDoEndereco, textoDestinoPosto, textoOrigemCasa } from '@/lib/vt/enderecos'
 import { VtRevisaoRota } from '@/pages/vt/VtRevisaoRota'
 import { RepositorioItinerarioSupabase } from '@/lib/vt/repositorioItinerarioSupabase'
 import type { DecisaoRotaResumo } from '@/lib/vt/rotasAConfirmar'
@@ -558,8 +558,10 @@ export function VtTrajetosTab({
                   const custoRevisado = revisao?.custoDiarioCentavos ?? null
                   const custo = custoRevisado ?? custoDaLinha(linha)
                   const extraLinha = custoRevisado != null ? 0 : extraDaLinha(linha, valores)
-                  const enderecoIncompleto =
-                    (precisaoAtual(linha)) === 'bairro'
+                  // Só sem RUA: número "0"/vazio não é erro (decisão da gestora, 28/11/2026).
+                  const enderecoIncompleto = linha.enderecoCasa?.trim()
+                    ? enderecoSemRua(linha.enderecoCasa)
+                    : precisaoAtual(linha) === 'bairro'
                   const confirmado = linhaConfirmada(linha)
                   const b2Visivel = mostrarB2[linha.chave] ?? !!valores.b2
                   const emEdicao = editandoComposicao[linha.chave] ?? false
@@ -597,7 +599,7 @@ export function VtTrajetosTab({
                         {enderecoIncompleto && (
                           <p
                             className="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-600"
-                            title="O endereço de casa não tem rua e número; a rota pode sair imprecisa. Corrigir na Alterdata."
+                            title="O endereço de casa não tem rua; a rota pode sair imprecisa. Corrigir na Alterdata."
                           >
                             <AlertTriangle className="size-3 shrink-0" />
                             Endereço incompleto

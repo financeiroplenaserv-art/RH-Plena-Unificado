@@ -13,6 +13,9 @@ export function useVtExtrasMensais(competencia: string, usuarioId: string) {
   const [ausente, setAusente] = useState(false)
   const [erroLeitura, setErroLeitura] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  // true depois da PRIMEIRA leitura (com ou sem erro) da competência atual — o rascunho automático
+  // da Carga espera por isso para nunca calcular antes de saber se há extras.
+  const [carregadoDe, setCarregadoDe] = useState<string | null>(null)
 
   const recarregar = useCallback(async (): Promise<VtExtraMensal[]> => {
     const { data, error } = await supabase
@@ -24,15 +27,18 @@ export function useVtExtrasMensais(competencia: string, usuarioId: string) {
         setAusente(true)
         setErroLeitura(null)
         setExtras([])
+        setCarregadoDe(competencia)
         return []
       }
       setErroLeitura(`Não foi possível ler os extras do mês: ${error.message}`)
+      setCarregadoDe(competencia)
       return []
     }
     const lista = (data ?? []) as VtExtraMensal[]
     setAusente(false)
     setErroLeitura(null)
     setExtras(lista)
+    setCarregadoDe(competencia)
     return lista
   }, [competencia])
 
@@ -84,5 +90,5 @@ export function useVtExtrasMensais(competencia: string, usuarioId: string) {
     }
   }, [recarregar])
 
-  return { extras, ausente, erroLeitura, salvando, salvar, remover, recarregar }
+  return { extras, ausente, erroLeitura, salvando, salvar, remover, recarregar, carregado: carregadoDe === competencia }
 }

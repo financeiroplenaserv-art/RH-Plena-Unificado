@@ -157,4 +157,55 @@ describe('vertical real do lote', () => {
     expect(banco.extras[0]).toMatchObject({ colaborador_id: 'pessoa-sem-dias', competencia: '2026-11', valor_centavos: 1500, motivo: 'Cobre outro contrato' })
     expect(await screen.findByText('só extra, sem dias de trabalho')).toBeInTheDocument()
   })
+
+  it('salva o rascunho no banco sozinho ao importar (importacaoSeq) e avisa quando o relatório é parcial', async () => {
+    const props = {
+      competencia: '2026-12',
+      cobertura: { primeiro: '2026-12-01', ultimo: '2026-12-15', diasFaltando: ['2026-12-16'], completo: false },
+      dias: [{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-12-10', origemDia: 'escala' as const }],
+      colaboradores: COLABORADORES,
+      nomeArquivo: 'escalas.xlsx',
+      departamentos: [],
+      usuarioId: 'usuario-1',
+      podeGerenciar: true,
+    }
+    const { rerender } = render(<VtLoteCargaReal {...props} importacaoSeq={0} />)
+    expect(await screen.findByText(/AINDA NÃO está salva no banco/)).toBeInTheDocument()
+    expect(screen.getByTestId('aviso-parcial')).toHaveTextContent('até 15/12/2026')
+
+    rerender(<VtLoteCargaReal {...props} importacaoSeq={1} />)
+    expect(await screen.findByText(/Rascunho de 2026-12 SALVO no banco/)).toBeInTheDocument()
+    expect(screen.getByText('rascunho')).toBeInTheDocument()
+  })
+
+  it('o botão "Arquivo Riocard" só habilita com o lote confirmado', async () => {
+    render(
+      <VtLoteCargaReal
+        competencia="2026-11"
+        dias={[{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-11-10', origemDia: 'escala' }]}
+        colaboradores={COLABORADORES}
+        nomeArquivo="escalas.xlsx"
+        departamentos={[]}
+        usuarioId="usuario-1"
+        podeGerenciar
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Arquivo Riocard' })).toBeDisabled()
+    const botaoConstruir = screen.getByRole('button', { name: 'Construir rascunho' })
+    await waitFor(() => expect(botaoConstruir).toBeEnabled())
+    fireEvent.click(botaoConstruir)
+    await screen.findByText('rascunho')
+    expect(screen.getByRole('button', { name: 'Arquivo Riocard' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar lote' }))
+    await screen.findByText('confirmado')
+    expect(screen.getByRole('button', { name: 'Arquivo Riocard' })).toBeEnabled()
+  })
+
+  it('quem não importou nada vê a situação do banco e não consegue construir', async () => {
+    render(
+      <VtLoteCargaReal competencia={null} dias={[]} colaboradores={COLABORADORES} nomeArquivo={null} departamentos={[]} usuarioId="usuario-2" />,
+    )
+    expect(await screen.findByText('Nenhuma carga salva no banco')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Construir rascunho' })).toBeDisabled()
+  })
 })

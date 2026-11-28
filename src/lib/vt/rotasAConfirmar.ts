@@ -1,5 +1,5 @@
 import { nomeCurtoDepartamentoFuzzy } from '@/lib/departamentos'
-import { precisaoDoEndereco, textoOrigemCasa } from '@/lib/vt/enderecos'
+import { enderecoSemRua, precisaoDoEndereco, textoOrigemCasa } from '@/lib/vt/enderecos'
 import type { VtColaborador, VtDepartamento } from '@/hooks/useVt'
 import type { VtTrajeto } from '@/types/vt'
 
@@ -200,10 +200,11 @@ export function montarRotasAConfirmar(entrada: EntradaRotasAConfirmar): ItemRota
 
     const dep = departamentos.find((d) => d.id === departamentoId) ?? null
     const avisos: string[] = []
-    // A precisão vem do endereço ATUAL do cadastro: a gravada no trajeto é a do dia em
-    // que ele foi criado e não muda quando o endereço é corrigido (caso Alcemir, 26/11/2026).
+    // Vale o endereço ATUAL do cadastro (o gravado no trajeto é o do dia da criação). Só avisa sem
+    // RUA: número "0"/vazio não é erro (decisão da gestora, 28/11/2026).
     const precisaoOrigem = c.endereco?.trim() ? precisaoDoEndereco(c.endereco) : (trajeto?.precisao_origem ?? 'bairro')
-    if (precisaoOrigem === 'bairro') avisos.push('Endereço incompleto')
+    const semRua = c.endereco?.trim() ? enderecoSemRua(c.endereco) : (trajeto?.precisao_origem ?? 'bairro') === 'bairro'
+    if (semRua) avisos.push('Endereço incompleto')
     if (!dep?.cidade?.trim()) avisos.push('Posto sem cidade')
     itens.push({
       chave,

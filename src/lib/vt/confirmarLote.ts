@@ -49,6 +49,11 @@ export class RepositorioLoteCargaEmMemoria {
     return lote ? clonar(lote) : null
   }
 
+  async competenciaMaisRecente(): Promise<string | null> {
+    const ultimo = [...this.lotes.values()].at(-1)
+    return ultimo?.competencia ?? null
+  }
+
   async salvarRascunho(lote: LoteCargaVT, versaoEsperada: number): Promise<LoteCargaVT> {
     const atual = this.lotes.get(lote.id)
     if (atual) {

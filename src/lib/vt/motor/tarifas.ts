@@ -80,16 +80,17 @@ export const TARIFAS_MODAIS: readonly TarifaModal[] = [
     regra: 'Regras §6',
   },
   {
-    // Fora do documento de regras: valor do cadastro de tarifas do sistema (Jaé); gestora deve confirmar.
+    // Confirmado pela gestora em 28/11/2026: R$ 5,00 no ônibus municipal do Rio,
+    // SOMENTE pagando com o Jaé (modal 'onibus_municipal_rio' = sistema Jaé).
     chave: 'onibus_municipal_rio',
     descricao: 'ônibus municipal do Rio (Jaé)',
     valorCentavos: 500,
     vigenteDesde: '2025-08-02',
     vigenteAte: null,
-    fonte: 'Jaé — integrações e modais municipais do Rio (consulta de 14/11/2026)',
+    fonte: 'Jaé — integrações e modais municipais do Rio (consulta de 14/11/2026); valor confirmado pela gestora em 28/11/2026 (só no Jaé)',
     url: 'https://jae.com.br/integracoes/',
-    aConferir: true,
-    regra: 'Proposta VT §5 (tarifa a conferir)',
+    aConferir: false,
+    regra: 'Regras VT — ônibus municipal do Rio pelo Jaé (confirmado 28/11/2026)',
   },
 ]
 

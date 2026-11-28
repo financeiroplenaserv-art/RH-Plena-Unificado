@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Database, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Database, FileSpreadsheet, FileText, RefreshCw } from 'lucide-react'
+import { VtArquivoRiocardDialog } from '@/pages/vt/VtArquivoRiocardDialog'
 import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { StatusBadge } from '@/components/corh/StatusBadge'
 import { useVtLoteCarga } from '@/hooks/useVtLoteCarga'
@@ -18,9 +19,20 @@ import { useVtExtrasMensais } from '@/hooks/useVtExtrasMensais'
 import { centavosParaCampo, validarExtraMensal } from '@/lib/vt/extraMensal'
 import type { VtExtraMensal } from '@/types/vt'
 import type { LoteCargaVT } from '@/lib/vt/contratosLoteCarga'
+import { formatarDataHora } from '@/lib/utils'
+import type { CoberturaMesRelatorio } from '@/lib/vt/gestaoEscalasFlit'
+import { avisoCargaParcial, bannerEstadoLote } from '@/lib/vt/estadoLote'
 
 interface VtLoteCargaRealProps {
-  competencia: string
+  /** Competência do relatório importado neste aparelho; null = ninguém importou aqui (vale o último lote do banco). */
+  competencia: string | null
+  /** Cobertura do mês no relatório importado (aviso de carga parcial). */
+  cobertura?: CoberturaMesRelatorio | null
+  /**
+   * Contador que o pai incrementa a cada importação/recálculo do relatório: o rascunho é então
+   * salvo NO BANCO automaticamente (antes só existia na tela de quem importou).
+   */
+  importacaoSeq?: number
   dias: DiaPlanejadoLoteVT[]
   colaboradores: VtColaborador[]
   nomeArquivo: string | null
@@ -40,16 +52,23 @@ function valor(centavos: number | null) {
   return centavos == null ? '—' : formatarCentavos(centavos)
 }
 
-export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios, podeGerenciar = false }: VtLoteCargaRealProps) {
+export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura = null, importacaoSeq = 0, dias, colaboradores, nomeArquivo, usuarioId, departamentos, bloqueios, podeGerenciar = false }: VtLoteCargaRealProps) {
   const repositorio = useMemo(() => new RepositorioLoteCargaSupabase(), [])
+  // Sem relatório importado neste aparelho, mostra o último lote que existe no banco.
+  const [competenciaDoBanco, setCompetenciaDoBanco] = useState<string | null>(null)
+  const competencia = competenciaImportada ?? competenciaDoBanco ?? ''
+  const [competenciaCarregada, setCompetenciaCarregada] = useState<string | null>(null)
+  const [autoPendente, setAutoPendente] = useState(false)
+  const autoTentadaRef = useRef<string | null>(null)
   const { lote, loading, erro, carregar, construir, confirmar } = useVtLoteCarga(repositorio, usuarioId)
   const [construindo, setConstruindo] = useState(false)
   const [exportando, setExportando] = useState(false)
+  const [arquivoRiocardAberto, setArquivoRiocardAberto] = useState(false)
   const [erroExportacao, setErroExportacao] = useState<string | null>(null)
   const [pendentesIds, setPendentesIds] = useState<string[]>([])
   const [gravandoFechamento, setGravandoFechamento] = useState(false)
   const [situacaoFechamento, setSituacaoFechamento] = useState<{ ok: boolean; texto: string } | null>(null)
-  const extrasMes = useVtExtrasMensais(competencia, usuarioId)
+  const extrasMes = useVtExtrasMensais(competencia || '0000-00', usuarioId)
   const [extraPessoa, setExtraPessoa] = useState('')
   const [extraValor, setExtraValor] = useState('')
   const [extraMotivo, setExtraMotivo] = useState('')
@@ -61,7 +80,20 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
   )
 
   useEffect(() => {
-    void carregar(competencia)
+    if (competenciaImportada) return
+    let ativo = true
+    repositorio
+      .competenciaMaisRecente()
+      .then((c) => { if (ativo) setCompetenciaDoBanco(c) })
+      .catch(() => { /* só informativo: sem isso a aba segue pedindo a importação */ })
+    return () => { ativo = false }
+  }, [competenciaImportada, repositorio])
+
+  useEffect(() => {
+    if (!competencia) return
+    let ativo = true
+    void carregar(competencia).then(() => { if (ativo) setCompetenciaCarregada(competencia) })
+    return () => { ativo = false }
   }, [carregar, competencia])
 
   // Fechamento do mês anterior → ajuste desta carga (faltou: desconta; trabalhou fora: credita).
@@ -168,6 +200,43 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
 
   const lancamentoTravado = lote?.status === 'confirmado'
 
+  // Salvamento automático do rascunho NO BANCO (28/11/2026): importar o relatório não pode deixar o
+  // cálculo só na tela de quem importou. Dispara (a) a cada importação/recálculo (importacaoSeq) e
+  // (b) uma vez por competência quando há relatório na tela e nada salvo no banco (ex.: restaurado
+  // do aparelho). Nunca mexe em lote confirmado.
+  useEffect(() => {
+    if (importacaoSeq > 0) setAutoPendente(true)
+  }, [importacaoSeq])
+
+  useEffect(() => {
+    if (!competenciaImportada || dias.length === 0 || competenciaCarregada !== competenciaImportada) return
+    if (!lote && autoTentadaRef.current !== competenciaImportada) {
+      autoTentadaRef.current = competenciaImportada
+      setAutoPendente(true)
+    }
+  }, [competenciaImportada, competenciaCarregada, dias.length, lote])
+
+  useEffect(() => {
+    if (!autoPendente || !podeGerenciar) return
+    if (!competenciaImportada || competenciaCarregada !== competenciaImportada) return
+    if (loading || construindo || !extrasMes.carregado || extrasMes.erroLeitura) return
+    setAutoPendente(false)
+    if (lote?.status === 'confirmado') return
+    autoTentadaRef.current = competenciaImportada
+    void construirLote()
+    // construirLote é recriado a cada render; as condições acima já garantem o estado fresco.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPendente, podeGerenciar, competenciaImportada, competenciaCarregada, loading, construindo, extrasMes.carregado, extrasMes.erroLeitura, lote])
+
+  const banner = bannerEstadoLote({
+    competencia,
+    lote,
+    carregado: competenciaCarregada === competencia,
+    temRelatorioNaTela: !!competenciaImportada && dias.length > 0,
+    formatarQuando: formatarDataHora,
+  })
+  const avisoParcial = avisoCargaParcial(competenciaImportada ? cobertura : null)
+
   const aplicarExtra = async (acao: () => Promise<VtExtraMensal[]>, textoOk: string) => {
     setExtraMensagem(null)
     try {
@@ -239,7 +308,7 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
           Carga do mês pelas rotas confirmadas
         </>
       }
-      description={`Competência ${competencia}. O valor de cada dia vem da rota confirmada da pessoa para o posto daquele dia.`}
+      description={`Competência ${competencia || '—'}. O valor de cada dia vem da rota confirmada da pessoa para o posto daquele dia.`}
       className="border-emerald-200"
     >
       <div className="space-y-4">
@@ -247,15 +316,50 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
           1) Construir o rascunho · 2) Confirmar o lote · 3) Baixar o Excel. Só entra quem tem rota confirmada para todos os postos do mês; quem falta aparece abaixo e deve ser resolvido na aba Rotas a confirmar. O desconto ou crédito do fechamento do mês anterior entra como ajuste.
         </div>
 
+        {banner && (
+          <div
+            role="status"
+            data-testid="estado-lote"
+            className={`rounded-lg border px-4 py-3 text-[13px] ${
+              banner.tom === 'verde'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : banner.tom === 'ambar'
+                  ? 'border-amber-200 bg-amber-50 text-amber-900'
+                  : 'border-red-200 bg-red-50 text-red-800'
+            }`}
+          >
+            <p className="font-semibold">{banner.titulo}</p>
+            <p className="mt-1">{banner.detalhe}</p>
+          </div>
+        )}
+        {!competencia && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800" data-testid="estado-lote">
+            <p className="font-semibold">Nenhuma carga salva no banco</p>
+            <p className="mt-1">Importe o relatório "Gestão de escalas" do mês acima: o rascunho é salvo no banco automaticamente.</p>
+          </div>
+        )}
+        {avisoParcial && lote?.status !== 'confirmado' && (
+          <div role="alert" data-testid="aviso-parcial" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            {avisoParcial}
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-2">
           {lote?.status !== 'confirmado' && (
-            <ModuleButton size="sm" disabled={loading || construindo} onClick={() => void construirLote()}>
+            <ModuleButton size="sm" disabled={loading || construindo || !competenciaImportada || dias.length === 0} onClick={() => void construirLote()}>
               <RefreshCw className="size-4" />
               {construindo ? 'Construindo...' : lote ? 'Recalcular rascunho' : 'Construir rascunho'}
             </ModuleButton>
           )}
           {lote?.status === 'rascunho' && (
-            <ModuleButton size="sm" disabled={loading || lote.valorCentavos == null} onClick={() => void confirmarLote()}>
+            <ModuleButton
+              size="sm"
+              disabled={loading || lote.valorCentavos == null}
+              onClick={() => {
+                if (avisoParcial && !window.confirm('O relatório não traz o mês inteiro. Confirmar fecha esta competência com a carga PARCIAL. Confirmar mesmo assim?')) return
+                void confirmarLote()
+              }}
+            >
               Confirmar lote
             </ModuleButton>
           )}
@@ -270,6 +374,10 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
               {exportando ? 'Gerando...' : 'Baixar Excel do lote'}
             </ModuleButton>
           )}
+          <ModuleButton size="sm" variant="outline" disabled={lote?.status !== 'confirmado' || !podeGerenciar} onClick={() => setArquivoRiocardAberto(true)}>
+            <FileText className="size-4" />
+            Arquivo Riocard
+          </ModuleButton>
           {loading && <span className="text-[13px] text-muted-foreground">Processando...</span>}
         </div>
 
@@ -452,6 +560,9 @@ export function VtLoteCargaReal({ competencia, dias, colaboradores, nomeArquivo,
           </>
         )}
       </div>
+      {lote?.status === 'confirmado' && podeGerenciar && (
+        <VtArquivoRiocardDialog open={arquivoRiocardAberto} onOpenChange={setArquivoRiocardAberto} lote={lote} nomes={nomes} />
+      )}
     </ModuleCard>
   )
 }

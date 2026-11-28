@@ -167,16 +167,18 @@ describe('exemplos da Proposta VT §5', () => {
     )
     expect(r.ida.valorCentavos).toBe(940 + 500)
     expect(r.valorCentavos).toBe(2 * 1440)
+    // Segue pendente pelas 3 conduções; o ônibus do Rio (R$ 5,00 no Jaé) deixou
+    // de ser "a conferir" em 28/11/2026 — o SG municipal entra no par do BUI.
     expect(r.status).toBe('pendente')
-    expect(r.pendencias.some((p) => p.codigo === 'TARIFA_A_CONFERIR')).toBe(true)
+    expect(r.pendencias.some((p) => p.codigo === 'TARIFA_A_CONFERIR')).toBe(false)
   })
 
-  it('m) só ônibus municipal do Rio (Jaé): 500 a conferir', () => {
+  it('m) só ônibus municipal do Rio (Jaé): R$ 5,00 confirmado pela gestora (28/11/2026)', () => {
     const r = dia([perna('onibus_municipal_rio', '474')], ATIVO)
     expect(r.ida.valorCentavos).toBe(500)
     expect(r.valorCentavos).toBe(1000)
-    expect(r.status).toBe('pendente')
-    expect(r.pendencias[0].mensagem).toContain('a conferir')
+    expect(r.status).toBe('confirmado')
+    expect(r.pendencias.some((p) => p.codigo === 'TARIFA_A_CONFERIR')).toBe(false)
   })
 })
 

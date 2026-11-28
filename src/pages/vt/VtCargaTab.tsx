@@ -153,6 +153,7 @@ export function VtCargaTab({
 
   const inputArquivoRef = useRef<HTMLInputElement>(null)
   const [gravando, setGravando] = useState(false)
+  const [seqLote, setSeqLote] = useState(0)
 
   // Dialog de cobertura (avulsa ou vinculada a férias do relatório)
   const [dialogAberto, setDialogAberto] = useState(false)
@@ -233,13 +234,17 @@ export function VtCargaTab({
    */
   const recalcular = useCallback(async () => {
     if (dadosProntos) {
-      await reprocessar({ colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
+      const ok = await reprocessar({ colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
+      // O rascunho do lote no banco acompanha o recálculo (coberturas novas entram no lote).
+      if (ok) setSeqLote((n) => n + 1)
     }
   }, [reprocessar, dadosProntos, colaboradores, departamentos, trajetos, bilhetes, usuarioId])
 
   const aoEscolherArquivo = async (arquivo: File | null) => {
     if (!arquivo) return
-    await importarRelatorio(arquivo, { colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
+    const ok = await importarRelatorio(arquivo, { colaboradores, departamentos, trajetos, bilhetes }, usuarioId)
+    // Importou = salva o rascunho do lote no BANCO (VtLoteCargaReal), para todos verem.
+    if (ok) setSeqLote((n) => n + 1)
   }
 
   /** Destino de cada bloco de férias do relatório (portão da gravação). */
@@ -653,6 +658,8 @@ export function VtCargaTab({
 
       <VtLoteCargaReal
         competencia={competencia}
+        cobertura={coberturaMes}
+        importacaoSeq={seqLote}
         dias={diasLote}
         colaboradores={colaboradores}
         nomeArquivo={nomeArquivo}

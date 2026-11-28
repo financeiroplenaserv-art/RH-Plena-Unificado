@@ -187,3 +187,14 @@ describe('cidadeDoCep / avisoCidadeDivergeDoCep (CEP × cidade — casos Thiago 
     expect(avisoCidadeDivergeDoCep('Niterói', '30130-000')).toBeNull()
   })
 })
+
+describe('enderecoSemRua (aviso "Endereço incompleto")', () => {
+  it('só avisa sem rua; número 0, S/N ou vazio não é erro', async () => {
+    const { enderecoSemRua } = await import('@/lib/vt/enderecos')
+    expect(enderecoSemRua(null)).toBe(true)
+    expect(enderecoSemRua('  ')).toBe(true)
+    expect(enderecoSemRua('RUA X, 0, CENTRO')).toBe(false)
+    expect(enderecoSemRua('RUA X, S/N, CENTRO')).toBe(false)
+    expect(enderecoSemRua('RUA X')).toBe(false)
+  })
+})

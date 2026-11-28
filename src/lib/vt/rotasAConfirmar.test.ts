@@ -63,9 +63,19 @@ describe('montarRotasAConfirmar', () => {
     expect(itens[3].trajetoId).toBeNull()
   })
 
-  it('só olha o trajeto do posto atual e marca endereço incompleto e posto sem cidade', () => {
+  it('número 0 ou vazio no endereço NÃO é aviso (decisão da gestora, 28/11/2026)', () => {
     const itens = montarRotasAConfirmar({
       colaboradores: [colab('1', 'Ana', { departamento_id: 'dep-b', departamento: 'POSTO B', endereco: 'RUA X, 0, CENTRO' })],
+      departamentos: DEPS,
+      trajetos: [traj('t-novo', '1', 'dep-b', 'bairro')],
+      decisoes: new Map(),
+    })
+    expect(itens[0].avisos).toEqual(['Posto sem cidade'])
+  })
+
+  it('só olha o trajeto do posto atual e marca endereço incompleto (sem rua) e posto sem cidade', () => {
+    const itens = montarRotasAConfirmar({
+      colaboradores: [colab('1', 'Ana', { departamento_id: 'dep-b', departamento: 'POSTO B', endereco: null })],
       departamentos: DEPS,
       trajetos: [traj('t-velho', '1', 'dep-a'), traj('t-novo', '1', 'dep-b', 'bairro')],
       decisoes: new Map([['t-velho', confirmada]]),

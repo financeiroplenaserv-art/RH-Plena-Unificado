@@ -59,6 +59,16 @@ export function precisaoDoEndereco(endereco: string | null): PrecisaoOrigemVT {
   return 'bairro'
 }
 
+/**
+ * Aviso "Endereço incompleto" (decisão da gestora, 28/11/2026): só quando NÃO há rua. Número "0",
+ * "S/N" ou vazio na Alterdata NÃO é erro — o link/consulta do Google funciona sem o número.
+ * (`precisaoDoEndereco` continua marcando 'bairro' nesse caso, só como metadado gravado.)
+ */
+export function enderecoSemRua(endereco: string | null): boolean {
+  const limpo = normalizarEnderecoCasa(endereco)
+  return !limpo || !limpo.rua
+}
+
 // Faixas de CEP por UF (Correios). Determinístico — não é palpite: o CEP
 // 20000-000 a 28999-999 é sempre RJ.
 const FAIXAS_CEP_UF: Array<[number, number, string]> = [

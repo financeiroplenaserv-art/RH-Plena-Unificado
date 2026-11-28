@@ -66,6 +66,18 @@ export class RepositorioLoteCargaSupabase implements RepositorioSubstituicaoLote
     return data ? loteDeLinha(data as VtCargaLoteRow) : null
   }
 
+  /** Competência do lote mais recente do banco (null = nenhum). Só leitura — para a aba Carga de quem não importou. */
+  async competenciaMaisRecente(): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('vt_carga_lotes')
+      .select('competencia')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return (data as { competencia: string } | null)?.competencia ?? null
+  }
+
   async salvarRascunho(lote: LoteCargaVT, versaoEsperada: number): Promise<LoteCargaVT> {
     const { data, error } = await supabase.rpc('vt_salvar_rascunho_lote', {
       p_lote: lote,
