@@ -31,6 +31,14 @@ import {
 import type { FatosCartaoMotor, PassoExplicacao, PendenciaMotor, StatusMotor } from '@/lib/vt/motor/tipos'
 import type { HorarioReferenciaVT, ItinerarioVT } from '@/lib/vt/contratosTarifarios'
 import type { VtItinerario } from '@/types/vt'
+import {
+  corrigirClassificacaoPerna,
+  OPCOES_TIPO_LINHA,
+  pernaAceitaCorrecao,
+  tipoLinhaDaPerna,
+  tiposCorrigidosPorLinha,
+  type TipoLinhaCorrecao,
+} from '@/lib/vt/corrigirClassificacaoPerna'
 import { VtRotaManual, type RotaManualResultado } from '@/pages/vt/VtRotaManual'
 
 export interface ContextoRevisaoRotaReal {
@@ -85,6 +93,28 @@ function aplicarSecoes(
     const escolha = secoes[`${sentido}:${alternativa.id}:${perna.sequencia}`] ?? herdadas[normalizarLinha(perna.linha)]
     if (!escolha || !opcoes.some((o) => o.secao === escolha.secao)) return atual
     return definirSecaoPerna(atual, perna.sequencia, escolha)
+  }, alternativa)
+}
+
+/** Tipo de linha corrigido pelo RH, por condução (chave `${sentido}:${alternativaId}:${sequencia}`). */
+type TiposCorrigidos = Record<string, TipoLinhaCorrecao>
+
+/**
+ * Aplica as correções de tipo da linha. Sem escolha explícita, a volta pré-marcada herda a da ida
+ * para a MESMA linha (mesmo código) — a volta espelhada passa pelos mesmos ônibus.
+ */
+function aplicarTipos(
+  alternativa: AlternativaRotaGoogleVT,
+  sentido: Sentido,
+  tipos: TiposCorrigidos,
+  herdados: Record<string, TipoLinhaCorrecao>,
+  municipios: { municipioOrigem: string; municipioDestino: string },
+): AlternativaRotaGoogleVT {
+  return alternativa.itinerario.pernas.reduce((atual, perna) => {
+    if (!pernaAceitaCorrecao(perna)) return atual
+    const tipo = tipos[`${sentido}:${alternativa.id}:${perna.sequencia}`] ?? herdados[normalizarLinha(perna.linha)]
+    if (!tipo || tipo === tipoLinhaDaPerna(perna)) return atual
+    return corrigirClassificacaoPerna(atual, perna.sequencia, tipo, municipios)
   }, alternativa)
 }
 
@@ -170,6 +200,7 @@ interface SecaoSentidoProps {
   onConsultar: () => void
   onRemoverConducao: (alternativaId: string, sequencia: number) => void
   onEscolherSecao: (alternativaId: string, sequencia: number, escolha: EscolhaSecao | null) => void
+  onCorrigirTipo: (alternativaId: string, sequencia: number, tipo: TipoLinhaCorrecao) => void
   dataServico: string
   salvando: boolean
   nota?: string | null
@@ -328,7 +359,24 @@ function SecaoSentido(props: SecaoSentidoProps) {
                           )
                         })()}
                       </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{perna.escopo}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {perna.escopo}
+                        {pernaAceitaCorrecao(perna) && (
+                          <label className="mt-1 block text-[11px]">
+                            Esta linha é de:
+                            <select
+                              aria-label={`Esta linha é de — condução ${perna.sequencia} (${sentido})`}
+                              className="mt-0.5 block h-7 w-full max-w-[200px] rounded-md border border-border bg-background px-1 text-[12px]"
+                              disabled={props.salvando}
+                              value={tipoLinhaDaPerna(perna) ?? ''}
+                              onChange={(e) => props.onCorrigirTipo(selecionada.alternativa.id, perna.sequencia, e.target.value as TipoLinhaCorrecao)}
+                            >
+                              {tipoLinhaDaPerna(perna) === null && <option value="" disabled>Não classificada</option>}
+                              {OPCOES_TIPO_LINHA.map((o) => <option key={o.tipo} value={o.tipo}>{o.rotulo}</option>)}
+                            </select>
+                          </label>
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
                         {perna.embarque.local}
                         <div className="text-[11px] tabular-nums">{formatarDataHora(perna.embarque.dataHoraPrevista)}</div>
@@ -412,18 +460,19 @@ function alternativasDoSentido(
   dataServico: string,
   secoes: SecoesEscolhidas,
   herdadas: Record<string, EscolhaSecao>,
+  tipos: TiposCorrigidos,
+  tiposHerdados: Record<string, TipoLinhaCorrecao>,
 ): AlternativaComMotor[] {
-  const brutas = adaptarRotasGoogle(resposta ?? {}, {
-    consultadoEm,
-    precisao: contexto.precisao,
-    sentido,
+  const municipios = {
     municipioOrigem: sentido === 'ida' ? contexto.municipioOrigem : contexto.municipioDestino,
     municipioDestino: sentido === 'ida' ? contexto.municipioDestino : contexto.municipioOrigem,
-  })
+  }
+  const brutas = adaptarRotasGoogle(resposta ?? {}, { consultadoEm, precisao: contexto.precisao, sentido, ...municipios })
   const ordenadas = ordenarPorCusto(brutas.map((original) => {
     const alternativa = (removidas[`${sentido}:${original.id}`] ?? [])
       .reduce<AlternativaRotaGoogleVT>((atual, sequencia) => removerPernaAlternativa(atual, sequencia), original)
-    return calcularAlternativaSentido(aplicarSecoes(alternativa, sentido, secoes, herdadas), contexto.cartao, dataServico)
+    const corrigida = aplicarTipos(alternativa, sentido, tipos, tiposHerdados, municipios)
+    return calcularAlternativaSentido(aplicarSecoes(corrigida, sentido, secoes, herdadas), contexto.cartao, dataServico)
   }))
   // Alternativas com linha D proibida (24/11/2026) vão para o fim da lista, preservando a ordem de custo.
   const proibida = (x: AlternativaComMotor) => linhasDProibidas(contexto.municipioOrigem, contexto.municipioDestino, x.alternativa.itinerario.pernas).length > 0
@@ -440,6 +489,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   const [selecionadas, setSelecionadas] = useState<Record<Sentido, string | null>>({ ida: null, volta: null })
   const [pernasRemovidas, setPernasRemovidas] = useState<Record<string, number[]>>({})
   const [secoes, setSecoes] = useState<SecoesEscolhidas>({})
+  const [tipos, setTipos] = useState<TiposCorrigidos>({})
   const [decisaoRealId, setDecisaoRealId] = useState<string | null>(null)
   const [decisaoRealStatus, setDecisaoRealStatus] = useState<'sugerida' | 'confirmada' | 'indeterminada' | null>(null)
   const [carregandoDecisao, setCarregandoDecisao] = useState(false)
@@ -523,8 +573,8 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
   }
 
   const alternativasIda = useMemo(
-    () => alternativasDoSentido('ida', respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico, secoes, {}),
-    [respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico, secoes],
+    () => alternativasDoSentido('ida', respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico, secoes, {}, tipos, {}),
+    [respostas.ida, consultadoEm.ida, contextoReal, pernasRemovidas, dataServico, secoes, tipos],
   )
   // Volta pré-marcada (mesma rota da ida): herda o trecho escolhido na ida para a mesma linha.
   const herdadasDaIda = useMemo(() => {
@@ -536,9 +586,14 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     }
     return mapa
   }, [alternativasIda, selecionadas.ida, voltaPremarcada])
+  // Mesma regra para o tipo da linha corrigido na ida (volta pré-marcada = mesma linha).
+  const tiposHerdadosDaIda = useMemo(() => {
+    const escolhida = alternativasIda.find((x) => x.alternativa.id === selecionadas.ida)
+    return voltaPremarcada && escolhida ? tiposCorrigidosPorLinha(escolhida.alternativa) : {}
+  }, [alternativasIda, selecionadas.ida, voltaPremarcada])
   const alternativasVolta = useMemo(
-    () => alternativasDoSentido('volta', respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico, secoes, herdadasDaIda),
-    [respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico, secoes, herdadasDaIda],
+    () => alternativasDoSentido('volta', respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico, secoes, herdadasDaIda, tipos, tiposHerdadosDaIda),
+    [respostas.volta, consultadoEm.volta, contextoReal, pernasRemovidas, dataServico, secoes, herdadasDaIda, tipos, tiposHerdadosDaIda],
   )
 
   const gruposIda = useMemo(() => agruparAlternativasIguais(alternativasIda), [alternativasIda])
@@ -616,6 +671,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     if (sentido === 'volta') { setVoltaPremarcada(false); setVoltaAberta(false) }
     setPernasRemovidas((atuais) => Object.fromEntries(Object.entries(atuais).filter(([chave]) => !chave.startsWith(`${sentido}:`))))
     setSecoes((atuais) => Object.fromEntries(Object.entries(atuais).filter(([chave]) => !chave.startsWith(`${sentido}:`))))
+    setTipos((atuais) => Object.fromEntries(Object.entries(atuais).filter(([chave]) => !chave.startsWith(`${sentido}:`))))
     limparSalvo()
     const dataConsulta = new Date().toISOString()
     try {
@@ -655,6 +711,13 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
     setPernasRemovidas((atuais) => ({ ...atuais, [chave]: [...(atuais[chave] ?? []), sequencia] }))
     // A remoção renumera as conduções: as escolhas de trecho desta alternativa são refeitas.
     setSecoes((atuais) => Object.fromEntries(Object.entries(atuais).filter(([k]) => !k.startsWith(`${chave}:`))))
+    setTipos((atuais) => Object.fromEntries(Object.entries(atuais).filter(([k]) => !k.startsWith(`${chave}:`))))
+    limparSalvo()
+  }
+
+  const corrigirTipo = (sentido: Sentido, alternativaId: string, sequencia: number, tipo: TipoLinhaCorrecao) => {
+    if (sentido === 'volta') setVoltaPremarcada(false)
+    setTipos((atuais) => ({ ...atuais, [`${sentido}:${alternativaId}:${sequencia}`]: tipo }))
     limparSalvo()
   }
 
@@ -887,6 +950,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           onConsultar={() => void consultarIda()}
           onRemoverConducao={(id, seq) => removerConducao('ida', id, seq)}
           onEscolherSecao={(id, seq, escolha) => escolherSecao('ida', id, seq, escolha)}
+          onCorrigirTipo={(id, seq, tipo) => corrigirTipo('ida', id, seq, tipo)}
           dataServico={dataServico}
           salvando={salvando}
           linhasDProibidasDe={linhasDProibidasDe}
@@ -910,6 +974,7 @@ export function VtRevisaoRota({ contextoReal }: VtRevisaoRotaProps) {
           onConsultar={() => void consultar('volta')}
           onRemoverConducao={(id, seq) => removerConducao('volta', id, seq)}
           onEscolherSecao={(id, seq, escolha) => escolherSecao('volta', id, seq, escolha)}
+          onCorrigirTipo={(id, seq, tipo) => corrigirTipo('volta', id, seq, tipo)}
           dataServico={dataServico}
           salvando={salvando}
           nota={notaVolta}

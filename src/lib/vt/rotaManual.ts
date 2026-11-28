@@ -117,6 +117,14 @@ const MUNICIPIO_DO_TIPO: Partial<Record<TipoConducaoManual, string>> = {
   onibus_municipal_gratuito: 'Itaboraí',
 }
 
+/** Classificação tarifária (sistema/escopo/município) dos tipos de ônibus municipal — compartilhada com a correção da revisão de rota. */
+export function classificacaoDoTipoMunicipal(
+  tipo: 'onibus_municipal_niteroi' | 'onibus_municipal_sao_goncalo' | 'onibus_municipal_rio' | 'onibus_municipal_gratuito',
+): { sistemaTarifario: SistemaTarifarioVT; escopo: 'municipal'; municipioOrigem: string; municipioDestino: string } {
+  const municipio = MUNICIPIO_DO_TIPO[tipo] ?? 'desconhecida'
+  return { sistemaTarifario: SISTEMA_DO_TIPO[tipo], escopo: 'municipal', municipioOrigem: municipio, municipioDestino: municipio }
+}
+
 /** Passo entre embarques presumidos (min): 3 conduções = 40 min, dentro da janela do BUN (1 h). */
 export const PASSO_EMBARQUE_PRESUMIDO_MIN = 20
 

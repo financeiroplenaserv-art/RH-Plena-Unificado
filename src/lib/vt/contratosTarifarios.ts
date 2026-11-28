@@ -35,10 +35,24 @@ export interface PernaItinerarioVT {
   secaoDetroRotulo?: string
 }
 
-export interface AjusteManualItinerarioVT {
-  tipo: 'remocao_perna'
-  perna: PernaItinerarioVT
+export interface ClassificacaoPernaVT {
+  escopo: PernaItinerarioVT['escopo']
+  sistemaTarifario: SistemaTarifarioVT
+  municipioOrigem: string
+  municipioDestino: string
 }
+
+export type AjusteManualItinerarioVT =
+  | { tipo: 'remocao_perna'; perna: PernaItinerarioVT }
+  | {
+      /** O RH corrigiu a que sistema a linha pertence (28/11/2026): guarda o que o Google/adaptador deu e o que ficou. */
+      tipo: 'correcao_classificacao_perna'
+      sentido: 'ida' | 'volta'
+      sequencia: number
+      linha: string | null
+      original: ClassificacaoPernaVT
+      escolhida: ClassificacaoPernaVT & { tipoLinha: string }
+    }
 
 export interface ItinerarioVT {
   pernas: PernaItinerarioVT[]
