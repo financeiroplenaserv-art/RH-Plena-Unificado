@@ -294,38 +294,18 @@ describe('aplicarCoberturas — síntese de dias do ferista (relatório não mos
     local_nome: 'POSTO BASE',
     local_nome_curto: 'ITAGUAÍ',
   })
-  const marcas = (mapa: Record<string, string>) => new Map([['c1', new Map(Object.entries(mapa))]])
-
-  it('folga/vazio do ferista na cobertura de FÉRIAS continua folga (escala real vem do Flit — 28/11/2026)', () => {
-    const linhas = aplicarCoberturas(
-      [],
-      [cobertura({})],
-      rotulo,
-      marcas({ '2026-11-10': 'folga', '2026-11-11': 'vazio' })
-    )
-    expect(linhas).toEqual([])
-  })
-
-  it('caso Alexandre (12×36): só os dias [T] vão para o posto coberto, folgas não geram VT', () => {
+  it('caso Alexandre (12×36): só os dias [T] vão para o posto coberto — folga não vira trabalho (28/11/2026)', () => {
     const linhas = aplicarCoberturas(
       [diaTrabalha('2026-11-10'), diaTrabalha('2026-11-12')],
       [cobertura({ data_inicio: '2026-11-10', data_fim: '2026-11-13' })],
       rotulo,
-      marcas({ '2026-11-10': 'T', '2026-11-11': 'folga', '2026-11-12': 'T', '2026-11-13': 'folga' }),
-      '2026-11-13'
     )
     expect(linhas.map((l) => l.data)).toEqual(['2026-11-10', '2026-11-12'])
     expect(linhas.every((l) => l.cobertura?.departamento_id === 'd9')).toBe(true)
   })
 
-  it('férias/afastado/atestado do ferista NUNCA viram trabalho, mesmo com cobertura', () => {
-    const linhas = aplicarCoberturas(
-      [],
-      [cobertura({})],
-      rotulo,
-      marcas({ '2026-11-10': 'ferias', '2026-11-11': 'afastado', '2026-11-12': 'atestado' })
-    )
-    expect(linhas).toEqual([])
+  it('sem dia [T] no período, a cobertura não cria nenhum dia', () => {
+    expect(aplicarCoberturas([], [cobertura({})], rotulo)).toEqual([])
   })
 
   it('dia [T] no posto base no mesmo dia: a cobertura vence (troca o posto, não duplica)', () => {
@@ -333,15 +313,9 @@ describe('aplicarCoberturas — síntese de dias do ferista (relatório não mos
       [diaTrabalha('2026-11-10')],
       [cobertura({ data_inicio: '2026-11-10', data_fim: '2026-11-10' })],
       rotulo,
-      marcas({})
     )
     expect(linhas).toHaveLength(1)
     expect(linhas[0].cobertura?.departamento_id).toBe('d9')
-  })
-
-  it('sem marcasPorDia (fluxo antigo), nada é sintetizado', () => {
-    const linhas = aplicarCoberturas([], [cobertura({})], rotulo)
-    expect(linhas).toEqual([])
   })
 
   it('declaração "sem cobertura" (ferista NULL) nunca cria nem altera dia', () => {
@@ -349,7 +323,6 @@ describe('aplicarCoberturas — síntese de dias do ferista (relatório não mos
       [diaTrabalha('2026-11-10')],
       [cobertura({ colaborador_id: null, ferias_colaborador_id: 'c2' })],
       rotulo,
-      marcas({})
     )
     expect(linhas[0].cobertura).toBeUndefined()
   })
@@ -420,41 +393,28 @@ describe('treinamento com VT (migration 160 — ferista antes de cobrir / admiti
     created_at: '2026-10-21T10:00:00Z',
     ...parcial,
   })
-  const marcas = (mapa: Record<string, string>) => new Map([['c1', new Map(Object.entries(mapa))]])
   const resolver = () => null
 
-  it('sintetiza dias de trabalho no posto do treinamento (folga e fora do relatório)', () => {
+  it('treinamento troca o posto dos dias [T] (o Flit marca [T] no treinamento — 28/11/2026)', () => {
     const linhas = aplicarCoberturas(
-      [],
+      [{ colaborador_id: 'c1', data: '2026-11-08', local_nome: 'X', local_nome_curto: 'Y' }],
       [treinamento({})],
       rotulo,
-      marcas({ '2026-11-08': 'folga' })
     )
-    expect(linhas.map((l) => l.data)).toEqual(['2026-11-08', '2026-11-09'])
-    expect(linhas.every((l) => l.cobertura?.tipo === 'treinamento')).toBe(true)
+    expect(linhas).toHaveLength(1)
+    expect(linhas[0].cobertura?.tipo).toBe('treinamento')
     const { porColaborador } = agruparDiasPorPosto(linhas, resolver)
     expect(porColaborador.get('c1')?.get('d9')).toEqual({
-      dias: 2,
+      dias: 1,
       rotulo: 'FOREVER',
       diasCobertura: 0,
-      diasTreinamento: 2,
-      datas: ['2026-11-08', '2026-11-09'],
+      diasTreinamento: 1,
+      datas: ['2026-11-08'],
     })
   })
 
-  it('treinamento nunca é sintetizado depois do último dia do relatório', () => {
-    const linhas = aplicarCoberturas([], [treinamento({})], rotulo, marcas({ '2026-11-08': 'folga' }), '2026-11-08')
-    expect(linhas.map((l) => l.data)).toEqual(['2026-11-08'])
-  })
-
-  it('férias/afastado/atestado NUNCA viram treinamento', () => {
-    const linhas = aplicarCoberturas(
-      [],
-      [treinamento({})],
-      rotulo,
-      marcas({ '2026-11-08': 'ferias', '2026-11-09': 'atestado' })
-    )
-    expect(linhas).toEqual([])
+  it('treinamento sem dia [T] no período não cria nenhum dia', () => {
+    expect(aplicarCoberturas([], [treinamento({})], rotulo)).toEqual([])
   })
 
   it('cobertura sem tipo (linha antiga) conta como cobertura de férias, não treinamento', () => {

@@ -13,7 +13,6 @@ import {
   type DetalheCargaPosto,
   type FeriasBloco,
   type LinhaEscalaDia,
-  type MarcasPorDia,
   type SituacaoCoberturaRelatorio,
 } from '@/lib/vt/carga'
 import {
@@ -382,9 +381,7 @@ export function useVtCarga() {
 
         // Pipeline: dias [T] do relatório → coberturas (vencem) → agrupar.
         const linhas: LinhaEscalaDia[] = []
-        const marcasPorDia: MarcasPorDia = new Map()
         for (const [id, pessoa] of pessoaPorId) {
-          marcasPorDia.set(id, new Map(pessoa.dias.map((d) => [d.data, d.marca])))
           for (const d of pessoa.dias) {
             if (d.marca !== 'trabalha') continue
             linhas.push({
@@ -395,7 +392,7 @@ export function useVtCarga() {
             })
           }
         }
-        const linhasComCobertura = aplicarCoberturas(linhas, coberturas, rotuloDoDepartamento, marcasPorDia, coberturaMesCalc.ultimo)
+        const linhasComCobertura = aplicarCoberturas(linhas, coberturas, rotuloDoDepartamento)
         const diasParaLote = linhasComCobertura.flatMap((linha): DiaPlanejadoLoteVT[] => {
           const departamentoId = linha.cobertura?.departamento_id ?? resolver(linha.local_nome_curto ?? linha.local_nome ?? '')?.id
           if (!departamentoId) return []

@@ -202,12 +202,6 @@ export function agruparDiasPorPosto(
   return { porColaborador, naoIdentificados }
 }
 
-/** Próximo dia como string local (Date.UTC → toISOString: sem bug de fuso). */
-function proximoDia(data: string): string {
-  const [a, m, d] = data.split('-').map(Number)
-  return new Date(Date.UTC(a, m - 1, d + 1)).toISOString().slice(0, 10)
-}
-
 function vencedoraDoDia(candidatas: VtCobertura[]): VtCobertura {
   return candidatas.reduce((mais, c) => ((c.created_at ?? '') > (mais.created_at ?? '') ? c : mais))
 }
@@ -225,20 +219,15 @@ export type MarcasPorDia = Map<string, Map<string, string>>
  * recentemente criada (created_at). Cobertura com ferista NULL ("sem
  * cobertura") nunca altera dia.
  *
- * Cobertura de FÉRIAS só troca o posto dos dias [T] do ferista — a escala real
- * (trabalha/folga) vem do relatório do Flit (decisão de 28/11/2026). Com
- * `marcasPorDia`, só o TREINAMENTO cria dias de trabalho em folga/vazio (ou
- * fora do relatório), nunca depois de `ultimoDiaRelatorio`. Férias/afastado/
- * atestado NUNCA viram trabalho. Datas comparadas como string local
+ * Nenhum dia é criado: a escala real (trabalha/folga) vem do relatório do Flit,
+ * que marca [T] também nos dias de treinamento (decisão da gestora, 28/11/2026).
+ * Folga, vazio, férias, afastado e atestado NUNCA viram trabalho. Datas comparadas como string local
  * 'AAAA-MM-DD' (nunca `new Date('AAAA-MM-DD')` — regra de fuso do projeto).
  */
 export function aplicarCoberturas(
   linhasDaEscala: LinhaEscalaDia[],
   coberturas: VtCobertura[],
   rotuloDoDepartamento: (departamentoId: string) => string,
-  marcasPorDia?: MarcasPorDia,
-  /** Último dia que o relatório traz (AAAA-MM-DD). Nada é sintetizado depois dele. */
-  ultimoDiaRelatorio?: string | null,
 ): LinhaEscalaDia[] {
   const comFerista = coberturas.filter((c) => c.colaborador_id)
   if (comFerista.length === 0) return linhasDaEscala
@@ -264,44 +253,10 @@ export function aplicarCoberturas(
     }
   })
 
-  if (!marcasPorDia) return resultado
-
-  // Síntese — SÓ para TREINAMENTO (decisão da gestora, 28/11/2026, caso Alexandre
-  // de Souza da Cunha): na cobertura de FÉRIAS o relatório do Flit já traz a
-  // escala real do ferista ([T] trabalha / [F] folga, ex.: 12×36); a cobertura
-  // apenas troca o POSTO dos dias [T] (feito acima) e folga continua folga.
-  // Antes, toda folga/vazio dentro da cobertura virava trabalho — o ferista
-  // ganhava VT nos 7 dias da semana. Treinamento segue sintetizando, mas nunca
-  // depois do último dia do relatório.
-  const diasExistentes = new Set(resultado.map((l) => `${l.colaborador_id}|${l.data}`))
-  const sintetizadas: LinhaEscalaDia[] = []
-  for (const [feristaId, todas] of porColaborador) {
-    const lista = todas.filter((c) => (c.tipo ?? 'ferias') === 'treinamento')
-    if (lista.length === 0) continue
-    const inicio = lista.map((c) => c.data_inicio).reduce((a, b) => (b < a ? b : a))
-    const fim = lista.map((c) => c.data_fim).reduce((a, b) => (b > a ? b : a))
-    for (let data = inicio; data <= fim; data = proximoDia(data)) {
-      if (ultimoDiaRelatorio && data > ultimoDiaRelatorio) break
-      if (diasExistentes.has(`${feristaId}|${data}`)) continue
-      const candidatas = lista.filter((c) => c.data_inicio <= data && data <= c.data_fim)
-      if (candidatas.length === 0) continue
-      const marca = marcasPorDia.get(feristaId)?.get(data)
-      if (marca === 'ferias' || marca === 'afastado' || marca === 'atestado') continue
-      const vencedora = vencedoraDoDia(candidatas)
-      sintetizadas.push({
-        colaborador_id: feristaId,
-        data,
-        local_nome: null,
-        local_nome_curto: null,
-        cobertura: {
-          departamento_id: vencedora.departamento_id,
-          rotulo: rotuloDoDepartamento(vencedora.departamento_id),
-          tipo: vencedora.tipo ?? 'ferias',
-        },
-      })
-    }
-  }
-  return [...resultado, ...sintetizadas]
+  // Nenhum dia é criado: cobertura de FÉRIAS e TREINAMENTO só trocam o POSTO
+  // dos dias [T] — o Flit marca [T] também no treinamento (decisão da gestora,
+  // 28/11/2026). Folga/vazio/férias/afastado/atestado nunca viram trabalho.
+  return resultado
 }
 
 export interface DetalheCargaPosto {
