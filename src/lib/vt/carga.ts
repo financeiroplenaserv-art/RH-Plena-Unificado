@@ -225,11 +225,11 @@ export type MarcasPorDia = Map<string, Map<string, string>>
  * recentemente criada (created_at). Cobertura com ferista NULL ("sem
  * cobertura") nunca altera dia.
  *
- * Com `marcasPorDia` (relatório importado), a cobertura também CRIA dias de
- * trabalho no posto coberto quando o relatório do ferista marca folga/vazio
- * (ou ele nem aparece no relatório) — é o caso real: o ferista trabalha, mas o
- * Flit não mostra o destino. Férias/afastado/atestado do ferista NUNCA viram
- * trabalho, mesmo com cobertura. Datas comparadas como string local
+ * Cobertura de FÉRIAS só troca o posto dos dias [T] do ferista — a escala real
+ * (trabalha/folga) vem do relatório do Flit (decisão de 28/11/2026). Com
+ * `marcasPorDia`, só o TREINAMENTO cria dias de trabalho em folga/vazio (ou
+ * fora do relatório), nunca depois de `ultimoDiaRelatorio`. Férias/afastado/
+ * atestado NUNCA viram trabalho. Datas comparadas como string local
  * 'AAAA-MM-DD' (nunca `new Date('AAAA-MM-DD')` — regra de fuso do projeto).
  */
 export function aplicarCoberturas(
@@ -237,6 +237,8 @@ export function aplicarCoberturas(
   coberturas: VtCobertura[],
   rotuloDoDepartamento: (departamentoId: string) => string,
   marcasPorDia?: MarcasPorDia,
+  /** Último dia que o relatório traz (AAAA-MM-DD). Nada é sintetizado depois dele. */
+  ultimoDiaRelatorio?: string | null,
 ): LinhaEscalaDia[] {
   const comFerista = coberturas.filter((c) => c.colaborador_id)
   if (comFerista.length === 0) return linhasDaEscala
@@ -264,14 +266,22 @@ export function aplicarCoberturas(
 
   if (!marcasPorDia) return resultado
 
-  // Síntese: dia de folga/vazio (ou fora do relatório) do ferista dentro da
-  // cobertura vira dia de trabalho no posto coberto.
+  // Síntese — SÓ para TREINAMENTO (decisão da gestora, 28/11/2026, caso Alexandre
+  // de Souza da Cunha): na cobertura de FÉRIAS o relatório do Flit já traz a
+  // escala real do ferista ([T] trabalha / [F] folga, ex.: 12×36); a cobertura
+  // apenas troca o POSTO dos dias [T] (feito acima) e folga continua folga.
+  // Antes, toda folga/vazio dentro da cobertura virava trabalho — o ferista
+  // ganhava VT nos 7 dias da semana. Treinamento segue sintetizando, mas nunca
+  // depois do último dia do relatório.
   const diasExistentes = new Set(resultado.map((l) => `${l.colaborador_id}|${l.data}`))
   const sintetizadas: LinhaEscalaDia[] = []
-  for (const [feristaId, lista] of porColaborador) {
+  for (const [feristaId, todas] of porColaborador) {
+    const lista = todas.filter((c) => (c.tipo ?? 'ferias') === 'treinamento')
+    if (lista.length === 0) continue
     const inicio = lista.map((c) => c.data_inicio).reduce((a, b) => (b < a ? b : a))
     const fim = lista.map((c) => c.data_fim).reduce((a, b) => (b > a ? b : a))
     for (let data = inicio; data <= fim; data = proximoDia(data)) {
+      if (ultimoDiaRelatorio && data > ultimoDiaRelatorio) break
       if (diasExistentes.has(`${feristaId}|${data}`)) continue
       const candidatas = lista.filter((c) => c.data_inicio <= data && data <= c.data_fim)
       if (candidatas.length === 0) continue

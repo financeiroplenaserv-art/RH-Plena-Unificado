@@ -71,6 +71,7 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
   const [autoPendente, setAutoPendente] = useState(false)
   const autoTentadaRef = useRef<string | null>(null)
   const construindoRef = useRef(false)
+  const [recalculoNaFila, setRecalculoNaFila] = useState(false)
   const { lote, loading, erro, carregar, construir, confirmar } = useVtLoteCarga(repositorio, usuarioId)
   const [construindo, setConstruindo] = useState(false)
   const [exportando, setExportando] = useState(false)
@@ -176,8 +177,13 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
   const construirLote = async (extrasDoMes: readonly VtExtraMensal[] = extrasMes.extras) => {
     // Trava síncrona: o salvamento automático e o clique em "Construir" podem disparar no mesmo
     // instante (antes de o estado `construindo` chegar à tela) e criariam DOIS rascunhos da mesma
-    // competência — o recarregamento mostraria o errado (achado em 28/11/2026).
-    if (construindoRef.current) return
+    // competência — o recarregamento mostraria o errado (achado em 28/11/2026). Quem chega no meio
+    // NÃO é descartado: fica na fila e roda logo depois, já com o estado atualizado (ex.: extra
+    // gravado durante o salvamento automático precisa entrar no rascunho).
+    if (construindoRef.current) {
+      setRecalculoNaFila(true)
+      return false
+    }
     construindoRef.current = true
     setConstruindo(true)
     try {
@@ -224,7 +230,17 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
       construindoRef.current = false
       setConstruindo(false)
     }
+    return true
   }
+
+  // Recálculo que chegou durante outro: roda no próximo render (closure com o lote e os extras novos).
+  useEffect(() => {
+    if (!recalculoNaFila || construindo || loading) return
+    setRecalculoNaFila(false)
+    void construirLote()
+    // construirLote é recriado a cada render; as condições acima garantem o estado fresco.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recalculoNaFila, construindo, loading])
 
   // Marcas do relatório → vt_escala_dias (migration 178). Erro vira aviso visível; nunca bloqueia o rascunho.
   const gravarEscala = async () => {
@@ -289,12 +305,13 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
     setExtraMensagem(null)
     try {
       const atualizados = await acao()
-      // Rascunho existente: recalcula na hora para o extra entrar no total e no hash.
-      if (lote?.status === 'rascunho') await construirLote(atualizados)
-      setExtraMensagem({
-        ok: true,
-        texto: lote?.status === 'rascunho' ? `${textoOk} Rascunho recalculado.` : `${textoOk} Entra ao construir o rascunho.`,
-      })
+      // Rascunho existente (ou sendo salvo agora): recalcula para o extra entrar no total e no hash.
+      if (lote?.status === 'rascunho' || construindoRef.current) {
+        const rodou = await construirLote(atualizados)
+        setExtraMensagem({ ok: true, texto: rodou ? `${textoOk} Rascunho recalculado.` : `${textoOk} O rascunho será recalculado em seguida.` })
+      } else {
+        setExtraMensagem({ ok: true, texto: `${textoOk} Entra ao construir o rascunho.` })
+      }
     } catch (erro) {
       setExtraMensagem({ ok: false, texto: erro instanceof Error ? erro.message : 'Erro ao gravar o extra.' })
     }

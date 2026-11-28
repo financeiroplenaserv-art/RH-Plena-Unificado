@@ -395,7 +395,7 @@ export function useVtCarga() {
             })
           }
         }
-        const linhasComCobertura = aplicarCoberturas(linhas, coberturas, rotuloDoDepartamento, marcasPorDia)
+        const linhasComCobertura = aplicarCoberturas(linhas, coberturas, rotuloDoDepartamento, marcasPorDia, coberturaMesCalc.ultimo)
         const diasParaLote = linhasComCobertura.flatMap((linha): DiaPlanejadoLoteVT[] => {
           const departamentoId = linha.cobertura?.departamento_id ?? resolver(linha.local_nome_curto ?? linha.local_nome ?? '')?.id
           if (!departamentoId) return []

@@ -187,7 +187,8 @@ describe('vertical real do lote', () => {
 
     fireEvent.change(screen.getByLabelText('Motivo do extra'), { target: { value: 'Cobre outro contrato' } })
     fireEvent.click(screen.getByRole('button', { name: 'Gravar extra' }))
-    expect(await screen.findByText(/Extra gravado\. Rascunho recalculado\./)).toBeInTheDocument()
+    // Recalcula na hora ou, se o salvamento automático ainda estiver rodando, logo em seguida (fila).
+    expect(await screen.findByText(/Extra gravado\. (Rascunho recalculado|O rascunho será recalculado em seguida)\./)).toBeInTheDocument()
     expect(banco.extras).toHaveLength(1)
     expect(banco.extras[0]).toMatchObject({ colaborador_id: 'pessoa-sem-dias', competencia: '2026-11', valor_centavos: 1500, motivo: 'Cobre outro contrato' })
     expect(await screen.findByText('só extra, sem dias de trabalho')).toBeInTheDocument()
