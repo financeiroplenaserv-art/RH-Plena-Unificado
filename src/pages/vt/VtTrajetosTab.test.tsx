@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+﻿import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { VtTrajetosTab } from './VtTrajetosTab'
 import type { VtColaborador, VtDepartamento, VtTrajetoComDetalhes } from '@/hooks/useVt'
@@ -177,6 +177,40 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     expect(screen.getByText('Afastado')).toBeInTheDocument()
   })
 
+  it('filtra por nome (sem acento/caixa) e por departamento, mostrando "N de M trajetos"', async () => {
+    const outra = { ...COLABORADOR, id: 'bruno-id', nome_completo: 'BRUNO ÁLVARES', departamento: 'OSCAR PEREIRA', departamento_id: 'oscar-id' }
+    const posto2: VtDepartamento = { ...DEPARTAMENTO, id: 'oscar-id', nome: 'OSCAR PEREIRA', nome_curto: 'OSCAR PEREIRA' }
+    render(
+      <VtTrajetosTab
+        colaboradores={[COLABORADOR, outra]}
+        departamentos={[DEPARTAMENTO, posto2]}
+        bilhetes={[BILHETE]}
+        trajetos={[TRAJETO, { ...TRAJETO, id: 't2', colaborador_id: 'bruno-id', departamento_id: 'oscar-id', colaborador: outra, departamento: posto2 }]}
+        extrasTrajeto={new Map()}
+        loading={false}
+        usuarioId="usuario-id"
+        podeGerenciar
+        salvarTrajeto={vi.fn()}
+        confirmarTrajeto={vi.fn()}
+        removerTrajeto={vi.fn()}
+        recarregarTrajetos={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('contagem-trajetos')).toHaveTextContent('2 de 2 trajetos')
+    fireEvent.change(screen.getByLabelText('Colaborador'), { target: { value: 'alvares' } })
+    expect(screen.getByTestId('contagem-trajetos')).toHaveTextContent('1 de 2 trajetos')
+    expect(screen.queryByText('AMANDA ARAUJO DE CASTRO')).not.toBeInTheDocument()
+    expect(screen.getByText('BRUNO ÁLVARES')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Colaborador'), { target: { value: '' } })
+    Element.prototype.scrollIntoView = vi.fn()
+    // seletor de departamento: abre e escolhe o posto
+    const gatilho = screen.getByRole('combobox', { name: 'Departamento' })
+    fireEvent.keyDown(gatilho, { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('option', { name: 'OSCAR PEREIRA' }))
+    expect(screen.getByTestId('contagem-trajetos')).toHaveTextContent('1 de 2 trajetos')
+    expect(screen.queryByText('AMANDA ARAUJO DE CASTRO')).not.toBeInTheDocument()
+  })
+
   it('colaborador em 2 postos: linha sem rota diz "Rota ainda não cadastrada" e a outra tem aviso neutro', () => {
     const posto2: VtDepartamento = { ...DEPARTAMENTO, id: 'oscar-id', nome: 'OSCAR PEREIRA', nome_curto: 'OSCAR PEREIRA' }
     const pessoa = { ...COLABORADOR, departamento: 'OSCAR PEREIRA', departamento_id: 'oscar-id' }
@@ -259,3 +293,4 @@ describe('VtTrajetosTab — apresentação enxuta', () => {
     }
   })
 })
+

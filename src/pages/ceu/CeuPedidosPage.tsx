@@ -274,6 +274,26 @@ export function CeuPedidosPage() {
     setJanela({ pedidoId, linhas: selecionadas })
   }
 
+  // Linhas visíveis (com os filtros da tela) que ainda podem ser atendidas.
+  const visiveisAAtender = useMemo(
+    () => grupos.flatMap((g) => g.linhas.filter((l) => l.status === 'conferido' || l.status === 'ajustado')),
+    [grupos]
+  )
+  const marcadasVisiveis = visiveisAAtender.filter((l) => atendimento[l.id]?.sel)
+
+  const marcarLinhas = (linhas: CeuPedidoItem[], sel: boolean) =>
+    setAtendimento((m) => {
+      const novo = { ...m }
+      for (const l of linhas) novo[l.id] = { sel }
+      return novo
+    })
+
+  // Uma janela só com as marcadas de TODOS os contratos visíveis.
+  const atenderTodasMarcadas = () => {
+    if (marcadasVisiveis.length === 0) return toast.error('Marque ao menos uma linha')
+    atender(marcadasVisiveis[0].pedido_id, marcadasVisiveis)
+  }
+
   const linhasDaJanela: LinhaAtender[] = useMemo(
     () =>
       (janela?.linhas ?? []).map((l) => ({
@@ -438,6 +458,27 @@ export function CeuPedidosPage() {
             </DataTable>
           )}
 
+          {podeAtender && !dados.loading && visiveisAAtender.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">
+                {marcadasVisiveis.length} de {visiveisAAtender.length} linha(s) prontas para atender marcada(s) (todos os contratos da tela)
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => marcarLinhas(visiveisAAtender, true)}>
+                  Marcar todas
+                </Button>
+                {marcadasVisiveis.length > 0 && (
+                  <Button size="sm" variant="ghost" onClick={() => marcarLinhas(visiveisAAtender, false)}>
+                    Desmarcar todas
+                  </Button>
+                )}
+                <Button size="sm" loading={ocupado === 'atender'} disabled={marcadasVisiveis.length === 0} onClick={atenderTodasMarcadas}>
+                  <PackageCheck className="size-4" /> Atender todas as marcadas ({marcadasVisiveis.length})
+                </Button>
+              </div>
+            </div>
+          )}
+
           {dados.loading ? (
             <LoadingScreen className="h-48" />
           ) : grupos.length === 0 ? (
@@ -483,6 +524,15 @@ export function CeuPedidosPage() {
                     {podeCrachas && temCracha && (
                       <Button size="sm" variant="outline" onClick={() => abrirCrachas(linhas)}>
                         <IdCard className="size-4" /> Abrir na aba Crachás
+                      </Button>
+                    )}
+                    {podeAtender && aAtender.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => marcarLinhas(aAtender, !aAtender.every((l) => atendimento[l.id]?.sel))}
+                      >
+                        {aAtender.every((l) => atendimento[l.id]?.sel) ? 'Desmarcar todas' : `Marcar todas (${aAtender.length})`}
                       </Button>
                     )}
                     {podeAtender && aAtender.length > 0 && (

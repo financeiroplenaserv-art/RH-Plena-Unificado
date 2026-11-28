@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink, Route, Trash2, AlertTriangle, GitBranch } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
+import { filtrarTrajetos, postosDistintos } from '@/lib/vt/ordenarPorNome'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -144,6 +145,8 @@ export function VtTrajetosTab({
   const [salvando, setSalvando] = useState(false)
   const [revisando, setRevisando] = useState<LinhaTrajeto | null>(null)
   const [mostrarHistorico, setMostrarHistorico] = useState(false)
+  const [filtroNome, setFiltroNome] = useState('')
+  const [filtroPosto, setFiltroPosto] = useState('')
   // Linhas orçadas (evidência salva) por trajeto, carregadas em lote.
   const [linhasOrcadas, setLinhasOrcadas] = useState<Map<string, LinhasOrcadasVT>>(new Map())
   const [resumoDecisoes, setResumoDecisoes] = useState<Map<string, DecisaoRotaResumo>>(new Map())
@@ -281,6 +284,12 @@ export function VtTrajetosTab({
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trajetos, colaboradores, departamentos, extrasTrajeto, mostrarHistorico])
+
+  const postosDaTabela = useMemo(() => postosDistintos(linhas), [linhas])
+  const linhasVisiveis = useMemo(
+    () => filtrarTrajetos(linhas, { nome: filtroNome, posto: filtroPosto }),
+    [linhas, filtroNome, filtroPosto],
+  )
 
   const valoresDa = (linha: LinhaTrajeto) =>
     edicoes[linha.chave] ?? {
@@ -525,6 +534,35 @@ export function VtTrajetosTab({
             </ModuleButton>
           )}
         </div>
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div className="min-w-[200px] flex-1">
+            <label htmlFor="vt-trajetos-busca" className="mb-1 block text-[12px] text-muted-foreground">Colaborador</label>
+            <Input
+              id="vt-trajetos-busca"
+              value={filtroNome}
+              onChange={(event) => setFiltroNome(event.target.value)}
+              placeholder="Buscar por nome"
+              className="h-9"
+            />
+          </div>
+          <div className="w-56">
+            <label className="mb-1 block text-[12px] text-muted-foreground">Departamento</label>
+            <Select value={filtroPosto || NENHUM} onValueChange={(v) => setFiltroPosto(v === NENHUM ? '' : v)}>
+              <SelectTrigger className="h-9" aria-label="Departamento">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NENHUM}>Todos</SelectItem>
+                {postosDaTabela.map((p) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="pb-2 text-[13px] text-muted-foreground tabular-nums" data-testid="contagem-trajetos">
+            {linhasVisiveis.length} de {linhas.length} trajetos
+          </p>
+        </div>
         {linhas.length === 0 ? (
           <EmptyState
             icon={<Route className="size-6" />}
@@ -549,7 +587,7 @@ export function VtTrajetosTab({
                 </tr>
               </thead>
               <tbody>
-                {linhas.map((linha) => {
+                {linhasVisiveis.map((linha) => {
                   const valores = valoresDa(linha)
                   const opcoes = opcoesDa(linha)
                   const orcado = linha.trajeto ? linhasOrcadas.get(linha.trajeto.id) ?? null : null

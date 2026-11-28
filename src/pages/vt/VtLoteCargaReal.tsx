@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Database, FileSpreadsheet, FileText, RefreshCw } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Database, FileSpreadsheet, FileText, RefreshCw } from 'lucide-react'
+import { ordenarPorNome, proximoSentidoNome, type SentidoNome } from '@/lib/vt/ordenarPorNome'
 import { VtArquivoRiocardDialog } from '@/pages/vt/VtArquivoRiocardDialog'
 import { ModuleButton, ModuleCard } from '@/components/layout/ModuleShell'
 import { StatusBadge } from '@/components/corh/StatusBadge'
@@ -60,6 +61,7 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
   const [competenciaCarregada, setCompetenciaCarregada] = useState<string | null>(null)
   const [autoPendente, setAutoPendente] = useState(false)
   const autoTentadaRef = useRef<string | null>(null)
+  const construindoRef = useRef(false)
   const { lote, loading, erro, carregar, construir, confirmar } = useVtLoteCarga(repositorio, usuarioId)
   const [construindo, setConstruindo] = useState(false)
   const [exportando, setExportando] = useState(false)
@@ -74,6 +76,11 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
   const [extraMotivo, setExtraMotivo] = useState('')
   const [extraMensagem, setExtraMensagem] = useState<{ ok: boolean; texto: string } | null>(null)
   const nomes = useMemo(() => new Map(colaboradores.map((c) => [c.id, c.nome_completo])), [colaboradores])
+  const [sentidoNome, setSentidoNome] = useState<SentidoNome>('asc')
+  const totaisOrdenados = useMemo(
+    () => ordenarPorNome(lote?.totaisPorColaborador ?? [], (t) => nomes.get(t.colaboradorId) ?? t.colaboradorId, sentidoNome),
+    [lote, nomes, sentidoNome],
+  )
   const optantesIds = useMemo(
     () => colaboradores.filter((c) => c.vt_optante && !bloqueios?.has(c.id)).map((c) => c.id),
     [colaboradores, bloqueios],
@@ -152,6 +159,11 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
   }
 
   const construirLote = async (extrasDoMes: readonly VtExtraMensal[] = extrasMes.extras) => {
+    // Trava síncrona: o salvamento automático e o clique em "Construir" podem disparar no mesmo
+    // instante (antes de o estado `construindo` chegar à tela) e criariam DOIS rascunhos da mesma
+    // competência — o recarregamento mostraria o errado (achado em 28/11/2026).
+    if (construindoRef.current) return
+    construindoRef.current = true
     setConstruindo(true)
     try {
       // Erro de leitura dos extras aborta: nunca calcular sem o extra fingindo que ele não existe.
@@ -194,6 +206,7 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
     } catch (erro) {
       setSituacaoFechamento({ ok: false, texto: erro instanceof Error ? erro.message : 'Erro ao construir o rascunho.' })
     } finally {
+      construindoRef.current = false
       setConstruindo(false)
     }
   }
@@ -528,7 +541,20 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-2.5">Colaborador</th>
+                    <th
+                      className="px-4 py-2.5"
+                      aria-sort={sentidoNome === 'asc' ? 'ascending' : sentidoNome === 'desc' ? 'descending' : 'none'}
+                    >
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 uppercase tracking-wide"
+                        onClick={() => setSentidoNome(proximoSentidoNome(sentidoNome))}
+                        title="Ordenar por nome (A→Z, Z→A, ordem original)"
+                      >
+                        Colaborador
+                        {sentidoNome === 'asc' ? <ArrowUp className="size-3" /> : sentidoNome === 'desc' ? <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3 opacity-50" />}
+                      </button>
+                    </th>
                     <th className="px-4 py-2.5">Situação</th>
                     <th className="px-4 py-2.5 text-right">Necessidade</th>
                     <th className="px-4 py-2.5 text-right">Ajuste</th>
@@ -537,7 +563,7 @@ export function VtLoteCargaReal({ competencia: competenciaImportada, cobertura =
                   </tr>
                 </thead>
                 <tbody>
-                  {lote.totaisPorColaborador.map((total) => (
+                  {totaisOrdenados.map((total) => (
                     <tr key={total.colaboradorId} className="border-b border-border last:border-0 hover:bg-accent/40">
                       <td className="px-4 py-2.5 font-medium">{nomes.get(total.colaboradorId) ?? total.colaboradorId}</td>
                       <td className="px-4 py-2.5">

@@ -126,6 +126,30 @@ describe('vertical real do lote', () => {
     expect(banco.cargasGravadas.every((c) => c.status === 'gravada' && c.competencia === '2026-11')).toBe(true)
   })
 
+  it('ordena a tabela pelo nome: A→Z por padrão, Z→A e ordem original ao clicar no cabeçalho', async () => {
+    render(
+      <VtLoteCargaReal
+        competencia="2026-11"
+        dias={[{ colaboradorId: 'pessoa-1', departamentoId: 'posto-1', data: '2026-11-10', origemDia: 'escala' }]}
+        colaboradores={COLABORADORES}
+        nomeArquivo="escalas.xlsx"
+        departamentos={[]}
+        usuarioId="usuario-1"
+      />,
+    )
+    const botaoConstruir = screen.getByRole('button', { name: 'Construir rascunho' })
+    await waitFor(() => expect(botaoConstruir).toBeEnabled())
+    fireEvent.click(botaoConstruir)
+    await screen.findByText('Pessoa Sem Dias')
+    const ordem = () => screen.getAllByRole('row').slice(1).map((r) => r.textContent ?? '')
+    expect(ordem()[0]).toContain('Pessoa Sem Dias')
+    const cabecalho = screen.getByRole('button', { name: /Colaborador/ })
+    fireEvent.click(cabecalho)
+    expect(ordem()[0]).toContain('Pessoa Trabalhou')
+    fireEvent.click(cabecalho)
+    expect(ordem()).toHaveLength(2)
+  })
+
   it('lança o extra do mês com motivo, recalcula o rascunho e mostra "só extra" para quem não tem dias', async () => {
     banco.extras.length = 0
     render(
