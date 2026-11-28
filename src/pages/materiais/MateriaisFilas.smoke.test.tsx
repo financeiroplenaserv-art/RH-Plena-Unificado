@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Perfil } from '@/types/database'
 
@@ -166,6 +166,9 @@ vi.mock('@/hooks/useCeuPedidos', () => estabilizar({
     identificar: vi.fn(),
     conferir: vi.fn(),
     atender: vi.fn(),
+    atualizarCaItens: vi.fn(async () => true),
+    atenderELancar: vi.fn(async () => ({ atendidas: 1, entregas_criadas: 1, ja_atendidas: 0, linhas: [] })),
+    trocarContrato: vi.fn(async () => true),
   }),
 }))
 
@@ -175,6 +178,8 @@ import { MateriaisValidacaoPage } from './MateriaisValidacaoPage'
 import { MateriaisPainelPage } from './MateriaisPainelPage'
 import { MateriaisSemPedidoPage } from './MateriaisSemPedidoPage'
 import { CeuPedidosPage } from '@/pages/ceu/CeuPedidosPage'
+import { useCeuPedidos } from '@/hooks/useCeuPedidos'
+
 
 function renderizar(componente: React.ReactElement, rota = '/') {
   return render(<MemoryRouter initialEntries={[rota]}>{componente}</MemoryRouter>)
@@ -275,5 +280,36 @@ describe('Filas de Materiais — smoke test', () => {
     expect(screen.getByText('Confirmar identificação')).toBeTruthy()
     expect(screen.getByText('O que falta comprar')).toBeTruthy()
     expect(screen.getByLabelText('Atender Ana')).toBeTruthy()
+  })
+
+  it('CEU → Pedidos: atender abre a janela, pede o CA do EPI sem CA e lança com a data do 1º do mês', async () => {
+    renderizar(<CeuPedidosPage />)
+    fireEvent.click(screen.getByLabelText('Atender Ana'))
+    fireEvent.click(screen.getByRole('button', { name: /Atender selecionadas/ }))
+    expect(screen.getByText('Atender e lançar no CEU')).toBeTruthy()
+    expect((screen.getByLabelText('Data da entrega') as HTMLInputElement).value).toBe('2026-10-01')
+    expect(screen.getByText('EPI sem CA no cadastro')).toBeTruthy()
+    expect(screen.getByText(/Sem CA: Botina de segurança/)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('CA de Botina de segurança'), { target: { value: ' 45.629 ' } })
+    // entregou menos sem motivo: não lança
+    fireEvent.change(screen.getByLabelText('Quantidade a entregar para Ana Souza'), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e lançar/ }))
+    expect(screen.getByRole('alert').textContent).toMatch(/motivo da entrega menor/)
+    const api = useCeuPedidos()
+    expect(api.atenderELancar).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText('Motivo da entrega menor para Ana Souza'), { target: { value: 'faltou' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirmar e lançar/ }))
+    })
+    await waitFor(() => expect(api.atenderELancar).toHaveBeenCalled())
+    expect(api.atualizarCaItens).toHaveBeenCalledWith([{ item_id: 'bota', ca: '45.629' }])
+    expect(api.atenderELancar).toHaveBeenCalledWith([{ id: 'x2', qtd_atendida: 2, motivo: 'faltou' }], '2026-10-01')
+  })
+
+  it('CEU → Pedidos: "Trocar contrato" exige contrato e motivo', () => {
+    renderizar(<CeuPedidosPage />)
+    fireEvent.click(screen.getByLabelText('Trocar contrato de Ana'))
+    expect(screen.getByText('Trocar contrato da linha')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Mover linha' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

@@ -1113,6 +1113,12 @@ export type Database = {
       conferir_itens_pedido_ceu: { Args: { p_pedido: string; p_linhas: Record<string, unknown>[] }; Returns: void }
       atender_itens_pedido_ceu: { Args: { p_linhas: string[] }; Returns: number }
       atender_linhas_pedido_ceu: { Args: { p_linhas: Record<string, unknown>[] }; Returns: number }
+      // Migration 177: atender lança a entrega no CEU + trocar contrato da linha
+      atender_e_lancar_linhas_pedido_ceu: { Args: { p_linhas: Record<string, unknown>[]; p_data: string }; Returns: unknown }
+      trocar_contrato_linha_pedido_ceu: {
+        Args: { p_linha: string; p_contrato: string; p_motivo: string; p_fora_da_equipe?: boolean | null }
+        Returns: unknown
+      }
       reabrir_pedido_materiais: {
         Args: { p_contrato: string; p_competencia: string; p_ate: string; p_motivo: string }
         Returns: void

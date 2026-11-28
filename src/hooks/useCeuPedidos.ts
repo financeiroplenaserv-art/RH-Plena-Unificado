@@ -4,6 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { estruturaAusente, mensagemErroMateriais } from '@/lib/materiais/erros'
 import { selecionarTudo } from '@/lib/materiais/paginar'
 import type { PayloadAtendimento } from '@/lib/materiais/filas'
+import {
+  conferirResultadoAtender,
+  lerResultadoAtender,
+  mensagemAtendimento,
+  type AtualizacaoCa,
+} from '@/lib/ceu/atenderPedido'
 import type { DepartamentoFuzzy } from '@/lib/departamentos'
 import { chavePeca, separarTamanhoDoNome } from '@/lib/materiais/pecasCeu'
 import type { EntregaBruta } from '@/lib/materiais/entregasPeca'
@@ -13,8 +19,8 @@ import { buscarPorIds, COLUNAS_CEU_PEDIDO, COLUNAS_ENVIO } from './useMateriaisP
 
 // Aba CEU → Pedidos (docs/PLANO_MATERIAIS_FASE1.md §4.3 e §5.1): linhas de
 // uniforme/EPI/crachá dos pedidos. Inspetoria identifica o nome digitado e
-// confere; a Beth (dp2) atende. Tudo por RPC (122/124). Nada lança entrega
-// no CEU automaticamente (Fase 3).
+// confere; a Beth (dp2) atende. Tudo por RPC (122/124/177). Desde a 177 o
+// atendimento lança a entrega no CEU na mesma transação (sem recibo).
 
 export interface ColaboradorApoio {
   id: string
@@ -35,6 +41,10 @@ export interface ItemCeuApoio {
   compra_na_loja?: boolean
   /** Migration 142: troca frequente (luva látex) — sem o selo "antes do prazo". */
   sem_alerta_prazo?: boolean
+  /** CA do cadastro (o snapshot da entrega copia este valor — migration 177). */
+  ca?: string | null
+  /** 'A' ativo, 'I' inativo. */
+  situacao?: string | null
 }
 
 export type FiltroLinhasCeu = 'abertas' | 'concluidas'
@@ -52,7 +62,7 @@ export async function carregarApoioCeu() {
     ),
     supabase.from('departamentos').select('id, nome, nome_curto, empresa_id, status'),
     selecionarTudo<ItemCeuApoio>((de, ate) =>
-      supabase.from('itens').select('id, nome, tipo, estoque, prazo_uso_dias, compra_na_loja, sem_alerta_prazo').order('nome').order('id').range(de, ate)
+      supabase.from('itens').select('id, nome, tipo, estoque, prazo_uso_dias, compra_na_loja, sem_alerta_prazo, ca, situacao').order('nome').order('id').range(de, ate)
     ),
     selecionarTudo<CeuTamanhos>((de, ate) =>
       supabase
@@ -293,7 +303,85 @@ export function useCeuPedidos() {
     return true
   }, [])
 
+  /**
+   * Grava o CA digitado na janela no cadastro do item (vale dali em diante) —
+   * ANTES de lançar, para o snapshot da entrega sair com o CA novo.
+   * Escrita com .select('id') e conferência (RLS bloqueada = 0 linhas, sem erro).
+   */
+  const atualizarCaItens = useCallback(async (lista: AtualizacaoCa[]) => {
+    for (const a of lista) {
+      const { data, error } = await supabase.from('itens').update({ ca: a.ca }).eq('id', a.item_id).select('id')
+      if (error || !data || data.length !== 1) {
+        toast.error(error ? mensagemErroMateriais(error, 'gravar o CA do item') : 'O CA do item não foi gravado (sem permissão?) — nada foi lançado')
+        return false
+      }
+    }
+    return true
+  }, [])
+
+  /**
+   * Atende E lança as entregas no CEU numa transação só (RPC da migration 177).
+   * Sem recibo. Retorna o resultado conferido ou null.
+   */
+  const atenderELancar = useCallback(async (payload: PayloadAtendimento[], data: string) => {
+    if (payload.length === 0) {
+      toast.error('Selecione ao menos uma linha')
+      return null
+    }
+    const r = await supabase.rpc('atender_e_lancar_linhas_pedido_ceu', {
+      p_linhas: payload as unknown as Record<string, unknown>[],
+      p_data: data,
+    })
+    if (r.error) {
+      toast.error(
+        estruturaAusente(r.error)
+          ? 'Lançar a entrega pelo atendimento depende de uma atualização do banco (migration 177). Nada foi atendido.'
+          : mensagemErroMateriais(r.error, 'atender e lançar as entregas')
+      )
+      return null
+    }
+    const res = lerResultadoAtender(r.data)
+    if (!conferirResultadoAtender(res, payload.map((p) => p.id))) {
+      toast.error('Nem todas as linhas voltaram como atendidas — recarregue a página e confira')
+      return null
+    }
+    toast.success(mensagemAtendimento(res!))
+    return res
+  }, [])
+
+  /** Move a linha para o pedido do mesmo mês do contrato certo (RPC da 177). */
+  const trocarContrato = useCallback(async (linhaId: string, contratoId: string, motivo: string, foraDaEquipe: boolean | null) => {
+    if (!motivo.trim()) {
+      toast.error('Informe o motivo da troca de contrato')
+      return false
+    }
+    const { data, error } = await supabase.rpc('trocar_contrato_linha_pedido_ceu', {
+      p_linha: linhaId,
+      p_contrato: contratoId,
+      p_motivo: motivo.trim(),
+      p_fora_da_equipe: foraDaEquipe,
+    })
+    if (error) {
+      toast.error(
+        estruturaAusente(error)
+          ? 'Trocar o contrato depende de uma atualização do banco (migration 177).'
+          : mensagemErroMateriais(error, 'trocar o contrato da linha')
+      )
+      return false
+    }
+    const pedidoId = (data as { pedido_id?: string } | null)?.pedido_id
+    if (!pedidoId) {
+      toast.error('A troca não foi confirmada pelo banco — recarregue a página')
+      return false
+    }
+    toast.success((data as { pedido_criado?: boolean }).pedido_criado ? 'Linha movida (pedido do mês criado no contrato novo)' : 'Linha movida para o contrato certo')
+    return true
+  }, [])
+
   return {
+    atualizarCaItens,
+    atenderELancar,
+    trocarContrato,
     linhas,
     pedidos,
     envios,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Check, ClipboardList, IdCard, PackageCheck, ShoppingCart, UserCheck } from 'lucide-react'
+import { ArrowRightLeft, Check, ClipboardList, IdCard, PackageCheck, ShoppingCart, UserCheck } from 'lucide-react'
 import { CeuShell } from './CeuShell'
 import { PageHeader } from '@/components/corh/PageHeader'
 import { Filters } from '@/components/corh/Filters'
@@ -33,20 +33,25 @@ import {
   etapaLinhaCeu,
   faltaComprar,
   idsEquipeDoContrato,
-  montarAtendimento,
   origemDaLinha,
   qtdParaAtender,
   sugerirColaboradores,
   type EtapaCeu,
 } from '@/lib/materiais/filas'
 import { toast } from 'sonner'
+import { AtenderPedidoDialog, type ConfirmacaoAtender, type LinhaAtender } from '@/components/ceu/AtenderPedidoDialog'
+import { TrocarContratoDialog } from '@/components/ceu/TrocarContratoDialog'
+import { contratosDestino, dataSugeridaEntrega } from '@/lib/ceu/atenderPedido'
 import type { CeuPedidoItem } from '@/types/materiais'
 
 // Aba CEU → Pedidos (docs/PLANO_MATERIAIS_FASE1.md §4.3 e §5.1). O líder
 // digita nomes no link público; aqui a inspetoria identifica cada nome no
 // cadastro (sugestão por similaridade dentro da equipe do contrato, ou outro
 // colaborador — ferista), confere tamanho/quantidade e a Beth atende. O saldo
-// do CEU é só referência e nunca bloqueia. Entregas NÃO são lançadas aqui.
+// do CEU é só referência e nunca bloqueia. Desde a migration 177, "Atender
+// selecionadas" abre a janela de confirmação e LANÇA as entregas no CEU (sem
+// recibo) numa transação só; "Trocar contrato" move a linha para o pedido do
+// mesmo mês do contrato certo (motivo obrigatório).
 
 interface FiltroCeuPedidos {
   etapa: 'abertas' | EtapaCeu
@@ -71,8 +76,6 @@ interface EdicaoConferencia {
 }
 interface EdicaoAtendimento {
   sel: boolean
-  qtd: string
-  motivo: string
 }
 
 export function CeuPedidosPage() {
@@ -93,6 +96,10 @@ export function CeuPedidosPage() {
   const [conferencia, setConferencia] = useState<Record<string, EdicaoConferencia>>({})
   const [atendimento, setAtendimento] = useState<Record<string, EdicaoAtendimento>>({})
   const [ocupado, setOcupado] = useState<string | null>(null)
+  /** Janela de confirmação do atendimento (linhas selecionadas de um pedido). */
+  const [janela, setJanela] = useState<{ pedidoId: string; linhas: CeuPedidoItem[] } | null>(null)
+  /** Linha cuja troca de contrato está aberta. */
+  const [trocando, setTrocando] = useState<CeuPedidoItem | null>(null)
   const hoje = hojeBrasil()
 
   const { carregar } = dados
@@ -258,19 +265,53 @@ export function CeuPedidosPage() {
     if (ok) await recarregar()
   }
 
-  const atender = async (linhas: CeuPedidoItem[]) => {
+  // Abre a janela de confirmação (a quantidade e o CA se ajustam lá).
+  const atender = (pedidoId: string, linhas: CeuPedidoItem[]) => {
     const selecionadas = linhas.filter((l) => atendimento[l.id]?.sel)
-    const edicoes: Record<string, { qtd: number | null; motivo: string }> = {}
-    for (const l of selecionadas) {
-      const e = atendimento[l.id]
-      edicoes[l.id] = { qtd: e?.qtd.trim() ? Number(e.qtd) : null, motivo: e?.motivo ?? '' }
-    }
-    const { itens, erros } = montarAtendimento(selecionadas, edicoes)
-    if (erros.length) return toast.error(erros.join(' · '))
+    if (selecionadas.length === 0) return toast.error('Selecione ao menos uma linha')
+    const semColab = selecionadas.find((l) => !l.colaborador_id)
+    if (semColab) return toast.error(`Identifique o colaborador de "${semColab.nome_digitado}" antes de atender`)
+    setJanela({ pedidoId, linhas: selecionadas })
+  }
+
+  const linhasDaJanela: LinhaAtender[] = useMemo(
+    () =>
+      (janela?.linhas ?? []).map((l) => ({
+        linha: l,
+        pessoa: (l.colaborador_id && colabPorId.get(l.colaborador_id)?.nome_completo) || l.nome_digitado,
+        item: l.item_id ? itemPorId.get(l.item_id) : undefined,
+      })),
+    [janela, colabPorId, itemPorId]
+  )
+
+  const confirmarAtender = async (c: ConfirmacaoAtender) => {
     setOcupado('atender')
-    const ok = await dados.atender(itens, new Map(selecionadas.map((l) => [l.id, qtdParaAtender(l)])))
+    // 1º o CA no cadastro (o snapshot da entrega sai com ele); só então lança.
+    if (c.cas.length > 0 && !(await dados.atualizarCaItens(c.cas))) {
+      setOcupado(null)
+      return
+    }
+    const res = await dados.atenderELancar(c.payload, c.data)
     setOcupado(null)
-    if (ok) await recarregar()
+    if (res) {
+      setJanela(null)
+      await recarregar()
+    } else if (c.cas.length > 0) {
+      await recarregar() // o CA já ficou no cadastro; a janela passa a mostrá-lo
+    }
+  }
+
+  const confirmarTroca = async (contratoId: string, motivo: string) => {
+    if (!trocando) return
+    const colab = trocando.colaborador_id
+    const fora = colab ? !(equipes.get(contratoId)?.has(colab) ?? false) : null
+    setOcupado('trocar')
+    const ok = await dados.trocarContrato(trocando.id, contratoId, motivo, fora)
+    setOcupado(null)
+    if (ok) {
+      setTrocando(null)
+      await recarregar()
+    }
   }
 
   const abrirCrachas = (linhas: CeuPedidoItem[]) => {
@@ -294,7 +335,7 @@ export function CeuPedidosPage() {
       <PageHeader
         showBackButton={false}
         title="Pedidos de uniforme, EPI e crachá"
-        description="Pedidos dos líderes. A inspetoria identifica o colaborador e confere; o CEU atende. O saldo é só referência."
+        description="Pedidos dos líderes. A inspetoria identifica o colaborador e confere; o CEU atende e a entrega já fica lançada (sem recibo). O saldo é só referência."
       >
         <Link to="/ceu/lancamento-rapido" className="text-sm font-medium text-primary underline">
           Lançar entrega
@@ -445,7 +486,7 @@ export function CeuPedidosPage() {
                       </Button>
                     )}
                     {podeAtender && aAtender.length > 0 && (
-                      <Button size="sm" loading={ocupado === 'atender'} disabled={!aAtender.some((l) => atendimento[l.id]?.sel)} onClick={() => atender(aAtender)}>
+                      <Button size="sm" loading={ocupado === 'atender'} disabled={!aAtender.some((l) => atendimento[l.id]?.sel)} onClick={() => atender(pid, aAtender)}>
                         <PackageCheck className="size-4" /> Atender selecionadas
                       </Button>
                     )}
@@ -616,31 +657,21 @@ export function CeuPedidosPage() {
                                       type="checkbox"
                                       aria-label={`Atender ${l.nome_digitado}`}
                                       checked={at?.sel ?? false}
-                                      onChange={(e) => setAtendimento((m) => ({ ...m, [l.id]: { qtd: m[l.id]?.qtd ?? '', motivo: m[l.id]?.motivo ?? '', sel: e.target.checked } }))}
+                                      onChange={(e) => setAtendimento((m) => ({ ...m, [l.id]: { sel: e.target.checked } }))}
                                     />
                                     Atender ({qtdParaAtender(l)})
                                   </label>
-                                  {at?.sel && (
-                                    <>
-                                      <Input
-                                        aria-label={`Quantidade entregue para ${l.nome_digitado}`}
-                                        inputMode="numeric"
-                                        className="tabular-nums"
-                                        placeholder={`Entregue: ${qtdParaAtender(l)}`}
-                                        value={at.qtd}
-                                        onChange={(e) => setAtendimento((m) => ({ ...m, [l.id]: { ...m[l.id], qtd: e.target.value } }))}
-                                      />
-                                      {at.qtd.trim() !== '' && Number(at.qtd) < qtdParaAtender(l) && (
-                                        <Input
-                                          aria-label={`Motivo da entrega menor para ${l.nome_digitado}`}
-                                          placeholder="Por que entregou menos?"
-                                          value={at.motivo}
-                                          onChange={(e) => setAtendimento((m) => ({ ...m, [l.id]: { ...m[l.id], motivo: e.target.value } }))}
-                                        />
-                                      )}
-                                    </>
-                                  )}
                                 </>
+                              )}
+                              {(podeAtender || podeConferir) && l.status !== 'atendido' && l.status !== 'cancelado' && (
+                                <button
+                                  type="button"
+                                  className="flex items-center gap-1 text-xs font-medium text-primary underline"
+                                  onClick={() => setTrocando(l)}
+                                  aria-label={`Trocar contrato de ${l.nome_digitado}`}
+                                >
+                                  <ArrowRightLeft className="size-3.5" /> Trocar contrato
+                                </button>
                               )}
                             </TableCell>
                           </TableRow>
@@ -654,6 +685,24 @@ export function CeuPedidosPage() {
           )}
         </div>
       )}
+
+      <AtenderPedidoDialog
+        open={!!janela}
+        onOpenChange={(v) => !v && setJanela(null)}
+        linhas={linhasDaJanela}
+        dataSugerida={dataSugeridaEntrega(janela ? pedidoPorId.get(janela.pedidoId)?.competencia : null, hoje)}
+        ocupado={ocupado === 'atender'}
+        onConfirmar={confirmarAtender}
+      />
+      <TrocarContratoDialog
+        open={!!trocando}
+        onOpenChange={(v) => !v && setTrocando(null)}
+        descricaoLinha={trocando ? `${trocando.nome_digitado} · ${trocando.item_id ? itemPorId.get(trocando.item_id)?.nome ?? 'Peça' : 'Crachá'}` : ''}
+        contratoAtual={(trocando && contratoPorId.get(pedidoPorId.get(trocando.pedido_id)?.contrato_id ?? '')?.nome) || 'contrato'}
+        contratos={contratosDestino(dados.contratos, trocando ? pedidoPorId.get(trocando.pedido_id)?.contrato_id : null)}
+        ocupado={ocupado === 'trocar'}
+        onConfirmar={confirmarTroca}
+      />
     </CeuShell>
   )
 }

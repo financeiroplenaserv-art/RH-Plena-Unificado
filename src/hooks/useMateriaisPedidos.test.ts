@@ -138,4 +138,71 @@ describe('filas de Materiais — anti-falso-sucesso', () => {
     expect(ok).toBe(false)
     expect(chamadas).not.toContain('rpc.atender_itens_pedido_ceu')
   })
+
+  it('atender e lançar (177): retorno com menos linhas que o enviado não finge sucesso', async () => {
+    rpcs.atender_e_lancar_linhas_pedido_ceu = { data: { atendidas: 1, entregas_criadas: 1, ja_atendidas: 0, linhas: [{ id: 'l1', entrega_id: 'e1' }] }, error: null }
+    const { result } = renderHook(() => useCeuPedidos())
+    let r: unknown = 'x'
+    await act(async () => {
+      r = await result.current.atenderELancar([{ id: 'l1', qtd_atendida: 1, motivo: null }, { id: 'l2', qtd_atendida: 1, motivo: null }], '2026-12-01')
+    })
+    expect(r).toBeNull()
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
+  it('atender e lançar (177): sem a migration, avisa e não cai no atendimento antigo', async () => {
+    rpcs.atender_e_lancar_linhas_pedido_ceu = { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.atender_e_lancar_linhas_pedido_ceu' } }
+    const { result } = renderHook(() => useCeuPedidos())
+    let r: unknown = 'x'
+    await act(async () => {
+      r = await result.current.atenderELancar([{ id: 'l1', qtd_atendida: 1, motivo: null }], '2026-12-01')
+    })
+    expect(r).toBeNull()
+    expect(chamadas).not.toContain('rpc.atender_linhas_pedido_ceu')
+    expect(String(toast.error.mock.calls[0][0])).toMatch(/177/)
+  })
+
+  it('atender e lançar (177): ok quando todas voltam (atendidas + já atendidas)', async () => {
+    rpcs.atender_e_lancar_linhas_pedido_ceu = {
+      data: { atendidas: 1, entregas_criadas: 1, ja_atendidas: 1, linhas: [{ id: 'l1', entrega_id: 'e1' }, { id: 'l2', entrega_id: 'e0', ja_atendida: true }] },
+      error: null,
+    }
+    const { result } = renderHook(() => useCeuPedidos())
+    let r: unknown = null
+    await act(async () => {
+      r = await result.current.atenderELancar([{ id: 'l1', qtd_atendida: 1, motivo: null }, { id: 'l2', qtd_atendida: 1, motivo: null }], '2026-12-01')
+    })
+    expect(r).not.toBeNull()
+    expect(toast.success).toHaveBeenCalled()
+  })
+
+  it('CA do item bloqueado pela RLS (0 linhas) não finge sucesso', async () => {
+    respostas['itens.update'] = { data: [], error: null }
+    const { result } = renderHook(() => useCeuPedidos())
+    let ok = true
+    await act(async () => {
+      ok = await result.current.atualizarCaItens([{ item_id: 'i1', ca: '123' }])
+    })
+    expect(ok).toBe(false)
+  })
+
+  it('trocar contrato: motivo obrigatório e retorno sem pedido não finge sucesso', async () => {
+    const { result } = renderHook(() => useCeuPedidos())
+    let ok = true
+    await act(async () => {
+      ok = await result.current.trocarContrato('l1', 'c2', '  ', null)
+    })
+    expect(ok).toBe(false)
+    expect(chamadas).not.toContain('rpc.trocar_contrato_linha_pedido_ceu')
+    rpcs.trocar_contrato_linha_pedido_ceu = { data: null, error: null }
+    await act(async () => {
+      ok = await result.current.trocarContrato('l1', 'c2', 'outro posto', false)
+    })
+    expect(ok).toBe(false)
+    rpcs.trocar_contrato_linha_pedido_ceu = { data: { pedido_id: 'p2', pedido_criado: true }, error: null }
+    await act(async () => {
+      ok = await result.current.trocarContrato('l1', 'c2', 'outro posto', false)
+    })
+    expect(ok).toBe(true)
+  })
 })
